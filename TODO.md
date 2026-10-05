@@ -7,7 +7,7 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] Repository `folder-browser` started from WSNP Viewer 0.1.0; renamed (`fb-ui://`, `window.fb`, `fb:` channels, appId); the prototype removed
 - [x] `npm ci`, lint, typecheck, unit tests, build and the workbench and snapshot e2e specs pass
 - [x] Support files: `CLAUDE.md`, `README.md`, `README.pt-BR.md`, `CHANGELOG.md`, `TODO.md`, `docs/ARCHITECTURE.md`, `.editorconfig`, `.nvmrc`
-- [ ] New icon (`build/icon.svg`, `build/icon.png`, `build/icons/*`, `public/icon.svg`; today a placeholder from WSNP Viewer): the developer chose concept C (folder, page, zipper, lens with play, pencil); picking between two variants
+- [x] New icon (`build/icon.svg`, `build/icon.png`, `build/icons/*`, `public/icon.svg`): concept C2 chosen by the developer: folder with a zipper, a page, a pencil, play and the lens
 - [x] `asantos43/folder-browser` created on GitHub (private) and `main` pushed
 - [ ] `docs/USER-GUIDE*.md`, `docs/UI-DESIGN.md`, `docs/DEVELOPMENT.md`, `docs/RELEASING.md`, `PRIVACY.md`, `SECURITY.md`: rewrite the parts that still speak only of the viewer
 - [ ] `npm run notices` (`THIRD-PARTY-NOTICES.md`) after the new dependencies come in

@@ -1,6 +1,6 @@
 # Folder Browser
 
-<img src="build/icon.png" alt="Ícone do Folder Browser (provisório, do WSNP Viewer)" width="96" align="right">
+<img src="build/icon.png" alt="Ícone do Folder Browser: uma pasta fechada por um zíper, com uma página, um lápis, um botão de play e uma lente" width="96" align="right">
 
 Um aplicativo de desktop para **navegar por pastas e arquivos ZIP**, alterar o que há neles e ler snapshots **WSNP**. Escolha uma pasta ou um `.zip`, veja os
 arquivos (os ocultos, se quiser), crie, renomeie, mova, apague e **edite** arquivos de texto (HTML, TXT, JSON, código…) na pasta ou **dentro do ZIP**, ponha

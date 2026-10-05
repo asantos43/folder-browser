@@ -162,19 +162,17 @@ Taken by the developer after the research:
 
 ## The icon
 
-**Chosen: the developer picked the zipped folder (candidate E2) on the midnight background (B).** The icon says what a `.wsnp` is in three parts: a **page**
-(a browser window with a large `</>`, the HTML tag) that rises out of a **container** (a folder closed by a zipper: a `.wsnp` is a ZIP, a package that holds the
-page and everything it needs), and a **camera lens** (the snapshot) on the corner. The earlier icon (the window, the tag and the lens) showed the page and the capture but
-not the container. It copies nothing from VS Code's icon.
+**Chosen: the developer picked concept C, variant C2, on the same midnight background and with the same colours as WSNP Viewer's.** WSNP Viewer's icon says "a file you read"; Folder Browser is about
+**viewing and handling** files, so the icon is a folder that is **worked on**: a **page** (text, with a **pencil** badge: edit) rises out of the **folder closed by a zipper** (ZIP files, also edited), with a **play** button (video
+and sound play in a tab) on the left and the **lens** (the snapshot, `.wsnp`, WSNP Viewer's own mark) on the right, the two of the same size and on the same axis, the same distance from the zipper. It copies nothing from VS Code's icon.
 
 - **Transparent.** The rounded square is the only opaque shape: its corners and the margin are transparent (alpha 0), so the icon sits on the Windows taskbar, the macOS Dock and a
-  Linux panel without a white or black box around it. A thin light rim (16 % white) keeps the shape visible on a dark taskbar or dock, where the near-black background would otherwise
-  melt into it. The in-app copies (`public/icon.svg`, the title bar and the empty editor) are the same file.
-- `build/icon.svg` is the master. `build/icon.png` is 1024 x 1024 with a 4 % transparent margin, made from it.
+  Linux panel without a white or black box around it. A thin light rim (16 % white) keeps the shape visible on a dark taskbar or dock. The in-app copies (`public/icon.svg`, the title bar and the empty editor) are the same file.
+- `build/icon.svg` is the master. `build/icon.png` is 1024 x 1024 (8-bit RGBA) with a 4 % transparent margin (the drawing is 940 px), made from it; `build/icons/<n>x<n>.png` (16, 24, 32, 48, 64, 128, 256, 512) are made from that PNG with Lanczos.
 - electron-builder finds `build/icon.png` on its own and makes the `.ico` (Windows) and `.icns` (macOS) from it; the Linux packages use the PNG
-  sizes. The window's own icon (Windows and Linux) is set from the same file in phase 1.
-- To remake the PNG after changing the SVG, draw the SVG at 940 px in a 1024 px transparent canvas (any SVG renderer will do).
-- Small sizes: the `</>` and the zipper stay legible down to 32 px; at 16 px it is a mark (the white page on the dark square, the lens in colour).
+  sizes; the window's own icon (Windows and Linux) is `build/icon.png` (`electron/window.ts`), and the application's icon in the Dock, the taskbar and on the desktop is the same file.
+- To remake the PNGs after changing the SVG: `magick -background none -density 960 build/icon.svg -resize 940x940 -gravity center -extent 1024x1024 PNG32:build/icon.png`, then each size with `magick build/icon.png -filter Lanczos -resize NxN PNG32:build/icons/NxN.png`; `scripts/icons.test.ts` checks the result.
+- Small sizes: the zipper, the play button, the lens and the pencil stay legible down to 48 px and still tell apart at 32 px; at 16 px it is a mark (the page on the folder, the badges as dots).
 - `public/icon.svg` is a copy of `build/icon.svg` (the interface's own file): copy it again when the master changes.
 
 ## Sources

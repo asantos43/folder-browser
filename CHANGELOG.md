@@ -15,6 +15,8 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 - The plan now includes a **Places** side bar (Home, Documents, Downloads, Music, Pictures, Videos, Desktop, Trash, Recent Folders, Favourites, volumes) and **video and audio playback** (`TODO.md` phases 1d and 1e, `docs/ARCHITECTURE.md`).
 
+- The icon of Folder Browser (`build/icon.svg` and the PNGs made from it): a folder closed by a zipper, with a page being edited, a play button and the lens, on WSNP Viewer's midnight background and colours. It is the application's icon in the Dock, the taskbar and on the desktop.
+
 ### Changed
 
 - Names: the app is **Folder Browser** (`folder-browser`, appId `io.github.asantos43.folder-browser`); the interface scheme is `fb-ui://`, the preload exposes `window.fb` and the IPC channels start with `fb:`. The `.wsnp` format, its `wsnp://` scheme for snapshots and the file association are unchanged.

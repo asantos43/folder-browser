@@ -1,6 +1,6 @@
 # Folder Browser
 
-<img src="build/icon.png" alt="Folder Browser icon (a placeholder, taken from WSNP Viewer)" width="96" align="right">
+<img src="build/icon.png" alt="Folder Browser icon: a folder closed by a zipper, with a page, a pencil, a play button and a lens" width="96" align="right">
 
 A desktop app to **browse folders and ZIP files**, change what is in them, and read **WSNP** snapshots. Pick a folder or a `.zip`, see its files
 (hidden ones on request), create, rename, move, delete and **edit** text files (HTML, TXT, JSON, source code…) in the folder or **inside the ZIP**, put
