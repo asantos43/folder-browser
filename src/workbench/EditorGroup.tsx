@@ -19,20 +19,20 @@ import { Breadcrumbs } from './Breadcrumbs.tsx'
 import { shortcut } from './commands.ts'
 import type { Signers } from './signature.ts'
 import { tabZoomOf } from '@/state/tabZoom.ts'
-import { describeTabs, kindOf, snapshotTitle } from './tabInfo.ts'
+import { describeTabs, kindOf, snapshotTitle, sourceTitle } from './tabInfo.ts'
 import { TabStrip } from './TabStrip.tsx'
 
 /**
  * The editor group: the tab strip, the breadcrumbs and the area of the active tab. Every open snapshot keeps its `<iframe sandbox>`
  * (hidden while another tab shows), so its scroll and state stay as they were; a file tab shows the file.
  */
-export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, find, onCloseFind, ws, dispatch, onSaveFile, onReveal, onCopy, onOpenExternal, signers, onTrust, onForget, theme, setTheme }: { /** The zoom of each tab that has one. */ zooms: Readonly<Record<string, number>>; onSaveConverted: (snapshotId: string) => void; onViewEntry: (snapshotId: string, zipPath: string, entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; find: { open: boolean; token: number }; onCloseFind: () => void; theme: ThemeSetting; setTheme: (theme: ThemeSetting) => void; signers: Signers; onTrust: (fingerprint: string, name?: string) => void; onForget: (fingerprint: string) => void; ws: Workspace; dispatch: (a: Action) => void; onSaveFile: (snapshotId: string, path: string) => void; onReveal: (snapshotId: string) => void; onCopy: (text: string) => void; onOpenExternal: (url: string) => void }) {
+export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, find, onCloseFind, ws, dispatch, onSaveFile, onReveal, onCopy, onOpenExternal, signers, onTrust, onForget, theme, setTheme }: { /** The zoom of each tab that has one. */ zooms: Readonly<Record<string, number>>; onSaveConverted: (snapshotId: string) => void; onViewEntry: (snapshotId: string, zipPath: string, entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; find: { open: boolean; token: number }; onCloseFind: () => void; theme: ThemeSetting; setTheme: (theme: ThemeSetting) => void; signers: Signers; onTrust: (fingerprint: string, name?: string) => void; onForget: (fingerprint: string) => void; ws: Workspace; dispatch: (a: Action) => void; onSaveFile: (snapshotId: string, path: string) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; onOpenExternal: (url: string) => void }) {
   const { t } = useI18n()
   const views = useMemo(() => describeTabs(ws, t), [ws, t])
   const active = ws.tabs.find((tab) => tab.key === ws.active)
   // The frames keep the order in which the snapshots were opened, whatever the order of the tabs: moving an iframe in the page reloads it.
   const frames = Object.keys(ws.snapshots).flatMap((id) => ws.tabs.filter((tab) => tab.snapshotId === id && isSnapshotTab(tab)))
-  const trail = active ? (active.view === 'settings' ? [t('settings.title')] : [snapshotTitle(ws, active.snapshotId), ...(active.view === 'metadata' ? [t('metadata.breadcrumb')] : active.path ? trailOf(active.path) : [])]) : []
+  const trail = active ? (active.view === 'settings' ? [t('settings.title')] : [sourceTitle(ws, active.snapshotId), ...(active.view === 'metadata' ? [t('metadata.breadcrumb')] : active.path ? trailOf(active.path) : [])]) : []
   const fileTab = active?.path !== undefined ? active : undefined
   const metadataTab = active?.view === 'metadata' ? active : undefined
   const heldBack = active && isSnapshotTab(active) && isHeldBack(ws, active.snapshotId) ? active : undefined

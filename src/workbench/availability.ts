@@ -57,7 +57,8 @@ export function printRequestOf(ws: Workspace, shown: () => string | null): Print
   if (kind === 'image') return { kind: 'image', id: tab.snapshotId, path }
   // An SVG shown as a picture is printed as one.
   if (isSvg(file?.mediaType, path) && svgView.get() === 'image' && !isInner(path)) return { kind: 'image', id: tab.snapshotId, path }
-  if (languageOf(file?.mediaType, path) === 'html' && !isInner(path)) return { kind: 'html', id: tab.snapshotId, path }
+  // (An HTML file of a folder is printed as text: only a snapshot's files are shown as pages.)
+  if (languageOf(file?.mediaType, path) === 'html' && !isInner(path) && !ws.roots[tab.snapshotId]) return { kind: 'html', id: tab.snapshotId, path }
   return { kind: 'text', title: basename(path), text: shown() ?? '', name: basename(path) }
 }
 

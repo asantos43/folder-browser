@@ -26,6 +26,11 @@ export const snapshotTitle = (ws: Workspace, id: string): string => {
   return manifest.title || host || basename(snapshot.path)
 }
 
+/** The name of what a tab belongs to: a snapshot's title, or the name of the folder or ZIP file that was opened. */
+export const sourceTitle = (ws: Workspace, id: string): string => ws.roots[id]?.name ?? snapshotTitle(ws, id)
+
+const parentOf = (path: string): string => path.replaceAll('!/', '/').split('/').slice(0, -1).join('/')
+
 /** What a tab shows: its name, an icon, and where it is from when the name alone would be ambiguous. */
 export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> {
   const base = ws.tabs.map((tab): [Tab, string, string, string] => {
@@ -34,7 +39,7 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
     if (tab.view === 'metadata') return [tab, t('tabs.metadataOf', { name: snapshotTitle(ws, tab.snapshotId) }), 'info', snapshot?.manifest.source.url ?? '']
     if (tab.path === undefined) return [tab, snapshotTitle(ws, tab.snapshotId), 'browser', snapshot?.manifest.source.url ?? '']
     const file = snapshot?.files.find((f) => f.path === tab.path)
-    return [tab, basename(tab.path), fileIcon(file?.mediaType, tab.path), `${snapshotTitle(ws, tab.snapshotId)} › ${tab.path.replaceAll('!/', ' › ')}`]
+    return [tab, basename(tab.path), fileIcon(file?.mediaType, tab.path), `${sourceTitle(ws, tab.snapshotId)} › ${tab.path.replaceAll('!/', ' › ')}`]
   })
   const counts = new Map<string, number>()
   for (const [, label] of base) counts.set(label, (counts.get(label) ?? 0) + 1)
@@ -45,7 +50,7 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
         label,
         icon,
         tooltip: tooltip || label,
-        description: (counts.get(label) ?? 0) > 1 ? (tab.path === undefined ? (ws.snapshots[tab.snapshotId]?.manifest.source.url ?? '') : snapshotTitle(ws, tab.snapshotId)) : '',
+        description: (counts.get(label) ?? 0) > 1 ? (tab.path === undefined ? (ws.snapshots[tab.snapshotId]?.manifest.source.url ?? '') : ws.roots[tab.snapshotId] ? [ws.roots[tab.snapshotId].name, parentOf(tab.path)].filter(Boolean).join('/') : snapshotTitle(ws, tab.snapshotId)) : '',
       },
     ]),
   )
@@ -53,6 +58,11 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
 
 /** How the file of a tab is shown, from what the manifest and the archive say about it. */
 export const kindOf = (ws: Workspace, tab: Tab) => {
+  // A file of a folder or a ZIP that was opened to browse: no manifest, so its type is told by its name (and, if that says nothing, by looking at it) and its size is the one the tree listed.
+  if (ws.roots[tab.snapshotId] && tab.path) {
+    const file: { path: string; size: number; mediaType?: string } = { path: tab.path, size: tab.size ?? 0 }
+    return { file, kind: viewKind(undefined, tab.path, file.size) }
+  }
   let file: { path: string; size: number; mediaType?: string } | undefined = ws.snapshots[tab.snapshotId]?.files.find((f) => f.path === tab.path)
   // An entry of a ZIP in the snapshot is not in the manifest: its type comes from its name and its size from the ZIP's list.
   if (!file && tab.path && isInner(tab.path) && ws.snapshots[tab.snapshotId]) file = { path: tab.path, size: tab.size ?? 0 }

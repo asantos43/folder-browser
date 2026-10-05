@@ -5,14 +5,17 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, webFrameMain, type IpcMainInvokeEvent, type Session, type WebContents, type WebFrameMain } from 'electron'
-import type { AppInfo, IntegrityEvent, OpenResult, OpenWithResult, PrintRequest, PrintResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
+import type { AppInfo, IntegrityEvent, ListResult, OpenResult, OpenWithResult, PrintRequest, PrintResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
 import { extractSelection, type ExtractResult } from '../core/extract.ts'
 import { FRAME_SCRIPT } from '../core/frameScript.ts'
 import { BINARY_LIMIT, effectiveType, viewKind } from '../core/filekind.ts'
 import { imageDocument, textDocument } from '../core/printHtml.ts'
+import { isPageKeepZip } from '../core/convert/pagekeep.ts'
 import type { RecentFiles } from '../core/recent.ts'
+import { RootRegistry } from '../core/roots.ts'
 import type { SessionStore } from '../core/session-store.ts'
 import type { SignerStore } from '../core/signers.ts'
+import { Sources } from '../core/sources.ts'
 import { infoOf, SnapshotRegistry, type OpenOutcome } from '../core/snapshots.ts'
 import { verifyContents } from '../core/validate/index.ts'
 import { launchWith, linuxChoices, makeDefault, openWithDefault, openWithSystem } from './open-with.ts'
@@ -33,6 +36,10 @@ const MAX_COPY = 16 * 2 ** 20
  */
 export class SnapshotHost {
   readonly registry = new SnapshotRegistry({ generator: { name: 'Folder Browser', version: app.getVersion() } })
+  /** The folders and ZIP files opened to browse. */
+  readonly roots = new RootRegistry()
+  /** Both, behind one set of calls: a snapshot's id and a root's are told apart here. */
+  readonly sources = new Sources(this.registry, this.roots)
   /** Requests cancelled below the page, for the tests and the log. */
   readonly blocked: string[] = []
   private readonly integrity = new Map<string, AbortController>()
@@ -146,17 +153,40 @@ export class SnapshotHost {
     })
   }
 
-  /** Opens files and reports each outcome; a file already open is not opened again. */
+  /**
+   * Opens what is named and reports each outcome; what is open already is not opened again. A `.wsnp` (or a ZIP saved by PageKeep) is a snapshot; a folder, or any
+   * other ZIP, is a root to browse; any other file opens its folder, and the file in it.
+   */
   async openPaths(paths: string[]): Promise<OpenResult[]> {
     const results: OpenResult[] = []
-    for (const file of paths) {
-      const outcome: OpenOutcome = await this.registry.openPath(file).catch((err: Error) => ({ ok: false as const, path: file, issues: [{ code: 'read-error' as const, path: path.basename(file), detail: err.message }], omitted: 0 }))
-      if (outcome.ok) {
-        this.recent.add(outcome.snapshot.path)
-        results.push({ ok: true, snapshot: infoOf(outcome.snapshot), already: outcome.already })
-      } else results.push(outcome)
-    }
+    for (const file of paths) results.push(await this.openOne(file))
     return results
+  }
+
+  private async openOne(file: string): Promise<OpenResult> {
+    const stat = await fs.promises.stat(file).catch(() => undefined)
+    const kind = !stat ? 'missing' : stat.isDirectory() ? 'folder' : /\.wsnp$/i.test(file) ? 'snapshot' : /\.zip$/i.test(file) ? ((await isPageKeepZip(file)) ? 'snapshot' : 'zip') : 'file'
+    if (kind === 'folder' || kind === 'zip') return this.openRoot(file)
+    if (kind === 'file' && stat) {
+      const opened = await this.openRoot(path.dirname(file))
+      return 'root' in opened ? { ...opened, open: { path: path.basename(file), size: stat.size } } : opened
+    }
+    const outcome: OpenOutcome = await this.registry.openPath(file).catch((err: Error) => ({ ok: false as const, path: file, issues: [{ code: 'read-error' as const, path: path.basename(file), detail: err.message }], omitted: 0 }))
+    if (outcome.ok) {
+      this.recent.add(outcome.snapshot.path)
+      return { ok: true, snapshot: infoOf(outcome.snapshot), already: outcome.already }
+    }
+    return outcome
+  }
+
+  private async openRoot(target: string): Promise<OpenResult> {
+    const opened = await this.roots.openPath(target)
+    if ('error' in opened) {
+      const why = { 'not-found': 'It is not there.', 'not-supported': 'It is neither a folder nor a ZIP file.', 'too-large': 'The ZIP is too large to browse here.', 'not-zip': 'It is not a ZIP file.', denied: 'It cannot be read: the permission is missing.' }[opened.error]
+      return { ok: false, path: target, issues: [{ code: 'read-error', path: path.basename(target) || target, detail: why }], omitted: 0 }
+    }
+    this.recent.add(opened.root.path)
+    return { ok: true, root: opened.root, already: opened.already }
   }
 
   /** Files the system asked for: shown at once when the interface is listening, kept for it otherwise. */
@@ -171,8 +201,8 @@ export class SnapshotHost {
   }
 
   async save(win: BrowserWindow, id: string, name: string): Promise<SaveResult> {
-    const stream = await this.registry.stream(id, name)
-    if (!stream) return { saved: false, reason: 'error', message: 'The file is not in the snapshot.' }
+    const stream = await this.sources.stream(id, name)
+    if (!stream) return { saved: false, reason: 'error', message: 'The file is not there.' }
     const picked = await dialog.showSaveDialog(win, { defaultPath: path.basename(name) })
     if (picked.canceled || !picked.filePath) {
       stream.destroy()
@@ -233,6 +263,15 @@ export class SnapshotHost {
   private async render<T>(win: BrowserWindow, request: PrintRequest, use: (wc: WebContents) => Promise<T>): Promise<{ value: T } | { failed: PrintResult }> {
     try {
       if (request.kind === 'text') return { value: await usingHtml(textDocument((request.name ?? request.title).slice(0, 300), request.text), use) }
+      if (this.roots.has(request.id)) {
+        // A picture of a folder or a ZIP is printed as it is; the page of a snapshot and an HTML file as a page are the snapshots'.
+        if (request.kind !== 'image') return { failed: { printed: false, reason: 'unsupported' } }
+        const type = effectiveType(undefined, request.path)
+        if (!/^image\/(png|jpe?g|gif|webp|avif|bmp|svg\+xml)$/.test(type)) return { failed: { printed: false, reason: 'unsupported' } }
+        const read = await this.sources.read(request.id, request.path, BINARY_LIMIT)
+        if (!('bytes' in read)) return { failed: { printed: false, reason: 'error', message: read.error } }
+        return { value: await usingHtml(imageDocument(path.basename(request.path), type, read.bytes), use) }
+      }
       const snapshot = this.registry.get(request.id)
       if (!snapshot) return { failed: { printed: false, reason: 'error', message: 'The snapshot is closed.' } }
       if (request.kind === 'image') {
@@ -310,7 +349,7 @@ export class SnapshotHost {
    * the choice itself (`linuxChoices`: the desktop's chooser would open behind the window on Wayland) and waits for `openWithApp` or `openWithCancel`.
    */
   private async openWith(id: string, name: string): Promise<OpenWithResult> {
-    const staged = await stageFile(this.registry, id, name, os.tmpdir()).catch((err: Error) => ({ error: 'error' as const, message: err.message }))
+    const staged = await stageFile(this.sources, id, name, os.tmpdir()).catch((err: Error) => ({ error: 'error' as const, message: err.message }))
     if ('error' in staged) return { opened: false, reason: staged.error === 'risky' ? 'unsafe' : staged.error === 'no-file' ? 'no-file' : 'error', ...('message' in staged ? { message: staged.message } : {}) }
     this.staged.add(staged.dir)
     const discard = async () => {
@@ -417,16 +456,21 @@ export class SnapshotHost {
       })
       return picked.canceled ? [] : this.openPaths(picked.filePaths)
     })
+    handle('fb:open-folder-dialog', async (win) => {
+      const picked = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'multiSelections'] })
+      return picked.canceled ? [] : this.openPaths(picked.filePaths)
+    })
+    handle('fb:list-dir', async (_win, id: unknown, dir: unknown): Promise<ListResult> => (typeof id === 'string' && typeof dir === 'string' && dir.length < 4096 ? this.roots.list(id, dir) : { error: 'no-root' }))
     handle('fb:open-paths', (_win, paths: unknown) => (isPaths(paths) ? this.openPaths(paths) : []))
     handle('fb:close', async (_win, id: unknown) => {
       if (typeof id !== 'string') return
       this.integrity.get(id)?.abort()
       this.integrity.delete(id)
-      await this.registry.close(id)
+      await this.sources.close(id)
     })
     handle('fb:read-file', async (_win, id: unknown, name: unknown): Promise<ReadResult> => {
       if (typeof id !== 'string' || typeof name !== 'string') return { error: 'no-file' }
-      const read = await this.registry.read(id, name, BINARY_LIMIT)
+      const read = await this.sources.read(id, name, BINARY_LIMIT)
       return 'bytes' in read ? { bytes: new Uint8Array(read.bytes) } : read
     })
     handle('fb:save-as', (win, id: unknown, name: unknown): Promise<SaveResult> | SaveResult =>
@@ -440,12 +484,12 @@ export class SnapshotHost {
     })
     handle('fb:zip-list', async (_win, id: unknown, zipPath: unknown): Promise<ZipList> => {
       if (typeof id !== 'string' || typeof zipPath !== 'string') return { error: 'no-file' }
-      const zip = await this.registry.zipAt(id, zipPath)
+      const zip = await this.sources.zipAt(id, zipPath)
       return 'error' in zip ? zip : { entries: [...zip.entries], truncated: zip.truncated }
     })
     handle('fb:zip-extract', async (win, id: unknown, zipPath: unknown, names: unknown, options: unknown): Promise<ExtractResult> => {
       if (typeof id !== 'string' || typeof zipPath !== 'string' || !Array.isArray(names) || names.length > 50_000 || !names.every((n) => typeof n === 'string')) return { error: 'no-file' }
-      return extractSelection(this.registry, id, zipPath, names as string[], {
+      return extractSelection(this.sources, id, zipPath, names as string[], {
         file: async (defaultName) => {
           const picked = await dialog.showSaveDialog(win, { defaultPath: defaultName })
           return picked.canceled ? undefined : picked.filePath
@@ -487,8 +531,14 @@ export class SnapshotHost {
     handle('fb:open-with', (_win, id: unknown, name: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof id === 'string' && typeof name === 'string' ? this.openWith(id, name) : { opened: false, reason: 'no-file' }))
     handle('fb:open-with-app', (_win, token: unknown, appId: unknown, always: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof token === 'string' && typeof appId === 'string' ? this.openWithApp(token, appId, always === true) : { opened: false, reason: 'no-file' }))
     handle('fb:open-with-cancel', (_win, token: unknown) => (typeof token === 'string' ? this.openWithCancel(token) : undefined))
-    handle('fb:reveal', (_win, id: unknown) => {
-      const snapshot = typeof id === 'string' ? this.registry.get(id) : undefined
+    handle('fb:reveal', async (_win, id: unknown, name: unknown) => {
+      if (typeof id !== 'string') return
+      if (this.roots.has(id)) {
+        const file = await this.roots.diskPath(id, typeof name === 'string' ? name : '')
+        shell.showItemInFolder(file ?? this.roots.info(id)!.path)
+        return
+      }
+      const snapshot = this.registry.get(id)
       if (snapshot) shell.showItemInFolder(snapshot.path)
     })
     handle('fb:signers-list', () => Object.fromEntries(Object.entries(this.signers.list()).map(([fingerprint, s]) => [fingerprint, { name: s.name }])))

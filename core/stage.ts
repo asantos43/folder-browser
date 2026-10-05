@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { pipeline } from 'node:stream/promises'
-import type { SnapshotRegistry } from './snapshots.ts'
+import type { FileSource } from './sources.ts'
 
 /**
  * A file that could run as a program when another application (or the system) opens it: it is never handed over. (A snapshot can hold anything a page linked
@@ -25,7 +25,7 @@ export const STAGE_PREFIX = 'wsnp-open-'
  * A copy of a file of a snapshot (or of an entry of a ZIP in it) in a folder of its own under `tempRoot`, read-only, for an application the user chose.
  * The caller removes the folder (`fs.rm(dir)`) when the application is done or at quit; `sweepStaged` removes what a crash left.
  */
-export async function stageFile(registry: SnapshotRegistry, id: string, name: string, tempRoot: string): Promise<Staged> {
+export async function stageFile(registry: FileSource, id: string, name: string, tempRoot: string): Promise<Staged> {
   const base = plainName(name)
   if (isRiskyName(base)) return { error: 'risky' }
   const stream = await registry.stream(id, name)

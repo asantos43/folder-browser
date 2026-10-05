@@ -1,4 +1,5 @@
 import type { ExtractResult } from './extract.ts'
+import type { ListResult, RootInfo } from './roots.ts'
 import type { SnapshotInfo } from './snapshots.ts'
 import type { ZipEntryInfo } from './zip.ts'
 import type { IntegrityReport, Issue } from './validate/index.ts'
@@ -6,6 +7,8 @@ import type { IntegrityReport, Issue } from './validate/index.ts'
 /** What the main process offers the interface (through the preload). Plain data only: nothing here can read an archive. */
 export type OpenResult =
   | { ok: true; snapshot: SnapshotInfo; /** The file was open already: show its tab. */ already: boolean }
+  /** A folder or a ZIP file opened to browse (`open`: the file the user named, when it was a file of a folder: its tab opens too). */
+  | { ok: true; root: RootInfo; already: boolean; open?: { path: string; size: number } }
   | { ok: false; path: string; issues: Issue[]; omitted: number }
 
 export type ReadResult = { bytes: Uint8Array } | { error: 'no-snapshot' | 'no-file' | 'too-large' }
@@ -13,6 +16,7 @@ export type SaveResult = { saved: true; path: string } | { saved: false; reason:
 export type IntegrityEvent = { id: string; state: 'running'; done: number; total: number } | { id: string; state: 'done'; report: IntegrityReport }
 
 export type ZipList = { entries: ZipEntryInfo[]; truncated: boolean } | { error: 'no-snapshot' | 'no-file' | 'too-large' | 'not-zip' }
+export type { DirEntry, ListResult, RootInfo } from './roots.ts'
 export type { ExtractResult, ZipEntryInfo }
 /** What to print: the page of a snapshot, a picture of it, or a text (as the tab shows it). */
 export type PrintRequest = { kind: 'snapshot'; id: string } | { kind: 'image'; id: string; path: string } | { kind: 'html'; id: string; path: string } | { kind: 'text'; title: string; text: string; /** The name of the file, for the PDF's. */ name?: string }
@@ -64,8 +68,12 @@ export interface FbApi {
   pathForFile(file: File): string
   /** Tells the main process the interface is listening; answers with what the command line asked to open. */
   ready(): Promise<OpenResult[]>
-  /** The file picker; opens what is chosen. */
+  /** The file picker (a `.wsnp`, or a ZIP); opens what is chosen. */
   openDialog(): Promise<OpenResult[]>
+  /** The folder picker; opens the folder as a root of the tree. */
+  openFolderDialog(): Promise<OpenResult[]>
+  /** What is directly in a folder of a root, a ZIP of it, or a folder of that ZIP (`path` is relative to the root; `''` is the root itself). */
+  listDir(id: string, path: string): Promise<ListResult>
   openPaths(paths: string[]): Promise<OpenResult[]>
   /** Files the system asked for while the app runs (double-click, a second launch, `open-file`). */
   onOpened(listener: (results: OpenResult[]) => void): () => void
@@ -114,8 +122,8 @@ export interface FbApi {
   openWithCancel(token: string): Promise<void>
   /** Puts text on the clipboard. */
   copyText(text: string): Promise<void>
-  /** Shows the snapshot's file in the system's file manager. */
-  reveal(id: string): Promise<void>
+  /** Shows the snapshot's file, or a file of a root (the ZIP that holds it, for an entry of a ZIP), in the system's file manager. */
+  reveal(id: string, path?: string): Promise<void>
   recent: { list(): Promise<string[]>; clear(): Promise<void> }
   /** The tabs open at the end of the last session (names only), kept by the main process; `save(null)` forgets. */
   session: { load(): Promise<unknown>; save(value: unknown): Promise<void> }

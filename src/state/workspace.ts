@@ -1,4 +1,4 @@
-import type { IntegrityEvent } from '@core/api.ts'
+import type { IntegrityEvent, RootInfo } from '@core/api.ts'
 import type { SnapshotInfo } from '@core/snapshots.ts'
 import type { IntegrityReport } from '@core/validate/index.ts'
 import type { Issue } from '@core/validate/issues.ts'
@@ -26,18 +26,20 @@ export type IntegrityState = { state: 'running'; done: number; total: number } |
 
 export interface Workspace {
   snapshots: Record<string, SnapshotInfo>
+  /** The folders and ZIP files opened to browse. A tab of one of their files has the root's id in `snapshotId`. */
+  roots: Record<string, RootInfo>
   tabs: Tab[]
   active: string | null
   /** Keys of the tabs, the one used last first. */
   recent: string[]
-  /** The snapshot whose files the side bar shows. */
+  /** The snapshot or root whose files the side bar shows. */
   selected: string | null
   integrity: Record<string, IntegrityState>
   /** Snapshots found not valid that the user chose to see anyway. */
   shownAnyway: Record<string, true>
 }
 
-export const empty: Workspace = { snapshots: {}, tabs: [], active: null, recent: [], selected: null, integrity: {}, shownAnyway: {} }
+export const empty: Workspace = { snapshots: {}, roots: {}, tabs: [], active: null, recent: [], selected: null, integrity: {}, shownAnyway: {} }
 
 export const snapshotKey = (id: string) => `s:${id}`
 export const metadataKey = (id: string) => `m:${id}`
@@ -60,6 +62,8 @@ export const fileKey = (id: string, path: string) => `f:${id}:${path}`
 
 export type Action =
   | { type: 'snapshot-opened'; snapshot: SnapshotInfo }
+  | { type: 'root-opened'; root: RootInfo }
+  | { type: 'root-closed'; id: string }
   | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number }
   | { type: 'open-metadata'; snapshotId: string }
   | { type: 'open-settings' }
@@ -109,7 +113,8 @@ function without(ws: Workspace, keys: Set<string>): Workspace {
   }
   const next = { ...ws, tabs, snapshots, integrity, shownAnyway, recent }
   const selected = active ? tabs.find((t) => t.key === active)?.snapshotId : undefined
-  return { ...next, active, selected: selected || (ws.selected && snapshots[ws.selected] ? ws.selected : (Object.keys(snapshots)[0] ?? null)) }
+  const exists = (id: string | null): id is string => id !== null && Boolean(snapshots[id] || ws.roots[id])
+  return { ...next, active, selected: selected || (exists(ws.selected) ? ws.selected : (Object.keys(snapshots)[0] ?? Object.keys(ws.roots)[0] ?? null)) }
 }
 
 export function reduce(ws: Workspace, action: Action): Workspace {
@@ -120,6 +125,16 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const snapshots = { ...ws.snapshots, [id]: action.snapshot }
       const tabs = ws.tabs.some((t) => t.key === key) ? ws.tabs : arranged([...ws.tabs, { key, snapshotId: id, preview: false, pinned: false }])
       return withActive({ ...ws, snapshots, tabs }, key)
+    }
+    case 'root-opened': {
+      const roots = { ...ws.roots, [action.root.id]: action.root }
+      return { ...ws, roots, selected: action.root.id }
+    }
+    case 'root-closed': {
+      if (!ws.roots[action.id]) return ws
+      const roots = { ...ws.roots }
+      delete roots[action.id]
+      return without({ ...ws, roots }, new Set(ws.tabs.filter((t) => t.snapshotId === action.id).map((t) => t.key)))
     }
     case 'open-file': {
       const key = fileKey(action.snapshotId, action.path)
@@ -196,7 +211,7 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       return withActive(ws, next.key)
     }
     case 'select':
-      return ws.snapshots[action.snapshotId] ? { ...ws, selected: action.snapshotId } : ws
+      return ws.snapshots[action.snapshotId] || ws.roots[action.snapshotId] ? { ...ws, selected: action.snapshotId } : ws
     case 'integrity': {
       const { event } = action
       if (!ws.snapshots[event.id]) return ws
@@ -206,5 +221,5 @@ export function reduce(ws: Workspace, action: Action): Workspace {
   }
 }
 
-/** The ids of snapshots that were open and are not: the main process is told to release them. */
-export const released = (before: Workspace, after: Workspace): string[] => Object.keys(before.snapshots).filter((id) => !after.snapshots[id])
+/** The ids of snapshots and roots that were open and are not: the main process is told to release them. */
+export const released = (before: Workspace, after: Workspace): string[] => [...Object.keys(before.snapshots).filter((id) => !after.snapshots[id]), ...Object.keys(before.roots).filter((id) => !after.roots[id])]

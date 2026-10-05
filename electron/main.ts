@@ -3,7 +3,7 @@ import { app, BrowserWindow } from 'electron'
 import { RecentFiles } from '../core/recent.ts'
 import { SessionStore } from '../core/session-store.ts'
 import { SignerStore } from '../core/signers.ts'
-import { snapshotPaths } from './argv.ts'
+import { pathsToOpen, userArgs } from './argv.ts'
 import { installMenu } from './menu.ts'
 import { SnapshotHost } from './snapshot-host.ts'
 import { registerScheme } from './snapshot-view.ts'
@@ -22,7 +22,7 @@ if (process.argv.includes('--app-version')) {
 } else {
   let win: BrowserWindow | undefined
   let host: SnapshotHost | undefined
-  const early: string[] = snapshotPaths(process.argv.slice(1), process.cwd())
+  const early: string[] = pathsToOpen(userArgs(process.argv, app.isPackaged), process.cwd())
 
   // macOS gives files through this event, also before the app is ready.
   app.on('open-file', (event, file) => {
@@ -31,7 +31,7 @@ if (process.argv.includes('--app-version')) {
     else early.push(file)
   })
   app.on('second-instance', (_event, argv, cwd) => {
-    void host?.openFromSystem(win, snapshotPaths(argv.slice(1), cwd))
+    void host?.openFromSystem(win, pathsToOpen(userArgs(argv, app.isPackaged), cwd))
     if (win?.isMinimized()) win.restore()
     win?.focus()
   })

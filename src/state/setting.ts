@@ -43,5 +43,7 @@ export const markdownWide = createSetting('markdownWide', false, isBoolean)
 export const markdownWrapCode = createSetting('markdownWrapCode', false, isBoolean)
 /** At start, without a file to open, the snapshots and files that were open when the application was closed are opened again (VS Code does the same). */
 export const reopenSession = createSetting('reopenSession', true, isBoolean)
+/** Hidden files and folders (a name that starts with a dot) are shown in the tree. Off by default, as in a file manager. */
+export const showHidden = createSetting('showHidden', false, isBoolean)
 /** Source files that a formatter can lay out again (HTML, CSS, JavaScript, JSON, XML) are shown formatted. On by default: a saved page is usually minified. */
 export const formatSource = createSetting('formatSource', true, isBoolean)

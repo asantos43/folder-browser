@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AppInfo, ExtractResult, IntegrityEvent, OpenResult, OpenWithResult, PrintResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
+import type { AppInfo, ExtractResult, IntegrityEvent, OpenResult, ListResult, OpenWithResult, PrintResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
 
 /** What the interface may ask of the main process: nothing else crosses the boundary (core/api.ts). */
 const on = <T>(channel: string, listener: (value: T) => void) => {
@@ -15,6 +15,8 @@ const api: FbApi = {
   pathForFile: (file) => webUtils.getPathForFile(file),
   ready: () => ipcRenderer.invoke('fb:ready') as Promise<OpenResult[]>,
   openDialog: () => ipcRenderer.invoke('fb:open-dialog') as Promise<OpenResult[]>,
+  openFolderDialog: () => ipcRenderer.invoke('fb:open-folder-dialog') as Promise<OpenResult[]>,
+  listDir: (id, path) => ipcRenderer.invoke('fb:list-dir', id, path) as Promise<ListResult>,
   openPaths: (paths) => ipcRenderer.invoke('fb:open-paths', paths) as Promise<OpenResult[]>,
   onOpened: (listener) => on<OpenResult[]>('fb:opened', listener),
   close: (id) => ipcRenderer.invoke('fb:close', id) as Promise<void>,
@@ -45,7 +47,7 @@ const api: FbApi = {
   openWithApp: (token, appId, always) => ipcRenderer.invoke('fb:open-with-app', token, appId, always) as Promise<OpenWithResult>,
   openWithCancel: (token) => ipcRenderer.invoke('fb:open-with-cancel', token) as Promise<void>,
   copyText: (text) => ipcRenderer.invoke('fb:copy', text) as Promise<void>,
-  reveal: (id) => ipcRenderer.invoke('fb:reveal', id) as Promise<void>,
+  reveal: (id, path) => ipcRenderer.invoke('fb:reveal', id, path) as Promise<void>,
   session: { load: () => ipcRenderer.invoke('fb:session-load') as Promise<unknown>, save: (value) => ipcRenderer.invoke('fb:session-save', value) as Promise<void> },
   recent: { list: () => ipcRenderer.invoke('fb:recent-list') as Promise<string[]>, clear: () => ipcRenderer.invoke('fb:recent-clear') as Promise<void> },
 }
