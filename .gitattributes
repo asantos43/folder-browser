@@ -1,0 +1,9 @@
+# Text files are LF on every system. Several checks compare files byte for byte or by hash (THIRD-PARTY-NOTICES.md, the format docs and their
+# record in docs/FORMAT.sha256), and a Windows checkout with CRLF would fail them.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.wsnp binary
+*.pdf binary

@@ -1,0 +1,20 @@
+name: Feature
+description: An idea for the viewer
+labels: [enhancement]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What would you like to do that you cannot do now?
+    validations:
+      required: true
+  - type: textarea
+    id: how
+    attributes:
+      label: How do you imagine it working?
+      description: "The interface follows Visual Studio Code where it has the same thing to do; say if VS Code has what you describe."
+  - type: textarea
+    id: phase
+    attributes:
+      label: Is it one of the later phases?
+      description: "Conversion, export, search, print, password protection and .wsnpx are planned: see docs/ARCHITECTURE.md, Phases."

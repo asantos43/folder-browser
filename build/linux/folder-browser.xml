@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The file type of a .wsnp for the Linux desktop (shared-mime-info). A .wsnp is a ZIP, so a magic rule on its first entry (`mimetype`,
+  stored, at byte 30, with the media type after it at byte 38; docs/FORMAT.md section 3) keeps it from being taken for plain application/zip,
+  whatever its name.
+-->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/vnd.wsnp+zip">
+    <comment>WSNP snapshot</comment>
+    <comment xml:lang="pt_BR">Snapshot WSNP</comment>
+    <sub-class-of type="application/zip"/>
+    <magic priority="60">
+      <match type="string" value="PK\x03\x04" offset="0">
+        <match type="string" value="mimetypeapplication/vnd.wsnp+zip" offset="30"/>
+      </match>
+    </magic>
+    <glob pattern="*.wsnp"/>
+    <icon name="folder-browser"/>
+  </mime-type>
+</mime-info>

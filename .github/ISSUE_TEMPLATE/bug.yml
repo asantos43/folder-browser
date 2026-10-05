@@ -1,0 +1,32 @@
+name: Bug
+description: Something does not work as the user guide or the format says
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not attach a real capture or a private file.** A `.wsnp` from a site you use can hold your data. If a file is needed to reproduce the problem, make a
+        synthetic one, or describe the page. A security problem goes to a private report, not here (see the link above).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open a .wsnp with …\n2. Click …"
+  - type: input
+    id: version
+    attributes:
+      label: Version and system
+      description: "Help › About Folder Browser has a button that copies this."
+      placeholder: "Folder Browser 0.1.0, Electron …, linux x64"
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else (the message the viewer showed, a screenshot of the window without private content)

@@ -1,0 +1,210 @@
+import type { IntegrityEvent } from '@core/api.ts'
+import type { SnapshotInfo } from '@core/snapshots.ts'
+import type { IntegrityReport } from '@core/validate/index.ts'
+import type { Issue } from '@core/validate/issues.ts'
+
+/**
+ * What is open: the snapshots and the tabs of the one editor group. All of it is plain data changed by a pure function, so
+ * every rule of VS Code's tabs (preview, pinned, close others, most-recently-used order) is tested without a window.
+ */
+export interface Tab {
+  /** `s:<snapshot id>` for a snapshot, `f:<snapshot id>:<path>` for one of its files. */
+  key: string
+  snapshotId: string
+  /** The file's path in the archive; absent for the tab of the snapshot itself. */
+  path?: string
+  /** The size of a file that is an entry of a ZIP (the manifest does not list it), known when it is opened from the ZIP's list. */
+  size?: number
+  /** A view of the snapshot that is not a file of it: its metadata. */
+  view?: 'metadata' | 'settings'
+  /** Shown in italics and replaced by the next single click, until it is kept (double click, or a tab of the snapshot itself). */
+  preview: boolean
+  pinned: boolean
+}
+
+export type IntegrityState = { state: 'running'; done: number; total: number } | { state: 'done'; report: IntegrityReport }
+
+export interface Workspace {
+  snapshots: Record<string, SnapshotInfo>
+  tabs: Tab[]
+  active: string | null
+  /** Keys of the tabs, the one used last first. */
+  recent: string[]
+  /** The snapshot whose files the side bar shows. */
+  selected: string | null
+  integrity: Record<string, IntegrityState>
+  /** Snapshots found not valid that the user chose to see anyway. */
+  shownAnyway: Record<string, true>
+}
+
+export const empty: Workspace = { snapshots: {}, tabs: [], active: null, recent: [], selected: null, integrity: {}, shownAnyway: {} }
+
+export const snapshotKey = (id: string) => `s:${id}`
+export const metadataKey = (id: string) => `m:${id}`
+export const SETTINGS_KEY = 'settings'
+/** The tab of a snapshot itself (its page), as against one of its files or of its metadata. */
+export const isSnapshotTab = (tab: Tab): boolean => tab.path === undefined && tab.view === undefined
+
+/** What makes a snapshot not valid: a file that is not what the manifest says (FORMAT.md section 10, step 7), or a manifest that is not what was signed. Scans of the page are warnings, not this. */
+const INVALID: readonly Issue['code'][] = ['hash-mismatch', 'size-mismatch', 'read-error']
+export const invalidProblems = (ws: Workspace, id: string): Issue[] => {
+  const state = ws.integrity[id]
+  const files = state?.state === 'done' ? state.report.problems.filter((p) => INVALID.includes(p.code)) : []
+  // A signature that does not check means the manifest was edited after it was signed: known at once, as it is the manifest's own.
+  const signature = ws.snapshots[id]?.signature
+  return signature?.state === 'invalid' ? [{ code: 'signature-invalid', path: 'manifest.json', detail: signature.reason }, ...files] : files
+}
+/** Not valid, and not yet chosen to be shown anyway: the page is held back. */
+export const isHeldBack = (ws: Workspace, id: string): boolean => invalidProblems(ws, id).length > 0 && !ws.shownAnyway[id]
+export const fileKey = (id: string, path: string) => `f:${id}:${path}`
+
+export type Action =
+  | { type: 'snapshot-opened'; snapshot: SnapshotInfo }
+  | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number }
+  | { type: 'open-metadata'; snapshotId: string }
+  | { type: 'open-settings' }
+  | { type: 'show-anyway'; snapshotId: string }
+  | { type: 'activate'; key: string; /** Do not count it as the most recent (a Ctrl+Tab in progress). */ transient?: boolean }
+  | { type: 'touch' }
+  | { type: 'keep'; key: string }
+  | { type: 'close'; key: string }
+  | { type: 'close-others'; key: string }
+  | { type: 'close-right'; key: string }
+  | { type: 'close-all' }
+  | { type: 'pin'; key: string; pinned: boolean }
+  | { type: 'move'; key: string; to: number }
+  | { type: 'step'; direction: 1 | -1 }
+  | { type: 'select'; snapshotId: string }
+  | { type: 'integrity'; event: IntegrityEvent }
+
+/** Pinned tabs come first, in the order they have; the rest keep theirs. */
+const arranged = (tabs: Tab[]): Tab[] => [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)]
+
+function withActive(ws: Workspace, key: string | null, touch = true): Workspace {
+  if (key === null) return { ...ws, active: null }
+  const tab = ws.tabs.find((t) => t.key === key)
+  return { ...ws, active: key, selected: tab?.snapshotId || ws.selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
+}
+
+/** Removes the tabs of the given keys, and the snapshots that are left without a tab of their own. */
+function without(ws: Workspace, keys: Set<string>): Workspace {
+  let tabs = ws.tabs.filter((t) => !keys.has(t.key))
+  // A snapshot's own tab closing closes the snapshot: the tabs of its files go with it.
+  const closed = new Set(ws.tabs.filter((t) => keys.has(t.key) && isSnapshotTab(t)).map((t) => t.snapshotId))
+  tabs = tabs.filter((t) => !closed.has(t.snapshotId))
+  const snapshots = { ...ws.snapshots }
+  const integrity = { ...ws.integrity }
+  const shownAnyway = { ...ws.shownAnyway }
+  for (const id of closed) {
+    delete snapshots[id]
+    delete integrity[id]
+    delete shownAnyway[id]
+  }
+  const alive = new Set(tabs.map((t) => t.key))
+  const recent = ws.recent.filter((k) => alive.has(k))
+  let active = ws.active
+  if (active === null || !alive.has(active)) {
+    // As VS Code does: the most recently used tab that is left.
+    active = recent[0] ?? tabs.at(-1)?.key ?? null
+  }
+  const next = { ...ws, tabs, snapshots, integrity, shownAnyway, recent }
+  const selected = active ? tabs.find((t) => t.key === active)?.snapshotId : undefined
+  return { ...next, active, selected: selected || (ws.selected && snapshots[ws.selected] ? ws.selected : (Object.keys(snapshots)[0] ?? null)) }
+}
+
+export function reduce(ws: Workspace, action: Action): Workspace {
+  switch (action.type) {
+    case 'snapshot-opened': {
+      const { id } = action.snapshot
+      const key = snapshotKey(id)
+      const snapshots = { ...ws.snapshots, [id]: action.snapshot }
+      const tabs = ws.tabs.some((t) => t.key === key) ? ws.tabs : arranged([...ws.tabs, { key, snapshotId: id, preview: false, pinned: false }])
+      return withActive({ ...ws, snapshots, tabs }, key)
+    }
+    case 'open-file': {
+      const key = fileKey(action.snapshotId, action.path)
+      const existing = ws.tabs.find((t) => t.key === key)
+      if (existing) {
+        const tabs = existing.preview && action.keep ? ws.tabs.map((t) => (t.key === key ? { ...t, preview: false } : t)) : ws.tabs
+        return withActive({ ...ws, tabs }, key)
+      }
+      const tab: Tab = { key, snapshotId: action.snapshotId, path: action.path, ...(action.size === undefined ? {} : { size: action.size }), preview: !action.keep, pinned: false }
+      // A new preview takes the place of the old one; a kept tab opens beside the active one, as VS Code does.
+      const old = tab.preview ? ws.tabs.findIndex((t) => t.preview && !t.pinned) : -1
+      let tabs: Tab[]
+      if (old >= 0) tabs = ws.tabs.map((t, i) => (i === old ? tab : t))
+      else {
+        const at = ws.tabs.findIndex((t) => t.key === ws.active)
+        tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]
+        tabs = arranged(tabs)
+      }
+      const replaced = old >= 0 ? ws.tabs[old].key : null
+      return withActive({ ...ws, tabs, recent: ws.recent.filter((k) => k !== replaced) }, key)
+    }
+    case 'open-metadata': {
+      const key = metadataKey(action.snapshotId)
+      if (!ws.snapshots[action.snapshotId]) return ws
+      if (ws.tabs.some((t) => t.key === key)) return withActive(ws, key)
+      const tab: Tab = { key, snapshotId: action.snapshotId, view: 'metadata', preview: false, pinned: false }
+      const at = ws.tabs.findIndex((t) => t.key === ws.active)
+      const tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]
+      return withActive({ ...ws, tabs: arranged(tabs) }, key)
+    }
+    case 'open-settings': {
+      if (ws.tabs.some((t) => t.key === SETTINGS_KEY)) return withActive(ws, SETTINGS_KEY)
+      const tab: Tab = { key: SETTINGS_KEY, snapshotId: '', view: 'settings', preview: false, pinned: false }
+      const at = ws.tabs.findIndex((t) => t.key === ws.active)
+      const tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]
+      return withActive({ ...ws, tabs: arranged(tabs) }, SETTINGS_KEY)
+    }
+    case 'show-anyway':
+      return ws.snapshots[action.snapshotId] ? { ...ws, shownAnyway: { ...ws.shownAnyway, [action.snapshotId]: true } } : ws
+    case 'activate':
+      return ws.tabs.some((t) => t.key === action.key) ? withActive(ws, action.key, !action.transient) : ws
+    case 'keep':
+      return { ...ws, tabs: ws.tabs.map((t) => (t.key === action.key && t.preview ? { ...t, preview: false } : t)) }
+    case 'touch':
+      return ws.active ? withActive(ws, ws.active) : ws
+    case 'close':
+      return ws.tabs.some((t) => t.key === action.key) ? without(ws, new Set([action.key])) : ws
+    case 'close-others':
+      return without(ws, new Set(ws.tabs.filter((t) => t.key !== action.key && !t.pinned).map((t) => t.key)))
+    case 'close-right': {
+      const at = ws.tabs.findIndex((t) => t.key === action.key)
+      return at < 0 ? ws : without(ws, new Set(ws.tabs.slice(at + 1).filter((t) => !t.pinned).map((t) => t.key)))
+    }
+    case 'close-all':
+      return without(ws, new Set(ws.tabs.filter((t) => !t.pinned).map((t) => t.key)))
+    case 'pin': {
+      const tabs = arranged(ws.tabs.map((t) => (t.key === action.key ? { ...t, pinned: action.pinned, preview: action.pinned ? false : t.preview } : t)))
+      return { ...ws, tabs }
+    }
+    case 'move': {
+      const from = ws.tabs.findIndex((t) => t.key === action.key)
+      if (from < 0) return ws
+      const tab = ws.tabs[from]
+      const rest = ws.tabs.filter((t) => t.key !== action.key)
+      // A tab stays on its own side of the pinned ones.
+      const pinnedCount = rest.filter((t) => t.pinned).length
+      const to = Math.max(tab.pinned ? 0 : pinnedCount, Math.min(tab.pinned ? pinnedCount : rest.length, action.to))
+      return { ...ws, tabs: [...rest.slice(0, to), tab, ...rest.slice(to)] }
+    }
+    case 'step': {
+      if (!ws.tabs.length) return ws
+      const at = ws.tabs.findIndex((t) => t.key === ws.active)
+      const next = ws.tabs[(at + action.direction + ws.tabs.length) % ws.tabs.length]
+      return withActive(ws, next.key)
+    }
+    case 'select':
+      return ws.snapshots[action.snapshotId] ? { ...ws, selected: action.snapshotId } : ws
+    case 'integrity': {
+      const { event } = action
+      if (!ws.snapshots[event.id]) return ws
+      const state: IntegrityState = event.state === 'running' ? { state: 'running', done: event.done, total: event.total } : { state: 'done', report: event.report }
+      return { ...ws, integrity: { ...ws.integrity, [event.id]: state } }
+    }
+  }
+}
+
+/** The ids of snapshots that were open and are not: the main process is told to release them. */
+export const released = (before: Workspace, after: Workspace): string[] => Object.keys(before.snapshots).filter((id) => !after.snapshots[id])

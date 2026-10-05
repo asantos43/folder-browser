@@ -1,0 +1,232 @@
+import type { SnapshotInfo } from '@core/snapshots.ts'
+import { describe, expect, it } from 'vitest'
+import { empty, fileKey, invalidProblems, isHeldBack, isSnapshotTab, metadataKey, reduce, released, snapshotKey, type Action, type Workspace } from './workspace.ts'
+
+const snap = (id: string, signature: SnapshotInfo['signature'] = { state: 'unsigned' }): SnapshotInfo => ({ id, path: `/${id}.wsnp`, manifest: { title: id } as SnapshotInfo['manifest'], files: [], signature })
+const run = (actions: Action[], from: Workspace = empty): Workspace => actions.reduce(reduce, from)
+const open = (...ids: string[]): Action[] => ids.map((id) => ({ type: 'snapshot-opened', snapshot: snap(id) }))
+const file = (snapshotId: string, path: string, keep = false): Action => ({ type: 'open-file', snapshotId, path, keep })
+const keys = (ws: Workspace) => ws.tabs.map((t) => t.key)
+
+describe('opening snapshots', () => {
+  it('opens a tab for each snapshot, makes the last one active and selects it', () => {
+    const ws = run(open('a', 'b'))
+    expect(keys(ws)).toEqual(['s:a', 's:b'])
+    expect(ws.active).toBe('s:b')
+    expect(ws.selected).toBe('b')
+    expect(ws.recent).toEqual(['s:b', 's:a'])
+  })
+  it('shows the tab that is there when a snapshot is opened again', () => {
+    const ws = run([...open('a', 'b'), ...open('a')])
+    expect(keys(ws)).toEqual(['s:a', 's:b'])
+    expect(ws.active).toBe('s:a')
+  })
+})
+
+describe('the files of a snapshot: preview tabs', () => {
+  it('a single click opens a preview tab that the next single click replaces', () => {
+    const ws = run([...open('a'), file('a', 'index.html'), file('a', 'assets/styles/site.css')])
+    expect(keys(ws)).toEqual(['s:a', 'f:a:assets/styles/site.css'])
+    expect(ws.tabs[1].preview).toBe(true)
+    expect(ws.recent).not.toContain(fileKey('a', 'index.html'))
+  })
+  it('a double click keeps the tab, and it stays when another preview opens', () => {
+    const ws = run([...open('a'), file('a', 'index.html', true), file('a', 'x.css')])
+    expect(keys(ws)).toEqual(['s:a', 'f:a:index.html', 'f:a:x.css'])
+    expect(ws.tabs.map((t) => t.preview)).toEqual([false, false, true])
+  })
+  it('a double click on a preview tab keeps it, and a click on an open tab only shows it', () => {
+    let ws = run([...open('a'), file('a', 'x.css')])
+    ws = reduce(ws, file('a', 'x.css', true))
+    expect(ws.tabs[1].preview).toBe(false)
+    ws = run([file('a', 'y.css'), { type: 'activate', key: snapshotKey('a') }, file('a', 'y.css')], ws)
+    expect(ws.active).toBe(fileKey('a', 'y.css'))
+    expect(keys(ws)).toHaveLength(3)
+  })
+  it('a kept tab opens beside the active one', () => {
+    const ws = run([...open('a', 'b'), { type: 'activate', key: 's:a' }, file('a', 'k.txt', true)])
+    expect(keys(ws)).toEqual(['s:a', 'f:a:k.txt', 's:b'])
+  })
+})
+
+describe('keeping a preview', () => {
+  it('turns a preview into a kept tab, and does nothing to a tab that is kept', () => {
+    const ws = run([...open('a'), file('a', 'x.css')])
+    const kept = reduce(ws, { type: 'keep', key: 'f:a:x.css' })
+    expect(kept.tabs[1].preview).toBe(false)
+    expect(reduce(kept, { type: 'keep', key: 'f:a:x.css' }).tabs).toEqual(kept.tabs)
+  })
+})
+
+describe('closing', () => {
+  it('goes back to the tab used before, as VS Code does', () => {
+    let ws = run([...open('a', 'b', 'c'), { type: 'activate', key: 's:a' }, { type: 'activate', key: 's:c' }])
+    ws = reduce(ws, { type: 'close', key: 's:c' })
+    expect(ws.active).toBe('s:a')
+    expect(keys(ws)).toEqual(['s:a', 's:b'])
+  })
+  it('closing the tab of a snapshot closes the snapshot and its file tabs, and says which to release', () => {
+    const before = run([...open('a', 'b'), file('a', 'one.txt', true), file('b', 'two.txt', true)])
+    const after = reduce(before, { type: 'close', key: 's:a' })
+    expect(keys(after)).toEqual(['s:b', 'f:b:two.txt'])
+    expect(Object.keys(after.snapshots)).toEqual(['b'])
+    expect(released(before, after)).toEqual(['a'])
+  })
+  it('closing a file tab leaves the snapshot open and selected', () => {
+    const ws = run([...open('a'), file('a', 'one.txt', true), { type: 'close', key: 'f:a:one.txt' }])
+    expect(keys(ws)).toEqual(['s:a'])
+    expect(ws.active).toBe('s:a')
+    expect(ws.selected).toBe('a')
+  })
+  it('closes the others, the ones to the right, and all, but never a pinned tab', () => {
+    const base = run([...open('a', 'b', 'c', 'd'), { type: 'pin', key: 's:b', pinned: true }])
+    expect(keys(base)).toEqual(['s:b', 's:a', 's:c', 's:d'])
+    expect(keys(reduce(base, { type: 'close-others', key: 's:c' }))).toEqual(['s:b', 's:c'])
+    expect(keys(reduce(base, { type: 'close-right', key: 's:a' }))).toEqual(['s:b', 's:a'])
+    const all = reduce(base, { type: 'close-all' })
+    expect(keys(all)).toEqual(['s:b'])
+    expect(all.active).toBe('s:b')
+    expect(Object.keys(all.snapshots)).toEqual(['b'])
+  })
+  it('ends with nothing open and nothing selected when the last tab closes', () => {
+    const ws = run([...open('a'), { type: 'close', key: 's:a' }])
+    expect(ws).toMatchObject({ tabs: [], active: null, selected: null, snapshots: {}, recent: [] })
+  })
+  it('ignores a key that is not open', () => {
+    const ws = run(open('a'))
+    expect(reduce(ws, { type: 'close', key: 's:zzz' })).toBe(ws)
+    expect(reduce(ws, { type: 'activate', key: 's:zzz' })).toBe(ws)
+  })
+})
+
+describe('pinning and moving', () => {
+  it('pinned tabs go first and are not previews', () => {
+    const ws = run([...open('a'), file('a', 'x.css'), { type: 'pin', key: 'f:a:x.css', pinned: true }])
+    expect(keys(ws)).toEqual(['f:a:x.css', 's:a'])
+    expect(ws.tabs[0]).toMatchObject({ pinned: true, preview: false })
+    expect(keys(reduce(ws, { type: 'pin', key: 'f:a:x.css', pinned: false }))).toEqual(['f:a:x.css', 's:a'])
+  })
+  it('moves a tab, without crossing the pinned ones', () => {
+    const ws = run([...open('a', 'b', 'c'), { type: 'pin', key: 's:c', pinned: true }])
+    expect(keys(ws)).toEqual(['s:c', 's:a', 's:b'])
+    expect(keys(reduce(ws, { type: 'move', key: 's:b', to: 0 }))).toEqual(['s:c', 's:b', 's:a'])
+    expect(keys(reduce(ws, { type: 'move', key: 's:a', to: 9 }))).toEqual(['s:c', 's:b', 's:a'])
+    expect(keys(reduce(ws, { type: 'move', key: 's:c', to: 2 }))).toEqual(['s:c', 's:a', 's:b'])
+  })
+})
+
+describe('moving between tabs', () => {
+  it('steps to the next and previous tab, wrapping around', () => {
+    const ws = run([...open('a', 'b', 'c'), { type: 'activate', key: 's:a' }])
+    expect(reduce(ws, { type: 'step', direction: 1 }).active).toBe('s:b')
+    expect(reduce(ws, { type: 'step', direction: -1 }).active).toBe('s:c')
+  })
+  it('a transient activation (Ctrl+Tab in progress) does not change the order of use until it is committed', () => {
+    let ws = run([...open('a', 'b', 'c')])
+    expect(ws.recent).toEqual(['s:c', 's:b', 's:a'])
+    ws = run([{ type: 'activate', key: 's:b', transient: true }, { type: 'activate', key: 's:a', transient: true }], ws)
+    expect(ws.active).toBe('s:a')
+    expect(ws.recent).toEqual(['s:c', 's:b', 's:a'])
+    ws = reduce(ws, { type: 'touch' })
+    expect(ws.recent).toEqual(['s:a', 's:c', 's:b'])
+  })
+  it('selecting a snapshot changes the tree, not the tabs', () => {
+    const ws = run([...open('a', 'b'), { type: 'select', snapshotId: 'a' }])
+    expect(ws.selected).toBe('a')
+    expect(ws.active).toBe('s:b')
+    expect(reduce(ws, { type: 'select', snapshotId: 'zzz' })).toBe(ws)
+  })
+})
+
+describe('integrity', () => {
+  it('keeps the progress and the result of each snapshot, and drops them with the snapshot', () => {
+    let ws = run(open('a'))
+    ws = reduce(ws, { type: 'integrity', event: { id: 'a', state: 'running', done: 5, total: 10 } })
+    expect(ws.integrity.a).toEqual({ state: 'running', done: 5, total: 10 })
+    ws = reduce(ws, { type: 'integrity', event: { id: 'a', state: 'done', report: { checked: 3, bytes: 10, problems: [], aborted: false } } })
+    expect(ws.integrity.a.state).toBe('done')
+    expect(reduce(ws, { type: 'integrity', event: { id: 'gone', state: 'running', done: 0, total: 1 } })).toBe(ws)
+    expect(reduce(ws, { type: 'close', key: 's:a' }).integrity).toEqual({})
+  })
+})
+
+describe('the metadata tab', () => {
+  it('opens beside the active tab, once, and is not the tab of the snapshot itself', () => {
+    let ws = run([...open('a', 'b'), { type: 'activate', key: 's:a' }, { type: 'open-metadata', snapshotId: 'a' }])
+    expect(keys(ws)).toEqual(['s:a', 'm:a', 's:b'])
+    expect(ws.active).toBe(metadataKey('a'))
+    expect(ws.tabs.map(isSnapshotTab)).toEqual([true, false, true])
+    ws = reduce(ws, { type: 'open-metadata', snapshotId: 'a' })
+    expect(keys(ws)).toEqual(['s:a', 'm:a', 's:b'])
+    expect(reduce(ws, { type: 'open-metadata', snapshotId: 'zzz' })).toBe(ws)
+  })
+  it('closing it leaves the snapshot open; closing the snapshot closes it', () => {
+    const ws = run([...open('a'), { type: 'open-metadata', snapshotId: 'a' }])
+    const closed = reduce(ws, { type: 'close', key: 'm:a' })
+    expect(keys(closed)).toEqual(['s:a'])
+    expect(Object.keys(closed.snapshots)).toEqual(['a'])
+    const gone = reduce(ws, { type: 'close', key: 's:a' })
+    expect(keys(gone)).toEqual([])
+    expect(released(ws, gone)).toEqual(['a'])
+  })
+})
+
+describe('a snapshot that is not valid', () => {
+  const done = (id: string, codes: string[]): Action => ({ type: 'integrity', event: { id, state: 'done', report: { checked: 3, bytes: 9, aborted: false, problems: codes.map((code) => ({ code, path: `${code}.css` })) as never } } })
+  it('is held back when a file is not what the manifest says', () => {
+    for (const code of ['hash-mismatch', 'size-mismatch', 'read-error']) {
+      const ws = run([...open('a'), done('a', [code])])
+      expect(isHeldBack(ws, 'a'), code).toBe(true)
+      expect(invalidProblems(ws, 'a')).toHaveLength(1)
+    }
+  })
+  it('is not held back for what a scan of the page finds, for a clean check, or while it is still running', () => {
+    expect(isHeldBack(run([...open('a'), done('a', ['network-reference', 'inline-script'])]), 'a')).toBe(false)
+    expect(isHeldBack(run([...open('a'), done('a', [])]), 'a')).toBe(false)
+    expect(isHeldBack(run([...open('a'), { type: 'integrity', event: { id: 'a', state: 'running', done: 1, total: 2 } }]), 'a')).toBe(false)
+  })
+  it('is shown when the user insists, and forgets that when it is closed', () => {
+    let ws = run([...open('a'), done('a', ['hash-mismatch'])])
+    ws = reduce(ws, { type: 'show-anyway', snapshotId: 'a' })
+    expect(isHeldBack(ws, 'a')).toBe(false)
+    expect(invalidProblems(ws, 'a')).toHaveLength(1)
+    expect(reduce(ws, { type: 'show-anyway', snapshotId: 'zzz' })).toBe(ws)
+    expect(reduce(ws, { type: 'close', key: 's:a' }).shownAnyway).toEqual({})
+  })
+})
+
+describe('a signature that does not check', () => {
+  it('makes the snapshot not valid at once, before the contents are checked, and it can be shown anyway', () => {
+    let ws = reduce(empty, { type: 'snapshot-opened', snapshot: snap('a', { state: 'invalid', reason: 'manifest-mismatch' }) })
+    expect(isHeldBack(ws, 'a')).toBe(true)
+    expect(invalidProblems(ws, 'a')).toEqual([{ code: 'signature-invalid', path: 'manifest.json', detail: 'manifest-mismatch' }])
+    ws = reduce(ws, { type: 'show-anyway', snapshotId: 'a' })
+    expect(isHeldBack(ws, 'a')).toBe(false)
+  })
+  it('is not what an unsigned or a rightly signed snapshot has', () => {
+    expect(isHeldBack(reduce(empty, { type: 'snapshot-opened', snapshot: snap('a') }), 'a')).toBe(false)
+    const valid = snap('b', { state: 'valid', algorithm: 'Ed25519', publicKey: 'x', fingerprint: 'f'.repeat(64), fingerprintShort: 'FFFF' })
+    expect(isHeldBack(reduce(empty, { type: 'snapshot-opened', snapshot: valid }), 'b')).toBe(false)
+  })
+})
+
+describe('the settings tab', () => {
+  it('opens once, beside the active tab, and does not change which snapshot is selected', () => {
+    let ws = run([...open('a', 'b'), { type: 'select', snapshotId: 'a' }, { type: 'open-settings' }])
+    expect(keys(ws)).toEqual(['s:a', 's:b', 'settings'])
+    expect(ws.active).toBe('settings')
+    expect(ws.selected).toBe('a')
+    ws = reduce(ws, { type: 'open-settings' })
+    expect(ws.tabs.filter((t) => t.key === 'settings')).toHaveLength(1)
+    expect(ws.tabs.every((t) => t.key !== 'settings' || !isSnapshotTab(t))).toBe(true)
+  })
+  it('can be open with no snapshot at all, and closes without touching the snapshots', () => {
+    let ws = run([{ type: 'open-settings' }])
+    expect(keys(ws)).toEqual(['settings'])
+    expect(ws.selected).toBeNull()
+    ws = run([...open('a'), { type: 'open-settings' }, { type: 'close', key: 'settings' }])
+    expect(keys(ws)).toEqual(['s:a'])
+    expect(ws.selected).toBe('a')
+    expect(ws.active).toBe('s:a')
+  })
+})

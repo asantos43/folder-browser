@@ -1,0 +1,166 @@
+{
+  "name": "folder-browser",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Folder and ZIP browser and editor, with a viewer for WSNP (.wsnp) web page snapshots",
+  "author": "Anderson Santos",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "build:electron": "vite build -c vite.electron.config.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "oxlint core electron export e2e src scripts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npm run build && playwright test",
+    "package:linux": "npm run build && electron-builder --linux deb rpm --publish never",
+    "package:win": "npm run build && electron-builder --win nsis --publish never",
+    "package:mac": "npm run build && electron-builder --mac dmg --universal --publish never",
+    "build:ui": "vite build",
+    "build": "npm run build:ui && npm run build:electron",
+    "app": "npm run build && electron .",
+    "format-sync": "node scripts/format-sync.mjs",
+    "package:smoke": "node scripts/package-smoke.mjs",
+    "notices": "node scripts/third-party-notices.mjs",
+    "notices:check": "node scripts/third-party-notices.mjs --check",
+    "screenshots": "npm run build && node scripts/screenshots.ts"
+  },
+  "devDependencies": {
+    "@codemirror/lang-cpp": "^6.0.3",
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-go": "^6.0.1",
+    "@codemirror/lang-html": "^6.4.12",
+    "@codemirror/lang-java": "^6.0.2",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-less": "^6.0.2",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/lang-php": "^6.0.2",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/lang-rust": "^6.0.2",
+    "@codemirror/lang-sass": "^6.0.2",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/lang-xml": "^6.1.0",
+    "@codemirror/lang-yaml": "^6.1.3",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/legacy-modes": "^6.5.4",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
+    "@lezer/highlight": "^1.2.5",
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/js-beautify": "^1.14.3",
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^24.19.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
+    "@vitejs/plugin-react": "^6.1.1",
+    "@vscode/codicons": "^0.0.46-24",
+    "allotment": "^1.20.5",
+    "electron": "^44.5.0",
+    "electron-builder": "^26.15.3",
+    "happy-dom": "^20.14.5",
+    "js-beautify": "^2.0.3",
+    "markdown-it": "^15.0.2",
+    "oxlint": "^1.86.0",
+    "parse5": "^8.0.1",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1"
+  },
+  "homepage": "https://github.com/asantos43/folder-browser",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asantos43/folder-browser.git"
+  },
+  "build": {
+    "appId": "io.github.asantos43.folder-browser",
+    "productName": "Folder Browser",
+    "copyright": "Copyright (c) 2026 Anderson Santos",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asar": true,
+    "electronLanguages": [
+      "en-US",
+      "pt-BR"
+    ],
+    "artifactName": "folder-browser-${version}-${os}-${arch}.${ext}",
+    "linux": {
+      "target": [
+        "deb",
+        "rpm"
+      ],
+      "icon": "build/icons",
+      "category": "Utility",
+      "maintainer": "Folder Browser <noreply@github.com>",
+      "synopsis": "Folder and ZIP browser and editor, with a WSNP viewer",
+      "mimeTypes": [
+        "application/vnd.wsnp+zip"
+      ],
+      "executableName": "folder-browser",
+      "syncDesktopName": true
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": "universal"
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "identity": null
+    },
+    "fileAssociations": [
+      {
+        "ext": "wsnp",
+        "name": "WSNP snapshot",
+        "description": "WSNP snapshot (a saved web page)",
+        "mimeType": "application/vnd.wsnp+zip",
+        "role": "Viewer",
+        "isPackage": false
+      }
+    ],
+    "deb": {
+      "fpm": [
+        "build/linux/folder-browser.xml=/usr/share/mime/packages/folder-browser-magic.xml"
+      ]
+    },
+    "rpm": {
+      "fpm": [
+        "build/linux/folder-browser.xml=/usr/share/mime/packages/folder-browser-magic.xml"
+      ]
+    },
+    "extraResources": [
+      {
+        "from": "THIRD-PARTY-NOTICES.md",
+        "to": "THIRD-PARTY-NOTICES.md"
+      },
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.md"
+      }
+    ]
+  },
+  "desktopName": "folder-browser.desktop"
+}

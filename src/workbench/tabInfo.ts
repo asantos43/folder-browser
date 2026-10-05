@@ -1,0 +1,60 @@
+import { viewKind } from '@core/filekind.ts'
+import { isInner } from '@core/vpath.ts'
+import type { Translate } from '@/i18n/index.ts'
+import { basename } from '@/lib/format.ts'
+import { fileIcon } from '@/lib/icons.ts'
+import type { Tab, Workspace } from '@/state/workspace.ts'
+
+export interface TabView {
+  label: string
+  /** Shown beside the label when two tabs have the same one. */
+  description: string
+  icon: string
+  tooltip: string
+}
+
+export const snapshotTitle = (ws: Workspace, id: string): string => {
+  const snapshot = ws.snapshots[id]
+  if (!snapshot) return ''
+  const { manifest } = snapshot
+  let host = ''
+  try {
+    host = new URL(manifest.source.url).host
+  } catch {
+    // not an address: the file name will do
+  }
+  return manifest.title || host || basename(snapshot.path)
+}
+
+/** What a tab shows: its name, an icon, and where it is from when the name alone would be ambiguous. */
+export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> {
+  const base = ws.tabs.map((tab): [Tab, string, string, string] => {
+    const snapshot = ws.snapshots[tab.snapshotId]
+    if (tab.view === 'settings') return [tab, t('settings.title'), 'settings-gear', t('settings.title')]
+    if (tab.view === 'metadata') return [tab, t('tabs.metadataOf', { name: snapshotTitle(ws, tab.snapshotId) }), 'info', snapshot?.manifest.source.url ?? '']
+    if (tab.path === undefined) return [tab, snapshotTitle(ws, tab.snapshotId), 'browser', snapshot?.manifest.source.url ?? '']
+    const file = snapshot?.files.find((f) => f.path === tab.path)
+    return [tab, basename(tab.path), fileIcon(file?.mediaType, tab.path), `${snapshotTitle(ws, tab.snapshotId)} › ${tab.path.replaceAll('!/', ' › ')}`]
+  })
+  const counts = new Map<string, number>()
+  for (const [, label] of base) counts.set(label, (counts.get(label) ?? 0) + 1)
+  return new Map(
+    base.map(([tab, label, icon, tooltip]) => [
+      tab.key,
+      {
+        label,
+        icon,
+        tooltip: tooltip || label,
+        description: (counts.get(label) ?? 0) > 1 ? (tab.path === undefined ? (ws.snapshots[tab.snapshotId]?.manifest.source.url ?? '') : snapshotTitle(ws, tab.snapshotId)) : '',
+      },
+    ]),
+  )
+}
+
+/** How the file of a tab is shown, from what the manifest and the archive say about it. */
+export const kindOf = (ws: Workspace, tab: Tab) => {
+  let file: { path: string; size: number; mediaType?: string } | undefined = ws.snapshots[tab.snapshotId]?.files.find((f) => f.path === tab.path)
+  // An entry of a ZIP in the snapshot is not in the manifest: its type comes from its name and its size from the ZIP's list.
+  if (!file && tab.path && isInner(tab.path) && ws.snapshots[tab.snapshotId]) file = { path: tab.path, size: tab.size ?? 0 }
+  return { file, kind: file && tab.path ? viewKind(file.mediaType, tab.path, file.size) : ('other' as const) }
+}

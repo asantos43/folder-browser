@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: The third-party notices are up to date
+        run: npm run notices:check
+      - name: The format docs match their record (and the other repository, when it is there)
+        run: npm run format-sync
+      - run: npm test
+      - name: Install a virtual display (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: npm run build
+      - name: End-to-end tests (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npx playwright test
+      - name: End-to-end tests
+        if: runner.os != 'Linux'
+        run: npx playwright test
+
+  package:
+    name: Package on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            script: package:linux
+          - os: windows-latest
+            script: package:win
+          - os: macos-latest
+            script: package:mac
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Tools for .rpm and a virtual display (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm xvfb
+      - run: npm ci
+      - run: npm run ${{ matrix.script }}
+      - name: Packaging smoke test (Linux)
+        if: runner.os == 'Linux'
+        # The packages have the menu entry, the file type and the icon, and the application inside starts and says its version.
+        run: xvfb-run -a node scripts/package-smoke.mjs --no-sandbox
+      - name: Packaging smoke test
+        if: runner.os != 'Linux'
+        run: node scripts/package-smoke.mjs
+      - name: Sizes
+        shell: bash
+        run: |
+          echo "### Release files on ${{ matrix.os }} (unsigned)" >> "$GITHUB_STEP_SUMMARY"
+          for f in release/*.deb release/*.rpm release/*.exe release/*.dmg; do
+            [ -f "$f" ] && echo "- \`$(basename "$f")\`: $(du -m "$f" | cut -f1) MB" >> "$GITHUB_STEP_SUMMARY"
+          done
+          exit 0
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.os }}
+          path: |
+            release/*.deb
+            release/*.rpm
+            release/*.exe
+            release/*.dmg
+          if-no-files-found: error
+          retention-days: 7

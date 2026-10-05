@@ -1,0 +1,175 @@
+@import 'tailwindcss';
+@import './theme/tokens.css';
+@import '@vscode/codicons/dist/codicon.css';
+@import 'allotment/dist/style.css';
+
+/* The tokens are the only colours: Tailwind's colour scale is replaced by them. */
+@theme {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-fg: var(--vscode-foreground);
+  --color-fg-muted: var(--vscode-descriptionForeground);
+  --color-icon: var(--vscode-icon-foreground);
+  --color-focus: var(--vscode-focusBorder);
+  --color-link: var(--vscode-textLinkForeground);
+  --color-error: var(--vscode-errorForeground);
+  --color-editor: var(--vscode-editor-background);
+  --color-editor-fg: var(--vscode-editor-foreground);
+  --color-group-border: var(--vscode-editorGroup-border);
+  --color-tabs: var(--vscode-editorGroupHeader-tabsBackground);
+  --color-widget: var(--vscode-editorWidget-background);
+  --color-widget-border: var(--vscode-editorWidget-border);
+  --color-crumb: var(--vscode-breadcrumb-foreground);
+  --color-titlebar: var(--vscode-titleBar-activeBackground);
+  --color-titlebar-fg: var(--vscode-titleBar-activeForeground);
+  --color-titlebar-off: var(--vscode-titleBar-inactiveBackground);
+  --color-titlebar-off-fg: var(--vscode-titleBar-inactiveForeground);
+  --color-activity: var(--vscode-activityBar-background);
+  --color-activity-fg: var(--vscode-activityBar-foreground);
+  --color-activity-off: var(--vscode-activityBar-inactiveForeground);
+  --color-activity-active: var(--vscode-activityBar-activeBorder);
+  --color-sidebar: var(--vscode-sideBar-background);
+  --color-sidebar-fg: var(--vscode-sideBar-foreground);
+  --color-sidebar-title: var(--vscode-sideBarTitle-foreground);
+  --color-section-border: var(--vscode-sideBarSectionHeader-border);
+  --color-status: var(--vscode-statusBar-background);
+  --color-status-off: var(--vscode-statusBar-inactiveBackground);
+  --color-status-fg: var(--vscode-statusBar-foreground);
+  --color-status-hover: var(--vscode-statusBarItem-hoverBackground);
+  --color-list-hover: var(--vscode-list-hoverBackground);
+  --color-menu: var(--vscode-menu-background);
+  --color-menu-fg: var(--vscode-menu-foreground);
+  --color-menu-select: var(--vscode-menu-selectionBackground);
+  --color-menu-select-fg: var(--vscode-menu-selectionForeground);
+  --color-menu-separator: var(--vscode-menu-separatorBackground);
+  --color-menu-border: var(--vscode-menu-border);
+  --color-button: var(--vscode-button-background);
+  --color-button-fg: var(--vscode-button-foreground);
+  --color-button-hover: var(--vscode-button-hoverBackground);
+  --color-list-active: var(--vscode-list-activeSelectionBackground);
+  --color-list-active-fg: var(--vscode-list-activeSelectionForeground);
+  --color-list-inactive: var(--vscode-list-inactiveSelectionBackground);
+  --color-tab-active: var(--vscode-tab-activeBackground);
+  --color-tab-inactive: var(--vscode-tab-inactiveBackground);
+  --color-tab-active-fg: var(--vscode-tab-activeForeground);
+  --color-tab-inactive-fg: var(--vscode-tab-inactiveForeground);
+  --color-tab-border: var(--vscode-tab-border);
+  --color-badge: var(--vscode-badge-background);
+  --color-badge-fg: var(--vscode-badge-foreground);
+  --color-toolbar-hover: var(--vscode-toolbar-hoverBackground);
+  --font-sans: var(--vscode-font-family);
+  --font-mono: var(--vscode-editor-font-family);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: auto;
+}
+
+/* Sashes as VS Code draws them: 4 px, lit with the focus colour on hover. */
+:root {
+  --focus-border: var(--vscode-focusBorder);
+  --separator-border: transparent;
+  --sash-size: 4px;
+  --sash-hover-size: 4px;
+}
+
+*:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.drag {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+::-webkit-scrollbar-thumb:active {
+  background: var(--vscode-scrollbarSlider-activeBackground);
+}
+
+/* Source text can be selected and copied, unlike the rest of the interface. */
+.cm-editor,
+.cm-content,
+.cm-line {
+  user-select: text;
+}
+.cm-editor.cm-focused {
+  outline: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* The matches of Find in the views drawn as HTML (the CSS Custom Highlight API: no element is added to the page). */
+::highlight(wsnp-find) {
+  background-color: var(--wsnp-find-match);
+  color: inherit;
+}
+::highlight(wsnp-find-current) {
+  background-color: var(--wsnp-find-current);
+  color: inherit;
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+/* A Markdown file shown formatted (src/views/MarkdownView.tsx): VS Code's own preview in the colours of the theme; the size follows the tab's zoom. */
+.markdown-body {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 32px 48px;
+  font-family: var(--vscode-font-family);
+  font-size: calc(var(--wsnp-zoom, 1) * 14px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.markdown-body.wide { max-width: none; margin: 0; }
+.markdown-body.wrap-code pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.markdown-body > :first-child { margin-top: 0; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 { margin: 1.4em 0 0.6em; font-weight: 600; line-height: 1.25; }
+.markdown-body h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid var(--vscode-editorGroup-border); }
+.markdown-body h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid var(--vscode-editorGroup-border); }
+.markdown-body h3 { font-size: 1.25em; }
+.markdown-body h4 { font-size: 1em; }
+.markdown-body h5, .markdown-body h6 { font-size: 0.875em; }
+.markdown-body p, .markdown-body ul, .markdown-body ol, .markdown-body pre, .markdown-body table, .markdown-body blockquote { margin: 0 0 1em; }
+.markdown-body ul, .markdown-body ol { padding-left: 2em; }
+.markdown-body li > ul, .markdown-body li > ol { margin: 0; }
+.markdown-body a { color: var(--vscode-textLinkForeground); text-decoration: none; cursor: pointer; }
+.markdown-body a:hover { text-decoration: underline; }
+.markdown-body code { font-family: var(--vscode-editor-font-family); font-size: 0.9em; padding: 0.15em 0.35em; border-radius: 3px; background: var(--vscode-editorWidget-background); }
+.markdown-body pre { padding: 12px 16px; overflow: auto; border-radius: 4px; background: var(--vscode-editorWidget-background); line-height: 1.45; }
+.markdown-body pre code { padding: 0; background: none; font-size: 0.9em; }
+.markdown-body blockquote { padding: 0 1em; border-left: 4px solid var(--vscode-editorGroup-border); color: var(--vscode-descriptionForeground); }
+.markdown-body hr { height: 1px; margin: 1.5em 0; border: 0; background: var(--vscode-editorGroup-border); }
+.markdown-body table { border-collapse: collapse; display: block; max-width: 100%; overflow: auto; }
+.markdown-body th, .markdown-body td { padding: 6px 13px; border: 1px solid var(--vscode-editorGroup-border); }
+.markdown-body th { font-weight: 600; background: var(--vscode-editorWidget-background); }
+.markdown-body .md-image { padding: 0 0.35em; border: 1px dashed var(--vscode-editorGroup-border); border-radius: 3px; color: var(--vscode-descriptionForeground); }
+.markdown-body .md-image::before { content: '🖼 '; }

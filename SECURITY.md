@@ -1,0 +1,50 @@
+# Security
+
+## Reporting a vulnerability
+
+Please **do not open a public issue** for a vulnerability. Use GitHub's private report: <https://github.com/asantos43/folder-browser/security/advisories/new>
+(the repository's **Security** tab › **Report a vulnerability**). Say which version, which system, and how to reproduce it; a synthetic file that shows it is best. **Never attach a real capture or a
+private file.** You will get an answer, and a fix goes out as a new release with the report credited, unless you prefer not.
+
+## Supported versions
+
+The latest release. Fixes are not backported.
+
+## The threat model in short
+
+Folder Browser opens files that other people made, and **changes files on your computer**. A `.wsnp` (and, later, a `.wsnpx`, or a ZIP saved by PageKeep) is treated as **hostile**: it may hold a page that tries to reach the network, a
+script that tries to reach the interface or another snapshot, a manifest that lies, or an archive built to exhaust memory.
+
+| The file tries to… | What stops it |
+| --- | --- |
+| Load anything from the internet, or send something | The page runs under a strict Content Security Policy (`default-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline' data:`), **and** every request that is not the interface's own or the snapshot asking for itself is cancelled by the session below the page. Two independent layers, both tested with a page that tries sixteen ways. |
+| Read the interface, its storage, or another snapshot | Each snapshot is an `<iframe sandbox="allow-scripts">` without `allow-same-origin`: an opaque origin, no storage, no access to the parent. A snapshot's id is unguessable, and a request for another snapshot's files is cancelled. |
+| Call the application (Node, files, the operating system) | The window has no Node, context isolation, and a preload that offers a handful of calls; only the window's own top frame can use them (a snapshot's frame has no preload, and is refused anyway). Paths and ids are validated in the main process. |
+| Run its own scripts | Only the format's own scripts (`_wsnp/`) run; inline scripts and `eval` are refused by the policy. |
+| Navigate the window away, open windows, download | Navigation is cancelled; a click on a web link goes to the default browser; windows and downloads are denied. |
+| Lie about its size, or be a zip bomb | The reader checks every entry against the size its ZIP directory declares (in `read` and at the end of a stream) and refuses a file whose size is over a limit before reading a byte; a manifest over 64 MB is refused unread; ZIP64, ZIP encryption, unsafe and clashing names are refused. |
+| Be edited after it was written | The SHA-256 and size of every file are checked against the manifest, and a signed manifest against its signature: a snapshot that fails is **not valid** and its page is held back. See `docs/MANIFEST-SIGNING.md` for what a signature proves and what it does not. |
+| Hold a ZIP that writes outside the folder it is extracted to, or that is a bomb | A ZIP inside a snapshot is read in memory (at most 256 MB) and extracted only when the user asks, to a folder the user chose. A name that is absolute, has a drive, `..`, a backslash or a NUL is listed as unsafe and never written (`safeRelative` in `core/zip.ts`, with the path checked again to be inside the folder); links are never created or followed; nothing is overwritten (the new file is numbered); characters Windows forbids become `_`; a ZIP that declares more than 8 GB is refused before anything is written, and a stream that delivers more than it declared is cut. Tested with hostile names, links and sizes (`core/zip.test.ts`, `e2e/zip.spec.ts`). |
+| Reach the clipboard, the printer or the page through the find and print calls | They are calls of the interface's top frame only, with validated arguments (a snapshot id, a query of at most 1 000 characters, a text of at most 16 MB). The page's text is searched and its selection read by running a fixed script in its frame; nothing the page says is run by the viewer. A page is printed from a view of its own with the same isolation and no network, and a text or a picture from a window with no script and a policy that allows only its own data. |
+| Be a PageKeep ZIP with scripts, handlers or references to the network | The conversion removes them (docs/PAGEKEEP-ZIP.md, section 3) and the result is shown under the same policy as any snapshot; **Save as .wsnp** only delivers a file that passes the viewer's validator, after every file's SHA-256 and the page scans. The temporary file is in a folder of its own, and is deleted when the snapshot closes. |
+| Get another application to run it (Open With…) | Only a read-only copy of one file, in a folder of its own, is handed to the application the user picks in the system's own chooser; a name that could run as a program (`.exe`, `.bat`, `.sh`, `.desktop`, `.jar`, `.lnk`…) is refused before anything is written, names are reduced to their last part with no separators or control characters, and the copy is removed at quit (and a stale one at start). On Linux only an application that the viewer's own dialog listed (from the desktop's `.desktop` files) can be launched, by the id the dialog gave, and only with the copy made for it. |
+| Use the script the viewer runs in a page (the zoom keys, the wheel, the link under the pointer) | It is a fixed text (`core/frameScript.ts`) run by the main process in the frame of a snapshot after it loads; it only listens for the zoom keys, the wheel with Control and the pointer over links, and posts a message to the interface, which accepts it only from the frame of the page on screen and only if it says a direction, a turn of the wheel, or an address (cut at 2000 characters) with a place. The address is drawn as plain text by the interface. A page can post the same messages, and all that comes of it is its own tab zooming, or a tooltip with its own words beside the pointer. |
+| Be a PDF with scripts | pdf.js draws it inside the interface with no scripting object: nothing of the PDF runs, and nothing is fetched. |
+
+## Changing files (planned, phases 2 to 5)
+
+The rules are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), "Safety rules for writing": the app touches only the folders and ZIP files you opened (a path that leaves them, by `..` or by a
+symlink, is refused); deleting sends to the trash; a file or a ZIP is written to a temporary file and renamed, after checking that it did not change on disk; nothing is overwritten without asking; the entries of a
+`.wsnp` are never edited (that would break its manifest and signature); and a ZIP with ZIP64 or encryption stays read-only.
+
+**Not covered:** a computer that is already compromised; a signer who signs a page they faked before capturing it (a signature says which key signed, not who, nor that the page was true); a
+vulnerability in Chromium or Electron (see below).
+
+## Electron and Chromium
+
+The application is Electron, which carries Chromium. A release is made with a recent Electron, and **a new Electron version is taken every few months, and at once for a security fix** that reaches the
+renderer. The release notes say which Electron a version has (Help › About shows it too).
+
+## Releases
+
+The release files are built by GitHub Actions from the repository, and are **not signed yet** (Windows and macOS warn on the first launch). Check a file against the checksums in the release notes.
