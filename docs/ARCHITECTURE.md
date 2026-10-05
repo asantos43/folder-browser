@@ -39,6 +39,8 @@ A `.wsnp` is a ZIP too, but it opens as a snapshot; "Open as ZIP" lists its entr
 | `core/fs/writeAtomic.ts` | temporary file in the same folder, `fsync`, `rename`; compares the modified time that was read |
 | `core/archive/edit.ts` | A list of operations on a ZIP (`add`, `replace`, `delete`, `rename`, `mkdir`), applied in **one pass**: read with `reader.ts`, write a new ZIP with `writer.ts` into a temporary file, rename over the original. A folder is an entry ending in `/`; renaming one changes the prefix of its entries. A nested ZIP is rewritten inside out. Refuses ZIP64, encrypted ZIPs and `.wsnp` |
 | `core/diff.ts` | Whether two entries can be compared (both text, at most 5 MB) and loading both sides, from disk or a ZIP |
+| `core/places.ts`, `core/trash.ts` | The list of places (Home, Documents, Downloads, Music, Pictures, Videos, Desktop, Trash, Computer, volumes, Recent Folders, Favourites), built from the paths the main process gives it and kept only if they exist; the Trash by system (freedesktop `Trash/files` + `.trashinfo`, macOS `~/.Trash`; Windows opens the system Recycle Bin) |
+| `electron/media-protocol.ts` | `fb-media://<id>/`: serves a file the user opened with **Range** (206), reusing the logic of `core/serve.ts`; only paths inside the authorised roots, by an id the main process made, never a path in the URL |
 | `src/workbench/contextMenu.ts` | `buildContextMenu(selection, ctx)`: a pure function from kind of file, origin (disk, ZIP, `.wsnp`) and selection to the menu |
 
 ## IPC (`core/api.ts`, `window.fb`)
@@ -55,7 +57,18 @@ validated. New: `list-dir`, `stat`, `read-file`, `write-file`, `create-file`, `c
 5. **`.wsnp` is read-only inside**: editing its entries would invalidate the manifest and the signature. The whole file can be renamed, moved or deleted.
 6. **Hostile archives.** Names in a ZIP go through `safeRelative`; ZIP64, ZIP encryption and unsupported methods stay read-only; sizes are checked against the directory; a ZIP read in memory is at most 256 MB.
 7. **No shell.** Open With… launches an application with the arguments parsed from its `.desktop` file, never through a shell, and a name that could run as a program is not handed over.
-8. **No network.** The app makes no request; only a web link that the user clicks goes to the default browser.
+8. **Media is served by id.** The `fb-media://` protocol never takes a path from the URL; it answers only for files the user opened, inside the authorised roots.
+9. **No network.** The app makes no request; only a web link that the user clicks goes to the default browser.
+
+## Places and favourites
+
+The side bar starts with a **Places** section: Home, Desktop, Documents, Downloads, Music, Pictures, Videos, Trash, Computer, mounted volumes, **Recent Folders** and the folders the user pinned (**Favourites**). A click is the user's choice, so
+the folder becomes an authorised root; the app never authorises a folder on its own. Dragging files onto a place moves them there. Favourites and recent folders are kept in `favorites.json` and `recent-folders.json` in the app's folder (written whole, then renamed, like `session.json`).
+
+## Media
+
+Video and audio play in a tab (`MediaView`, the Chromium's `<video>` and `<audio>`), from the `fb-media://` protocol with Range so that seeking works on large files. An entry in a ZIP that is *stored* is streamed from the archive; a *deflated* one has no cheap seek, so it is
+played from a temporary copy (`core/stage.ts`, removed at quit, up to 2 GB). What the Chromium cannot decode (for example HEVC) is said in words, with **Open With…** as the way out. The page of a media file runs nothing: it is a decoder and a set of controls.
 
 ## Editing and diff
 

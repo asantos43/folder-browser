@@ -17,9 +17,11 @@ Brazilian Portuguese, following the system language. [Português do Brasil](READ
 
 | | |
 | --- | --- |
+| **Places** | A side bar with **Home, Documents, Downloads, Music, Pictures, Videos, Desktop, Trash**, your **recent folders** and **favourite folders** (drag a folder to pin it). |
 | **Browse** | A tree of folders and ZIP files (a ZIP opens like a folder, even inside another ZIP), with a switch to **show hidden files** (`Ctrl+H`). |
 | **Change** | Create, **rename**, move and delete files and folders, on disk and inside a ZIP. Delete goes to the trash. |
 | **Edit** | Text files (HTML, TXT, JSON, Markdown, source code…) open in an editor with syntax colours; `Ctrl+S` saves to the folder or back into the ZIP. |
+| **Play** | Videos and sounds play in a tab (mp4, webm, mp3, flac, wav…), with seek, volume, speed and Next/Previous in the folder, also from a ZIP. |
 | **Compare** | Select two text files (disk or ZIP) and see their **diff**, side by side or unified. |
 | **Right click** | A menu by kind of file (text, picture, PDF, ZIP, `.wsnp`, folder), and **Open With…** on every file, with the applications installed on the computer. |
 | **WSNP** | `.wsnp` files open as snapshots, isolated, checked (SHA-256, signature) and with no network, as in WSNP Viewer. They are read-only. |

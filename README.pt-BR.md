@@ -17,9 +17,11 @@ Brasil, conforme o idioma do sistema. [English](README.md).
 
 | | |
 | --- | --- |
+| **Lugares** | Uma barra lateral com **Home, Documentos, Downloads, Música, Imagens, Vídeos, Área de trabalho, Lixeira**, suas **pastas recentes** e suas **pastas favoritas** (arraste uma pasta para fixá-la). |
 | **Navegar** | Uma árvore de pastas e arquivos ZIP (o ZIP abre como pasta, até dentro de outro ZIP), com uma chave para **mostrar arquivos ocultos** (`Ctrl+H`). |
 | **Alterar** | Criar, **renomear**, mover e apagar arquivos e pastas, no disco e dentro de um ZIP. Apagar manda para a lixeira. |
 | **Editar** | Arquivos de texto (HTML, TXT, JSON, Markdown, código…) abrem num editor com cores de sintaxe; `Ctrl+S` salva na pasta ou de volta no ZIP. |
+| **Tocar** | Vídeos e sons tocam numa aba (mp4, webm, mp3, flac, wav…), com busca, volume, velocidade e Próximo/Anterior na pasta, também de dentro de um ZIP. |
 | **Comparar** | Escolha dois arquivos de texto (disco ou ZIP) e veja o **diff**, lado a lado ou unificado. |
 | **Botão direito** | Um menu por tipo de arquivo (texto, imagem, PDF, ZIP, `.wsnp`, pasta) e **Abrir com…** em todo arquivo, com os aplicativos instalados no computador. |
 | **WSNP** | Arquivos `.wsnp` abrem como snapshots, isolados, verificados (SHA-256, assinatura) e sem rede, como no WSNP Viewer. São somente leitura. |

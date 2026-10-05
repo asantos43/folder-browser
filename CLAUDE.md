@@ -10,6 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - creates, **renames**, moves, deletes and edits files, and creates, renames and removes folders, on disk **and inside ZIPs**;
 - edits text files (HTML, TXT, JSON, code…) with CodeMirror 6, saving to the disk or back into the ZIP;
 - compares two text files in a diff (`@codemirror/merge`);
+- has a **Places** side bar (Home, Documents, Downloads, Music, Pictures, Videos, Desktop, Trash, Recent Folders, Favourites, volumes);
+- **plays video and audio** in a tab (`fb-media://` with Range);
 - shows a context menu by kind of file, with **Open With…** (the installed applications) on every file;
 - opens `.wsnp` snapshots exactly as WSNP Viewer does (read-only).
 
@@ -38,7 +40,7 @@ Node 22+ (CI uses 24, `.nvmrc`). `npm ci` first.
 
 ## Code layout
 
-- `core/`: plain TypeScript, **no Electron imports**, tested next to the code: `archive/` (yauzl reader, yazl writer), `zip.ts`, `extract.ts` (`safeRelative`), `vpath.ts` (the path `zip!/entry`, nested `a.zip!/b.zip!/c`), `tree.ts`, `filekind.ts`, `snapshots.ts`, `validate/`, `convert/`, `apps.ts`, `stage.ts`, `api.ts` (what the preload offers). To come: `fs/` (guard, listDir, hidden, ops, writeAtomic), `archive/edit.ts`, `diff.ts`.
+- `core/`: plain TypeScript, **no Electron imports**, tested next to the code: `archive/` (yauzl reader, yazl writer), `zip.ts`, `extract.ts` (`safeRelative`), `vpath.ts` (the path `zip!/entry`, nested `a.zip!/b.zip!/c`), `tree.ts`, `filekind.ts`, `snapshots.ts`, `validate/`, `convert/`, `apps.ts`, `stage.ts`, `api.ts` (what the preload offers). To come: `fs/` (guard, listDir, hidden, ops, writeAtomic), `archive/edit.ts`, `diff.ts`, `places.ts`, `trash.ts`.
 - `electron/`: main process: `main.ts`, `window.ts`, `ui-protocol.ts` (`fb-ui://`), `snapshot-host.ts` (IPC and the snapshots), `snapshot-view.ts` (`wsnp://`), `preload.ts` (`window.fb`), `open-with.ts`, `print.ts`, `menu.ts`.
 - `src/`: the interface (React 19, Tailwind 4; `theme/tokens.css` is the only place with colours; `i18n/` en and pt-BR; `state/` the pure reducer of tabs; `views/`, `workbench/`, `find/`, `components/`).
 - `export/` (capture, PDF), `fixtures/` (synthetic builders), `e2e/`, `scripts/`, `docs/`, `build/` (icons, the Linux MIME file).
@@ -54,6 +56,7 @@ The interface scheme is `fb-ui://`; the preload exposes `window.fb` (`FbApi` in 
 - A file is written to a temporary file in the same folder, then renamed; the modified time read is compared with the one on disk first (the file may have changed). A ZIP is rewritten the same way, in one pass for all the operations.
 - Move and rename never overwrite without asking, and never put a folder inside itself.
 - A `.wsnp` is read-only inside (editing would break its manifest and signature); the whole file can be renamed, moved, deleted.
+- A click on a Places item is what authorises that folder; the app never adds a root on its own. Media is served by an id (`fb-media://`), never by a path in the URL.
 - Open With… hands an application a copy (entries of a ZIP) or the file; the command is run without a shell, with `Exec` parsed from the `.desktop` file; the names that could run as programs are refused (`core/stage.ts`).
 
 ## Gotchas inherited from wsnp-viewer
