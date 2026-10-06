@@ -5,14 +5,14 @@ import { useI18n } from '@/i18n/context.tsx'
 import { comparable } from '@core/diff.ts'
 import { basename } from '@/lib/format.ts'
 import { groupOf, isSplit, shownIn, type Action, type GroupId, type Tab, type Workspace } from '@/state/workspace.ts'
-import { dragging, TAB_DRAG } from './dnd.ts'
+import { draggedFile, dragging, FILE_DRAG, TAB_DRAG, type DraggedFile } from './dnd.ts'
 import type { TabView } from './tabInfo.ts'
 
 /** Whether a tab shows a text file that can be one side of a comparison, or of two files side by side. */
 export const isTextTab = (tab: Tab | undefined): boolean => tab !== undefined && tab.path !== undefined && tab.view === undefined && tab.as === undefined && comparable(basename(tab.path), tab.size ?? 0)
 
 /** The tab strip: 35 px, as VS Code's, with preview (italic) and pinned tabs, drag to reorder, middle click and × to close, a context menu. */
-export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenWith, onDropOnTab }: { ws: Workspace; /** The group whose tabs this strip shows. */ group: GroupId; /** A tab was dropped in the middle of another one (two text files): asks what to do with the two. */ onDropOnTab?: (dragged: string, target: string) => void; views: Map<string, TabView>; dispatch: (a: Action) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; /** Opens the file of the tab in another application (a file of a snapshot has no other way to be handed to one). */ onOpenWith?: (snapshotId: string, path: string) => void }) {
+export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenWith, onDropOnTab, onDropFileOnTab, onDropFile }: { /** A file of the tree was dropped in the middle of a text tab (and is a text too): asks what to do with the two. */ onDropFileOnTab?: (file: DraggedFile, target: string) => void; /** A file of the tree was dropped on a tab, not in its middle: opened in this group. */ onDropFile?: (file: DraggedFile, group: GroupId) => void; ws: Workspace; /** The group whose tabs this strip shows. */ group: GroupId; /** A tab was dropped in the middle of another one (two text files): asks what to do with the two. */ onDropOnTab?: (dragged: string, target: string) => void; views: Map<string, TabView>; dispatch: (a: Action) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; /** Opens the file of the tab in another application (a file of a snapshot has no other way to be handed to one). */ onOpenWith?: (snapshotId: string, path: string) => void }) {
   const { t } = useI18n()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [over, setOver] = useState<{ key: string; after: boolean; middle: boolean } | null>(null)
@@ -65,19 +65,35 @@ export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenW
   }
 
   /** Where on a tab the pointer is: the middle of it (two text files then ask what to do), and the half it is in (the side of the tab the dragged one lands on). */
-  const place = (event: DragEvent, target: Tab, dragged: Tab | undefined) => {
+  const place = (event: DragEvent, target: Tab, dragged: { key: string; text: boolean } | undefined) => {
     const box = event.currentTarget.getBoundingClientRect()
     const x = (event.clientX - box.left) / box.width
-    return { after: x > 0.5, middle: x > 0.3 && x < 0.7 && isTextTab(dragged) && isTextTab(target) && dragged!.key !== target.key }
+    return { after: x > 0.5, middle: x > 0.3 && x < 0.7 && dragged !== undefined && dragged.text && isTextTab(target) && dragged.key !== target.key }
+  }
+  /** What is being dragged over a tab, when it is a tab of the strip or a file of the tree. */
+  const draggedOver = (): { key: string; text: boolean } | undefined => {
+    const key = dragging.tab()
+    if (key) return { key, text: isTextTab(ws.tabs.find((x) => x.key === key)) }
+    const file = dragging.file()
+    return file ? { key: `file:${file.rootId}:${file.path}`, text: comparable(file.name, file.size) } : undefined
   }
   const drop = (event: DragEvent, target: Tab) => {
     const key = event.dataTransfer.getData(TAB_DRAG)
     setOver(null)
-    if (!key || key === target.key) return
+    if (!key) {
+      // A file of the tree: in the middle of a text tab (two texts) it asks what to do with the two; elsewhere on a tab it opens in this group.
+      const file = draggedFile(event.dataTransfer)
+      if (!file) return
+      event.preventDefault()
+      const { middle } = place(event, target, { key: `file:${file.rootId}:${file.path}`, text: comparable(file.name, file.size) })
+      if (middle && onDropFileOnTab && !(target.snapshotId === file.rootId && target.path === file.path)) return onDropFileOnTab(file, target.key)
+      return onDropFile?.(file, group)
+    }
+    if (key === target.key) return
     event.preventDefault()
     const dragged = ws.tabs.find((x) => x.key === key)
     if (!dragged) return
-    const { after, middle } = place(event, target, dragged)
+    const { after, middle } = place(event, target, { key, text: isTextTab(dragged) })
     if (middle && onDropOnTab) return onDropOnTab(key, target.key)
     // From the other group: it goes into this one, next to the tab it was dropped on. In the group: it is moved.
     if (groupOf(dragged) !== group) return dispatch({ type: 'move-to-group', key, group, at: { key: target.key, after } })
@@ -108,9 +124,10 @@ export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenW
               }}
               onDragEnd={() => dragging.end()}
               onDragOver={(e) => {
-                if (!e.dataTransfer.types.includes(TAB_DRAG)) return
+                if (!e.dataTransfer.types.includes(TAB_DRAG) && !e.dataTransfer.types.includes(FILE_DRAG)) return
                 e.preventDefault()
-                setOver({ key: tab.key, ...place(e, tab, ws.tabs.find((x) => x.key === dragging.tab())) })
+                e.dataTransfer.dropEffect = e.dataTransfer.types.includes(TAB_DRAG) ? 'move' : 'copy'
+                setOver({ key: tab.key, ...place(e, tab, draggedOver()) })
               }}
               onDragLeave={() => setOver(null)}
               onDrop={(e) => drop(e, tab)}

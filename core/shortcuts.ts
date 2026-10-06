@@ -7,7 +7,7 @@ export interface KeyLike {
   alt?: boolean
 }
 
-export type CommandName = 'toggleSideBar' | 'openFile' | 'openFolder' | 'toggleHidden' | 'find' | 'print' | 'quickOpen' | 'commandPalette' | 'goBack' | 'goForward' | 'openSettings' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'closeEditor' | 'save' | 'saveAll' | 'nextEditor' | 'previousEditor' | 'cycleRecent' | 'cycleRecentBack' | 'goToTab1' | 'goToTab2' | 'goToTab3' | 'goToTab4' | 'goToTab5' | 'goToTab6' | 'goToTab7' | 'goToTab8' | 'goToTab9'
+export type CommandName = 'toggleSideBar' | 'openFile' | 'openFolder' | 'openZip' | 'toggleHidden' | 'find' | 'print' | 'quickOpen' | 'commandPalette' | 'goBack' | 'goForward' | 'openSettings' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'closeEditor' | 'save' | 'saveAll' | 'nextEditor' | 'previousEditor' | 'cycleRecent' | 'cycleRecentBack' | 'goToTab1' | 'goToTab2' | 'goToTab3' | 'goToTab4' | 'goToTab5' | 'goToTab6' | 'goToTab7' | 'goToTab8' | 'goToTab9'
 
 /**
  * VS Code's shortcuts for the commands the viewer has (docs/UI-DESIGN.md, "Behaviour taken from VS Code"): Ctrl on Windows

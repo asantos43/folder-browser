@@ -10,6 +10,8 @@ export interface Commands {
   setTheme: (theme: 'auto' | 'dark' | 'light') => void
   openFile: () => void
   openFolder: () => void
+  /** Asks for a ZIP file to browse (the folder picker of Linux and Windows cannot choose a file). */
+  openZip: () => void
   toggleHidden: () => void
   /** The hidden files are shown in the tree. */
   showHidden: boolean
@@ -91,6 +93,7 @@ export const MENUS: MenuDef[] = [
     entries: (t, c) => [
       { id: 'openFolder', label: t('menu.openFolder'), shortcut: shortcut('Ctrl+Shift+O'), run: c.openFolder },
       { id: 'open', label: t('menu.openFile'), shortcut: shortcut('Ctrl+O'), run: c.openFile },
+      { id: 'openZip', label: t('menu.openZip'), run: c.openZip },
       {
         id: 'recent',
         label: t('menu.openRecent'),

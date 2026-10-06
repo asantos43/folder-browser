@@ -11,7 +11,7 @@ type Listing = { state: 'loading' } | { state: 'ready'; folders: DirEntry[] } | 
  * Where to move an item to: the folders of the root as a tree that reads one level at a time, from the top. A folder cannot be moved into itself (it and what is in it are
  * not offered), and the folder the item is in is not a place to move it to. Enter moves, Esc leaves.
  */
-export function MoveDialog({ rootName, entry, listDir, onMove, onCancel }: { rootName: string; entry: DirEntry; listDir: (path: string) => Promise<ListResult>; onMove: (toFolder: string) => void; onCancel: () => void }) {
+export function MoveDialog({ rootName, entries, listDir, onMove, onCancel }: { rootName: string; entries: DirEntry[]; listDir: (path: string) => Promise<ListResult>; onMove: (toFolder: string) => void; onCancel: () => void }) {
   const { t } = useI18n()
   const [listings, setListings] = useState<Record<string, Listing>>({})
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set(['']))
@@ -20,14 +20,16 @@ export function MoveDialog({ rootName, entry, listDir, onMove, onCancel }: { roo
   const dialog = useRef<HTMLDivElement>(null)
   // The keys (Esc, Enter) are the dialog's from the start: the focus is in it.
   useEffect(() => dialog.current?.focus(), [])
-  const parent = parentPath(entry.path)
+  const entry = entries[0]
+  // (Several items go together: the place is refused only when all of them are in it already.)
+  const parents = new Set(entries.map((e) => parentPath(e.path)))
   // An entry of a ZIP is moved inside its ZIP: the ZIP files (and their folders) are places too; an item of the disk goes to a folder of the disk.
-  const inZip = isInner(entry.path)
+  const inZip = entries.some((e) => isInner(e.path))
 
   const load = (path: string) => {
     setListings((all) => (all[path] ? all : { ...all, [path]: { state: 'loading' } }))
     void listDir(path).then(
-      (result) => setListings((all) => ({ ...all, [path]: 'entries' in result ? { state: 'ready', folders: result.entries.filter((e) => (e.kind === 'dir' || (inZip && e.kind === 'zip')) && !((entry.kind === 'dir' || entry.kind === 'zip') && isUnder(e.path, entry.path))) } : { state: 'error' } })),
+      (result) => setListings((all) => ({ ...all, [path]: 'entries' in result ? { state: 'ready', folders: result.entries.filter((e) => (e.kind === 'dir' || (inZip && e.kind === 'zip')) && !entries.some((moved) => (moved.kind === 'dir' || moved.kind === 'zip') && isUnder(e.path, moved.path))) } : { state: 'error' } })),
       () => setListings((all) => ({ ...all, [path]: { state: 'error' } })),
     )
   }
@@ -55,7 +57,9 @@ export function MoveDialog({ rootName, entry, listDir, onMove, onCancel }: { roo
   }
   walk('', 1)
   const all = [{ path: '', name: rootName, depth: 0 }, ...rows]
-  const canMove = selected !== null && selected !== parent
+  const title = entries.length > 1 ? t('fs.moveTitleMany', { count: entries.length }) : t('fs.moveTitle', { name: entry.name })
+  const here = (path: string) => parents.size === 1 && parents.has(path)
+  const canMove = selected !== null && !here(selected)
 
   const button = 'h-[26px] rounded-sm px-4 text-[13px]'
   return (
@@ -65,7 +69,7 @@ export function MoveDialog({ rootName, entry, listDir, onMove, onCancel }: { roo
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label={t('fs.moveTitle', { name: entry.name })}
+        aria-label={title}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             e.stopPropagation()
@@ -77,10 +81,10 @@ export function MoveDialog({ rootName, entry, listDir, onMove, onCancel }: { roo
         }}
         className="flex max-h-[min(520px,calc(100vh-64px))] w-[min(460px,calc(100vw-32px))] flex-col gap-3 border border-widget-border bg-widget p-5 text-[13px] text-fg shadow-[0_2px_16px_var(--vscode-widget-shadow)]"
       >
-        <h2 className="m-0 text-[16px] font-normal break-all">{t('fs.moveTitle', { name: entry.name })}</h2>
+        <h2 className="m-0 text-[16px] font-normal break-all">{title}</h2>
         <div role="tree" aria-label={t('fs.moveFolders')} className="min-h-[160px] flex-1 overflow-y-auto border border-group-border bg-editor py-0.5">
           {all.map((row) => {
-            const here = row.path === parent
+            const isHere = here(row.path)
             const expandable = row.path !== ''
             return (
               <div
@@ -88,20 +92,20 @@ export function MoveDialog({ rootName, entry, listDir, onMove, onCancel }: { roo
                 role="treeitem"
                 aria-level={row.depth + 1}
                 aria-selected={selected === row.path}
-                aria-disabled={here}
+                aria-disabled={isHere}
                 aria-expanded={expandable ? open.has(row.path) : undefined}
                 tabIndex={0}
-                onClick={() => !here && setSelected(row.path)}
+                onClick={() => !isHere && setSelected(row.path)}
                 onDoubleClick={() => expandable && toggle(row.path)}
                 onKeyDown={(e) => {
                   if (e.key === ' ') {
                     e.preventDefault()
-                    if (!here) setSelected(row.path)
+                    if (!isHere) setSelected(row.path)
                   } else if (e.key === 'ArrowRight' && expandable && !open.has(row.path)) toggle(row.path)
                   else if (e.key === 'ArrowLeft' && expandable && open.has(row.path)) toggle(row.path)
                 }}
                 style={{ paddingLeft: 8 + row.depth * 12 }}
-                className={`flex h-[22px] cursor-pointer items-center gap-1 pr-2 outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus ${here ? 'opacity-50' : ''} ${selected === row.path ? 'bg-list-active text-list-active-fg' : 'hover:bg-list-hover'}`}
+                className={`flex h-[22px] cursor-pointer items-center gap-1 pr-2 outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus ${isHere ? 'opacity-50' : ''} ${selected === row.path ? 'bg-list-active text-list-active-fg' : 'hover:bg-list-hover'}`}
               >
                 <span
                   className="flex w-4 shrink-0 justify-center"

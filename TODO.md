@@ -10,7 +10,8 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] New icon (`build/icon.svg`, `build/icon.png`, `build/icons/*`, `public/icon.svg`): concept C2 chosen by the developer: folder with a zipper, a page, a pencil, play and the lens
 - [x] `asantos43/folder-browser` created on GitHub (private) and `main` pushed
 - [x] `docs/USER-GUIDE.md` and `docs/USER-GUIDE.pt-BR.md` rewritten for Folder Browser (phase 2); `docs/UI-DESIGN.md` (the table of what each part becomes), `docs/DEVELOPMENT.md`, `PRIVACY.md` (en and pt-BR) and `SECURITY.md` brought up to date. `docs/RELEASING.md` has nothing of the viewer that is wrong, but is untried (no release was made yet)
-- [ ] Screenshots for the user guide and the README (the old ones were of WSNP Viewer and were taken out of the guide)
+- [x] Screenshots for the user guide and the README: `npm run screenshots` (`scripts/screenshots.ts`) drives the real application over a synthetic folder (`scripts/demo-folder.ts`, also what to open to look at the app: `node scripts/demo-folder.ts`) and writes `docs/images/*.png`; both guides show them. The windows are 1280×800 in Light+ (and one in Dark+); pictures of Windows and macOS are still to take
+- [ ] In a narrow editor group (two groups side by side at 1280 px) the toolbar of a Markdown file overlaps the buttons of the other group: let the toolbar wrap or hide labels
 - [x] `npm run notices` (`THIRD-PARTY-NOTICES.md`) after the new dependencies come in
 
 ## Phase 1: browse
@@ -30,7 +31,7 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 
 ## Phase 1c: right-click menu and Open With…
 - [x] The right-click menu of the tree by kind of row (`src/workbench/treeMenu.ts`, pure and tested): folder, file, ZIP, `.wsnp`; entries in a ZIP get the file menu
-- [ ] Several rows selected (Compare Selected, Move to…, Delete, Extract) and the actions of later phases (Edit, Compare, Play, Rename…) join the lists as they land
+- [x] Several rows selected: the menu of marked rows has Cut, Copy, Move to…, Delete and Compare Selected (see "Several rows and the file clipboard" below); Extract of several rows is not there yet
 - [x] **Open With…** on every file, with the installed applications (`core/apps.ts`, `OpenWithDialog`); a read-only copy for entries in a ZIP; also **Open with Default Application**, Show in Folder, Copy Path, Copy Name and Properties
 
 ## Phase 1d: places and favourites
@@ -96,12 +97,21 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [x] Create file and folder (a field in the tree, from the header buttons, the menu of a folder and the empty part of the tree), **rename** (`F2` or the menu, in the row, the name without its extension selected), **move** (Move to… with a folder picker, and drag and drop onto a folder or onto the empty part), **delete** (`Delete` or the menu, asks; to the trash, and for good only when the trash refused and the user said yes again)
 - [x] Open tabs follow a renamed or moved item (key, path, place, preview, pin, zoom, and the bytes tab of it) and close with a deleted one; the tree reads again without taking its rows away
 - [x] Tests: path traversal, symbolic links out of the root, move onto an existing name, move a folder into itself, names (unit); the tree's field, menu, keys and drops (component); the whole flow in the real app (e2e `fileops.spec.ts`)
-- [ ] Several rows selected (Ctrl/Shift click) to move, delete and extract at once
+- [x] Several rows selected (Ctrl/⌘+click, Shift+click, Shift+arrows, Ctrl+A) to move, copy, delete, cut, paste and compare at once; extract at once is still to do
 - [ ] Drag onto a place of the side bar to move there, and onto Trash to delete (the places are other folders than the root)
 - [x] Copy by dragging with Shift (also a duplicate in the same folder; numbered, never replacing); Shift+Delete for the permanent delete; folders that open while an item is dragged over them
-- [ ] Copy and paste (`Ctrl+C` / `Ctrl+V`) of files in the tree, and Duplicate in the menu
+- [x] Copy, cut and paste (`Ctrl+C`, `Ctrl+X`, `Ctrl+V`; ⌘ on macOS) of files and folders in the tree and in the right-click menu; pasting a copy where it came from is a duplicate (numbered)
 - [ ] Press Shift *before* the drag: Chromium starts no drag when the mouse goes down with Shift held (it selects); a drag of our own (pointer events) would allow it
 - [ ] Undo of the last delete (Restore from the trash is there) or move
+
+## Several rows and the file clipboard (between phases 5 and 6)
+- [x] The tree marks several rows: **Ctrl/⌘+click** toggles one, **Shift+click** marks a range from the last row clicked, **Shift+arrows** extend it, **Ctrl/⌘+A** marks every row on screen, **Esc** or a plain click lets them go; a Ctrl or Shift click only marks (nothing opens); marks go with their row (`src/workbench/selection.ts`, `ExplorerTree`)
+- [x] An action on a marked row is on all of them, once, and what is in a marked folder is left out (`topmost`): **Delete** and `Shift+Delete` (one question, one notice; the ones the trash cannot take are asked about again, for good), **Move to…** (`MoveDialog` takes the list), dragging (the marked rows go together; Shift copies; a file dragged with others is not a file for the editor), and **Compare Selected** for two text files; the menu of marked rows says how many
+- [x] **Cut, Copy and Paste** (`Ctrl/⌘+X`, `+C`, `+V`, and in the menu of a file, a folder, marked rows and the empty part of the tree): the application's own clipboard (`src/workbench/fileClipboard.ts`); Paste goes into the folder (or ZIP file) that has the focus, next to the file that has it, or into the root; a paste of a copy is numbered, a paste of a cut is a move and is done once, and what was cut is dimmed; in a ZIP it works inside the same ZIP; the macOS Edit menu has Cut, Copy and Paste
+- [x] Tests: `selection.test.ts`, the tree (marks, keys, menus, drag and drop, the clipboard), `MoveDialog.test.tsx`, the real app (`e2e/multiselect.spec.ts`)
+- [ ] Paste between two open folders (and between the disk and a ZIP), and paste what another application copied (files from the file manager); put the names of the copied rows on the system clipboard as text
+- [ ] Mark with the pointer (a rubber band), and **Extract** for several rows
+- [ ] Try the clipboard keys on **macOS** (the Edit menu roles Cut and Paste were added, as Copy already was) and Windows: tried on Linux only
 
 ## Phase 3: editor
 - [x] Editable CodeMirror 6 with the language modes (`EditView`, `editableExtensions`); the dot on the tab; `Ctrl+S` / Save All; the question when tabs or the window close with changes; binary, non-UTF-8 and over-5-MB files are shown, not edited, with the reason
@@ -126,9 +136,11 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [x] **Two editor groups** (`Tab.group`, `Workspace.focus` / `other`, `move-to-group`; `src/state/groups.ts`): a tab can be split to the right (tab menu **Split Right**, **Move to Left / Right Group**), or dragged, or a file of the tree dragged, to the right half of the editor (with two groups: to the one the pointer is over); each group has its own tabs, tab in front, Find, language and print; the second ends when it has no tab; the layout is kept for the next start
 - [ ] More than two editor groups, and a split below (a grid of groups)
 - [ ] Resize the groups by dragging their edge and remember the sizes; `Ctrl+1` / `Ctrl+2` to go to a group, and a command to split from the keyboard
+- [x] A text file of the tree (or a tab) dropped on the middle of the editor or of a text tab asks Open Side by Side / Compare (Diff); the sides still open in the group on that side
 - [ ] Drag a tab to the tree or out of the window; the same file in two groups at once (a tab is one file today, so it moves)
 - [ ] Some unit tests (`HexEditView`, `DiffView`, the About window of `Workbench.open`) fail at random when the whole suite runs under load, and pass alone: give them room (`waitFor` timeouts) or run the suite with fewer workers
-- [ ] Ctrl+click to select two rows of the tree (the tree has no multiple selection yet), and Compare from a tab's menu
+- [x] Ctrl+click to select two rows of the tree and **Compare Selected** in their menu
+- [ ] Compare from a tab's menu
 - [ ] Compare a text with the unsaved changes of its tab (today a side is the file as it is on disk), and a file of a snapshot as a side
 - [ ] Edit in the diff (accept or reject a change), and a diff of two folders
 

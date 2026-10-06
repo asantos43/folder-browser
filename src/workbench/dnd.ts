@@ -16,18 +16,22 @@ export interface DraggedFile {
 let current: 'tab' | 'file' | null = null
 /** The key of the tab being dragged (the data of a drag cannot be read before the drop). */
 let tabKey: string | undefined
+/** The file of the tree being dragged (its data cannot be read before the drop): the drop zones need to know whether it is a text, to offer the comparison. */
+let fileInfo: DraggedFile | null = null
 const listeners = new Set<() => void>()
-const set = (next: 'tab' | 'file' | null, key?: string) => {
+const set = (next: 'tab' | 'file' | null, key?: string, file: DraggedFile | null = null) => {
   tabKey = key
+  fileInfo = file
   if (current === next) return
   current = next
   listeners.forEach((l) => l())
 }
 export const dragging = {
-  start: (kind: 'tab' | 'file', key?: string) => set(kind, key),
+  start: (kind: 'tab' | 'file', key?: string, file?: DraggedFile | null) => set(kind, key, file ?? null),
   end: () => set(null),
   get: () => current,
   tab: () => tabKey,
+  file: () => fileInfo,
   use: () => useSyncExternalStore((listener) => (listeners.add(listener), () => void listeners.delete(listener)), () => current),
 }
 // A drag whose source went away (a tab that moved to another group is drawn again) never says it ended: a drop, or the end of any drag, does.

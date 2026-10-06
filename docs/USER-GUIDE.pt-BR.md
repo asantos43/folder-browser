@@ -4,8 +4,10 @@ O Folder Browser mostra as pastas do seu computador e o que há nelas. Abre **pa
 
 ## Abrir uma pasta
 
+![O Folder Browser com a pasta Harbor Times aberta: a árvore à esquerda e um arquivo Markdown à direita](images/workbench.png)
+
 - **Arquivo ▸ Abrir Pasta…** (`Ctrl+Shift+O`, `⇧⌘O` no macOS), ou **arraste** uma pasta, um ZIP ou qualquer arquivo para a janela, ou diga um deles na linha de comando.
-- Um **arquivo ZIP** abre como uma pasta, também um ZIP dentro de um ZIP. Um arquivo dito sozinho abre numa aba, com a pasta dele aberta ao lado.
+- Um **arquivo ZIP** abre como uma pasta, também um ZIP dentro de um ZIP. O seletor de **Abrir Pasta…** só escolhe pastas no Linux e no Windows (os diálogos desses sistemas não escolhem os dois), então um arquivo ZIP se abre com **Arquivo ▸ Abrir Arquivo ZIP…**, o **ícone de zip na barra de atividades** (a coluna de ícones à esquerda, abaixo de Abrir Pasta), o ícone de zip de Pastas Abertas, ou o botão **Abrir Arquivo ZIP** quando nenhuma pasta está aberta); no macOS **Abrir Pasta…** aceita os dois. Um arquivo dito sozinho abre numa aba, com a pasta dele aberta ao lado.
 - **Arquivo ▸ Abrir Arquivo…** (`Ctrl+O`) pede um arquivo; os instaladores registram `.wsnp` e `.zip` no aplicativo, então um duplo clique no gerenciador de arquivos também funciona.
 - Quando o aplicativo inicia sem nada para abrir, ele **abre de novo o que estava aberto** (as pastas e as abas, na mesma ordem, com a mesma aba na frente): **Configurações ▸ Reabrir os arquivos que estavam abertos**; desligue e nada é guardado.
 - As pastas abertas aparecem em **Pastas Abertas** na barra lateral; o × ao lado de uma fecha a pasta e as abas dela.
@@ -27,11 +29,15 @@ Ela é organizada como o Visual Studio Code: uma **barra de título** com o menu
 
 ### O menu do botão direito
 
+![O menu do botão direito de um arquivo de texto](images/context-menu.png)
+
 O menu de uma linha depende do que ela é. Uma pasta: expandir, atualizar, **Novo Arquivo…**, **Nova Pasta…**, **Renomear**, **Mover para…**, **Apagar**, adicionar aos Favoritos. Um arquivo ZIP: expandir, **Abrir como Lista**. Um `.wsnp`: **Abrir** (a página dele) ou **Abrir como ZIP**. Um arquivo: **Abrir** (ou **Tocar**); um arquivo de texto também **Selecionar para comparar** (e, escolhido outro, **Comparar com o selecionado**). **Para todo arquivo**: **Abrir como Hex**, **Abrir com…**, **Abrir com o Aplicativo Padrão**, **Salvar Como…**, **Mostrar no Gerenciador de Arquivos**, **Copiar Caminho**, **Copiar Nome**, **Propriedades**.
 
 **Abrir com…** pergunta ao seu sistema qual aplicativo deve abrir o arquivo (o diálogo do Windows, o seletor do macOS, e no Linux um diálogo do próprio aplicativo, com os aplicativos registrados para o tipo primeiro, depois todos os outros, uma caixa de busca e **Sempre usar para este tipo de arquivo**). O aplicativo recebe uma **cópia somente leitura** na sua pasta temporária, removida quando o aplicativo fecha. Um tipo de arquivo que pode rodar como programa (`.exe`, `.bat`, `.sh`, `.desktop`, `.jar`…) nunca é entregue: use **Salvar Como…**.
 
 ## Criar, renomear, mover e apagar
+
+![Renomeando um arquivo na própria linha da árvore](images/rename.png)
 
 Isto vale para os arquivos e pastas de uma pasta que você abriu, e para o que há dentro de um arquivo ZIP (veja "Dentro de um ZIP" abaixo); não vale no lugar Lixeira.
 
@@ -41,6 +47,18 @@ Isto vale para os arquivos e pastas de uma pasta que você abriu, e para o que h
 - **Apagar** (`Delete`, ou o menu) pergunta e move o item para a **lixeira** (uma pasta com tudo o que há nela). Para apagá-lo **definitivamente**, aperte **`Shift+Delete`**, ou segure **Shift** ao escolher **Apagar** no menu, ou enquanto a pergunta está na tela: ela muda para "Apagar definitivamente?" e volta quando você solta. Isso não pode ser desfeito. Se a lixeira não puder receber um item, você é perguntado de novo se quer apagá-lo definitivamente.
 - **Nada é substituído.** Um nome já usado é recusado, com palavras, e o campo fica para você digitar outro. Um nome que nenhum arquivo pode ter (vazio, `.` ou `..`, com `/` ou `\`, caracteres de controle, mais de 255 bytes; no Windows também `< > : " | ? *`, os nomes que o sistema reserva como `CON` ou `NUL`, e um nome terminado em espaço ou ponto) é recusado antes de perguntar qualquer coisa. Uma pasta nunca é movida para dentro dela mesma. Nada sai da pasta que você abriu: um link simbólico é renomeado, movido ou apagado como o link, nunca o que ele aponta.
 - As **abas acompanham**: a aba de um arquivo renomeado ou movido (ou de um arquivo de uma pasta renomeada) mantém o lugar, o zoom e a visualização, com o nome novo, e a aba de um item apagado fecha.
+
+## Várias linhas, Recortar, Copiar e Colar
+
+![Três linhas marcadas, e o menu para todas elas](images/multiselect.png)
+
+![Mover para… com as linhas marcadas](images/move-dialog.png)
+
+![As linhas recortadas ficam esmaecidas; Colar está no menu de uma pasta](images/clipboard-menu.png)
+
+- **Marcar várias linhas** na árvore: **Ctrl+clique** (`⌘+clique` no macOS) marca ou desmarca uma linha, **Shift+clique** marca tudo desde a linha em que você clicou por último até esta, **Shift+↑ / ↓** (também `Shift+Home` / `End`) estende as marcas a partir de onde começaram, e **Ctrl+A** (`⌘A`) marca todas as linhas da tela. As linhas marcadas ficam destacadas. Um clique com Ctrl ou Shift só marca (nada abre). Um clique simples, uma seta simples ou **Esc** soltam as marcas, e uma marca some com a sua linha (quando ela é apagada ou a pasta dela é fechada).
+- **Uma ação sobre uma linha marcada vale para todas**, de uma vez: **Apagar** (uma pergunta para todas; `Shift+Delete` pede o apagar definitivo), **Mover para…** (um seletor de pastas), **arrastar** uma delas para uma pasta (vão juntas; com **Shift** apertado são copiadas) e, para exatamente dois arquivos de texto, **Comparar os Selecionados**. O menu de clique direito de uma linha marcada vale para todas as marcadas e diz quantas são. Se uma pasta e algo dentro dela estão marcados, só a pasta recebe a ação. Quando algo não pode ser feito com algumas delas, uma mensagem diz quantas e o que deu errado primeiro; o resto é feito. Isto vale também dentro de um ZIP.
+- **Recortar, Copiar e Colar** (`Ctrl+X`, `Ctrl+C`, `Ctrl+V`; `⌘X`, `⌘C`, `⌘V` no macOS; também **Recortar**, **Copiar** e **Colar** no menu de clique direito de um arquivo, de uma pasta, de linhas marcadas e da parte vazia da árvore) valem para os arquivos e pastas da árvore: para as linhas marcadas, ou para a linha que tem o foco. **Colar** põe na pasta (ou arquivo ZIP) que tem o foco, ao lado do arquivo que o tem, ou na pasta de cima. Uma **cópia** colada é numerada quando o nome já existe (`a (2).txt`), então Copiar e Colar na mesma pasta faz uma duplicata, e nada é substituído; um **recorte** colado move, uma vez só, e as linhas recortadas ficam esmaecidas até lá. A área de transferência é a do próprio aplicativo (não toca a do sistema), vale na pasta que foi aberta e dentro de um ZIP, e entre duas pastas abertas, ou entre uma pasta e um ZIP, diz que ainda não pode. Num campo de nome e no editor as teclas são as de sempre.
 
 ## O que uma aba pode mostrar
 
@@ -63,7 +81,17 @@ Isto vale para os arquivos e pastas de uma pasta que você abriu, e para o que h
 
 **Abrir com…** e **Ver em hexadecimal** estão na barra de ferramentas do documento, da tabela, dos bytes e de todo texto, e nos cartões.
 
+Algumas das visões, na pasta usada para estas imagens:
+
+| | |
+| --- | --- |
+| ![Um PDF](images/pdf.png) | ![Uma imagem](images/image.png) |
+| ![Um som no player](images/media.png) | ![Os bytes de um arquivo em hexadecimal](images/hex.png) |
+| ![Um documento Word](images/docx.png) | ![Uma planilha](images/spreadsheet.png) |
+
 ## Editar texto
+
+![Um arquivo de texto com uma alteração não salva: o ponto na aba e Modificado na barra de ferramentas](images/editing.png)
 
 Um arquivo de texto de uma pasta que você abriu, ou de dentro de um ZIP, abre pronto para editar, com as cores da linguagem, desfazer e refazer (`Ctrl+Z`, `Ctrl+Shift+Z`), fechamento automático de colchetes, `Tab` para indentar e Quebra de Linha.
 
@@ -79,6 +107,8 @@ Um arquivo de texto de uma pasta que você abriu, ou de dentro de um ZIP, abre p
 
 ## Tabelas (CSV e TSV)
 
+![Um arquivo CSV como tabela](images/table.png)
+
 Um arquivo CSV ou TSV abre como **tabela** (**Tabela / Texto** na barra de ferramentas passam para o código; a escolha é lembrada). A primeira linha é o cabeçalho e fica à vista; as linhas são numeradas com a linha delas no arquivo; o delimitador (vírgula, ponto e vírgula, tab, barra) é achado sozinho. Só as linhas à vista são desenhadas, então um arquivo de centenas de milhares de linhas rola na hora (até 500.000 linhas e 500 colunas; dito quando corta).
 
 - **Ordenar**: a seta no cabeçalho de uma coluna a ordena para cima, depois para baixo, depois volta à ordem do arquivo. Números e datas ISO são ordenados como tais (o tipo é achado pelos valores), o texto do jeito que as pessoas ordenam (`item 2` antes de `item 10`), e células vazias sempre por último. Ordenar nunca muda o arquivo.
@@ -91,28 +121,34 @@ Um arquivo CSV ou TSV abre como **tabela** (**Tabela / Texto** na barra de ferra
 
 ## Comparar dois arquivos de texto
 
+![Dois arquivos lado a lado, com as diferenças marcadas e contadas](images/diff.png)
+
 Clique com o botão direito num arquivo de texto da árvore e escolha **Selecionar para comparar**; depois clique com o direito em outro e escolha **Comparar com o selecionado**: os dois abrem numa só aba, `a.txt ↔ b.txt`, o primeiro como o lado esquerdo. Qualquer um pode ser um arquivo de uma pasta ou uma entrada de um ZIP (também dentro de outro ZIP), da mesma pasta aberta ou de duas diferentes; a escolha fica, então mais arquivos podem ser comparados com o mesmo primeiro. Só se compara um texto em UTF-8 de até 5 MB; o resto é recusado com o nome e o motivo.
 
 - **Lado a lado** e **Em linha** (uma coluna, com as linhas removidas acima das acrescentadas) mudam a disposição; a escolha é lembrada. As cores da linguagem de cada arquivo continuam, as linhas removidas ficam vermelhas e as acrescentadas verdes, e as palavras que mudaram dentro de uma linha são marcadas com mais força.
 - A barra de ferramentas diz quantas alterações há. **Alteração anterior** e **Próxima alteração** (`Shift+F7`, `F7`) vão de uma à outra; **Trocar os lados** inverte os dois.
 - **Recolher o que não mudou** dobra os trechos longos de linhas iguais (três linhas ficam em volta de cada alteração); o botão desliga, e a escolha é lembrada.
 - Um arquivo salvo com outra quebra de linha (`LF` e `CRLF`) não é diferente em todas as linhas: as quebras não entram na comparação, e a barra de ferramentas avisa quando diferem.
-- Você também pode arrastar um arquivo sobre outro para compará-los: veja [Dois grupos de editor](#dois-grupos-de-editor).
+- Você também pode **arrastar** um arquivo de texto da árvore para o meio do editor, para uma aba ou para outro arquivo da árvore para compará-los: veja [Dois grupos de editor](#dois-grupos-de-editor).
 - Uma comparação só olha: nada é gravado, e os dois arquivos são lidos do disco (ou do ZIP) como estão salvos, não com as alterações ainda não salvas nas abas deles. A aba acompanha um lado que é renomeado ou movido, fecha quando um lado é apagado ou a pasta dele é fechada, tem zoom como um texto (`Ctrl+=`, `Ctrl+-`) e não é lembrada no próximo início. **Buscar** (`Ctrl+F`) procura nas linhas à vista.
 
 ## Dois grupos de editor
+
+![Dois grupos de editor lado a lado](images/split.png)
 
 O editor pode mostrar **dois grupos de abas lado a lado**, como o VS Code. Há três jeitos de fazer o segundo: **Dividir à direita** no menu de uma aba (a aba vai para um grupo novo à direita dela), arrastar uma aba para a **metade direita do editor**, e arrastar um **arquivo da árvore** para a metade direita (ele abre ali). Enquanto um desses é arrastado, a metade que vai recebê-lo fica destacada; com dois grupos, o grupo inteiro sob o ponteiro o recebe. Uma aba volta com **Mover para o grupo da esquerda** ou arrastando-a para o outro grupo (sobre uma aba dele, ela fica ao lado dessa aba).
 
 - Cada grupo tem as suas abas e a sua aba da frente. O grupo em que você clicou por último tem o foco: **Buscar**, **Copiar**, **Imprimir**, **Salvar**, o idioma na barra de status, as teclas de zoom e a aba seguinte e anterior (`Ctrl+PageDown`, `Ctrl+PageUp`) agem nele. Uma aba é um arquivo, então ela está em um grupo de cada vez: abrir um arquivo que está no outro grupo o traz para cá.
 - O segundo grupo termina quando a última aba dele é fechada ou levada embora; fechar todas as abas do primeiro deixa o segundo como único grupo. A disposição é lembrada no próximo início.
-- **Soltar um arquivo sobre outro** pergunta o que fazer quando os dois são textos: **Abrir lado a lado** (o que você arrastou à esquerda, o outro à direita), **Comparar (Diff)** ou Cancelar. Vale para um **arquivo de texto da árvore solto sobre outro de texto** (nada é movido, e com `Shift` apertado continua sendo uma cópia), ou uma **aba solta no meio de outra aba de texto** (solta na borda da aba, ela só é reordenada). Uma imagem ou outro tipo de arquivo nunca é perguntado.
+- **Soltar um arquivo sobre outro** pergunta o que fazer quando os dois são textos: **Abrir lado a lado** (o que você arrastou à esquerda, o outro à direita), **Comparar (Diff)** ou Cancelar. Vale para um **arquivo de texto da árvore solto no meio do editor** que mostra um arquivo de texto (os 40 % do meio ficam destacados, com "Solte aqui para comparar, ou para abrir lado a lado"), **no meio de uma aba de texto**, ou **sobre outro arquivo de texto da árvore** (nada é movido, e com `Shift` apertado continua sendo uma cópia); ou uma **aba** solta no meio do editor ou de outra aba de texto. O arquivo que você arrasta é o lado esquerdo. Solto à **direita** do editor (ou à esquerda), o arquivo só abre, no grupo daquele lado; solto na borda de uma aba, abre no grupo dela (uma aba só é reordenada). Uma imagem ou outro tipo de arquivo nunca é perguntado.
 
 ## Arquivos ZIP
 
 Um arquivo ZIP abre na árvore como uma pasta, e as entradas abrem em abas como arquivos. **Abrir como Lista** mostra as entradas como uma tabela de nomes, tamanhos, tamanhos compactados e datas, onde você pode selecionar (clique, `Ctrl` e `Shift`, as caixas, `Ctrl+A`) e **Extrair** para uma pasta: um arquivo pede um nome, **Extrair Tudo…** grava tudo, e um arquivo que já existe nunca é sobrescrito (o novo se chama `nome (2)`). Nada é gravado no disco até você extrair. Nomes que poderiam sair da pasta escolhida nunca são gravados, links não são seguidos, e uma entrada protegida por senha aparece esmaecida e é pulada. Um ZIP acima de 256 MB só é oferecido com Salvar Como. ZIP64 e ZIPs criptografados são somente leitura.
 
 ## Dentro de um ZIP
+
+![Um arquivo de texto dentro de um ZIP sendo editado, com o menu de outra entrada](images/zip-edit.png)
 
 Um arquivo ZIP, também um ZIP dentro de um ZIP, é alterado como uma pasta, e o que você altera é gravado de volta no arquivo ZIP.
 
@@ -124,12 +160,16 @@ Um arquivo ZIP, também um ZIP dentro de um ZIP, é alterado como uma pasta, e o
 
 ## Zoom, Localizar, Copiar e Imprimir
 
+![Localizar num arquivo de código, com as ocorrências marcadas](images/find.png)
+
 - O **zoom** pertence à **aba**, nunca ao aplicativo todo. `Ctrl+=`, `Ctrl+-` e `Ctrl+0` (`⌘` no macOS), ou `Ctrl` e a roda (também sobre um documento ou uma página), dão zoom na página de um snapshot, num texto, numa tabela, num documento e nas linhas da visualização hexadecimal (25 % a 500 %). A **barra de status** tem **−**, o nível (clique nele para voltar a 100 %) e **+**. Uma imagem e um PDF guardam o zoom deles (as mesmas teclas o variam). Cada aba tem o seu; uma aba fechada o esquece.
 - **Localizar** (`Ctrl+F`, **Editar ▸ Localizar**) funciona em toda aba que tem texto: um arquivo de código (no texto todo), uma tabela, um PDF, um documento (no quadro dele; numa planilha, a aba na tela), os metadados e as listas. A caixa diz qual ocorrência de quantas; `Enter` e `Shift+Enter` vão para a próxima e a anterior, **Aa** diferencia maiúsculas, `Esc` fecha. Nos bytes de um arquivo `Ctrl+F` vai para a caixa que procura bytes ou texto.
 - **Copiar** (`Ctrl+C`) copia o que está selecionado.
 - **Imprimir** (`Ctrl+P`, **Arquivo ▸ Imprimir…**, ou o ícone da impressora) imprime um texto como a aba o mostra, uma imagem, a página de um snapshot e um **documento inteiro** (toda planilha, todo slide). **Salvar como PDF…** grava o mesmo como PDF. A lista de um ZIP, um PDF, uma tabela e os bytes de um arquivo ainda não podem ser impressos.
 
 ## Arquivos `.wsnp`
+
+![Um snapshot .wsnp aberto numa aba, com a verificação de integridade na barra de status](images/snapshot.png)
 
 Um `.wsnp` é uma "foto" em ZIP de uma página da web para ler offline: a página, todos os arquivos de que ela precisa e um manifesto. No Folder Browser ele é **um arquivo como os outros** na árvore: um clique mostra a página numa aba de visualização, um duplo clique a mantém, e **Abrir como ZIP** lista as entradas. A página roda como o formato manda (carrosséis, menus), num quadro sem rede. Os links nela abrem numa aba (uma imagem, um PDF, código, um ZIP como lista), ou no seu navegador para um endereço da web, só quando você clica. A **barra de status** diz o que a verificação achou, e a aba **Metadados** (pelo menu da aba ou pela barra de status) mostra o que o manifesto diz. Os arquivos dentro de um snapshot abrem pelos links dele, pelos metadados e por Ir para o Arquivo. Para algo a mais (uma árvore dos arquivos dele, exportar), use **Abrir com…** e entregue-o ao [WSNP Viewer](https://github.com/asantos43/wsnp-viewer).
 
@@ -142,6 +182,8 @@ O arquivo é verificado quando abre, e de novo em segundo plano: a **estrutura**
 | Abrir Pasta / Abrir Arquivo | `Ctrl+Shift+O` / `Ctrl+O` | `⇧⌘O` / `⌘O` |
 | Mostrar arquivos ocultos | `Ctrl+H` | `⌘H` |
 | Renomear / Apagar o item da árvore | `F2` / `Delete` | `F2` / `Delete` |
+| Marcar várias linhas na árvore | `Ctrl+clique`, `Shift+clique`, `Shift+↑↓`, `Ctrl+A` | `⌘+clique`, `Shift+clique`, `Shift+↑↓`, `⌘A` |
+| Recortar / Copiar / Colar arquivos e pastas na árvore | `Ctrl+X` / `Ctrl+C` / `Ctrl+V` | `⌘X` / `⌘C` / `⌘V` |
 | Fechar a aba | `Ctrl+W` | `⌘W` |
 | Aba seguinte / anterior | `Ctrl+PageDown` / `Ctrl+PageUp` | `⌘PageDown` / `⌘PageUp` |
 | Pelas abas, a mais recente primeiro | `Ctrl+Tab`, `Ctrl+Shift+Tab` | `⌃Tab`, `⌃⇧Tab` |
@@ -161,6 +203,8 @@ O arquivo é verificado quando abre, e de novo em segundo plano: a **estrutura**
 Os atalhos funcionam onde quer que esteja o foco, também dentro de uma página ou de um documento.
 
 ## Configurações, Ajuda e Sobre
+
+![A aba de Configurações](images/settings.png)
 
 As **Configurações** (a engrenagem na barra de atividades, **Arquivo ▸ Preferências ▸ Configurações**, ou `Ctrl+,`) abrem numa aba com uma caixa que as filtra: **Tema de Cor** (Dark+, Light+ ou Auto), **Idioma de Exibição** (inglês, português do Brasil ou automático), se deve **reabrir o que estava aberto**, **Mostrar arquivos ocultos**, e para código **Quebra de Linha** e **Formatar arquivos de código**. As outras escolhas (Markdown, SVG, CSV, a ordem) são feitas onde são usadas, e também são guardadas. As configurações ficam no seu computador, na pasta do próprio aplicativo, e em nenhum outro lugar: veja [`../PRIVACY.md`](../PRIVACY.md).
 

@@ -15,6 +15,7 @@ export function installMenu(send: (command: string) => void): void {
       label: 'File',
       submenu: [
         { label: 'Open File…', accelerator: 'Cmd+O', click: () => send('openFile') },
+        { label: 'Open ZIP File…', click: () => send('openZip') },
         { type: 'separator' },
         { label: 'Save', accelerator: 'Cmd+S', click: () => send('save') },
         { label: 'Save All', accelerator: 'Cmd+Alt+S', click: () => send('saveAll') },
@@ -27,7 +28,7 @@ export function installMenu(send: (command: string) => void): void {
         { label: 'Close Editor', accelerator: 'Cmd+W', click: () => send('closeEditor') },
       ],
     },
-    { label: 'Edit', submenu: [{ role: 'copy' }, { role: 'selectAll' }, { type: 'separator' }, { label: 'Find', accelerator: 'Cmd+F', click: () => send('find') }] },
+    { label: 'Edit', submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }, { type: 'separator' }, { label: 'Find', accelerator: 'Cmd+F', click: () => send('find') }] },
     {
       label: 'View',
       submenu: [

@@ -105,6 +105,44 @@ test('dragging a text file of the tree onto another asks the same, and nothing i
   await expect(group(page, 1).locator('.cm-content')).toContainText('alpha one')
 })
 
+test('a text file of the tree dropped on the middle of the editor that shows a text asks what to do with the two, and Compare (Diff) opens the comparison', async () => {
+  const page = await launch(work)
+  await openKept(page, 'a.txt')
+  const editor = group(page, 0)
+  const box = (await editor.boundingBox())!
+  await item(page, 'b.txt').dragTo(editor, { targetPosition: { x: box.width * 0.5, y: box.height * 0.6 } })
+  await expect(dialog(page)).toBeVisible()
+  await dialog(page).getByRole('button', { name: 'Compare (Diff)' }).click()
+  // (The file dragged is the left side.)
+  await expect(tab(page, 'b.txt ↔ a.txt')).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Comparison of / })).toBeVisible()
+})
+
+test('the same drop on the middle of a text tab asks too, Open Side by Side puts the file dropped on the left, and on the side of a tab it only opens the file', async () => {
+  const page = await launch(work)
+  await openKept(page, 'a.txt')
+  await item(page, 'b.txt').dragTo(tab(page, 'a.txt'))
+  await expect(dialog(page)).toBeVisible()
+  await dialog(page).getByRole('button', { name: 'Open Side by Side' }).click()
+  await expect(group(page, 0).locator('.cm-content')).toContainText('bravo two')
+  await expect(group(page, 1).locator('.cm-content')).toContainText('alpha one')
+  // At the edge of a tab (not its middle) a file of the tree is only opened in that group.
+  const a = (await tab(page, 'a.txt').boundingBox())!
+  await item(page, 'c.txt').dragTo(tab(page, 'a.txt'), { targetPosition: { x: a.width * 0.1, y: a.height / 2 } })
+  await expect(dialog(page)).toHaveCount(0)
+  await expect(group(page, 1).getByRole('tab')).toHaveCount(2)
+  await expect(group(page, 1).locator('.cm-content')).toContainText('charlie three')
+})
+
+test('a picture dropped on the middle of the editor is not asked about: it opens in the group on that side', async () => {
+  const page = await launch(work)
+  await openKept(page, 'a.txt')
+  const box = (await group(page, 0).boundingBox())!
+  await item(page, 'pic.png').dragTo(group(page, 0), { targetPosition: { x: box.width * 0.5, y: box.height * 0.6 } })
+  await expect(dialog(page)).toHaveCount(0)
+  await expect(tab(page, 'pic.png')).toBeVisible()
+})
+
 test('dragging a file of the tree to the right half of the editor opens it in a second group, and to the left half in the first', async () => {
   const page = await launch(work)
   await openKept(page, 'a.txt')

@@ -10,8 +10,12 @@ dois arquivos de texto lado a lado num **diff** e abra arquivos `.wsnp` (página
 Roda no Linux, Windows e macOS, é feito com Electron e TypeScript e tem o visual e o comportamento do Dark+ e do Light+ do Visual Studio Code. Inglês e português do
 Brasil, conforme o idioma do sistema. [English](README.md).
 
-> **Situação: em construção.** O projeto nasceu do WSNP Viewer 0.1.0, então o visualizador de `.wsnp`, as abas, a árvore de arquivos, a lista de ZIP, a busca, a impressão e o
-> "Abrir com…" já funcionam. O resto abaixo está planejado, fase por fase: veja o [`TODO.md`](TODO.md).
+![Folder Browser: a árvore de pastas à esquerda, um arquivo numa aba à direita](docs/images/workbench.png)
+
+O [guia do usuário](docs/USER-GUIDE.pt-BR.md) mostra cada funcionalidade, com imagens, e como usá-la.
+
+> **Situação: em construção.** Navegar por pastas e arquivos ZIP, a árvore com várias linhas marcadas, Recortar/Copiar/Colar, editar texto (também dentro de um ZIP), tabelas, diff, dois grupos de editor,
+> mídia, documentos de escritório, a visão hexadecimal e os snapshots `.wsnp` funcionam; a primeira versão (pacotes, imagens finais) é a última fase: veja o [`TODO.md`](TODO.md).
 
 ## O que faz
 

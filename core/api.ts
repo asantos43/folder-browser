@@ -97,6 +97,8 @@ export interface FbApi {
   openDialog(): Promise<OpenResult[]>
   /** The folder picker; opens the folder as a root of the tree. */
   openFolderDialog(): Promise<OpenResult[]>
+  /** Asks for ZIP files and opens them to browse (a folder picker cannot choose a file on Linux and Windows). */
+  openZipDialog(): Promise<OpenResult[]>
   /** Of a root: makes a file playable (`fb-media://`), by ranges. A file of the disk is served as it is; an entry of a ZIP is copied first, to a folder of its own (up to 2 GB). */
   media: { open(id: string, path: string): Promise<MediaOpen>; release(token: string): Promise<void> }
   /** Changes the disk, in a folder that was opened (never in a ZIP, a snapshot or the trash): `path`s are relative to the root. Nothing is ever replaced; a name that is taken is refused. */

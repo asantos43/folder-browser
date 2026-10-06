@@ -18,7 +18,7 @@ function show(item: DirEntry) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ entries: [], truncated: false } as ListResult))
   render(
     <I18nProvider language="en">
-      <MoveDialog rootName="work" entry={item} listDir={listDir} onMove={onMove} onCancel={vi.fn()} />
+      <MoveDialog rootName="work" entries={[item]} listDir={listDir} onMove={onMove} onCancel={vi.fn()} />
     </I18nProvider>,
   )
   return { onMove }

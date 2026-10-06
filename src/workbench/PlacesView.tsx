@@ -72,7 +72,7 @@ export function PlacesView({ data, activePath, actions }: { data: PlacesData | n
         onDragOver={(e: DragEvent) => {
           if (extra?.drop && e.dataTransfer.types.includes(FOLDER_DRAG)) {
             e.preventDefault()
-            e.dataTransfer.dropEffect = 'link'
+            e.dataTransfer.dropEffect = 'copy'
             setOver(true)
           }
         }}
