@@ -118,6 +118,8 @@ export interface FbApi {
   saveConverted(id: string): Promise<SaveResult>
   /** Opens a file of a snapshot with an application the system asks the user to choose (a copy of the file is handed over, read-only). */
   openWith(id: string, path: string): Promise<OpenWithResult>
+  /** Opens a copy of a file in the default application of its type, with no choice. */
+  openDefault(id: string, path: string): Promise<OpenWithResult>
   /** The application chosen in the viewer's own chooser; `always` makes it the default for the type. */
   openWithApp(token: string, appId: string, always: boolean): Promise<OpenWithResult>
   /** The chooser was closed without a choice: the copy made for it is removed. */

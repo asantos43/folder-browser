@@ -1,4 +1,4 @@
-import type { Chooser, OpenResult, OpenWithResult, SaveResult } from '@core/api.ts'
+import type { Chooser, DirEntry, OpenResult, OpenWithResult, RootInfo, SaveResult } from '@core/api.ts'
 import { commandFor, type CommandName } from '@core/shortcuts.ts'
 import { Allotment } from 'allotment'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
@@ -26,6 +26,8 @@ import { fileTarget } from '@/find/types.ts'
 import { shownText } from '@/state/shown.ts'
 import { AboutDialog } from '@/components/AboutDialog.tsx'
 import { OpenWithDialog } from '@/components/OpenWithDialog.tsx'
+import { PropertiesDialog } from '@/components/PropertiesDialog.tsx'
+import { locationOf } from './treeMenu.ts'
 import { LinkTooltip, type LinkHover } from '@/components/LinkTooltip.tsx'
 import { ActivityBar, type ViewId } from './ActivityBar.tsx'
 import { EditorGroup } from './EditorGroup.tsx'
@@ -65,6 +67,7 @@ export function Workbench() {
   // The zoom of each tab (those that have one: a page of a snapshot, a text); a picture and a PDF keep their own.
   const [zooms, setZooms] = useState<Record<string, number>>({})
   const [chooser, setChooser] = useState<Chooser | null>(null)
+  const [properties, setProperties] = useState<{ entry: DirEntry; location: string } | null>(null)
   const [pageMenu, setPageMenu] = useState<ContextMenuState | null>(null)
   const [linkHover, setLinkHover] = useState<LinkHover | null>(null)
   // The session is written only once the last one has been read back.
@@ -521,6 +524,8 @@ export function Workbench() {
       openRootFile: (id: string, entry: { path: string; size: number }, keep: boolean) => dispatch({ type: 'open-file', snapshotId: id, path: entry.path, keep, size: entry.size }),
       reveal: (id: string, path: string) => void api?.reveal(id, path),
       closeRoot: (id: string) => dispatch({ type: 'root-closed', id }),
+      openDefault: (id: string, path: string) => void api?.openDefault(id, path).then((result) => reportOpenWith(basename(path), result)),
+      properties: (root: RootInfo, entry: DirEntry) => setProperties({ entry, location: locationOf(root, entry.path, platform() === 'win32' ? '\\' : '/') }),
       openSnapshot: (id: string, path: string) => void api?.openInRoot(id, path).then(handleResults),
       openTreeFile: (snapshotId: string, path: string, keep: boolean) => dispatch({ type: 'open-file', snapshotId, path, keep }),
       saveFile,
@@ -529,7 +534,7 @@ export function Workbench() {
       openExternal,
       showMetadata: (snapshotId: string) => dispatch({ type: 'open-metadata', snapshotId }),
     }),
-    [run, api, saveFile, openWith, copy, openExternal, handleResults],
+    [run, api, saveFile, openWith, copy, openExternal, handleResults, reportOpenWith],
   )
 
   return (
@@ -576,6 +581,7 @@ export function Workbench() {
           if (ws.selected) dispatch({ type: 'activate', key: ws.tabs.find((tab) => tab.snapshotId === ws.selected && isSnapshotTab(tab))?.key ?? snapshotKey(ws.selected) })
         }}
       />
+      {properties ? <PropertiesDialog entry={properties.entry} location={properties.location} onClose={() => setProperties(null)} /> : null}
       {about ? <AboutDialog info={about.info} onClose={() => setAbout(null)} onOpenExternal={openExternal} onCopy={copy} /> : null}
       {pickingLanguage && shownFile ? <LanguagePicker file={shownFile} onClose={() => setPickingLanguage(false)} /> : null}
       {quick ? (

@@ -28,8 +28,9 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [ ] Entries of a `.wsnp` are read-only (the whole file can be renamed, moved, deleted): nothing writes yet, so this is a rule for phases 2 to 5 (`core/archive/edit.ts` must refuse a `.wsnp`)
 
 ## Phase 1c: right-click menu and Open With…
-- [ ] `buildContextMenu` by kind of file (folder, text, picture, PDF, ZIP, `.wsnp`, font/other, entry in a ZIP, several selected)
-- [ ] **Open With…** on every file, with the installed applications (`core/apps.ts`, `OpenWithDialog`); a copy for entries in a ZIP
+- [x] The right-click menu of the tree by kind of row (`src/workbench/treeMenu.ts`, pure and tested): folder, file, ZIP, `.wsnp`; entries in a ZIP get the file menu
+- [ ] Several rows selected (Compare Selected, Move to…, Delete, Extract) and the actions of later phases (Edit, Compare, Play, Rename…) join the lists as they land
+- [x] **Open With…** on every file, with the installed applications (`core/apps.ts`, `OpenWithDialog`); a read-only copy for entries in a ZIP; also **Open with Default Application**, Show in Folder, Copy Path, Copy Name and Properties
 
 ## Phase 1d: places and favourites
 - [ ] "Places" section above the tree: Home, Desktop, Documents, Downloads, Music, Pictures, Videos (`app.getPath`), Computer, mounted volumes (`core/places.ts`)

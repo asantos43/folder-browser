@@ -1,4 +1,4 @@
-import type { DirEntry, ListResult } from '@core/api.ts'
+import type { DirEntry, ListResult, RootInfo } from '@core/api.ts'
 import { useState, type ReactNode } from 'react'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
@@ -35,6 +35,8 @@ export interface SideBarActions {
   openRootFile: (rootId: string, entry: Pick<DirEntry, 'path' | 'size'>, keep: boolean) => void
   reveal: (rootId: string, path: string) => void
   closeRoot: (rootId: string) => void
+  openDefault: (rootId: string, path: string) => void
+  properties: (root: RootInfo, entry: DirEntry) => void
   /** A `.wsnp` of a folder, as a snapshot. */
   openSnapshot: (rootId: string, path: string) => void
   openTreeFile: (snapshotId: string, path: string, keep: boolean) => void
@@ -187,6 +189,8 @@ export function SideBar({ ws, dispatch, actions, signers }: { ws: Workspace; dis
                 open: (entry, keep) => actions.openRootFile(root.id, entry, keep),
                 openSnapshot: (entry) => actions.openSnapshot(root.id, entry.path),
                 openWith: (path) => actions.openWith(root.id, path),
+                openDefault: (path) => actions.openDefault(root.id, path),
+                properties: (entry) => actions.properties(root, entry),
                 save: (path) => actions.saveFile(root.id, path),
                 copy: actions.copy,
                 reveal: (path) => actions.reveal(root.id, path),

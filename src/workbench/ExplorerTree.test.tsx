@@ -19,7 +19,7 @@ const disk: Record<string, ListResult> = {
 
 function show({ showHidden = false, activePath, refreshToken = 0, lists = disk }: { showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult> } = {}) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
-  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn() }
+  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn() }
   const tree = (props: { showHidden: boolean; activePath?: string; refreshToken: number }) => (
     <I18nProvider language="en">
       <ExplorerTree actions={actions} {...props} />
@@ -143,5 +143,33 @@ describe('ExplorerTree', () => {
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'page.wsnp' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Open as Snapshot' }))
     expect(openSnapshot).toHaveBeenCalledTimes(1)
+  })
+  it('has, for every file, Open With…, the default application, Save As, Show in Folder, Copy Path, Copy Name and Properties, and hands each its path', async () => {
+    const { openWith, openDefault, save, reveal, copy, properties } = show()
+    await waitFor(() => expect(names()).toHaveLength(4))
+    const choose = (name: string) => {
+      fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'a.txt' }))
+      fireEvent.click(screen.getByRole('menuitem', { name }))
+    }
+    choose('Open With…')
+    expect(openWith).toHaveBeenCalledWith('a.txt')
+    choose('Open with Default Application')
+    expect(openDefault).toHaveBeenCalledWith('a.txt')
+    choose('Save As…')
+    expect(save).toHaveBeenCalledWith('a.txt')
+    choose('Reveal in File Manager')
+    expect(reveal).toHaveBeenCalledWith('a.txt')
+    choose('Copy Path')
+    expect(copy).toHaveBeenLastCalledWith('a.txt')
+    choose('Copy Name')
+    expect(copy).toHaveBeenLastCalledWith('a.txt')
+    choose('Properties')
+    expect(properties).toHaveBeenCalledWith(expect.objectContaining({ name: 'a.txt', size: 10 }))
+  })
+  it('has no Open With… on a folder, which expands, refreshes and has properties', async () => {
+    show()
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'docs' }))
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Expand', 'Refresh', 'Reveal in File Manager', 'Copy Path', 'Copy Name', 'Properties'])
   })
 })

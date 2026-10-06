@@ -373,6 +373,24 @@ export class SnapshotHost {
     return outcome
   }
 
+  /** Opens a copy of a file in the application the system has for its type, with no choice. */
+  private async openDefault(id: string, name: string): Promise<OpenWithResult> {
+    const staged = await stageFile(this.sources, id, name, os.tmpdir()).catch((err: Error) => ({ error: 'error' as const, message: err.message }))
+    if ('error' in staged) return { opened: false, reason: staged.error === 'risky' ? 'unsafe' : staged.error === 'no-file' ? 'no-file' : 'error', ...('message' in staged ? { message: staged.message } : {}) }
+    this.staged.add(staged.dir)
+    if (process.env.WSNP_OPEN_WITH_LOG) {
+      fs.appendFileSync(process.env.WSNP_OPEN_WITH_LOG, `${staged.file}\n`)
+      return { opened: true, chooser: false }
+    }
+    const outcome = await openWithDefault(staged.file)
+    // A copy nobody opened is not kept.
+    if (!outcome.opened) {
+      this.staged.delete(staged.dir)
+      await removeStaged(staged.dir)
+    }
+    return outcome
+  }
+
   /** The application picked in the viewer's own chooser: only one the chooser listed, and only for the copy made for it. */
   private async openWithApp(token: string, appId: string, always: boolean): Promise<OpenWithResult> {
     const choice = this.choosing.get(token)
@@ -534,6 +552,7 @@ export class SnapshotHost {
     })
     handle('fb:save-converted', (win, id: unknown): Promise<SaveResult> | SaveResult => (typeof id === 'string' ? this.saveConverted(win, id) : { saved: false, reason: 'error' }))
     handle('fb:open-with', (_win, id: unknown, name: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof id === 'string' && typeof name === 'string' ? this.openWith(id, name) : { opened: false, reason: 'no-file' }))
+    handle('fb:open-default', (_win, id: unknown, name: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof id === 'string' && typeof name === 'string' ? this.openDefault(id, name) : { opened: false, reason: 'no-file' }))
     handle('fb:open-with-app', (_win, token: unknown, appId: unknown, always: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof token === 'string' && typeof appId === 'string' ? this.openWithApp(token, appId, always === true) : { opened: false, reason: 'no-file' }))
     handle('fb:open-with-cancel', (_win, token: unknown) => (typeof token === 'string' ? this.openWithCancel(token) : undefined))
     handle('fb:reveal', async (_win, id: unknown, name: unknown) => {

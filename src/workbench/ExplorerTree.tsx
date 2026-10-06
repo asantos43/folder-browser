@@ -6,6 +6,8 @@ import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
 import type { MessageKey } from '@/i18n/index.ts'
 import { fileIcon } from '@/lib/icons.ts'
+import type { MenuEntry } from '@/components/Menu.tsx'
+import { treeMenuFor, type TreeAction } from './treeMenu.ts'
 
 type Listing = { state: 'loading' } | { state: 'ready'; entries: DirEntry[]; truncated: boolean } | { state: 'error'; error: Extract<ListResult, { error: string }>['error'] }
 
@@ -28,6 +30,9 @@ export interface ExplorerActions {
   /** A `.wsnp` of the disk opens as a snapshot. */
   openSnapshot: (entry: DirEntry) => void
   openWith: (path: string) => void
+  /** Opens a copy in the application the system has for the type. */
+  openDefault: (path: string) => void
+  properties: (entry: DirEntry) => void
   save: (path: string) => void
   copy: (text: string) => void
   reveal: (path: string) => void
@@ -178,40 +183,24 @@ export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: 
     event.preventDefault()
     setFocused(entry.path)
     const expanded = open.has(entry.path)
-    const common = [{ id: 'path', label: t('tabs.copyPath'), run: () => actions.copy(entry.path) }, { id: 'reveal', label: t('tabs.reveal'), run: () => actions.reveal(entry.path) }]
-    setMenu({
-      x: event.clientX,
-      y: event.clientY,
-      label: entry.name,
-      entries:
-        entry.kind === 'dir'
-          ? [{ id: 'toggle', label: expanded ? t('tree.collapse') : t('tree.expand'), run: () => toggle(entry.path) }, { id: 'refresh', label: t('tree.refresh'), run: () => { asked.current.delete(entry.path); load(entry.path) } }, { separator: true }, ...common]
-          : entry.kind === 'zip'
-            ? [
-                { id: 'toggle', label: expanded ? t('tree.collapse') : t('tree.expand'), run: () => toggle(entry.path) },
-                { id: 'list', label: t('tree.openAsList'), run: () => actions.open(entry, true) },
-                { id: 'openWith', label: t('tree.openWith'), run: () => actions.openWith(entry.path) },
-                { id: 'save', label: t('menu.saveAs'), run: () => actions.save(entry.path) },
-                { separator: true },
-                ...common,
-              ]
-            : entry.kind === 'wsnp'
-              ? [
-                  { id: 'snapshot', label: t('tree.openSnapshot'), run: () => actions.openSnapshot(entry) },
-                  { id: 'list', label: t('tree.openAsZip'), run: () => actions.open(entry, true) },
-                  { id: 'openWith', label: t('tree.openWith'), run: () => actions.openWith(entry.path) },
-                  { id: 'save', label: t('menu.saveAs'), run: () => actions.save(entry.path) },
-                  { separator: true },
-                  ...common,
-                ]
-            : [
-                { id: 'open', label: t('tree.open'), run: () => actions.open(entry, true) },
-                { id: 'openWith', label: t('tree.openWith'), run: () => actions.openWith(entry.path) },
-                { id: 'save', label: t('menu.saveAs'), run: () => actions.save(entry.path) },
-                { separator: true },
-                ...common,
-              ],
-    })
+    const item = (action: TreeAction): MenuEntry => {
+      switch (action) {
+        case 'toggle': return { id: action, label: expanded ? t('tree.collapse') : t('tree.expand'), run: () => toggle(entry.path) }
+        case 'refresh': return { id: action, label: t('tree.refresh'), run: () => { asked.current.delete(entry.path); load(entry.path) } }
+        case 'open': return { id: action, label: t('tree.open'), run: () => actions.open(entry, true) }
+        case 'openAsList': return { id: action, label: t('tree.openAsList'), run: () => actions.open(entry, true) }
+        case 'openAsZip': return { id: action, label: t('tree.openAsZip'), run: () => actions.open(entry, true) }
+        case 'openSnapshot': return { id: action, label: t('tree.openSnapshot'), run: () => actions.openSnapshot(entry) }
+        case 'openWith': return { id: action, label: t('tree.openWith'), run: () => actions.openWith(entry.path) }
+        case 'openDefault': return { id: action, label: t('tree.openDefault'), run: () => actions.openDefault(entry.path) }
+        case 'save': return { id: action, label: t('menu.saveAs'), run: () => actions.save(entry.path) }
+        case 'reveal': return { id: action, label: t('tabs.reveal'), run: () => actions.reveal(entry.path) }
+        case 'copyPath': return { id: action, label: t('tabs.copyPath'), run: () => actions.copy(entry.path) }
+        case 'copyName': return { id: action, label: t('tree.copyName'), run: () => actions.copy(entry.name) }
+        case 'properties': return { id: action, label: t('tree.properties'), run: () => actions.properties(entry) }
+      }
+    }
+    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
   }
 
   const current = focused ?? entries[0]?.entry.path
