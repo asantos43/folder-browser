@@ -28,6 +28,8 @@ export const ptBR: Record<MessageKey, string> = {
   'tree.errorLarge': 'Este arquivo ZIP é grande demais para ser navegado aqui.',
   'tree.hideHidden': 'Ocultar Arquivos Ocultos',
   'tree.openAsList': 'Abrir como Lista',
+  'tree.openSnapshot': 'Abrir como Snapshot',
+  'tree.openAsZip': 'Abrir como ZIP',
   'tree.closeFolder': 'Fechar Pasta',
   'tree.linkOutside': 'Um link para um lugar fora desta pasta: ele não é seguido.',
   'status.hiddenShown': 'Os arquivos ocultos são mostrados',

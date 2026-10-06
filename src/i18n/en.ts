@@ -26,6 +26,8 @@ export const en = {
   'tree.errorLarge': 'This ZIP file is too large to browse here.',
   'tree.hideHidden': 'Hide Hidden Files',
   'tree.openAsList': 'Open as List',
+  'tree.openSnapshot': 'Open as Snapshot',
+  'tree.openAsZip': 'Open as ZIP',
   'tree.closeFolder': 'Close Folder',
   'tree.linkOutside': 'A link to somewhere outside this folder: it is not followed.',
   'status.hiddenShown': 'Hidden files are shown',

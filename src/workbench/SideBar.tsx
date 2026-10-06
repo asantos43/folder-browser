@@ -35,6 +35,8 @@ export interface SideBarActions {
   openRootFile: (rootId: string, entry: Pick<DirEntry, 'path' | 'size'>, keep: boolean) => void
   reveal: (rootId: string, path: string) => void
   closeRoot: (rootId: string) => void
+  /** A `.wsnp` of a folder, as a snapshot. */
+  openSnapshot: (rootId: string, path: string) => void
   openTreeFile: (snapshotId: string, path: string, keep: boolean) => void
   saveFile: (snapshotId: string, path: string) => void
   openWith: (snapshotId: string, path: string) => void
@@ -183,6 +185,7 @@ export function SideBar({ ws, dispatch, actions, signers }: { ws: Workspace; dis
               actions={{
                 listDir: (path) => actions.listDir(root.id, path),
                 open: (entry, keep) => actions.openRootFile(root.id, entry, keep),
+                openSnapshot: (entry) => actions.openSnapshot(root.id, entry.path),
                 openWith: (path) => actions.openWith(root.id, path),
                 save: (path) => actions.saveFile(root.id, path),
                 copy: actions.copy,

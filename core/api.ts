@@ -72,6 +72,8 @@ export interface FbApi {
   openDialog(): Promise<OpenResult[]>
   /** The folder picker; opens the folder as a root of the tree. */
   openFolderDialog(): Promise<OpenResult[]>
+  /** Opens a `.wsnp` of a folder (a file of the disk, by its path in the root) as a snapshot. */
+  openInRoot(id: string, path: string): Promise<OpenResult[]>
   /** What is directly in a folder of a root, a ZIP of it, or a folder of that ZIP (`path` is relative to the root; `''` is the root itself). */
   listDir(id: string, path: string): Promise<ListResult>
   openPaths(paths: string[]): Promise<OpenResult[]>

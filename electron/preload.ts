@@ -16,6 +16,7 @@ const api: FbApi = {
   ready: () => ipcRenderer.invoke('fb:ready') as Promise<OpenResult[]>,
   openDialog: () => ipcRenderer.invoke('fb:open-dialog') as Promise<OpenResult[]>,
   openFolderDialog: () => ipcRenderer.invoke('fb:open-folder-dialog') as Promise<OpenResult[]>,
+  openInRoot: (id, path) => ipcRenderer.invoke('fb:open-in-root', id, path) as Promise<OpenResult[]>,
   listDir: (id, path) => ipcRenderer.invoke('fb:list-dir', id, path) as Promise<ListResult>,
   openPaths: (paths) => ipcRenderer.invoke('fb:open-paths', paths) as Promise<OpenResult[]>,
   onOpened: (listener) => on<OpenResult[]>('fb:opened', listener),

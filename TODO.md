@@ -22,9 +22,10 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] The desktop file also takes `inode/directory` and `application/zip`
 
 ## Phase 1b: `.wsnp`
-- [ ] A `.wsnp` in the tree opens as a snapshot (double click); "Open as ZIP" shows its entries
-- [ ] Same behaviour as WSNP Viewer: integrity, signature, PageKeep conversion, Print, Save as PDF, Find, zoom (the inherited specs pass against the tree)
-- [ ] Entries of a `.wsnp` are read-only (the whole file can be renamed, moved, deleted)
+- [x] A `.wsnp` in the tree opens as a snapshot (double click or Enter); "Open as ZIP" lists its entries (`fb:open-in-root`, `RootRegistry.diskFile`)
+- [x] Same behaviour as WSNP Viewer: it is the same code (a snapshot opened from the tree is opened like one from the picker: integrity, signature, Print, Save as PDF, Find, zoom); the inherited specs pass
+- [ ] A PageKeep ZIP found in a folder opens as a snapshot (today it opens as a ZIP folder; "Open as Snapshot" for `.zip` rows)
+- [ ] Entries of a `.wsnp` are read-only (the whole file can be renamed, moved, deleted): nothing writes yet, so this is a rule for phases 2 to 5 (`core/archive/edit.ts` must refuse a `.wsnp`)
 
 ## Phase 1c: right-click menu and Open With…
 - [ ] `buildContextMenu` by kind of file (folder, text, picture, PDF, ZIP, `.wsnp`, font/other, entry in a ZIP, several selected)

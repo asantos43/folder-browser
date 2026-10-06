@@ -521,6 +521,7 @@ export function Workbench() {
       openRootFile: (id: string, entry: { path: string; size: number }, keep: boolean) => dispatch({ type: 'open-file', snapshotId: id, path: entry.path, keep, size: entry.size }),
       reveal: (id: string, path: string) => void api?.reveal(id, path),
       closeRoot: (id: string) => dispatch({ type: 'root-closed', id }),
+      openSnapshot: (id: string, path: string) => void api?.openInRoot(id, path).then(handleResults),
       openTreeFile: (snapshotId: string, path: string, keep: boolean) => dispatch({ type: 'open-file', snapshotId, path, keep }),
       saveFile,
       openWith,
@@ -528,7 +529,7 @@ export function Workbench() {
       openExternal,
       showMetadata: (snapshotId: string) => dispatch({ type: 'open-metadata', snapshotId }),
     }),
-    [run, api, saveFile, openWith, copy, openExternal],
+    [run, api, saveFile, openWith, copy, openExternal, handleResults],
   )
 
   return (

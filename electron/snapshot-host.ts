@@ -460,6 +460,11 @@ export class SnapshotHost {
       const picked = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'multiSelections'] })
       return picked.canceled ? [] : this.openPaths(picked.filePaths)
     })
+    handle('fb:open-in-root', async (_win, id: unknown, name: unknown): Promise<OpenResult[]> => {
+      // Only a `.wsnp` of a folder, by its path in the root: the interface never names a path of the disk.
+      const file = typeof id === 'string' && typeof name === 'string' && /\.wsnp$/i.test(name) ? await this.roots.diskFile(id, name) : null
+      return file ? this.openPaths([file]) : []
+    })
     handle('fb:list-dir', async (_win, id: unknown, dir: unknown): Promise<ListResult> => (typeof id === 'string' && typeof dir === 'string' && dir.length < 4096 ? this.roots.list(id, dir) : { error: 'no-root' }))
     handle('fb:open-paths', (_win, paths: unknown) => (isPaths(paths) ? this.openPaths(paths) : []))
     handle('fb:close', async (_win, id: unknown) => {

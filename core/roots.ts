@@ -21,7 +21,8 @@ export interface RootInfo {
   name: string
 }
 
-export type EntryKind = 'dir' | 'file' | 'zip'
+/** A `.wsnp` file of the disk is its own kind: it opens as a snapshot (and, as a ZIP, as a list). */
+export type EntryKind = 'dir' | 'file' | 'zip' | 'wsnp'
 
 /** One row of a listing: a file or folder of the disk, or an entry of a ZIP. */
 export interface DirEntry {
@@ -45,6 +46,7 @@ type Fail = { error: 'no-snapshot' | 'no-file' | 'too-large' }
 /** The most rows one listing returns: a folder with more is cut, and says so. */
 export const LIST_LIMIT = 20_000
 const ZIP_NAME = /\.zip$/i
+const WSNP_NAME = /\.wsnp$/i
 
 interface OpenRoot extends RootInfo {
   /** The real path (symbolic links resolved), the one every file is checked to be inside. */
@@ -206,6 +208,15 @@ export class RootRegistry {
     }
   }
 
+  /** The file of the disk that `name` is, for what is opened from the disk by its path (a `.wsnp`): not an entry of a ZIP, and not in a ZIP root. */
+  async diskFile(id: string, name: string): Promise<string | null> {
+    const root = this.open.get(id)
+    if (!root || root.kind !== 'folder' || name.includes(INNER)) return null
+    const file = await resolveInside(root.real, name)
+    const stat = file ? await fsp.stat(file).catch(() => undefined) : undefined
+    return file && stat?.isFile() ? file : null
+  }
+
   /** The file on the disk that holds `name`: the file itself, or the outermost ZIP it is in. For "show in the folder". */
   async diskPath(id: string, name: string): Promise<string | null> {
     const root = this.open.get(id)
@@ -264,7 +275,7 @@ export class RootRegistry {
           stat = await fsp.stat(file)
           // A link to somewhere outside the root is listed, but cannot be followed: `resolveInside` refuses it.
         }
-        kind = stat.isDirectory() ? 'dir' : ZIP_NAME.test(d.name) ? 'zip' : 'file'
+        kind = stat.isDirectory() ? 'dir' : WSNP_NAME.test(d.name) ? 'wsnp' : ZIP_NAME.test(d.name) ? 'zip' : 'file'
         size = stat.isDirectory() ? 0 : stat.size
         modified = stat.mtime.toISOString()
       } catch {

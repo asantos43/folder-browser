@@ -9,7 +9,7 @@ afterEach(cleanup)
 
 const entry = (name: string, kind: DirEntry['kind'], dir = '', extra: Partial<DirEntry> = {}): DirEntry => ({ name, path: dir ? `${dir}/${name}` : name, kind, size: kind === 'dir' ? 0 : 10, modified: '2026-01-01T00:00:00.000Z', hidden: name.startsWith('.'), ...extra })
 const disk: Record<string, ListResult> = {
-  '': { entries: [entry('.git', 'dir'), entry('docs', 'dir'), entry('.env', 'file'), entry('a.txt', 'file'), entry('pack.zip', 'zip')], truncated: false },
+  '': { entries: [entry('.git', 'dir'), entry('docs', 'dir'), entry('.env', 'file'), entry('a.txt', 'file'), entry('pack.zip', 'zip'), entry('page.wsnp', 'wsnp')], truncated: false },
   docs: { entries: [entry('readme.md', 'file', 'docs')], truncated: false },
   '.git': { entries: [], truncated: false },
   'pack.zip': { entries: [entry('src', 'dir', 'pack.zip!', { path: 'pack.zip!/src' })], truncated: false },
@@ -19,7 +19,7 @@ const disk: Record<string, ListResult> = {
 
 function show({ showHidden = false, activePath, refreshToken = 0, lists = disk }: { showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult> } = {}) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
-  const actions = { listDir, open: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn() }
+  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn() }
   const tree = (props: { showHidden: boolean; activePath?: string; refreshToken: number }) => (
     <I18nProvider language="en">
       <ExplorerTree actions={actions} {...props} />
@@ -33,32 +33,32 @@ const names = () => screen.queryAllByRole('treeitem').map((r) => r.textContent)
 describe('ExplorerTree', () => {
   it('reads the root alone, and lists folders first without the hidden ones', async () => {
     const { listDir } = show()
-    await waitFor(() => expect(names()).toEqual(['docs', 'a.txt', 'pack.zip']))
+    await waitFor(() => expect(names()).toEqual(['docs', 'a.txt', 'pack.zip', 'page.wsnp']))
     expect(listDir).toHaveBeenCalledTimes(1)
     expect(listDir).toHaveBeenCalledWith('')
     expect(screen.getByRole('tree').getAttribute('aria-label')).toBe('Files and folders')
   })
   it('shows the hidden ones, dimmed, when the switch is on, without asking the main process again', async () => {
     const { listDir, again } = show()
-    await waitFor(() => expect(names()).toHaveLength(3))
+    await waitFor(() => expect(names()).toHaveLength(4))
     again({ showHidden: true, refreshToken: 0 })
-    expect(names()).toEqual(['.git', 'docs', '.env', 'a.txt', 'pack.zip'])
+    expect(names()).toEqual(['.git', 'docs', '.env', 'a.txt', 'pack.zip', 'page.wsnp'])
     expect(screen.getByRole('treeitem', { name: '.env' }).className).toContain('opacity-60')
     expect(listDir).toHaveBeenCalledTimes(1)
   })
   it('reads a folder when it is opened, and not before', async () => {
     const { listDir } = show()
-    await waitFor(() => expect(names()).toHaveLength(3))
+    await waitFor(() => expect(names()).toHaveLength(4))
     fireEvent.click(screen.getByRole('treeitem', { name: 'docs' }))
-    await waitFor(() => expect(names()).toEqual(['docs', 'readme.md', 'a.txt', 'pack.zip']))
+    await waitFor(() => expect(names()).toEqual(['docs', 'readme.md', 'a.txt', 'pack.zip', 'page.wsnp']))
     expect(listDir).toHaveBeenCalledWith('docs')
     expect(screen.getByRole('treeitem', { name: 'docs' }).getAttribute('aria-expanded')).toBe('true')
     fireEvent.click(screen.getByRole('treeitem', { name: 'docs' }))
-    expect(names()).toEqual(['docs', 'a.txt', 'pack.zip'])
+    expect(names()).toEqual(['docs', 'a.txt', 'pack.zip', 'page.wsnp'])
   })
   it('opens a ZIP like a folder, and the folders in it', async () => {
     show()
-    await waitFor(() => expect(names()).toHaveLength(3))
+    await waitFor(() => expect(names()).toHaveLength(4))
     fireEvent.click(screen.getByRole('treeitem', { name: 'pack.zip' }))
     await waitFor(() => expect(names()).toContain('src'))
     fireEvent.click(screen.getByRole('treeitem', { name: 'src' }))
@@ -66,7 +66,7 @@ describe('ExplorerTree', () => {
   })
   it('opens a file in a preview tab with a click and keeps it with a double click, handing over its size', async () => {
     const { open } = show()
-    await waitFor(() => expect(names()).toHaveLength(3))
+    await waitFor(() => expect(names()).toHaveLength(4))
     fireEvent.click(screen.getByRole('treeitem', { name: 'a.txt' }))
     expect(open).toHaveBeenLastCalledWith(expect.objectContaining({ path: 'a.txt', size: 10 }), false)
     fireEvent.doubleClick(screen.getByRole('treeitem', { name: 'a.txt' }))
@@ -95,7 +95,7 @@ describe('ExplorerTree', () => {
   })
   it('reads everything open again when the token changes', async () => {
     const { listDir, again } = show()
-    await waitFor(() => expect(names()).toHaveLength(3))
+    await waitFor(() => expect(names()).toHaveLength(4))
     fireEvent.click(screen.getByRole('treeitem', { name: 'docs' }))
     await waitFor(() => expect(names()).toContain('readme.md'))
     listDir.mockClear()
@@ -105,7 +105,7 @@ describe('ExplorerTree', () => {
   })
   it('moves with the arrows, opens with the right arrow and types to a name', async () => {
     show()
-    await waitFor(() => expect(names()).toHaveLength(3))
+    await waitFor(() => expect(names()).toHaveLength(4))
     const tree = screen.getByRole('tree')
     fireEvent.keyDown(tree, { key: 'ArrowRight' })
     await waitFor(() => expect(names()).toContain('readme.md'))
@@ -114,10 +114,34 @@ describe('ExplorerTree', () => {
   })
   it('lists the rows of the context menu by kind: a ZIP can be opened as a list', async () => {
     const { open } = show()
-    await waitFor(() => expect(names()).toHaveLength(3))
+    await waitFor(() => expect(names()).toHaveLength(4))
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'pack.zip' }))
     expect(screen.getByRole('menuitem', { name: 'Open as List' })).toBeTruthy()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Open as List' }))
     expect(open).toHaveBeenCalledWith(expect.objectContaining({ path: 'pack.zip', kind: 'zip' }), true)
+  })
+  it('opens a .wsnp as a snapshot with a double click or Enter, and a single click only selects it', async () => {
+    const { openSnapshot, open } = show()
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.click(screen.getByRole('treeitem', { name: 'page.wsnp' }))
+    expect(openSnapshot).not.toHaveBeenCalled()
+    expect(open).not.toHaveBeenCalled()
+    fireEvent.doubleClick(screen.getByRole('treeitem', { name: 'page.wsnp' }))
+    expect(openSnapshot).toHaveBeenCalledWith(expect.objectContaining({ path: 'page.wsnp', kind: 'wsnp' }))
+    openSnapshot.mockClear()
+    fireEvent.keyDown(screen.getByRole('tree'), { key: 'End' })
+    fireEvent.keyDown(screen.getByRole('tree'), { key: 'Enter' })
+    expect(openSnapshot).toHaveBeenCalledTimes(1)
+  })
+  it('offers a .wsnp to be opened as a snapshot or as a ZIP list, and does not expand it', async () => {
+    const { openSnapshot, open } = show()
+    await waitFor(() => expect(names()).toHaveLength(4))
+    expect(screen.getByRole('treeitem', { name: 'page.wsnp' }).getAttribute('aria-expanded')).toBeNull()
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'page.wsnp' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Open as ZIP' }))
+    expect(open).toHaveBeenCalledWith(expect.objectContaining({ path: 'page.wsnp' }), true)
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'page.wsnp' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Open as Snapshot' }))
+    expect(openSnapshot).toHaveBeenCalledTimes(1)
   })
 })

@@ -25,6 +25,8 @@ export interface ExplorerActions {
   listDir: (path: string) => Promise<ListResult>
   /** A file was clicked (`keep` for a double click or Enter). */
   open: (entry: DirEntry, keep: boolean) => void
+  /** A `.wsnp` of the disk opens as a snapshot. */
+  openSnapshot: (entry: DirEntry) => void
   openWith: (path: string) => void
   save: (path: string) => void
   copy: (text: string) => void
@@ -113,7 +115,7 @@ export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: 
       if (!shown.length) out.push({ type: 'note', key: `${dir}\0status`, depth, text: t(listing.entries.length ? 'tree.emptyHidden' : 'tree.empty') })
       for (const entry of shown) {
         out.push({ type: 'entry', entry, depth, parent: dir })
-        if (entry.kind !== 'file' && open.has(entry.path)) walk(entry.path, depth + 1)
+        if ((entry.kind === 'dir' || entry.kind === 'zip') && open.has(entry.path)) walk(entry.path, depth + 1)
       }
       if (listing.truncated) out.push({ type: 'note', key: `${dir}\0truncated`, depth, text: t('tree.truncated', { count: listing.entries.length }) })
     }
@@ -132,7 +134,8 @@ export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: 
     const row = entries[at]
     if (!row) return
     const go = (i: number) => entries[i] && focusRow(entries[i].entry.path)
-    const expandable = row.entry.kind !== 'file'
+    const expandable = row.entry.kind === 'dir' || row.entry.kind === 'zip'
+    const snapshot = row.entry.kind === 'wsnp'
     switch (event.key) {
       case 'ArrowDown': go(Math.min(entries.length - 1, at + 1)); break
       case 'ArrowUp': go(Math.max(0, at - 1)); break
@@ -150,10 +153,12 @@ export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: 
         break
       case 'Enter':
         if (expandable) toggle(row.entry.path)
+        else if (snapshot) actions.openSnapshot(row.entry)
         else actions.open(row.entry, true)
         break
       case ' ':
         if (expandable) toggle(row.entry.path)
+        else if (snapshot) actions.openSnapshot(row.entry)
         else actions.open(row.entry, false)
         break
       default: {
@@ -190,6 +195,15 @@ export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: 
                 { separator: true },
                 ...common,
               ]
+            : entry.kind === 'wsnp'
+              ? [
+                  { id: 'snapshot', label: t('tree.openSnapshot'), run: () => actions.openSnapshot(entry) },
+                  { id: 'list', label: t('tree.openAsZip'), run: () => actions.open(entry, true) },
+                  { id: 'openWith', label: t('tree.openWith'), run: () => actions.openWith(entry.path) },
+                  { id: 'save', label: t('menu.saveAs'), run: () => actions.save(entry.path) },
+                  { separator: true },
+                  ...common,
+                ]
             : [
                 { id: 'open', label: t('tree.open'), run: () => actions.open(entry, true) },
                 { id: 'openWith', label: t('tree.openWith'), run: () => actions.openWith(entry.path) },
@@ -213,7 +227,7 @@ export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: 
             )
           }
           const { entry, depth } = row
-          const expandable = entry.kind !== 'file'
+          const expandable = entry.kind === 'dir' || entry.kind === 'zip'
           const expanded = expandable && open.has(entry.path)
           const selected = !expandable && entry.path === activePath
           return (
@@ -227,15 +241,15 @@ export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: 
               aria-selected={selected}
               tabIndex={entry.path === current ? 0 : -1}
               onFocus={() => setFocused(entry.path)}
-              onClick={() => (expandable ? toggle(entry.path) : actions.open(entry, false))}
-              onDoubleClick={() => !expandable && actions.open(entry, true)}
+              onClick={() => (expandable ? toggle(entry.path) : entry.kind === 'wsnp' ? setFocused(entry.path) : actions.open(entry, false))}
+              onDoubleClick={() => (entry.kind === 'wsnp' ? actions.openSnapshot(entry) : !expandable && actions.open(entry, true))}
               onContextMenu={(e) => contextMenu(e, entry)}
               title={entry.link ? `${entry.path} (${t('tree.linkOutside')})` : entry.path}
               style={{ paddingLeft: 8 + depth * 8 }}
               className={`flex h-[22px] cursor-pointer items-center gap-1 pr-2 outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus ${entry.hidden ? 'opacity-60' : ''} ${selected ? 'bg-list-inactive focus-within:bg-list-active focus-within:text-list-active-fg' : 'hover:bg-list-hover'}`}
             >
               <span className="flex w-4 shrink-0 justify-center">{expandable ? <Icon name={expanded ? 'chevron-down' : 'chevron-right'} className="text-[16px]" /> : null}</span>
-              <Icon name={entry.kind === 'dir' ? (expanded ? 'folder-opened' : 'folder') : entry.kind === 'zip' ? 'file-zip' : fileIcon(undefined, entry.name)} className="shrink-0 text-[16px]" />
+              <Icon name={entry.kind === 'dir' ? (expanded ? 'folder-opened' : 'folder') : entry.kind === 'zip' ? 'file-zip' : entry.kind === 'wsnp' ? 'browser' : fileIcon(undefined, entry.name)} className="shrink-0 text-[16px]" />
               <span className="truncate">{entry.name}</span>
             </div>
           )

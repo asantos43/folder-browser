@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { writeViewerWsnp } from '../fixtures/build.ts'
 import { zipSync } from '../fixtures/zip.ts'
 
 // End-to-end: a folder or a ZIP file opened to browse: the tree that reads a level at a time, the hidden files, files in tabs, ZIP files as folders.
@@ -10,7 +11,7 @@ let dir: string
 let work: string
 let app: ElectronApplication | undefined
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fb-e2e-browse-'))
   work = path.join(dir, 'work')
   fs.mkdirSync(path.join(work, 'docs'), { recursive: true })
@@ -18,6 +19,7 @@ test.beforeEach(() => {
   fs.writeFileSync(path.join(work, 'a.txt'), 'the ferry leaves at noon')
   fs.writeFileSync(path.join(work, '.env'), 'SECRET=1')
   fs.writeFileSync(path.join(work, 'docs', 'readme.md'), '# Notes\n\nfrom the docs folder')
+  await writeViewerWsnp(path.join(work, 'harbor.wsnp'), { title: 'Harbor Times', url: 'https://harbortimes.example/' })
   fs.writeFileSync(path.join(work, 'pack.zip'), zipSync([{ name: 'src/' }, { name: 'src/main.c', data: 'int main(void) { return 42; }' }, { name: 'top.txt', data: 'top of the zip' }]))
 })
 test.afterEach(async () => {
@@ -39,17 +41,17 @@ const names = (page: Page) => tree(page).getByRole('treeitem').allTextContents()
 test('a folder named on the command line opens as a root, with its first level and nothing hidden', async () => {
   const page = await launch(work)
   await expect(page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option')).toHaveText(['work'])
-  await expect.poll(() => names(page)).toEqual(['docs', 'a.txt', 'pack.zip'])
+  await expect.poll(() => names(page)).toEqual(['docs', 'a.txt', 'harbor.wsnp', 'pack.zip'])
   await expect(page.getByRole('contentinfo')).toContainText(`Folder: ${work}`)
 })
 
 test('the hidden files appear with Ctrl+H, from the side bar and from the settings, and go again', async () => {
   const page = await launch(work)
-  await expect.poll(() => names(page)).toEqual(['docs', 'a.txt', 'pack.zip'])
+  await expect.poll(() => names(page)).toEqual(['docs', 'a.txt', 'harbor.wsnp', 'pack.zip'])
   await page.keyboard.press('Control+h')
-  await expect.poll(() => names(page)).toEqual(['.git', 'docs', '.env', 'a.txt', 'pack.zip'])
+  await expect.poll(() => names(page)).toEqual(['.git', 'docs', '.env', 'a.txt', 'harbor.wsnp', 'pack.zip'])
   await page.getByRole('button', { name: 'Hide Hidden Files' }).click()
-  await expect.poll(() => names(page)).toEqual(['docs', 'a.txt', 'pack.zip'])
+  await expect.poll(() => names(page)).toEqual(['docs', 'a.txt', 'harbor.wsnp', 'pack.zip'])
   await page.getByRole('button', { name: 'Show Hidden Files' }).first().click()
   await expect(item(page, '.env')).toBeVisible()
 })
@@ -112,4 +114,29 @@ test('closing the folder takes its tabs with it', async () => {
   await page.getByRole('button', { name: 'Close Folder' }).click()
   await expect(page.getByRole('tab')).toHaveCount(0)
   await expect(page.getByText('No folder is open.')).toBeVisible()
+})
+
+test('a .wsnp of the folder opens as a snapshot with a double click, as the viewer shows it, and the folder stays', async () => {
+  const page = await launch(work)
+  await expect(item(page, 'harbor.wsnp')).toBeVisible()
+  await item(page, 'harbor.wsnp').click()
+  await expect(page.getByRole('tab')).toHaveCount(0)
+  await item(page, 'harbor.wsnp').dblclick()
+  await expect(page.getByRole('tab', { selected: true })).toContainText('Harbor Times')
+  await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
+  await expect(page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option')).toHaveCount(1)
+  await expect(page.frameLocator('iframe[title="Snapshot: Harbor Times"]').locator('#ext')).toBeVisible()
+  // Opened again, it is the same snapshot: its tab comes to the front, no second one.
+  await page.getByRole('option', { name: 'work' }).click()
+  await item(page, 'harbor.wsnp').dblclick()
+  await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
+})
+
+test('a .wsnp of the folder can be opened as a ZIP: its entries are listed, not shown as a page', async () => {
+  const page = await launch(work)
+  await item(page, 'harbor.wsnp').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Open as ZIP' }).click()
+  await expect(page.getByRole('tab', { selected: true })).toContainText('harbor.wsnp')
+  await expect(page.getByText('manifest.json').first()).toBeVisible()
+  await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(0)
 })

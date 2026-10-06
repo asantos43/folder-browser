@@ -29,6 +29,7 @@ beforeEach(async () => {
   fs.writeFileSync(path.join(dir, 'docs', 'deep', 'n.json'), '{}')
   const inner = await zipBuffer([{ name: 'in.txt', data: 'inner text' }])
   fs.writeFileSync(path.join(dir, 'pack.zip'), await zipBuffer([{ name: 'src/' }, { name: 'src/main.c', data: 'int main(){}' }, { name: '.hidden', data: 'h' }, { name: 'top.txt', data: 'top' }, { name: 'nested.zip', data: inner }]))
+  fs.writeFileSync(path.join(dir, 'page.wsnp'), await zipBuffer([{ name: 'mimetype', data: 'application/vnd.wsnp+zip', store: true }, { name: 'index.html', data: '<p>hi</p>' }]))
   fs.writeFileSync(path.join(base, 'outside.txt'), 'outside')
   roots = new RootRegistry()
 })
@@ -56,7 +57,7 @@ describe('listing a folder', () => {
   it('lists a level, folders first, with everything about each row (hidden ones flagged, not left out)', async () => {
     const { root } = (await roots.openPath(dir)) as { root: { id: string } }
     const list = entries(await roots.list(root.id, ''))
-    expect(list.map((e) => `${e.kind}:${e.name}`)).toEqual(['dir:.git', 'dir:docs', 'file:.env', 'file:a.txt', 'zip:pack.zip'])
+    expect(list.map((e) => `${e.kind}:${e.name}`)).toEqual(['dir:.git', 'dir:docs', 'file:.env', 'file:a.txt', 'zip:pack.zip', 'wsnp:page.wsnp'])
     expect(list.find((e) => e.name === '.env')).toMatchObject({ hidden: true, size: 8, path: '.env' })
     expect(list.find((e) => e.name === 'a.txt')).toMatchObject({ hidden: false, size: 5 })
     expect(names(await roots.list(root.id, 'docs'))).toEqual(['deep', 'readme.md'])
@@ -130,6 +131,27 @@ describe('a ZIP as the root', () => {
     expect(await text(root.id, 'src/main.c')).toBe('int main(){}')
     expect(await text(root.id, 'nested.zip!/in.txt')).toBe('inner text')
     expect(await roots.diskPath(root.id, 'src/main.c')).toBe(fs.realpathSync(path.join(dir, 'pack.zip')))
+  })
+})
+
+describe('a .wsnp', () => {
+  it('is its own kind on the disk (a ZIP in disguise), and only on the disk', async () => {
+    const { root } = (await roots.openPath(dir)) as { root: { id: string } }
+    expect(entries(await roots.list(root.id, '')).find((e) => e.name === 'page.wsnp')).toMatchObject({ kind: 'wsnp', path: 'page.wsnp' })
+    const inZip = await zipBuffer([{ name: 'in.wsnp', data: 'x' }])
+    fs.writeFileSync(path.join(dir, 'holder.zip'), inZip)
+    expect(entries(await roots.list(root.id, 'holder.zip'))[0]).toMatchObject({ name: 'in.wsnp', kind: 'file' })
+  })
+  it('reads as a ZIP when asked, and names its file on the disk only for a folder root and a plain path', async () => {
+    const { root } = (await roots.openPath(dir)) as { root: { id: string } }
+    const zip = await roots.zipAt(root.id, 'page.wsnp')
+    expect('entries' in zip && zip.entries.map((e) => e.name)).toEqual(['mimetype', 'index.html'])
+    expect(await roots.diskFile(root.id, 'page.wsnp')).toBe(path.join(fs.realpathSync(dir), 'page.wsnp'))
+    expect(await roots.diskFile(root.id, 'pack.zip!/top.txt')).toBeNull()
+    expect(await roots.diskFile(root.id, 'docs')).toBeNull()
+    expect(await roots.diskFile(root.id, '../outside.txt')).toBeNull()
+    const zipRoot = (await roots.openPath(path.join(dir, 'pack.zip'))) as { root: { id: string } }
+    expect(await roots.diskFile(zipRoot.root.id, 'top.txt')).toBeNull()
   })
 })
 
