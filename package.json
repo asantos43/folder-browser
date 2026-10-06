@@ -76,7 +76,7 @@
     "markdown-it": "^15.0.2",
     "oxlint": "^1.86.0",
     "parse5": "^8.0.1",
-    "pdfjs-dist": "^6.3.289",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
