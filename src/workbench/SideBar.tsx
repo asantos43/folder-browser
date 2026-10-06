@@ -1,10 +1,13 @@
 import type { DirEntry, ListResult, Place, PlacesData, RootInfo } from '@core/api.ts'
-import { useState, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
 import { basename } from '@/lib/format.ts'
-import { showHidden } from '@/state/setting.ts'
+import { showHidden, sortDescending, sortKey } from '@/state/setting.ts'
+import { sortMenuEntries } from './sortMenu.ts'
+import { MenuList, useDismiss } from '@/components/Menu.tsx'
 import { isSnapshotTab, snapshotKey, type Action, type Workspace } from '@/state/workspace.ts'
+import type { SortKey } from '@core/fs/sort.ts'
 import { ExplorerTree } from './ExplorerTree.tsx'
 import { PlacesView } from './PlacesView.tsx'
 import { FileTree } from './FileTree.tsx'
@@ -29,6 +32,29 @@ function Section({ title, children, defaultOpen = true, actions }: { title: stri
   )
 }
 
+/** The button that says how the files are ordered, and opens the choices (by name, by date, by size; which way). Always in sight: it is what a folder is browsed by. */
+function SortButton({ by, descending }: { by: SortKey; descending: boolean }) {
+  const { t } = useI18n()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const close = useCallback(() => setOpen(false), [])
+  useDismiss(open, ref, close)
+  const label = t('sort.button', { by: t(`sort.${by}`), way: t(descending ? 'sort.wayDescending' : 'sort.wayAscending') })
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" title={label} aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} className="mr-1 flex h-[22px] items-center justify-center gap-0.5 rounded px-1 opacity-80 hover:bg-toolbar-hover hover:opacity-100 focus-visible:opacity-100">
+        <Icon name="sort-precedence" className="text-[16px]" />
+        <Icon name={descending ? 'arrow-down' : 'arrow-up'} className="text-[12px]" />
+      </button>
+      {open ? (
+        <div className="absolute top-[22px] right-0 z-50 text-[13px]">
+          <MenuList entries={sortMenuEntries(t, by, descending, { key: (k) => (sortKey.set(k), close()), descending: (d) => (sortDescending.set(d), close()) })} label={t('sort.by')} onClose={close} autoSelect />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export interface SideBarActions {
   openFile: () => void
   openFolder: () => void
@@ -46,7 +72,7 @@ export interface SideBarActions {
   openDefault: (rootId: string, path: string) => void
   properties: (root: RootInfo, entry: DirEntry) => void
   /** A `.wsnp` of a folder, as a snapshot. */
-  openSnapshot: (rootId: string, path: string) => void
+  openSnapshot: (rootId: string, path: string, keep: boolean) => void
   openTreeFile: (snapshotId: string, path: string, keep: boolean) => void
   saveFile: (snapshotId: string, path: string) => void
   openWith: (snapshotId: string, path: string) => void
@@ -58,10 +84,13 @@ export interface SideBarActions {
 /** The side bar of the Snapshots view: the open snapshots, the files of the selected one, what its manifest says and what its integrity check found. */
 export function SideBar({ ws, dispatch, actions, signers, places, treeVersion }: { /** The places of the side bar, once the main process has listed them. */ places: PlacesData | null; /** Changes when something outside the tree changed what it lists (the trash was emptied). */ treeVersion: number; ws: Workspace; dispatch: (a: Action) => void; actions: SideBarActions; signers: Signers }) {
   const { t } = useI18n()
-  const ids = ws.tabs.filter(isSnapshotTab).map((tab) => tab.snapshotId)
+  // (A snapshot that is only previewed is not listed: it is not what the side bar is about, until it is opened for good.)
+  const ids = ws.tabs.filter((tab) => isSnapshotTab(tab) && !tab.preview).map((tab) => tab.snapshotId)
   const selected = ws.selected ? ws.snapshots[ws.selected] : undefined
   const root = ws.selected ? ws.roots[ws.selected] : undefined
   const hidden = showHidden.use()
+  const by = sortKey.use()
+  const descending = sortDescending.use()
   const [refreshToken, setRefreshToken] = useState(0)
   const rootIds = Object.keys(ws.roots)
   const activeTab = ws.tabs.find((tab) => tab.key === ws.active)
@@ -167,6 +196,7 @@ export function SideBar({ ws, dispatch, actions, signers, places, treeVersion }:
           actions={
             root ? (
               <>
+                <SortButton by={by} descending={descending} />
                 {root.trash ? (
                   <button type="button" title={t('tree.emptyTrash')} aria-label={t('tree.emptyTrash')} onClick={() => actions.emptyTrash(root.id)} className={iconButton}>
                     <Icon name="trash" className="text-[16px]" />
@@ -190,11 +220,13 @@ export function SideBar({ ws, dispatch, actions, signers, places, treeVersion }:
               trash={root.trash === true}
               activePath={activePath}
               showHidden={hidden}
+              sortKey={by}
+              sortDescending={descending}
               refreshToken={refreshToken + treeVersion}
               actions={{
                 listDir: (path) => actions.listDir(root.id, path),
                 open: (entry, keep) => actions.openRootFile(root.id, entry, keep),
-                openSnapshot: (entry) => actions.openSnapshot(root.id, entry.path),
+                openSnapshot: (entry, keep) => actions.openSnapshot(root.id, entry.path, keep),
                 openWith: (path) => actions.openWith(root.id, path),
                 openDefault: (path) => actions.openDefault(root.id, path),
                 properties: (entry) => actions.properties(root, entry),

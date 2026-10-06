@@ -10,7 +10,7 @@ import { useNotifications } from '@/state/notifications.ts'
 import { empty, isHeldBack, isSnapshotTab, reduce, released, snapshotKey } from '@/state/workspace.ts'
 import { emptyHistory, step, visit, type History } from '@/state/history.ts'
 import { isSession, keyOfEntry, sessionOf, type Session } from '@/state/session.ts'
-import { reopenSession, showHidden, svgView } from '@/state/setting.ts'
+import { reopenSession, showHidden, sortDescending, sortKey, svgView } from '@/state/setting.ts'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { shownSource } from '@/state/fileLanguage.ts'
 import { LanguagePicker } from './LanguagePicker.tsx'
@@ -51,6 +51,8 @@ export function Workbench() {
   const { setting, setSetting } = useTheme()
   svgView.use()
   const hiddenShown = showHidden.use()
+  const sortBy = sortKey.use()
+  const sortBackwards = sortDescending.use()
   const { notifications, notify, dismiss } = useNotifications()
   const [ws, dispatch] = useReducer(reduce, empty)
   const [sideBarVisible, setSideBarVisible] = useState(() => readStored('sideBarVisible', true, isBoolean))
@@ -102,7 +104,7 @@ export function Workbench() {
   const refreshPlaces = useCallback(() => void api?.places.list().then(setPlacesData), [api])
   useEffect(refreshPlaces, [refreshPlaces])
   const handleResults = useCallback(
-    (results: OpenResult[]) => {
+    (results: OpenResult[], options?: { preview?: boolean }) => {
       for (const result of results) {
         if (!result.ok) notify(refusalNotice(t, result))
         else if ('root' in result) {
@@ -110,7 +112,7 @@ export function Workbench() {
           dispatch({ type: 'root-opened', root: result.root })
           if (result.open) dispatch({ type: 'open-file', snapshotId: result.root.id, path: result.open.path, keep: true, size: result.open.size })
         } else {
-          dispatch({ type: 'snapshot-opened', snapshot: result.snapshot })
+          dispatch({ type: 'snapshot-opened', snapshot: result.snapshot, ...(options?.preview ? { preview: true } : {}) })
           if (!result.already) void api?.verify(result.snapshot.id)
         }
       }
@@ -491,6 +493,10 @@ export function Workbench() {
       openFolder: () => run('openFolder'),
       toggleHidden: () => run('toggleHidden'),
       showHidden: hiddenShown,
+      sortKey: sortBy,
+      sortDescending: sortBackwards,
+      setSortKey: (key) => sortKey.set(key),
+      setSortDescending: (descending) => sortDescending.set(descending),
       print: () => run('print'),
       savePdf: () => run('savePdf'),
       saveAsWsnp: () => run('saveAsWsnp'),
@@ -522,7 +528,7 @@ export function Workbench() {
       canGoForward: step(history, 1, new Set(ws.tabs.map((tab) => tab.key)), ws.active) !== null,
       recent,
     }),
-    [toggleSideBar, setSetting, run, api, handleResults, refreshRecent, ws, recent, savePdfTab, saveConverted, go, history, hiddenShown],
+    [toggleSideBar, setSetting, run, api, handleResults, refreshRecent, ws, recent, savePdfTab, saveConverted, go, history, hiddenShown, sortBy, sortBackwards],
   )
 
   const sideBarActions = useMemo(
@@ -553,7 +559,8 @@ export function Workbench() {
           setTreeVersion((n) => n + 1)
         }),
       emptyTrash: (id: string) => setEmptying(id),
-      openSnapshot: (id: string, path: string) => void api?.openInRoot(id, path).then(handleResults),
+      // A click only previews the snapshot, as it would a picture; a double click opens it for good.
+      openSnapshot: (id: string, path: string, keep: boolean) => void api?.openInRoot(id, path).then((results) => handleResults(results, { preview: !keep })),
       openTreeFile: (snapshotId: string, path: string, keep: boolean) => dispatch({ type: 'open-file', snapshotId, path, keep }),
       saveFile,
       openWith,

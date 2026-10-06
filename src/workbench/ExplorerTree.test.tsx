@@ -3,6 +3,7 @@ import type { DirEntry, ListResult } from '@core/api.ts'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
+import type { SortKey } from '@core/fs/sort.ts'
 import { ExplorerTree } from './ExplorerTree.tsx'
 
 afterEach(cleanup)
@@ -17,18 +18,20 @@ const disk: Record<string, ListResult> = {
   locked: { error: 'denied' },
 }
 
-function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false }: { showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean } = {}) {
+function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false, sortKey = 'name', sortDescending = false }: { showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean; sortKey?: SortKey; sortDescending?: boolean } = {}) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
   const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn() }
-  const tree = (props: { showHidden: boolean; activePath?: string; refreshToken: number }) => (
+  type Props = { showHidden: boolean; activePath?: string; refreshToken: number; sortKey: SortKey; sortDescending: boolean }
+  const tree = (props: Props) => (
     <I18nProvider language="en">
       <ExplorerTree rootId="r1" rootKind={kind} trash={trash} actions={actions} {...props} />
     </I18nProvider>
   )
-  const view = render(tree({ showHidden, activePath, refreshToken }))
-  return { ...actions, view, again: (props: { showHidden: boolean; activePath?: string; refreshToken: number }) => view.rerender(tree(props)) }
+  const view = render(tree({ showHidden, activePath, refreshToken, sortKey, sortDescending }))
+  return { ...actions, view, again: (props: Partial<Props> & Pick<Props, 'showHidden' | 'refreshToken'>) => view.rerender(tree({ sortKey, sortDescending, ...props })) }
 }
-const names = () => screen.queryAllByRole('treeitem').map((r) => r.textContent)
+/** The names of the rows (each row also has its size and date). */
+const names = () => screen.queryAllByRole('treeitem').map((r) => r.querySelector('span.truncate')?.textContent ?? r.textContent)
 
 describe('ExplorerTree', () => {
   it('reads the root alone, and lists folders first without the hidden ones', async () => {
@@ -45,7 +48,7 @@ describe('ExplorerTree', () => {
     const again = (listDir2: typeof listDir) =>
       view.rerender(
         <I18nProvider language="en">
-          <ExplorerTree rootId="r1" rootKind="folder" trash={false} showHidden={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn() }} />
+          <ExplorerTree rootId="r1" rootKind="folder" trash={false} showHidden={false} sortKey="name" sortDescending={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn() }} />
         </I18nProvider>,
       )
     const other = vi.fn(async () => ({ entries: [], truncated: false }) as ListResult)
@@ -139,15 +142,14 @@ describe('ExplorerTree', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Open as List' }))
     expect(open).toHaveBeenCalledWith(expect.objectContaining({ path: 'pack.zip', kind: 'zip' }), true)
   })
-  it('opens a .wsnp as a snapshot with a click, a double click or Enter, as any other file is opened (not as a ZIP)', async () => {
+  it('previews a .wsnp with a click, as a picture would be (not opened as a snapshot), and opens it for good with a double click or Enter', async () => {
     const { openSnapshot, open } = show()
     await waitFor(() => expect(names()).toHaveLength(4))
     fireEvent.click(screen.getByRole('treeitem', { name: 'page.wsnp' }))
-    expect(openSnapshot).toHaveBeenCalledWith(expect.objectContaining({ path: 'page.wsnp', kind: 'wsnp' }))
+    expect(openSnapshot).toHaveBeenLastCalledWith(expect.objectContaining({ path: 'page.wsnp', kind: 'wsnp' }), false)
     expect(open).not.toHaveBeenCalled()
-    openSnapshot.mockClear()
     fireEvent.doubleClick(screen.getByRole('treeitem', { name: 'page.wsnp' }))
-    expect(openSnapshot).toHaveBeenCalledTimes(1)
+    expect(openSnapshot).toHaveBeenLastCalledWith(expect.objectContaining({ path: 'page.wsnp' }), true)
     openSnapshot.mockClear()
     fireEvent.keyDown(screen.getByRole('tree'), { key: 'End' })
     fireEvent.keyDown(screen.getByRole('tree'), { key: 'Enter' })
@@ -228,5 +230,62 @@ describe('ExplorerTree', () => {
     await screen.findByRole('treeitem', { name: 'in.txt' })
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'in.txt' }))
     expect(screen.queryByRole('menuitem', { name: 'Restore' })).toBeNull()
+  })
+  describe('the order and the details of the rows', () => {
+    const sized = (name: string, size: number, modified: string, kind: DirEntry['kind'] = 'file'): DirEntry => ({ name, path: name, kind, size, modified, hidden: false })
+    const lists = (): Record<string, ListResult> => ({
+      '': { entries: [sized('big.bin', 5_000_000, '2026-01-10T10:00:00.000Z'), sized('small.txt', 12, '2026-06-01T10:00:00.000Z'), sized('mid.md', 2048, '2025-03-05T10:00:00.000Z'), sized('zdir', 0, '2026-02-01T10:00:00.000Z', 'dir'), sized('adir', 0, '2026-09-01T10:00:00.000Z', 'dir')], truncated: false },
+    })
+
+    it('orders by name, folders first, by default', async () => {
+      show({ lists: lists() })
+      await waitFor(() => expect(names()).toEqual(['adir', 'zdir', 'big.bin', 'mid.md', 'small.txt']))
+    })
+    it('orders by size, smallest first, and largest first when descending; folders stay first and by name', async () => {
+      const { again } = show({ lists: lists(), sortKey: 'size' })
+      await waitFor(() => expect(names()).toEqual(['adir', 'zdir', 'small.txt', 'mid.md', 'big.bin']))
+      again({ showHidden: false, refreshToken: 0, sortKey: 'size', sortDescending: true })
+      expect(names()).toEqual(['adir', 'zdir', 'big.bin', 'mid.md', 'small.txt'])
+    })
+    it('orders by date, the oldest first, and the newest first when descending', async () => {
+      const { again } = show({ lists: lists(), sortKey: 'modified' })
+      await waitFor(() => expect(names()).toEqual(['zdir', 'adir', 'mid.md', 'big.bin', 'small.txt']))
+      again({ showHidden: false, refreshToken: 0, sortKey: 'modified', sortDescending: true })
+      expect(names()).toEqual(['adir', 'zdir', 'small.txt', 'big.bin', 'mid.md'])
+    })
+    it('changes the order at once, with no new reading of the folder', async () => {
+      const { listDir, again } = show({ lists: lists() })
+      await waitFor(() => expect(names()).toHaveLength(5))
+      again({ showHidden: false, refreshToken: 0, sortKey: 'size', sortDescending: false })
+      expect(names()[2]).toBe('small.txt')
+      expect(listDir).toHaveBeenCalledTimes(1)
+    })
+    it('writes the size of a file small and to the right, and no size for a folder; the date too', async () => {
+      show({ lists: lists() })
+      await waitFor(() => expect(names()).toHaveLength(5))
+      const row = (name: string) => screen.getByRole('treeitem', { name })
+      expect(row('big.bin').textContent).toContain('4.8 MB')
+      expect(row('small.txt').textContent).toContain('12 B')
+      expect(row('mid.md').textContent).toContain('2.0 KB')
+      // A folder has a date and no size.
+      expect([...row('adir').querySelectorAll('span.tabular-nums')].map((e) => e.textContent)).toEqual([expect.stringMatching(/Sep/)])
+      expect(row('adir').textContent).not.toMatch(/\d (B|KB|MB)/)
+      expect(row('mid.md').textContent).toMatch(/2025/)
+    })
+    it('shows, when there is little room, the size when the order is by name or size, and the date when it is by date', async () => {
+      const { again } = show({ lists: lists() })
+      await waitFor(() => expect(names()).toHaveLength(5))
+      const spans = (name: string) => [...screen.getByRole('treeitem', { name }).querySelectorAll('span.tabular-nums')].map((s) => [s.textContent, s.className.includes('hidden')])
+      expect(spans('small.txt').map(([, hidden]) => hidden)).toEqual([false, true])
+      again({ showHidden: false, refreshToken: 0, sortKey: 'modified', sortDescending: false })
+      expect(spans('small.txt').map(([, hidden]) => hidden)).toEqual([true, false])
+    })
+    it('has the whole of it in the tooltip: the path, the size and the date', async () => {
+      show({ lists: lists() })
+      await waitFor(() => expect(names()).toHaveLength(5))
+      const title = screen.getByRole('treeitem', { name: 'mid.md' }).getAttribute('title')!
+      expect(title.split('\n')).toEqual(['mid.md', '2.0 KB', expect.stringContaining('2025')])
+      expect(screen.getByRole('treeitem', { name: 'adir' }).getAttribute('title')!.split('\n')).toHaveLength(2)
+    })
   })
 })

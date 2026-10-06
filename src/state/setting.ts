@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import type { SortKey } from '@core/fs/sort.ts'
 import { readStored, writeStored } from '@/lib/storage.ts'
 
 /** A setting kept on this computer that more than one part of the interface reads and changes (word wrap, formatting): a value, and a hook. */
@@ -45,5 +46,9 @@ export const markdownWrapCode = createSetting('markdownWrapCode', false, isBoole
 export const reopenSession = createSetting('reopenSession', true, isBoolean)
 /** Hidden files and folders (a name that starts with a dot) are shown in the tree. Off by default, as in a file manager. */
 export const showHidden = createSetting('showHidden', false, isBoolean)
+/** What the files of a folder are ordered by (folders stay first): the name, the date they changed, or the size. */
+export const sortKey = createSetting<SortKey>('sortKey', 'name', (v): v is SortKey => v === 'name' || v === 'modified' || v === 'size')
+/** The order of the key turned round: Z to A, the newest and the largest first. */
+export const sortDescending = createSetting('sortDescending', false, isBoolean)
 /** Source files that a formatter can lay out again (HTML, CSS, JavaScript, JSON, XML) are shown formatted. On by default: a saved page is usually minified. */
 export const formatSource = createSetting('formatSource', true, isBoolean)

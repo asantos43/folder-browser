@@ -1,6 +1,8 @@
 import type { MessageKey, Translate } from '@/i18n/index.ts'
 import type { MenuEntry } from '@/components/Menu.tsx'
 import { basename } from '@/lib/format.ts'
+import type { SortKey } from '@core/fs/sort.ts'
+import { sortMenuEntries } from './sortMenu.ts'
 
 /** What the workbench can do; the menus, the keyboard and the native menu of macOS all end up here. */
 export interface Commands {
@@ -11,6 +13,11 @@ export interface Commands {
   toggleHidden: () => void
   /** The hidden files are shown in the tree. */
   showHidden: boolean
+  /** How the files of a folder are ordered. */
+  sortKey: SortKey
+  sortDescending: boolean
+  setSortKey: (key: SortKey) => void
+  setSortDescending: (descending: boolean) => void
   print: () => void
   savePdf: () => void
   saveAsWsnp: () => void
@@ -115,6 +122,7 @@ export const MENUS: MenuDef[] = [
     entries: (t, c) => [
       { id: 'palette', label: t('menu.commandPalette'), shortcut: shortcut('Ctrl+Shift+P'), run: c.commandPalette },
       { separator: true },
+      { id: 'sort', label: t('sort.by'), submenu: sortMenuEntries(t, c.sortKey, c.sortDescending, { key: c.setSortKey, descending: c.setSortDescending }) },
       { id: 'hidden', label: t('menu.showHidden'), shortcut: shortcut('Ctrl+H'), checked: c.showHidden, run: c.toggleHidden },
       { separator: true },
       { id: 'metadata', label: t('menu.showMetadata'), disabled: !c.hasEditor, run: c.showMetadata },

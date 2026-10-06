@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resolveInside } from './guard.ts'
 import { isHidden } from './hidden.ts'
-import { sortEntries } from './sort.ts'
+import { compareEntries, sortEntries } from './sort.ts'
 
 let dir: string
 let outside: string
@@ -52,5 +52,32 @@ describe('resolveInside', () => {
     expect(await resolveInside(dir, 'escape')).toBeNull()
     expect(await resolveInside(dir, 'escape/secret.txt')).toBeNull()
     expect(await resolveInside(dir, 'inside/x.txt')).toBe(path.join(fs.realpathSync(dir), 'a', 'x.txt'))
+  })
+})
+
+describe('compareEntries', () => {
+  const e = (name: string, kind: string, size = 0, modified = '2026-01-01T00:00:00.000Z') => ({ name, kind, size, modified })
+  const rows = [e('b.txt', 'file', 300, '2026-03-01T00:00:00.000Z'), e('A.txt', 'file', 100, '2026-05-01T00:00:00.000Z'), e('dir2', 'dir', 0, '2026-04-01T00:00:00.000Z'), e('c.txt', 'file', 200, '2026-01-01T00:00:00.000Z'), e('dir10', 'dir', 0, '2026-02-01T00:00:00.000Z')]
+  const order = (key: 'name' | 'modified' | 'size', desc: boolean) => [...rows].sort(compareEntries(key, desc)).map((r) => r.name)
+
+  it('orders by name, folders first, numbers as numbers, case apart', () => {
+    expect(order('name', false)).toEqual(['dir2', 'dir10', 'A.txt', 'b.txt', 'c.txt'])
+    expect(order('name', true)).toEqual(['dir10', 'dir2', 'c.txt', 'b.txt', 'A.txt'])
+  })
+  it('orders by date, the oldest first, and the newest first when descending; folders still first', () => {
+    expect(order('modified', false)).toEqual(['dir10', 'dir2', 'c.txt', 'b.txt', 'A.txt'])
+    expect(order('modified', true)).toEqual(['dir2', 'dir10', 'A.txt', 'b.txt', 'c.txt'])
+  })
+  it('orders by size, the smallest first, and the largest first when descending; folders by name', () => {
+    expect(order('size', false)).toEqual(['dir2', 'dir10', 'A.txt', 'c.txt', 'b.txt'])
+    expect(order('size', true)).toEqual(['dir2', 'dir10', 'b.txt', 'c.txt', 'A.txt'])
+  })
+  it('settles a tie by the name', () => {
+    const same = [e('z', 'file', 5), e('a', 'file', 5), e('m', 'file', 5)]
+    expect(same.sort(compareEntries('size')).map((r) => r.name)).toEqual(['a', 'm', 'z'])
+    expect(same.sort(compareEntries('modified')).map((r) => r.name)).toEqual(['a', 'm', 'z'])
+  })
+  it('keeps the order of the main process for the default', () => {
+    expect([...rows].sort(compareEntries()).map((r) => r.name)).toEqual(sortEntries([...rows]).map((r) => r.name))
   })
 })

@@ -29,6 +29,19 @@ describe('SnapshotRegistry', () => {
     expect((await registry.serve(outcome.snapshot.id, '/mimetype')).status).toBe(404)
     await registry.closeAll()
   })
+  it('does not open the same file twice even when it is asked twice at once (a click and a double click): the second gets the snapshot of the first', async () => {
+    const registry = new SnapshotRegistry()
+    const [a, b, c] = await Promise.all([registry.openPath(sample), registry.openPath(sample), registry.openPath(sample)])
+    if (!a.ok || !b.ok || !c.ok) throw new Error('did not open')
+    expect(registry.ids).toHaveLength(1)
+    expect([a.already, b.already, c.already]).toEqual([false, true, true])
+    expect(new Set([a.snapshot.id, b.snapshot.id, c.snapshot.id]).size).toBe(1)
+    await registry.closeAll()
+    // After it is closed it opens again, as a new one.
+    const later = await registry.openPath(sample)
+    expect(later.ok && later.already).toBe(false)
+    await registry.closeAll()
+  })
   it('does not open the same file twice, and gives two files two ids', async () => {
     const registry = new SnapshotRegistry()
     const first = await registry.openPath(sample)

@@ -36,7 +36,7 @@ async function launch(...args: string[]): Promise<Page> {
 }
 const tree = (page: Page) => page.getByRole('tree', { name: 'Files and folders' })
 const item = (page: Page, name: string) => tree(page).getByRole('treeitem', { name, exact: true })
-const names = (page: Page) => tree(page).getByRole('treeitem').allTextContents()
+const names = (page: Page) => tree(page).getByRole('treeitem').evaluateAll((rows) => rows.map((r) => r.querySelector('span.truncate')?.textContent ?? ''))
 
 test('a folder named on the command line opens as a root, with its first level and nothing hidden', async () => {
   const page = await launch(work)
@@ -119,25 +119,96 @@ test('closing the folder takes its tabs with it', async () => {
   await expect(page.getByText('No folder is open.')).toBeVisible()
 })
 
-test('a .wsnp of the folder is a file like the others: a click shows it as a snapshot, as the viewer does, and the folder stays; nothing of snapshots was on screen before', async () => {
+test('a click on a .wsnp only previews it, as it would a picture: the tab is in italics, the side bar stays on the folder, and the next preview takes its place', async () => {
   const page = await launch(work)
   await expect(item(page, 'harbor.wsnp')).toBeVisible()
-  // No icon of its own, and no section of snapshots until one is open.
+  // No icon of its own, and no section of snapshots until one is opened.
   await expect(item(page, 'harbor.wsnp').locator('.codicon-browser')).toHaveCount(0)
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /^Open File/ })).toHaveCount(0)
   await item(page, 'harbor.wsnp').click()
-  await expect(page.getByRole('tab', { selected: true })).toContainText('Harbor Times')
+  const tab = page.getByRole('tab', { selected: true })
+  await expect(tab).toContainText('Harbor Times')
+  await expect(tab.locator('span.italic')).toHaveCount(1)
+  await expect(page.frameLocator('iframe[title="Snapshot: Harbor Times"]').locator('#ext')).toBeVisible()
+  await expect(page.getByRole('listbox', { name: 'Open Snapshots' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: /files/i }).or(page.getByText('Files — work'))).toBeVisible()
+  await expect(item(page, 'a.txt')).toBeVisible()
+  // The next preview takes its place, and the snapshot is closed with it.
+  await item(page, 'a.txt').click()
+  await expect(page.getByRole('tab')).toHaveCount(1)
+  await expect(page.getByRole('tab', { selected: true })).toContainText('a.txt')
+  await expect(page.locator('iframe')).toHaveCount(0)
+})
+
+test('a double click opens the .wsnp as a snapshot for good: kept, listed under Open Snapshots, the side bar goes to its files; it is the same snapshot when opened again', async () => {
+  const page = await launch(work)
+  await item(page, 'harbor.wsnp').dblclick()
+  const tab = page.getByRole('tab', { selected: true })
+  await expect(tab).toContainText('Harbor Times')
+  await expect(tab.locator('span.italic')).toHaveCount(0)
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
   await expect(page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option')).toHaveCount(1)
+  await expect(page.getByText('Files — harbor.wsnp')).toBeVisible()
   await expect(page.frameLocator('iframe[title="Snapshot: Harbor Times"]').locator('#ext')).toBeVisible()
-  // Opened again, it is the same snapshot: its tab comes to the front, no second one.
+  // Back to the folder; opened again it is the same snapshot, its tab comes to the front.
   await page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option', { name: 'work' }).click()
-  await item(page, 'harbor.wsnp').click()
+  await item(page, 'harbor.wsnp').dblclick()
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
+  await expect(page.locator('iframe')).toHaveCount(1)
   // The section goes with the last snapshot.
   await page.getByRole('tab', { selected: true }).getByRole('button', { name: /Close/ }).click()
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' })).toHaveCount(0)
+})
+
+test('a previewed .wsnp is opened for good from its tab too (a double click on the tab), and from the menu of the row', async () => {
+  const page = await launch(work)
+  await item(page, 'harbor.wsnp').click()
+  await expect(page.getByRole('tab', { selected: true }).locator('span.italic')).toHaveCount(1)
+  await page.getByRole('tab', { selected: true }).dblclick()
+  await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
+  await page.getByRole('tab', { selected: true }).getByRole('button', { name: /Close/ }).click()
+  await item(page, 'harbor.wsnp').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Open', exact: true }).click()
+  await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
+})
+
+test('the files can be ordered by name, by date and by size, either way, from the button and from the View menu; the choice is kept and the details are small and to the right', async () => {
+  const day = (y: number) => new Date(y, 5, 15, 12, 0, 0)
+  fs.utimesSync(path.join(work, 'a.txt'), day(2020), day(2020))
+  fs.utimesSync(path.join(work, 'pack.zip'), day(2022), day(2022))
+  fs.utimesSync(path.join(work, 'harbor.wsnp'), day(2024), day(2024))
+  const bySize = ['a.txt', 'pack.zip', 'harbor.wsnp'].sort((x, y) => fs.statSync(path.join(work, x)).size - fs.statSync(path.join(work, y)).size)
+  let page = await launch(work)
+  const sortButton = () => page.getByRole('button', { name: /^Sort:/ })
+  await expect.poll(() => names(page)).toEqual(['docs', 'a.txt', 'harbor.wsnp', 'pack.zip'])
+  await expect(sortButton()).toHaveAttribute('title', 'Sort: Name, ascending')
+  // The size and the date of a file, small and to the right (this window is narrow: the one the order is by).
+  const detail = (name: string, text: string) => item(page, name).locator('span.tabular-nums', { hasText: text })
+  await expect(detail('a.txt', '24 B')).toBeVisible()
+  await expect(detail('a.txt', '2020')).toBeHidden()
+  await sortButton().click()
+  await page.getByRole('menuitemcheckbox', { name: 'Size' }).click()
+  await expect.poll(() => names(page)).toEqual(['docs', ...bySize])
+  await expect(sortButton()).toHaveAttribute('title', 'Sort: Size, ascending')
+  await sortButton().click()
+  await page.getByRole('menuitemcheckbox', { name: 'Descending' }).click()
+  await expect.poll(() => names(page)).toEqual(['docs', ...[...bySize].reverse()])
+  await sortButton().click()
+  await page.getByRole('menuitemcheckbox', { name: 'Date Modified' }).click()
+  await expect.poll(() => names(page)).toEqual(['docs', 'harbor.wsnp', 'pack.zip', 'a.txt'])
+  await expect(detail('a.txt', '2020')).toBeVisible()
+  await expect(detail('a.txt', '24 B')).toBeHidden()
+  // The View menu has the same choices, and the choice is kept for the next start.
+  await page.getByRole('menuitem', { name: 'View' }).click()
+  await page.getByRole('menuitem', { name: 'Sort Files By' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Ascending' }).click()
+  await expect.poll(() => names(page)).toEqual(['docs', 'a.txt', 'pack.zip', 'harbor.wsnp'])
+  await app!.close()
+  app = undefined
+  page = await launch(work)
+  await expect.poll(() => names(page)).toEqual(['docs', 'a.txt', 'pack.zip', 'harbor.wsnp'])
+  await expect(sortButton()).toHaveAttribute('title', 'Sort: Date Modified, ascending')
 })
 
 test('a .wsnp of the folder can be opened as a ZIP: its entries are listed, not shown as a page', async () => {

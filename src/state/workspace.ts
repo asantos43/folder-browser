@@ -61,7 +61,8 @@ export const isHeldBack = (ws: Workspace, id: string): boolean => invalidProblem
 export const fileKey = (id: string, path: string) => `f:${id}:${path}`
 
 export type Action =
-  | { type: 'snapshot-opened'; snapshot: SnapshotInfo }
+  /** `preview`: shown as a file is on a single click (italic tab, the side bar stays where it is, replaced by the next preview); without it the snapshot is opened for good and becomes what the side bar shows. */
+  | { type: 'snapshot-opened'; snapshot: SnapshotInfo; preview?: boolean }
   | { type: 'root-opened'; root: RootInfo }
   | { type: 'root-closed'; id: string }
   | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number }
@@ -84,10 +85,14 @@ export type Action =
 /** Pinned tabs come first, in the order they have; the rest keep theirs. */
 const arranged = (tabs: Tab[]): Tab[] => [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)]
 
+/** The page of a snapshot that is only being previewed: it is not what the side bar shows, so coming to its tab does not change the side bar. */
+const isPreviewedSnapshot = (tab: Tab | undefined): boolean => tab !== undefined && isSnapshotTab(tab) && tab.preview
+
 function withActive(ws: Workspace, key: string | null, touch = true): Workspace {
   if (key === null) return { ...ws, active: null }
   const tab = ws.tabs.find((t) => t.key === key)
-  return { ...ws, active: key, selected: tab?.snapshotId || ws.selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
+  const follows = tab?.snapshotId && !isPreviewedSnapshot(tab)
+  return { ...ws, active: key, selected: follows ? tab!.snapshotId : ws.selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
 }
 
 /** Removes the tabs of the given keys, and the snapshots that are left without a tab of their own. */
@@ -112,7 +117,8 @@ function without(ws: Workspace, keys: Set<string>): Workspace {
     active = recent[0] ?? tabs.at(-1)?.key ?? null
   }
   const next = { ...ws, tabs, snapshots, integrity, shownAnyway, recent }
-  const selected = active ? tabs.find((t) => t.key === active)?.snapshotId : undefined
+  const activeTab = active ? tabs.find((t) => t.key === active) : undefined
+  const selected = isPreviewedSnapshot(activeTab) ? undefined : activeTab?.snapshotId
   const exists = (id: string | null): id is string => id !== null && Boolean(snapshots[id] || ws.roots[id])
   return { ...next, active, selected: selected || (exists(ws.selected) ? ws.selected : (Object.keys(snapshots)[0] ?? Object.keys(ws.roots)[0] ?? null)) }
 }
@@ -123,8 +129,19 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const { id } = action.snapshot
       const key = snapshotKey(id)
       const snapshots = { ...ws.snapshots, [id]: action.snapshot }
-      const tabs = ws.tabs.some((t) => t.key === key) ? ws.tabs : arranged([...ws.tabs, { key, snapshotId: id, preview: false, pinned: false }])
-      return withActive({ ...ws, snapshots, tabs }, key)
+      const existing = ws.tabs.find((t) => t.key === key)
+      if (existing) {
+        // Opened for good what was only previewed (a double click): it is kept and the side bar goes to it. A preview of what is open already changes nothing.
+        const tabs = existing.preview && !action.preview ? ws.tabs.map((t) => (t.key === key ? { ...t, preview: false } : t)) : ws.tabs
+        return withActive({ ...ws, snapshots, tabs }, key)
+      }
+      const tab: Tab = { key, snapshotId: id, preview: action.preview === true, pinned: false }
+      if (!tab.preview) return withActive({ ...ws, snapshots, tabs: arranged([...ws.tabs, tab]) }, key)
+      // A preview takes the place of the one before it, and that one (a snapshot too, perhaps) is closed.
+      const old = ws.tabs.findIndex((t) => t.preview && !t.pinned)
+      if (old < 0) return withActive({ ...ws, snapshots, tabs: arranged([...ws.tabs, tab]) }, key)
+      const base = without({ ...ws, snapshots }, new Set([ws.tabs[old].key]))
+      return withActive({ ...base, tabs: arranged([...base.tabs.slice(0, old), tab, ...base.tabs.slice(old)]) }, key)
     }
     case 'root-opened': {
       const roots = { ...ws.roots, [action.root.id]: action.root }
@@ -146,6 +163,11 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const tab: Tab = { key, snapshotId: action.snapshotId, path: action.path, ...(action.size === undefined ? {} : { size: action.size }), preview: !action.keep, pinned: false }
       // A new preview takes the place of the old one; a kept tab opens beside the active one, as VS Code does.
       const old = tab.preview ? ws.tabs.findIndex((t) => t.preview && !t.pinned) : -1
+      // (A snapshot that was only previewed goes with its preview: the snapshot is closed, not left open with no tab.)
+      if (old >= 0 && isSnapshotTab(ws.tabs[old])) {
+        const base = without(ws, new Set([ws.tabs[old].key]))
+        return withActive({ ...base, tabs: arranged([...base.tabs.slice(0, old), tab, ...base.tabs.slice(old)]) }, key)
+      }
       let tabs: Tab[]
       if (old >= 0) tabs = ws.tabs.map((t, i) => (i === old ? tab : t))
       else {
@@ -176,8 +198,12 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       return ws.snapshots[action.snapshotId] ? { ...ws, shownAnyway: { ...ws.shownAnyway, [action.snapshotId]: true } } : ws
     case 'activate':
       return ws.tabs.some((t) => t.key === action.key) ? withActive(ws, action.key, !action.transient) : ws
-    case 'keep':
-      return { ...ws, tabs: ws.tabs.map((t) => (t.key === action.key && t.preview ? { ...t, preview: false } : t)) }
+    case 'keep': {
+      const kept = { ...ws, tabs: ws.tabs.map((t) => (t.key === action.key && t.preview ? { ...t, preview: false } : t)) }
+      // A snapshot that was previewed is now opened for good: the side bar goes to it.
+      const tab = kept.tabs.find((t) => t.key === action.key)
+      return tab && isSnapshotTab(tab) && ws.active === tab.key ? { ...kept, selected: tab.snapshotId } : kept
+    }
     case 'touch':
       return ws.active ? withActive(ws, ws.active) : ws
     case 'close':

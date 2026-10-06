@@ -89,7 +89,25 @@ export class SnapshotRegistry {
     return this.open.has(id)
   }
 
+  /** What is being opened now, by path: a click and then a double click on the same file ask twice, and the second must get the snapshot of the first. */
+  private readonly opening = new Map<string, Promise<OpenOutcome>>()
+
   async openPath(path: string): Promise<OpenOutcome> {
+    const pending = this.opening.get(path)
+    if (pending) {
+      const outcome = await pending
+      return outcome.ok ? { ...outcome, already: true } : outcome
+    }
+    const opening = this.openFresh(path)
+    this.opening.set(path, opening)
+    try {
+      return await opening
+    } finally {
+      this.opening.delete(path)
+    }
+  }
+
+  private async openFresh(path: string): Promise<OpenOutcome> {
     for (const snapshot of this.open.values()) if (snapshot.path === path) return { ok: true, snapshot, already: true }
     const converted = (await isPageKeepZip(path)) ? await this.convert(path) : undefined
     if (converted && !converted.ok) return { ok: false, path, issues: converted.issues, omitted: 0 }

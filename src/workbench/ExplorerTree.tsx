@@ -1,11 +1,13 @@
 import type { DirEntry, ListResult } from '@core/api.ts'
 import { mediaKind } from '@core/filekind.ts'
+import { compareEntries, type SortKey } from '@core/fs/sort.ts'
 import { listingsAbove } from '@core/vpath.ts'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
 import type { MessageKey } from '@/i18n/index.ts'
+import { formatBytes, formatDate, shortDate } from '@/lib/format.ts'
 import { fileIcon } from '@/lib/icons.ts'
 import type { MenuEntry } from '@/components/Menu.tsx'
 import { FOLDER_DRAG } from './PlacesView.tsx'
@@ -29,8 +31,8 @@ export interface ExplorerActions {
   listDir: (path: string) => Promise<ListResult>
   /** A file was clicked (`keep` for a double click or Enter). */
   open: (entry: DirEntry, keep: boolean) => void
-  /** A `.wsnp` of the disk opens as a snapshot. */
-  openSnapshot: (entry: DirEntry) => void
+  /** A `.wsnp` of the disk: previewed as a file is (`keep` false: a click), or opened as a snapshot (a double click, Enter, the menu). */
+  openSnapshot: (entry: DirEntry, keep: boolean) => void
   openWith: (path: string) => void
   /** Opens a copy in the application the system has for the type. */
   openDefault: (path: string) => void
@@ -49,8 +51,8 @@ export interface ExplorerActions {
  * not read until it is opened). A ZIP opens like a folder, also inside a ZIP. Clicks and keys are as in the tree of a snapshot: a click opens a preview tab, a double click (or
  * Enter) keeps it, arrows move, typing jumps to a name. Hidden files are listed but shown only when `showHidden` says so, so the switch needs no new request.
  */
-export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, refreshToken, actions }: { rootId: string; rootKind: 'folder' | 'zip'; /** The root is the trash: its top-level rows can be put back. */ trash: boolean; activePath?: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
-  const { t } = useI18n()
+export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, sortKey, sortDescending, refreshToken, actions }: { /** How the rows of a folder are ordered (folders first, whatever it is), and which of size and date each row shows when there is little room. */ sortKey: SortKey; sortDescending: boolean; rootId: string; rootKind: 'folder' | 'zip'; /** The root is the trash: its top-level rows can be put back. */ trash: boolean; activePath?: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
+  const { t, language } = useI18n()
   const [listings, setListings] = useState<Record<string, Listing>>({})
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const [focused, setFocused] = useState<string | null>(null)
@@ -125,7 +127,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
         return
       }
       if (listing.state === 'error') return void out.push({ type: 'note', key: `${dir}\0status`, depth, text: t(ERROR_TEXT[listing.error]), error: true })
-      const shown = listing.entries.filter((e) => showHidden || !e.hidden)
+      const shown = listing.entries.filter((e) => showHidden || !e.hidden).sort(compareEntries(sortKey, sortDescending))
       if (!shown.length) out.push({ type: 'note', key: `${dir}\0status`, depth, text: t(listing.entries.length ? 'tree.emptyHidden' : 'tree.empty') })
       for (const entry of shown) {
         out.push({ type: 'entry', entry, depth, parent: dir })
@@ -135,7 +137,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
     }
     walk('', 0)
     return out
-  }, [listings, open, showHidden, t])
+  }, [listings, open, showHidden, sortKey, sortDescending, t])
   const entries = useMemo(() => rows.filter((r): r is Extract<Row, { type: 'entry' }> => r.type === 'entry'), [rows])
 
   const focusRow = (path: string) => {
@@ -167,12 +169,12 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
         break
       case 'Enter':
         if (expandable) toggle(row.entry.path)
-        else if (snapshot) actions.openSnapshot(row.entry)
+        else if (snapshot) actions.openSnapshot(row.entry, true)
         else actions.open(row.entry, true)
         break
       case ' ':
         if (expandable) toggle(row.entry.path)
-        else if (snapshot) actions.openSnapshot(row.entry)
+        else if (snapshot) actions.openSnapshot(row.entry, false)
         else actions.open(row.entry, false)
         break
       default: {
@@ -204,7 +206,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
         case 'open': return { id: action, label: t('tree.open'), run: () => actions.open(entry, true) }
         case 'openAsList': return { id: action, label: t('tree.openAsList'), run: () => actions.open(entry, true) }
         case 'openAsZip': return { id: action, label: t('tree.openAsZip'), run: () => actions.open(entry, true) }
-        case 'openSnapshot': return { id: action, label: t('tree.open'), run: () => actions.openSnapshot(entry) }
+        case 'openSnapshot': return { id: action, label: t('tree.open'), run: () => actions.openSnapshot(entry, true) }
         case 'openWith': return { id: action, label: t('tree.openWith'), run: () => actions.openWith(entry.path) }
         case 'openDefault': return { id: action, label: t('tree.openDefault'), run: () => actions.openDefault(entry.path) }
         case 'save': return { id: action, label: t('menu.saveAs'), run: () => actions.save(entry.path) }
@@ -220,7 +222,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
   const current = focused ?? entries[0]?.entry.path
   return (
     <>
-      <div ref={box} role="tree" aria-label={t('sidebar.rootTreeLabel')} onKeyDown={onKeyDown} className="py-0.5 text-[13px]">
+      <div ref={box} role="tree" aria-label={t('sidebar.rootTreeLabel')} onKeyDown={onKeyDown} className="@container py-0.5 text-[13px]">
         {rows.map((row) => {
           if (row.type === 'note') {
             return (
@@ -239,13 +241,14 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
               role="treeitem"
               data-path={entry.path}
               data-kind={entry.kind}
+              aria-label={entry.name}
               aria-level={depth + 1}
               aria-expanded={expandable ? expanded : undefined}
               aria-selected={selected}
               tabIndex={entry.path === current ? 0 : -1}
               onFocus={() => setFocused(entry.path)}
-              onClick={() => (expandable ? toggle(entry.path) : entry.kind === 'wsnp' ? actions.openSnapshot(entry) : actions.open(entry, false))}
-              onDoubleClick={() => (entry.kind === 'wsnp' ? actions.openSnapshot(entry) : !expandable && actions.open(entry, true))}
+              onClick={() => (expandable ? toggle(entry.path) : entry.kind === 'wsnp' ? actions.openSnapshot(entry, false) : actions.open(entry, false))}
+              onDoubleClick={() => (entry.kind === 'wsnp' ? actions.openSnapshot(entry, true) : !expandable && actions.open(entry, true))}
               draggable={pinnable(entry)}
               onDragStart={(e) => {
                 if (!pinnable(entry)) return
@@ -253,13 +256,16 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
                 e.dataTransfer.effectAllowed = 'link'
               }}
               onContextMenu={(e) => contextMenu(e, entry)}
-              title={entry.link ? `${entry.path} (${t('tree.linkOutside')})` : entry.path}
+              title={[entry.link ? `${entry.path} (${t('tree.linkOutside')})` : entry.path, ...(expandable && entry.kind === 'dir' ? [] : [formatBytes(entry.size)]), formatDate(entry.modified, language)].join('\n')}
               style={{ paddingLeft: 8 + depth * 8 }}
               className={`flex h-[22px] cursor-pointer items-center gap-1 pr-2 outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus ${entry.hidden ? 'opacity-60' : ''} ${selected ? 'bg-list-inactive focus-within:bg-list-active focus-within:text-list-active-fg' : 'hover:bg-list-hover'}`}
             >
               <span className="flex w-4 shrink-0 justify-center">{expandable ? <Icon name={expanded ? 'chevron-down' : 'chevron-right'} className="text-[16px]" /> : null}</span>
               <Icon name={entry.kind === 'dir' ? (expanded ? 'folder-opened' : 'folder') : entry.kind === 'zip' ? 'file-zip' : fileIcon(undefined, entry.name)} className="shrink-0 text-[16px]" />
-              <span className="truncate">{entry.name}</span>
+              <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+              {/* Size and date, small and to the right. Little room: the one the order is by; room for both (a wide side bar): both. */}
+              {entry.kind === 'dir' ? null : <span className={`shrink-0 pl-2 text-[11px] tabular-nums text-fg-muted ${sortKey === 'modified' ? 'hidden @[340px]:inline' : ''}`}>{formatBytes(entry.size)}</span>}
+              {shortDate(entry.modified, language) ? <span className={`shrink-0 pl-2 text-[11px] tabular-nums text-fg-muted ${sortKey === 'modified' ? '' : 'hidden @[340px]:inline'}`}>{shortDate(entry.modified, language)}</span> : null}
             </div>
           )
         })}
