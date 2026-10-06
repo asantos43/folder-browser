@@ -68,6 +68,8 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Fixed
 
+- **"A JavaScript error occurred in the main process: Object has been destroyed"**: a message from the interface about its tabs with changes (`fb:unsaved`) or about leaving (`fb:leave`) that arrived as its window was destroyed read `win.webContents` of a window that was gone, and the user was shown an error box (which also kept the application from quitting). Such a message is now ignored (`unsavedFrom`, `mayLeave` in `electron/window.ts`).
+
 - **A middle click on a tab (to close it) pasted the selection of the system into the editor that had the focus**, on Linux, where the middle button pastes: a middle click outside an editable place no longer does anything but its own job (found by the media specs, once a text file was an editor).
 - Five end-to-end specs inherited from WSNP Viewer that had gone stale (the language of a file is named twice on screen, and Markdown opens formatted); the same fix is in wsnp-viewer (branch `fix-stale-e2e-specs`). No change to the application.
 
