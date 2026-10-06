@@ -6,6 +6,7 @@ import { showHidden, sortDescending, sortKey } from '@/state/setting.ts'
 import { sortMenuEntries } from './sortMenu.ts'
 import { MenuList, useDismiss } from '@/components/Menu.tsx'
 import type { Action, Workspace } from '@/state/workspace.ts'
+import type { DiffSide } from '@core/diff.ts'
 import type { SortKey } from '@core/fs/sort.ts'
 import { ExplorerTree } from './ExplorerTree.tsx'
 import { PlacesView } from './PlacesView.tsx'
@@ -79,6 +80,8 @@ export interface SideBarActions {
   moveEntryTo: (rootId: string, entry: DirEntry) => void
   /** Asks, and moves an item to the trash. */
   removeEntry: (rootId: string, entry: DirEntry, forever?: boolean) => void
+  /** Comparing two text files: the one chosen as a side (of any folder that is open), choosing one, and comparing a file with it. */
+  compare: { selected: DiffSide | null; select: (rootId: string, entry: DirEntry) => void; with: (rootId: string, entry: DirEntry) => void; /** A file of the tree was dropped on another (both text): asks what to do with the two. */ drop: (rootId: string, dragged: { path: string; size: number }, entry: DirEntry) => void }
 }
 
 /** The side bar: the places, the folders (and ZIP files) that are open, and the files of the one chosen, as a tree. (A snapshot is a page in a tab, not something the side bar is about.) */
@@ -217,6 +220,7 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
                 copyTo: (path, toFolder) => actions.copyEntry(root.id, path, toFolder),
                 moveTo: (entry) => actions.moveEntryTo(root.id, entry),
                 remove: (entry, forever) => actions.removeEntry(root.id, entry, forever),
+                compare: { selected: actions.compare.selected, select: (entry) => actions.compare.select(root.id, entry), with: (entry) => actions.compare.with(root.id, entry), drop: (dragged, entry) => actions.compare.drop(root.id, dragged, entry) },
               }}
             />
         </Section>

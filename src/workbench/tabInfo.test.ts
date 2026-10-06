@@ -80,3 +80,22 @@ describe('isEditable', () => {
     expect(isEditable(ws, tabOf(ws, 'm:s1'))).toBe(false)
   })
 })
+
+describe('two files compared', () => {
+  const work = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const backup = { id: 'r2', kind: 'zip' as const, path: '/home/me/backup.zip', name: 'backup.zip' }
+  const compare = (left: string, right: string) => run({ type: 'root-opened', root: work }, { type: 'root-opened', root: backup }, { type: 'open-diff', left: { rootId: 'r1', path: left }, right: { rootId: 'r2', path: right } })
+  it('is named after both files, with the diff icon, and says in the tooltip where each one is', () => {
+    const ws = compare('a.txt', 'docs/a.txt')
+    expect(describeTabs(ws, t).get(ws.active!)).toMatchObject({ label: 'a.txt ↔ a.txt', icon: 'diff', tooltip: 'work › a.txt\nbackup.zip › docs/a.txt', description: '' })
+  })
+  it('tells two comparisons of the same names apart by the folders of the sides', () => {
+    const ws = reduce(compare('a.txt', 'docs/a.txt'), { type: 'open-diff', left: { rootId: 'r1', path: 'x/a.txt' }, right: { rootId: 'r2', path: 'a.txt' } })
+    const views = [...describeTabs(ws, t).values()]
+    expect(views.map((v) => v.description).sort()).toEqual(['work ↔ backup.zip/docs', 'work/x ↔ backup.zip'].sort())
+  })
+  it('is not a file of a folder, so it is not edited', () => {
+    const ws = compare('a.txt', 'a.txt')
+    expect(isEditable(ws, ws.tabs[0])).toBe(false)
+  })
+})

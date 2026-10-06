@@ -2,7 +2,7 @@
 
 Folder Browser looks at the folders on your computer and at what is in them. It opens **folders and ZIP files** as trees, shows **text, pictures, PDFs, office documents, tables, videos, sounds and the bytes of any file**, and **makes, renames, moves and deletes** files and folders. It also opens **`.wsnp` files** (web pages saved by the [PageKeep](https://github.com/asantos43/webpage-snapshot) extension) as the pages they are. [Português do Brasil](USER-GUIDE.pt-BR.md).
 
-Comparing two files and changing what is inside a ZIP are not here yet (see the end).
+Changing what is inside a ZIP is not here yet (see the end).
 
 ## Opening a folder
 
@@ -29,7 +29,7 @@ It is laid out like Visual Studio Code: a **title bar** with the menu, an **acti
 
 ### The right-click menu
 
-The menu of a row depends on what it is. A folder: expand, refresh, **New File…**, **New Folder…**, **Rename**, **Move to…**, **Delete**, add to Favorites. A ZIP file: expand, **Open as List**. A `.wsnp`: **Open** (its page) or **Open as ZIP**. A file: **Open** (or **Play**). **For every file**: **Open as Hex**, **Open With…**, **Open with Default Application**, **Save As…**, **Show in File Manager**, **Copy Path**, **Copy Name**, **Properties**.
+The menu of a row depends on what it is. A folder: expand, refresh, **New File…**, **New Folder…**, **Rename**, **Move to…**, **Delete**, add to Favorites. A ZIP file: expand, **Open as List**. A `.wsnp`: **Open** (its page) or **Open as ZIP**. A file: **Open** (or **Play**); a text file also **Select for Compare** (and, once another is chosen, **Compare with Selected**). **For every file**: **Open as Hex**, **Open With…**, **Open with Default Application**, **Save As…**, **Show in File Manager**, **Copy Path**, **Copy Name**, **Properties**.
 
 **Open With…** asks your system which application should open the file (Windows' dialog, macOS's chooser, and on Linux a dialog of the application's own, with the applications registered for the type first, then all the others, a search box and **Always use for this file type**). The application is given a **read-only copy** in your temporary folder, removed when the application quits. A kind of file that can run as a program (`.exe`, `.bat`, `.sh`, `.desktop`, `.jar`…) is never handed over: use **Save As…**.
 
@@ -91,6 +91,25 @@ A CSV or TSV file opens as a **table** (**Table / Text** in the toolbar switch t
 - **Edit cells** (a file of a folder): click a cell and press `Enter`, `F2` or just type; double click does the same. `Enter` keeps the text and goes down, `Tab` keeps it and goes right, `Esc` gives up, `Alt+Enter` starts a new line in the cell. `Delete` empties the cell. The header's names are edited the same way. **Add Row**, **Delete Row**, **Add Column** and **Delete Column** (the toolbar, or the right-click menu of a cell) work on the selected cell; `Ctrl+Z` and `Ctrl+Y` undo and redo, one action at a time.
 - A cell you edit is a change of **the file's text**, exactly at that cell: everything else stays byte for byte as it was (quotes, line endings, the byte order mark); a value that needs quotes gets them. So the dot on the tab, **Save** (`Ctrl+S`), the check against a file that changed on disk, and the changes kept for the next start are the text editor's, and the **Text** button shows the same text. A file with more rows or columns than are drawn, a file in a ZIP or a snapshot, and the result of a query are only looked at.
 
+## Comparing two text files
+
+Right-click a text file in the tree and choose **Select for Compare**, then right-click another and choose **Compare with Selected**: the two open in one tab, `a.txt ↔ b.txt`, the first as the left side. Either may be a file of a folder or an entry of a ZIP (also inside another ZIP), of the same open folder or of two different ones; the choice stays, so more files can be compared with the same first one. Only a text of up to 5 MB in UTF-8 can be compared; anything else is refused with its name and the reason.
+
+- **Side by Side** and **Inline** (one column, the removed lines above the added ones) switch the layout; the choice is kept. The colours of each file's language are kept, removed lines are red, added ones green, and the words that changed inside a line are marked more strongly.
+- The toolbar says how many changes there are. **Previous Change** and **Next Change** (`Shift+F7`, `F7`) go from one to the next; **Swap Sides** turns the two round.
+- **Collapse Unchanged** folds the long stretches of lines that are the same (three lines stay around each change); the button turns it off, and the choice is kept.
+- A file saved with another line ending (`LF` and `CRLF`) is not different on every line: the endings are not compared, and the toolbar says when they differ.
+- You can also drag one file onto another to compare them: see [Two editor groups](#two-editor-groups).
+- A comparison only looks: nothing is written, and both files are read from the disk (or the ZIP) as they are saved, not with the changes you have not saved in their tabs. The tab follows a side that is renamed or moved, closes when a side is deleted or its folder is closed, zooms like a text (`Ctrl+=`, `Ctrl+-`), and is not kept for the next start. **Find** (`Ctrl+F`) searches the lines in view.
+
+## Two editor groups
+
+The editor can show **two groups of tabs side by side**, as VS Code does. There are three ways to make the second one: **Split Right** in the menu of a tab (the tab goes to a new group on its right), dragging a tab to the **right half of the editor**, and dragging a **file of the tree** to the right half (it opens there). While one of these is being dragged the half that will take it is lit; with two groups, the whole group under the pointer takes it. A tab can be moved back with **Move to Left Group** or by dragging it to the other group (onto a tab of it, it lands next to that tab).
+
+- Each group has its own tabs and its own tab in front. The group you clicked last has the focus: **Find**, **Copy**, **Print**, **Save**, the language in the status bar, the zoom keys and the next and previous tab (`Ctrl+PageDown`, `Ctrl+PageUp`) act on it. A tab is one file, so it is in one group at a time: opening a file that is in the other group brings it over.
+- The second group ends when its last tab is closed or moved away; closing every tab of the first leaves the second as the only group. The layout is remembered for the next start.
+- **Dropping one file on another** asks what to do when both are texts: **Open Side by Side** (the one you dragged on the left, the other on the right), **Compare (Diff)** or Cancel. This is a **text file of the tree on another text file** (nothing is moved, and with `Shift` held it is still a copy), or a **tab in the middle of another text tab** (dropped at the edge of a tab, it is only reordered). A picture or any other kind of file is never asked about.
+
 ## ZIP files
 
 A ZIP file opens in the tree like a folder, and the entries open in tabs like files. **Open as List** shows its entries as a table of names, sizes, packed sizes and dates, where you can select (click, `Ctrl` and `Shift`, the boxes, `Ctrl+A`) and **Extract** to a folder: one file asks for a name, **Extract All…** writes everything, and a file that is already there is never overwritten (the new one is called `name (2)`). Nothing is written to disk until you extract. Names that could leave the folder you chose are never written, links are not followed, and an entry protected with a password is shown dimmed and skipped. A ZIP over 256 MB is only offered with Save As. ZIP64 and encrypted ZIPs are read-only.
@@ -123,6 +142,7 @@ The file is checked when it opens, and again in the background: its **structure*
 | Settings | `Ctrl+,` | `⌘,` |
 | Zoom the tab in / out / reset | `Ctrl+=` / `Ctrl+-` / `Ctrl+0`, or `Ctrl` + wheel | `⌘=` / `⌘-` / `⌘0`, or `⌘` + wheel |
 | Word Wrap in a source tab | `Alt+Z` | `⌥Z` |
+| Next / previous change in a comparison | `F7` / `Shift+F7` | `F7` / `Shift+F7` |
 | Go Back / Go Forward | `Alt+Left` / `Alt+Right` | `⌃-` / `⌃⇧-` |
 | Go to File | `Ctrl+E` | `⌘E` |
 | Command palette | `Ctrl+Shift+P` | `⇧⌘P` |
@@ -140,4 +160,4 @@ The shortcuts work wherever the focus is, also inside a page or a document.
 
 ## What is not here yet
 
-Comparing two text files, and making, renaming, moving and deleting **inside a ZIP** come in the next phases (see [`../TODO.md`](../TODO.md)). Selecting several rows at once, dragging onto a place of the side bar, and printing the bytes of a file or a table as a table are on the list too.
+Making, renaming, moving and deleting **inside a ZIP** come in the next phase (see [`../TODO.md`](../TODO.md)). Selecting several rows at once (so a comparison is chosen from the menu, not with `Ctrl+click`), comparing a file with the changes not yet saved in its tab, more than two editor groups, dragging onto a place of the side bar, and printing the bytes of a file or a table as a table are on the list too.

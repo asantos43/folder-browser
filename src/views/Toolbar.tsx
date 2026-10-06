@@ -7,7 +7,7 @@ import { formatPercent, PRESETS, type ZoomMode } from './zoom.ts'
 export function Toolbar({ children }: { children: ReactNode }) {
   const { t } = useI18n()
   return (
-    <div role="toolbar" aria-label={t('toolbar.label')} className="flex h-[35px] shrink-0 items-center gap-1 border-b border-group-border bg-editor px-2 text-[13px] text-fg">
+    <div role="toolbar" aria-label={t('toolbar.label')} className="flex h-[35px] shrink-0 items-center gap-1 overflow-hidden border-b border-group-border bg-editor px-2 text-[13px] whitespace-nowrap text-fg">
       {children}
     </div>
   )

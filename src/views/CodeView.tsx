@@ -5,12 +5,14 @@ import type { Language } from '@core/filekind.ts'
 import { createCodeFindTarget } from '@/find/code.ts'
 import { fileTarget } from '@/find/types.ts'
 import { readOnlyExtensions, wrapping } from './codeTheme.ts'
+import { useGroup } from '@/state/groups.ts'
 
 /**
  * A file of the snapshot as read-only source, with line numbers and the colours of the theme (CodeMirror 6). Word wrap and a change of
  * text (formatted or as it was) are applied to the editor that is there, so switching them keeps it and its focus.
  */
 export function CodeView({ text, language, wrap, zoom = 1 }: { text: string; language: Language; wrap: boolean; zoom?: number }) {
+  const group = useGroup()
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   const wrapNow = useRef(wrap)
@@ -22,14 +24,14 @@ export function CodeView({ text, language, wrap, zoom = 1 }: { text: string; lan
     const editor = new EditorView({ parent: host.current, state: EditorState.create({ doc: text, extensions: readOnlyExtensions(language, wrapNow.current) }) })
     view.current = editor
     // Find and Copy of the workbench act on this editor while it is shown.
-    const unregister = fileTarget.set(createCodeFindTarget(() => view.current))
+    const unregister = fileTarget.set(createCodeFindTarget(() => view.current), group)
     return () => {
       unregister()
       editor.destroy()
       view.current = null
     }
     // `text` is read when the editor is made; a later change of text is a change of the document, below.
-  }, [language])
+  }, [language, group])
 
   useEffect(() => {
     const editor = view.current

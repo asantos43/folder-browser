@@ -86,3 +86,24 @@ describe('locationOf', () => {
     expect(locationOf({ kind: 'zip', path: '/home/me/p.zip' }, 'src/m.c', '/')).toBe('/home/me/p.zip!/src/m.c')
   })
 })
+
+describe('treeMenuFor: comparing', () => {
+  it('offers Select for Compare on a text file that can be compared, and Compare with Selected only once another is chosen', () => {
+    expect(treeMenuFor({ kind: 'file' }, { comparable: true })).toContain('selectForCompare')
+    expect(treeMenuFor({ kind: 'file' }, { comparable: true })).not.toContain('compareWithSelected')
+    expect(treeMenuFor({ kind: 'file' }, { comparable: true, compareWithSelected: true })).toEqual(expect.arrayContaining(['selectForCompare', 'compareWithSelected']))
+  })
+  it('offers neither on a file that cannot be compared, nor on a folder, a ZIP or a .wsnp', () => {
+    for (const kind of ['file', 'dir', 'zip', 'wsnp'] as const) {
+      const items = treeMenuFor({ kind }, { compareWithSelected: true })
+      expect(items, kind).not.toContain('selectForCompare')
+      expect(items, kind).not.toContain('compareWithSelected')
+    }
+    for (const kind of ['dir', 'zip', 'wsnp'] as const) expect(treeMenuFor({ kind }, { comparable: true }), kind).not.toContain('selectForCompare')
+  })
+  it('keeps the groups apart with separators', () => {
+    const items = treeMenuFor({ kind: 'file' }, { comparable: true, compareWithSelected: true, writable: true })
+    expect(items.slice(0, 5)).toEqual(['open', 'separator', 'selectForCompare', 'compareWithSelected', 'separator'])
+    items.forEach((item, i) => item === 'separator' && expect(items[i + 1]).not.toBe('separator'))
+  })
+})

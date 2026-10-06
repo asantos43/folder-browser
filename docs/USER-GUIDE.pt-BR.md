@@ -2,7 +2,7 @@
 
 O Folder Browser mostra as pastas do seu computador e o que há nelas. Abre **pastas e arquivos ZIP** como árvores, mostra **texto, imagens, PDFs, documentos de escritório, tabelas, vídeos, sons e os bytes de qualquer arquivo**, e **cria, renomeia, move e apaga** arquivos e pastas. Também abre **arquivos `.wsnp`** (páginas da web salvas pela extensão [PageKeep](https://github.com/asantos43/webpage-snapshot)) como as páginas que eles são. [English](USER-GUIDE.md).
 
-Comparar dois arquivos e alterar o que há dentro de um ZIP ainda não existem (veja o fim).
+Alterar o que há dentro de um ZIP ainda não existe (veja o fim).
 
 ## Abrir uma pasta
 
@@ -29,7 +29,7 @@ Ela é organizada como o Visual Studio Code: uma **barra de título** com o menu
 
 ### O menu do botão direito
 
-O menu de uma linha depende do que ela é. Uma pasta: expandir, atualizar, **Novo Arquivo…**, **Nova Pasta…**, **Renomear**, **Mover para…**, **Apagar**, adicionar aos Favoritos. Um arquivo ZIP: expandir, **Abrir como Lista**. Um `.wsnp`: **Abrir** (a página dele) ou **Abrir como ZIP**. Um arquivo: **Abrir** (ou **Tocar**). **Para todo arquivo**: **Abrir como Hex**, **Abrir com…**, **Abrir com o Aplicativo Padrão**, **Salvar Como…**, **Mostrar no Gerenciador de Arquivos**, **Copiar Caminho**, **Copiar Nome**, **Propriedades**.
+O menu de uma linha depende do que ela é. Uma pasta: expandir, atualizar, **Novo Arquivo…**, **Nova Pasta…**, **Renomear**, **Mover para…**, **Apagar**, adicionar aos Favoritos. Um arquivo ZIP: expandir, **Abrir como Lista**. Um `.wsnp`: **Abrir** (a página dele) ou **Abrir como ZIP**. Um arquivo: **Abrir** (ou **Tocar**); um arquivo de texto também **Selecionar para comparar** (e, escolhido outro, **Comparar com o selecionado**). **Para todo arquivo**: **Abrir como Hex**, **Abrir com…**, **Abrir com o Aplicativo Padrão**, **Salvar Como…**, **Mostrar no Gerenciador de Arquivos**, **Copiar Caminho**, **Copiar Nome**, **Propriedades**.
 
 **Abrir com…** pergunta ao seu sistema qual aplicativo deve abrir o arquivo (o diálogo do Windows, o seletor do macOS, e no Linux um diálogo do próprio aplicativo, com os aplicativos registrados para o tipo primeiro, depois todos os outros, uma caixa de busca e **Sempre usar para este tipo de arquivo**). O aplicativo recebe uma **cópia somente leitura** na sua pasta temporária, removida quando o aplicativo fecha. Um tipo de arquivo que pode rodar como programa (`.exe`, `.bat`, `.sh`, `.desktop`, `.jar`…) nunca é entregue: use **Salvar Como…**.
 
@@ -91,6 +91,25 @@ Um arquivo CSV ou TSV abre como **tabela** (**Tabela / Texto** na barra de ferra
 - **Editar células** (arquivo de uma pasta): clique numa célula e aperte `Enter`, `F2` ou simplesmente digite; o duplo clique faz o mesmo. `Enter` guarda o texto e desce, `Tab` guarda e vai para a direita, `Esc` desiste, `Alt+Enter` começa uma nova linha na célula. `Delete` esvazia a célula. Os nomes do cabeçalho se editam do mesmo jeito. **Adicionar Linha**, **Apagar Linha**, **Adicionar Coluna** e **Apagar Coluna** (a barra de ferramentas, ou o menu do botão direito de uma célula) agem sobre a célula selecionada; `Ctrl+Z` e `Ctrl+Y` desfazem e refazem, uma ação por vez.
 - Uma célula que você edita é uma mudança **do texto do arquivo**, exatamente naquela célula: todo o resto fica byte a byte como estava (aspas, fins de linha, a marca de ordem de bytes); um valor que precisa de aspas as recebe. Assim o ponto na aba, **Salvar** (`Ctrl+S`), a conferência contra um arquivo que mudou no disco e as alterações guardadas para a próxima vez são as do editor de texto, e o botão **Texto** mostra o mesmo texto. Um arquivo com mais linhas ou colunas do que são desenhadas, um arquivo de um ZIP ou de um snapshot e o resultado de uma consulta são só vistos.
 
+## Comparar dois arquivos de texto
+
+Clique com o botão direito num arquivo de texto da árvore e escolha **Selecionar para comparar**; depois clique com o direito em outro e escolha **Comparar com o selecionado**: os dois abrem numa só aba, `a.txt ↔ b.txt`, o primeiro como o lado esquerdo. Qualquer um pode ser um arquivo de uma pasta ou uma entrada de um ZIP (também dentro de outro ZIP), da mesma pasta aberta ou de duas diferentes; a escolha fica, então mais arquivos podem ser comparados com o mesmo primeiro. Só se compara um texto em UTF-8 de até 5 MB; o resto é recusado com o nome e o motivo.
+
+- **Lado a lado** e **Em linha** (uma coluna, com as linhas removidas acima das acrescentadas) mudam a disposição; a escolha é lembrada. As cores da linguagem de cada arquivo continuam, as linhas removidas ficam vermelhas e as acrescentadas verdes, e as palavras que mudaram dentro de uma linha são marcadas com mais força.
+- A barra de ferramentas diz quantas alterações há. **Alteração anterior** e **Próxima alteração** (`Shift+F7`, `F7`) vão de uma à outra; **Trocar os lados** inverte os dois.
+- **Recolher o que não mudou** dobra os trechos longos de linhas iguais (três linhas ficam em volta de cada alteração); o botão desliga, e a escolha é lembrada.
+- Um arquivo salvo com outra quebra de linha (`LF` e `CRLF`) não é diferente em todas as linhas: as quebras não entram na comparação, e a barra de ferramentas avisa quando diferem.
+- Você também pode arrastar um arquivo sobre outro para compará-los: veja [Dois grupos de editor](#dois-grupos-de-editor).
+- Uma comparação só olha: nada é gravado, e os dois arquivos são lidos do disco (ou do ZIP) como estão salvos, não com as alterações ainda não salvas nas abas deles. A aba acompanha um lado que é renomeado ou movido, fecha quando um lado é apagado ou a pasta dele é fechada, tem zoom como um texto (`Ctrl+=`, `Ctrl+-`) e não é lembrada no próximo início. **Buscar** (`Ctrl+F`) procura nas linhas à vista.
+
+## Dois grupos de editor
+
+O editor pode mostrar **dois grupos de abas lado a lado**, como o VS Code. Há três jeitos de fazer o segundo: **Dividir à direita** no menu de uma aba (a aba vai para um grupo novo à direita dela), arrastar uma aba para a **metade direita do editor**, e arrastar um **arquivo da árvore** para a metade direita (ele abre ali). Enquanto um desses é arrastado, a metade que vai recebê-lo fica destacada; com dois grupos, o grupo inteiro sob o ponteiro o recebe. Uma aba volta com **Mover para o grupo da esquerda** ou arrastando-a para o outro grupo (sobre uma aba dele, ela fica ao lado dessa aba).
+
+- Cada grupo tem as suas abas e a sua aba da frente. O grupo em que você clicou por último tem o foco: **Buscar**, **Copiar**, **Imprimir**, **Salvar**, o idioma na barra de status, as teclas de zoom e a aba seguinte e anterior (`Ctrl+PageDown`, `Ctrl+PageUp`) agem nele. Uma aba é um arquivo, então ela está em um grupo de cada vez: abrir um arquivo que está no outro grupo o traz para cá.
+- O segundo grupo termina quando a última aba dele é fechada ou levada embora; fechar todas as abas do primeiro deixa o segundo como único grupo. A disposição é lembrada no próximo início.
+- **Soltar um arquivo sobre outro** pergunta o que fazer quando os dois são textos: **Abrir lado a lado** (o que você arrastou à esquerda, o outro à direita), **Comparar (Diff)** ou Cancelar. Vale para um **arquivo de texto da árvore solto sobre outro de texto** (nada é movido, e com `Shift` apertado continua sendo uma cópia), ou uma **aba solta no meio de outra aba de texto** (solta na borda da aba, ela só é reordenada). Uma imagem ou outro tipo de arquivo nunca é perguntado.
+
 ## Arquivos ZIP
 
 Um arquivo ZIP abre na árvore como uma pasta, e as entradas abrem em abas como arquivos. **Abrir como Lista** mostra as entradas como uma tabela de nomes, tamanhos, tamanhos compactados e datas, onde você pode selecionar (clique, `Ctrl` e `Shift`, as caixas, `Ctrl+A`) e **Extrair** para uma pasta: um arquivo pede um nome, **Extrair Tudo…** grava tudo, e um arquivo que já existe nunca é sobrescrito (o novo se chama `nome (2)`). Nada é gravado no disco até você extrair. Nomes que poderiam sair da pasta escolhida nunca são gravados, links não são seguidos, e uma entrada protegida por senha aparece esmaecida e é pulada. Um ZIP acima de 256 MB só é oferecido com Salvar Como. ZIP64 e ZIPs criptografados são somente leitura.
@@ -123,6 +142,7 @@ O arquivo é verificado quando abre, e de novo em segundo plano: a **estrutura**
 | Configurações | `Ctrl+,` | `⌘,` |
 | Zoom da aba: aumentar / diminuir / zerar | `Ctrl+=` / `Ctrl+-` / `Ctrl+0`, ou `Ctrl` + roda | `⌘=` / `⌘-` / `⌘0`, ou `⌘` + roda |
 | Quebra de Linha numa aba de código | `Alt+Z` | `⌥Z` |
+| Próxima / anterior alteração numa comparação | `F7` / `Shift+F7` | `F7` / `Shift+F7` |
 | Voltar / Avançar | `Alt+Esquerda` / `Alt+Direita` | `⌃-` / `⌃⇧-` |
 | Ir para o Arquivo | `Ctrl+E` | `⌘E` |
 | Paleta de comandos | `Ctrl+Shift+P` | `⇧⌘P` |
@@ -140,4 +160,4 @@ As **Configurações** (a engrenagem na barra de atividades, **Arquivo ▸ Prefe
 
 ## O que ainda não existe
 
-Comparar dois arquivos de texto, e criar, renomear, mover e apagar **dentro de um ZIP** vêm nas próximas fases (veja [`../TODO.md`](../TODO.md)). Selecionar várias linhas de uma vez, arrastar para um lugar da barra lateral, e imprimir os bytes de um arquivo ou uma tabela como tabela também estão na lista.
+Criar, renomear, mover e apagar **dentro de um ZIP** vêm na próxima fase (veja [`../TODO.md`](../TODO.md)). Selecionar várias linhas de uma vez (por isso a comparação se escolhe no menu, não com `Ctrl+clique`), comparar um arquivo com as alterações ainda não salvas na aba dele, mais de dois grupos de editor, arrastar para um lugar da barra lateral, e imprimir os bytes de um arquivo ou uma tabela como tabela também estão na lista.

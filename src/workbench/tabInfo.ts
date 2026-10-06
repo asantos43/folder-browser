@@ -31,6 +31,9 @@ const folderOfSnapshot = (ws: Workspace, id: string): string => {
 /** The name of what a tab belongs to: a snapshot's title, or the name of the folder or ZIP file that was opened. */
 export const sourceTitle = (ws: Workspace, id: string): string => ws.roots[id]?.name ?? snapshotTitle(ws, id)
 
+/** Where one side of a comparison is, for a person: the folder or ZIP file it was opened from, then its path in it (`›` into a ZIP too). */
+export const sideLabel = (ws: Workspace, side: { rootId: string; path: string }): string => `${sourceTitle(ws, side.rootId)} › ${side.path.replaceAll('!/', ' › ')}`
+
 const parentOf = (path: string): string => path.replaceAll('!/', '/').split('/').slice(0, -1).join('/')
 
 /** What a tab shows: its name, an icon, and where it is from when the name alone would be ambiguous. */
@@ -38,6 +41,10 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
   const base = ws.tabs.map((tab): [Tab, string, string, string] => {
     const snapshot = ws.snapshots[tab.snapshotId]
     if (tab.view === 'settings') return [tab, t('settings.title'), 'settings-gear', t('settings.title')]
+    if (tab.view === 'diff' && tab.diff) {
+      const { left, right } = tab.diff
+      return [tab, t('tabs.diffOf', { left: basename(left.path), right: basename(right.path) }), 'diff', `${sideLabel(ws, left)}\n${sideLabel(ws, right)}`]
+    }
     if (tab.view === 'metadata') return [tab, t('tabs.metadataOf', { name: snapshotTitle(ws, tab.snapshotId) }), 'info', snapshot?.path ?? '']
     // (The tooltip of a page: where the file is, and the address the page was saved from.)
     if (tab.path === undefined) return [tab, snapshotTitle(ws, tab.snapshotId), 'browser', [snapshot?.path, snapshot?.manifest.source.url].filter(Boolean).join('\n')]
@@ -55,7 +62,7 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
         label,
         icon,
         tooltip: tooltip || label,
-        description: (counts.get(label) ?? 0) > 1 ? (tab.path === undefined || tab.view === 'metadata' ? folderOfSnapshot(ws, tab.snapshotId) : ws.roots[tab.snapshotId] ? [ws.roots[tab.snapshotId].name, parentOf(tab.path)].filter(Boolean).join('/') : snapshotTitle(ws, tab.snapshotId)) : '',
+        description: (counts.get(label) ?? 0) > 1 ? (tab.view === 'diff' && tab.diff ? [tab.diff.left, tab.diff.right].map((side) => [sourceTitle(ws, side.rootId), parentOf(side.path)].filter(Boolean).join('/')).join(' ↔ ') : tab.path === undefined || tab.view === 'metadata' ? folderOfSnapshot(ws, tab.snapshotId) : ws.roots[tab.snapshotId] ? [ws.roots[tab.snapshotId].name, parentOf(tab.path)].filter(Boolean).join('/') : snapshotTitle(ws, tab.snapshotId)) : '',
       },
     ]),
   )

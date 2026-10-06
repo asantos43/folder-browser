@@ -1,3 +1,5 @@
+import { createGroupSlot } from '@/state/groups.ts'
+
 export interface FindOptions {
   caseSensitive: boolean
 }
@@ -36,14 +38,5 @@ export function indexesOf(text: string, needle: string, caseSensitive: boolean, 
 
 export const wrap = (index: number, count: number): number => ((index % count) + count) % count
 
-/** The view of the file on screen that Find and Copy act on: the source editor or the PDF registers itself while it is shown. */
-let current: FindTarget | null = null
-export const fileTarget = {
-  set(target: FindTarget): () => void {
-    current = target
-    return () => {
-      if (current === target) current = null
-    }
-  },
-  get: (): FindTarget | null => current,
-}
+/** The view of the file on screen that Find and Copy act on (in the group that has the focus): the source editor or the PDF registers itself while it is shown. */
+export const fileTarget = createGroupSlot<FindTarget>()

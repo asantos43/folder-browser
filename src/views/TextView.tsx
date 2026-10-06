@@ -10,6 +10,7 @@ import { shownText } from '@/state/shown.ts'
 import { CodeView } from './CodeView.tsx'
 import { canFormat, formatSource } from './format.ts'
 import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
+import { useGroup } from '@/state/groups.ts'
 
 /**
  * A text file of the snapshot in a tab: source with the colours of its language, a toolbar with **Format** (HTML, CSS, JavaScript, JSON and XML laid
@@ -18,6 +19,7 @@ import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './To
  */
 export function TextView({ text, language, size, onSave, onOpenWith, onHex, leading, notice, zoom = 1 }: { /** Why this file is shown and not edited (a file of a folder that cannot be edited). */ notice?: string; text: string; language: Language; size: number; onSave: () => void; onOpenWith?: () => void; onHex?: () => void; /** Buttons at the start of the toolbar (the SVG's switch to the picture). */ leading?: ReactNode; /** The zoom of this tab: the text is drawn at that scale. */ zoom?: number }) {
   const { t } = useI18n()
+  const group = useGroup()
   const wrap = wordWrap.use()
   const formatOn = formatSetting.use()
   const formattable = FORMATTABLE.includes(language)
@@ -39,7 +41,7 @@ export function TextView({ text, language, size, onSave, onOpenWith, onHex, lead
   const working = formatOn && fits && laidOut?.source !== text
   const lines = useMemo(() => shown.split('\n').length - (shown.endsWith('\n') ? 1 : 0), [shown])
 
-  useEffect(() => shownText.set(() => shown), [shown])
+  useEffect(() => shownText.set(() => shown, group), [shown, group])
 
   // Alt+Z, as in VS Code, while a file is in front.
   useEffect(() => {

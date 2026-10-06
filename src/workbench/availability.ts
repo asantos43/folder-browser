@@ -43,6 +43,8 @@ export function zoomTargetOf(ws: Workspace): 'page' | 'text' | 'view' | null {
   const tab = activeTabOf(ws)
   if (!tab) return null
   if (isSnapshotTab(tab)) return isHeldBack(ws, tab.snapshotId) ? null : 'page'
+  // Two files compared are drawn as text, at the tab's zoom.
+  if (tab.view === 'diff') return 'text'
   if (tab.path === undefined) return null
   const { kind, file } = kindOf(ws, tab)
   if (kind === 'image' || kind === 'pdf') return 'view'

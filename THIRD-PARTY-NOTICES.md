@@ -29,6 +29,7 @@ libraries Chromium contains. They are shipped unchanged by electron-builder.
 | @codemirror/lang-yaml | 6.1.3 | MIT | https://github.com/codemirror/lang-yaml |
 | @codemirror/language | 6.12.4 | MIT | https://code.haverbeke.berlin/codemirror/language |
 | @codemirror/lint | 6.9.7 | MIT | https://code.haverbeke.berlin/codemirror/lint |
+| @codemirror/merge | 6.12.2 | MIT | https://code.haverbeke.berlin/codemirror/merge |
 | @codemirror/state | 6.7.6 | MIT | https://code.haverbeke.berlin/codemirror/state |
 | @codemirror/view | 6.43.13 | MIT | https://code.haverbeke.berlin/codemirror/view |
 | @lezer/common | 1.5.3 | MIT | https://code.haverbeke.berlin/lezer/common |
@@ -65,7 +66,7 @@ libraries Chromium contains. They are shipped unchanged by electron-builder.
 | mtx-decompressor | 1.8.0 | MPL-2.0 | https://github.com/ChristopherVR/mtx-decompressor |
 | pako | 1.0.11 | (MIT AND Zlib) | nodeca/pako |
 | parse5 | 8.0.1 | MIT | git://github.com/inikulin/parse5 |
-| pdfjs-dist | 6.3.289 | Apache-2.0 | https://github.com/mozilla/pdf.js |
+| pdfjs-dist | 6.4.299 | Apache-2.0 | https://github.com/mozilla/pdf.js |
 | pend | 1.2.0 | MIT | git://github.com/andrewrk/node-pend |
 | process-nextick-args | 2.0.1 | MIT | https://github.com/calvinmetcalf/process-nextick-args |
 | react | 19.3.0 | MIT | https://github.com/react/react |
@@ -348,6 +349,32 @@ THE SOFTWARE.
 MIT License
 
 Copyright (C) 2024 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+### @codemirror/merge 6.12.2
+
+```text
+MIT License
+
+Copyright (C) 2018-2022 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2765,7 +2792,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### pdfjs-dist 6.3.289
+### pdfjs-dist 6.4.299
 
 ```text
 Apache License

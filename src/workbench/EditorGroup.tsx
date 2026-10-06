@@ -9,32 +9,39 @@ import type { ZipEntryInfo } from '@core/api.ts'
 import { trailOf } from '@core/vpath.ts'
 import type { Notice } from '@/state/messages.ts'
 import { describeIssue } from '@/state/messages.ts'
-import { invalidProblems, isHeldBack, isSnapshotTab, snapshotKey, type Action, type Workspace } from '@/state/workspace.ts'
+import { GroupContext } from '@/state/groups.ts'
+import { groupView, invalidProblems, isHeldBack, isSnapshotTab, snapshotKey, type Action, type GroupId, type Workspace } from '@/state/workspace.ts'
 import { FileView } from '@/views/FileView.tsx'
 import { DocumentView } from '@/views/DocumentView.tsx'
+import { DiffView } from '@/views/DiffView.tsx'
 import { MediaView } from '@/views/MediaView.tsx'
 import { MetadataView } from '@/views/MetadataView.tsx'
 import { SettingsView } from '@/views/SettingsView.tsx'
 import type { ThemeSetting } from '@/theme/theme.ts'
 import { Icon } from '@/components/Icon.tsx'
+import { basename } from '@/lib/format.ts'
 import { Breadcrumbs } from './Breadcrumbs.tsx'
 import { shortcut } from './commands.ts'
 import type { Signers } from './signature.ts'
 import { tabZoomOf } from '@/state/tabZoom.ts'
-import { describeTabs, isEditable, kindOf, snapshotTitle, sourceTitle } from './tabInfo.ts'
+import { describeTabs, isEditable, kindOf, sideLabel, snapshotTitle, sourceTitle } from './tabInfo.ts'
+import { draggedFile, dragging, FILE_DRAG, TAB_DRAG, type DraggedFile } from './dnd.ts'
 import { TabStrip } from './TabStrip.tsx'
 
 /**
  * The editor group: the tab strip, the breadcrumbs and the area of the active tab. Every open snapshot keeps its `<iframe sandbox>`
  * (hidden while another tab shows), so its scroll and state stay as they were; a file tab shows the file.
  */
-export function EditorGroup({ zooms, onZoom, reloads, onSaveTab, onSaveBufferAs, onSaveBytesAs, onChanged, onRestored, onSaveConverted, onViewEntry, onNotify, find, onCloseFind, ws, dispatch, onSaveFile, onOpenWith, onReveal, onCopy, onOpenExternal, signers, onTrust, onForget, theme, setTheme }: { /** The zoom of each tab that has one. */ zooms: Readonly<Record<string, number>>; /** A text whose editor is made again (it was reloaded from the disk): the key of the tab and how many times. */ reloads: Readonly<Record<string, number>>; /** Saves the text of a tab to its file (the workbench says what went wrong). */ onSaveTab: (key: string) => void; onSaveBufferAs: (name: string, text: string, options: { eol: 'lf' | 'crlf' | 'cr'; bom: boolean }) => void; /** Save As of the bytes on screen. */ onSaveBytesAs: (name: string, bytes: Uint8Array) => void; /** A text has changes not saved, or has none now. */ onChanged: (key: string, changed: boolean) => void; /** Changes that were not saved came back from a draft. */ onRestored: (name: string) => void; /** The wheel or a zoom key over a document (a zoom of its tab). */ onZoom: (change: { wheel: number } | { direction: 'in' | 'out' | 'reset' }) => void; onSaveConverted: (snapshotId: string) => void; onViewEntry: (snapshotId: string, zipPath: string, entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; find: { open: boolean; token: number }; onCloseFind: () => void; theme: ThemeSetting; setTheme: (theme: ThemeSetting) => void; signers: Signers; onTrust: (fingerprint: string, name?: string) => void; onForget: (fingerprint: string) => void; ws: Workspace; dispatch: (a: Action) => void; onSaveFile: (snapshotId: string, path: string) => void; onOpenWith: (snapshotId: string, path: string) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; onOpenExternal: (url: string) => void }) {
+export function EditorGroup({ group, onDropOnTab, onDropFile, zooms, onZoom, reloads, onSaveTab, onSaveBufferAs, onSaveBytesAs, onChanged, onRestored, onSaveConverted, onViewEntry, onNotify, find, onCloseFind, ws: wsAll, dispatch, onSaveFile, onOpenWith, onReveal, onCopy, onOpenExternal, signers, onTrust, onForget, theme, setTheme }: { /** Which of the two groups this is. */ group: GroupId; /** A tab was dropped on another tab, in the middle of it: the workbench asks what to do with the two. */ onDropOnTab: (dragged: string, target: string) => void; /** A file of the tree was dropped on the group: open it there. */ onDropFile: (file: DraggedFile, group: GroupId) => void; /** The zoom of each tab that has one. */ zooms: Readonly<Record<string, number>>; /** A text whose editor is made again (it was reloaded from the disk): the key of the tab and how many times. */ reloads: Readonly<Record<string, number>>; /** Saves the text of a tab to its file (the workbench says what went wrong). */ onSaveTab: (key: string) => void; onSaveBufferAs: (name: string, text: string, options: { eol: 'lf' | 'crlf' | 'cr'; bom: boolean }) => void; /** Save As of the bytes on screen. */ onSaveBytesAs: (name: string, bytes: Uint8Array) => void; /** A text has changes not saved, or has none now. */ onChanged: (key: string, changed: boolean) => void; /** Changes that were not saved came back from a draft. */ onRestored: (name: string) => void; /** The wheel or a zoom key over a document (a zoom of its tab). */ onZoom: (change: { wheel: number } | { direction: 'in' | 'out' | 'reset' }) => void; onSaveConverted: (snapshotId: string) => void; onViewEntry: (snapshotId: string, zipPath: string, entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; find: { open: boolean; token: number }; onCloseFind: () => void; theme: ThemeSetting; setTheme: (theme: ThemeSetting) => void; signers: Signers; onTrust: (fingerprint: string, name?: string) => void; onForget: (fingerprint: string) => void; ws: Workspace; dispatch: (a: Action) => void; onSaveFile: (snapshotId: string, path: string) => void; onOpenWith: (snapshotId: string, path: string) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; onOpenExternal: (url: string) => void }) {
   const { t } = useI18n()
+  // What this group shows: its own tabs, and the one in front of it as the active one.
+  const ws = useMemo(() => groupView(wsAll, group), [wsAll, group])
+  const focused = wsAll.focus === group
   const views = useMemo(() => describeTabs(ws, t), [ws, t])
   const active = ws.tabs.find((tab) => tab.key === ws.active)
   // The frames keep the order in which the snapshots were opened, whatever the order of the tabs: moving an iframe in the page reloads it.
   const frames = Object.keys(ws.snapshots).flatMap((id) => ws.tabs.filter((tab) => tab.snapshotId === id && isSnapshotTab(tab)))
-  const trail = active ? (active.view === 'settings' ? [t('settings.title')] : [sourceTitle(ws, active.snapshotId), ...(active.view === 'metadata' ? [t('metadata.breadcrumb')] : active.path ? trailOf(active.path) : [])]) : []
+  const trail = active ? (active.view === 'settings' ? [t('settings.title')] : active.view === 'diff' && active.diff ? [t('tabs.diffOf', { left: basename(active.diff.left.path), right: basename(active.diff.right.path) })] : [sourceTitle(ws, active.snapshotId), ...(active.view === 'metadata' ? [t('metadata.breadcrumb')] : active.path ? trailOf(active.path) : [])]) : []
   const fileTab = active?.path !== undefined ? active : undefined
   const metadataTab = active?.view === 'metadata' ? active : undefined
   const heldBack = active && isSnapshotTab(active) && isHeldBack(ws, active.snapshotId) ? active : undefined
@@ -66,13 +73,14 @@ export function EditorGroup({ zooms, onZoom, reloads, onSaveTab, onSaveBufferAs,
   const getTarget = useCallback((): FindTarget | null => (frame ? frame : fileKind === 'text' || fileKind === 'pdf' || fileKind === 'document' ? fileTarget.get() : dom), [frame, fileKind, dom])
 
   return (
-    <main aria-label="Editor" className="flex h-full min-w-0 flex-col bg-editor text-editor-fg">
-      <TabStrip ws={ws} views={views} dispatch={dispatch} onReveal={onReveal} onCopy={onCopy} onOpenWith={onOpenWith} />
+    <GroupContext.Provider value={group}>
+    <main aria-label={wsAll.tabs.some((tab) => tab.group === 1) ? t(group === 0 ? 'editor.leftGroup' : 'editor.rightGroup') : 'Editor'} data-group={group} onMouseDownCapture={() => !focused && ws.active !== null && dispatch({ type: 'activate', key: ws.active })} className="flex h-full min-w-0 flex-col bg-editor text-editor-fg">
+      <TabStrip ws={wsAll} group={group} views={views} dispatch={dispatch} onReveal={onReveal} onCopy={onCopy} onOpenWith={onOpenWith} onDropOnTab={onDropOnTab} />
       {active ? <Breadcrumbs trail={trail} /> : null}
       <div ref={area} className="relative flex min-h-0 flex-1 flex-col">
         {active && isSnapshotTab(active) && !heldBack && ws.snapshots[active.snapshotId]?.converted ? <ConvertedBar info={ws.snapshots[active.snapshotId].converted!} onSave={() => onSaveConverted(active.snapshotId)} /> : null}
         {/* No key: Find closes when the tab changes, so there is no state to carry over (and a key on it kept it mounted once closed). */}
-        {find.open && active && fileKind !== 'hex' ? <FindBar getTarget={getTarget} focusToken={find.token} onClose={onCloseFind} /> : null}
+        {find.open && focused && active && fileKind !== 'hex' ? <FindBar getTarget={getTarget} focusToken={find.token} onClose={onCloseFind} /> : null}
         {frames.map((tab) => {
           // The zoom of the page is the tab's own: the frame is laid out at 1/zoom of the room and scaled up (or down) to fill it, as a browser's zoom lays a page out.
           const zoom = tabZoomOf(zooms, tab.key)
@@ -90,6 +98,7 @@ export function EditorGroup({ zooms, onZoom, reloads, onSaveTab, onSaveBufferAs,
           )
         })}
         {heldBack ? <Invalid ws={ws} id={heldBack.snapshotId} dispatch={dispatch} /> : null}
+        {active?.view === 'diff' && active.diff ? <DiffView key={active.key} left={active.diff.left} right={active.diff.right} leftTitle={sideLabel(ws, active.diff.left)} rightTitle={sideLabel(ws, active.diff.right)} zoom={tabZoomOf(zooms, active.key)} /> : null}
         {active?.view === 'settings' ? <SettingsView theme={theme} setTheme={setTheme} /> : null}
         {metadataTab && ws.snapshots[metadataTab.snapshotId] ? (
           <MetadataView
@@ -148,11 +157,68 @@ export function EditorGroup({ zooms, onZoom, reloads, onSaveTab, onSaveBufferAs,
             </dl>
           </div>
         ) : null}
+        <DropLayer group={group} split={wsAll.tabs.some((tab) => tab.group === 1)} dispatch={dispatch} onDropFile={onDropFile} />
       </div>
     </main>
+    </GroupContext.Provider>
   )
 }
 
+/**
+ * Where a tab or a file of the tree dragged over the editor lands, as in VS Code: with one group, the right half makes a second group and the left half is the group there is;
+ * with two, the group the pointer is over. The window is listened to (a drag is heard wherever the pointer is, and the first move of it counts), and a layer is drawn over the
+ * group while a tab or a file is dragged: it shows the place and takes the events a frame under it would keep to itself.
+ */
+function DropLayer({ group, split, dispatch, onDropFile }: { group: GroupId; split: boolean; dispatch: (a: Action) => void; onDropFile: (file: DraggedFile, group: GroupId) => void }) {
+  const kind = dragging.use()
+  const [side, setSide] = useState<'left' | 'right' | null>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const now = useRef({ group, split, dispatch, onDropFile })
+  now.current = { group, split, dispatch, onDropFile }
+  useEffect(() => {
+    const ours = (e: DragEvent) => Boolean(e.dataTransfer && (e.dataTransfer.types.includes(TAB_DRAG) || e.dataTransfer.types.includes(FILE_DRAG)))
+    /** Which side of this group the pointer is over, or null when it is not over it. */
+    const zone = (e: DragEvent): 'left' | 'right' | null => {
+      const r = box.current?.getBoundingClientRect()
+      if (!r || !ours(e) || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return null
+      return !now.current.split && e.clientX > r.left + r.width / 2 ? 'right' : 'left'
+    }
+    const over = (e: DragEvent) => {
+      const at = zone(e)
+      setSide(at)
+      if (!at) return
+      e.preventDefault()
+      e.dataTransfer!.dropEffect = e.dataTransfer!.types.includes(TAB_DRAG) ? 'move' : 'link'
+    }
+    const drop = (e: DragEvent) => {
+      const at = zone(e)
+      setSide(null)
+      if (!at) return
+      e.preventDefault()
+      e.stopPropagation()
+      const { group: mine, split: two, dispatch: send, onDropFile: open } = now.current
+      const to: GroupId = two ? mine : at === 'right' ? 1 : 0
+      const key = e.dataTransfer!.getData(TAB_DRAG)
+      if (key) return send({ type: 'move-to-group', key, group: to })
+      const file = draggedFile(e.dataTransfer!)
+      if (file) open(file, to)
+    }
+    const leave = () => setSide(null)
+    window.addEventListener('dragover', over, true)
+    window.addEventListener('drop', drop, true)
+    window.addEventListener('dragend', leave, true)
+    return () => {
+      window.removeEventListener('dragover', over, true)
+      window.removeEventListener('drop', drop, true)
+      window.removeEventListener('dragend', leave, true)
+    }
+  }, [])
+  return (
+    <div ref={box} data-drop-layer={group} className={`absolute inset-0 z-30 ${kind ? '' : 'pointer-events-none'}`}>
+      {kind && side ? <div className={`pointer-events-none absolute inset-y-0 border-2 border-focus bg-list-active/25 ${split ? 'inset-x-0' : side === 'right' ? 'right-0 left-1/2' : 'left-0 right-1/2'}`} /> : null}
+    </div>
+  )
+}
 
 /** A snapshot whose files are not what its manifest says is held back: the page is not shown until the user insists. */
 function Invalid({ ws, id, dispatch }: { ws: Workspace; id: string; dispatch: (a: Action) => void }) {
