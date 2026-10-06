@@ -22,7 +22,7 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] The desktop file also takes `inode/directory` and `application/zip`
 
 ## Phase 1b: `.wsnp`
-- [x] A `.wsnp` in the tree is a file like the others: a click (or Enter) shows it as a snapshot; "Open as ZIP" lists its entries (`fb:open-in-root`, `RootRegistry.diskFile`); the Open Snapshots section shows only while one is open
+- [x] A `.wsnp` in the tree is a file like the others: a click previews it (italic tab, the side bar stays on the folder), a double click or Enter opens it as a snapshot for good; "Open as ZIP" lists its entries (`fb:open-in-root`, `RootRegistry.diskFile`); the Open Snapshots section shows only while one is open
 - [x] Same behaviour as WSNP Viewer: it is the same code (a snapshot opened from the tree is opened like one from the picker: integrity, signature, Print, Save as PDF, Find, zoom); the inherited specs pass
 - [ ] A PageKeep ZIP found in a folder opens as a snapshot (today it opens as a ZIP folder; "Open as Snapshot" for `.zip` rows)
 - [ ] Entries of a `.wsnp` are read-only (the whole file can be renamed, moved, deleted): nothing writes yet, so this is a rule for phases 2 to 5 (`core/archive/edit.ts` must refuse a `.wsnp`)
@@ -49,6 +49,9 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [ ] Try a real mp4 (H.264), mp3, flac and an HEVC file by hand (the tests only have WAV and a broken file: no encoder here)
 - [x] A snapshot's own media plays too (by the type its manifest declares; a link to it in the page opens a tab); Previous/Next are not offered for it
 - [ ] Previous/Next for the media of a snapshot (from its list of files)
+
+- [x] Order the files of a folder by name, date or size (button and View menu), with the size and the date on each row
+- [ ] Columns for size and date that the user can turn on or off, and drag to resize (today: the one the order is by, both when the side bar is wide)
 
 ## Phase 2: change files on disk
 - [ ] Create file, create folder, **rename** (F2, inline), move (dialog and drag and drop), delete (to the trash, with confirmation)
