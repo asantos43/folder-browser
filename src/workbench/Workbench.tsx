@@ -27,6 +27,7 @@ import { shownText } from '@/state/shown.ts'
 import { AboutDialog } from '@/components/AboutDialog.tsx'
 import { OpenWithDialog } from '@/components/OpenWithDialog.tsx'
 import { ConfirmDialog } from '@/components/ConfirmDialog.tsx'
+import { MoveDialog } from '@/components/MoveDialog.tsx'
 import { PropertiesDialog } from '@/components/PropertiesDialog.tsx'
 import { locationOf } from './treeMenu.ts'
 import { LinkTooltip, type LinkHover } from '@/components/LinkTooltip.tsx'
@@ -74,6 +75,9 @@ export function Workbench() {
   const [placesData, setPlacesData] = useState<PlacesData | null>(null)
   const [treeVersion, setTreeVersion] = useState(0)
   const [emptying, setEmptying] = useState<string | null>(null)
+  // An item of a folder to delete (asked about, to the trash first; for good only when the trash cannot take it), or to move (asked where to).
+  const [deleting, setDeleting] = useState<{ rootId: string; entry: DirEntry; forever: boolean } | null>(null)
+  const [moving, setMoving] = useState<{ rootId: string; entry: DirEntry } | null>(null)
   const [pageMenu, setPageMenu] = useState<ContextMenuState | null>(null)
   const [linkHover, setLinkHover] = useState<LinkHover | null>(null)
   // The session is written only once the last one has been read back.
@@ -536,6 +540,55 @@ export function Workbench() {
     [toggleSideBar, setSetting, run, api, handleResults, refreshRecent, ws, recent, savePdfTab, saveConverted, go, history, hiddenShown, sortBy, sortBackwards],
   )
 
+  /** An item of a folder has a new path: its tabs follow it (and the zoom each had). */
+  const pathChanged = useCallback((rootId: string, from: string, to: string) => {
+    const action = { type: 'path-changed', rootId, from, to } as const
+    const before = wsNow.current.tabs
+    const after = reduce(wsNow.current, action).tabs
+    const keys = before.flatMap((tab, i) => (after[i] && after[i].key !== tab.key ? [[tab.key, after[i].key] as const] : []))
+    dispatch(action)
+    if (keys.length) {
+      setZooms((all) => {
+        const next = { ...all }
+        for (const [old, now] of keys) {
+          if (!(old in next)) continue
+          next[now] = next[old]
+          delete next[old]
+        }
+        return next
+      })
+    }
+  }, [])
+  const doMove = useCallback(
+    (rootId: string, path: string, toFolder: string) => {
+      const name = basename(path)
+      void api?.fs.move(rootId, path, toFolder).then((result) => {
+        if (!result.ok) return notify({ level: 'error', text: t('fs.failedMove', { name, reason: t(`fs.error.${result.error}`) }) })
+        setTreeVersion((n) => n + 1)
+        pathChanged(rootId, path, result.path)
+        notify({ level: 'info', text: t('fs.moved', { name, folder: toFolder === '' ? t('fs.movedToTop', { name: wsNow.current.roots[rootId]?.name ?? '' }) : basename(toFolder) }) })
+      })
+    },
+    [api, notify, t, pathChanged],
+  )
+  /** The user said yes to deleting an item: to the trash, or (when the trash refused and the user said yes again) for good. */
+  const doDelete = useCallback(
+    (item: { rootId: string; entry: DirEntry; forever: boolean }) => {
+      const { rootId, entry, forever } = item
+      void api?.fs.remove(rootId, entry.path, forever ? 'forever' : 'trash').then((result) => {
+        if (result.ok) {
+          setTreeVersion((n) => n + 1)
+          dispatch({ type: 'path-removed', rootId, path: entry.path })
+          return notify({ level: 'info', text: t(forever ? 'fs.deletedForever' : 'fs.deleted', { name: entry.name }) })
+        }
+        // The trash could not take it (a file system with no trash): the user is asked again, for good this time.
+        if (result.error === 'trash-failed' && !forever) return setDeleting({ rootId, entry, forever: true })
+        notify({ level: 'error', text: t('fs.failedDelete', { name: entry.name, reason: t(`fs.error.${result.error}`) }) })
+      })
+    },
+    [api, notify, t],
+  )
+
   const sideBarActions = useMemo(
     () => ({
       openFolder: () => run('openFolder'),
@@ -563,13 +616,30 @@ export function Workbench() {
           setTreeVersion((n) => n + 1)
         }),
       emptyTrash: (id: string) => setEmptying(id),
+      // The files of a folder: what was done changes what the tree lists (it reads again, keeping what it shows), and the tabs of an item follow it or close with it.
+      createEntry: async (id: string, parent: string, name: string, kind: 'file' | 'dir') => {
+        const result = await api!.fs.create(id, parent, name, kind)
+        if (result.ok) setTreeVersion((n) => n + 1)
+        return result
+      },
+      renameEntry: async (id: string, path: string, name: string) => {
+        const result = await api!.fs.rename(id, path, name)
+        if (result.ok) {
+          setTreeVersion((n) => n + 1)
+          pathChanged(id, path, result.path)
+        }
+        return result
+      },
+      moveEntry: (id: string, path: string, toFolder: string) => doMove(id, path, toFolder),
+      moveEntryTo: (id: string, entry: DirEntry) => setMoving({ rootId: id, entry }),
+      removeEntry: (id: string, entry: DirEntry) => setDeleting({ rootId: id, entry, forever: false }),
       // A `.wsnp` of a folder is a file like the others: a click shows its page in a preview tab, as a picture is, and a double click keeps it in a tab of its own.
       openSnapshot: (id: string, path: string, keep: boolean) => void api?.openInRoot(id, path).then((results) => handleResults(results, { preview: !keep })),
       saveFile,
       openWith,
       copy,
     }),
-    [run, api, saveFile, openWith, copy, handleResults, reportOpenWith, refreshPlaces, notify, t],
+    [run, api, saveFile, openWith, copy, handleResults, reportOpenWith, refreshPlaces, notify, t, pathChanged, doMove],
   )
 
   return (
@@ -625,6 +695,33 @@ export function Workbench() {
               notify({ level: 'info', text: t('trash.emptied', { count }) })
               setTreeVersion((n) => n + 1)
             })
+          }}
+        />
+      ) : null}
+      {deleting ? (
+        <ConfirmDialog
+          title={t(deleting.forever ? 'fs.foreverTitle' : 'fs.deleteTitle')}
+          message={deleting.forever ? t('fs.foreverMessage', { name: deleting.entry.name }) : t(deleting.entry.kind === 'dir' ? 'fs.deleteFolder' : 'fs.deleteFile', { name: deleting.entry.name })}
+          confirmLabel={t(deleting.forever ? 'fs.foreverConfirm' : 'fs.deleteConfirm')}
+          danger
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => {
+            const item = deleting
+            setDeleting(null)
+            doDelete(item)
+          }}
+        />
+      ) : null}
+      {moving ? (
+        <MoveDialog
+          rootName={ws.roots[moving.rootId]?.name ?? ''}
+          entry={moving.entry}
+          listDir={(path) => api!.listDir(moving.rootId, path)}
+          onCancel={() => setMoving(null)}
+          onMove={(toFolder) => {
+            const item = moving
+            setMoving(null)
+            doMove(item.rootId, item.entry.path, toFolder)
           }}
         />
       ) : null}

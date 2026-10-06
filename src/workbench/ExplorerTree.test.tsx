@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
-import type { DirEntry, ListResult } from '@core/api.ts'
+import type { DirEntry, ListResult, OpResult } from '@core/api.ts'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
 import type { SortKey } from '@core/fs/sort.ts'
-import { ExplorerTree } from './ExplorerTree.tsx'
+import { ENTRY_DRAG, ExplorerTree } from './ExplorerTree.tsx'
 
 afterEach(cleanup)
 
@@ -18,13 +18,13 @@ const disk: Record<string, ListResult> = {
   locked: { error: 'denied' },
 }
 
-function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false, sortKey = 'name', sortDescending = false }: { showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean; sortKey?: SortKey; sortDescending?: boolean } = {}) {
+function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false, writable = false, sortKey = 'name', sortDescending = false, createRequest }: { writable?: boolean; createRequest?: { kind: 'file' | 'dir'; token: number }; showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean; sortKey?: SortKey; sortDescending?: boolean } = {}) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
-  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn() }
+  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), moveTo: vi.fn(), remove: vi.fn() }
   type Props = { showHidden: boolean; activePath?: string; refreshToken: number; sortKey: SortKey; sortDescending: boolean }
   const tree = (props: Props) => (
     <I18nProvider language="en">
-      <ExplorerTree rootId="r1" rootKind={kind} trash={trash} actions={actions} {...props} />
+      <ExplorerTree rootId="r1" rootKind={kind} trash={trash} writable={writable} createRequest={createRequest} actions={actions} {...props} />
     </I18nProvider>
   )
   const view = render(tree({ showHidden, activePath, refreshToken, sortKey, sortDescending }))
@@ -48,7 +48,7 @@ describe('ExplorerTree', () => {
     const again = (listDir2: typeof listDir) =>
       view.rerender(
         <I18nProvider language="en">
-          <ExplorerTree rootId="r1" rootKind="folder" trash={false} showHidden={false} sortKey="name" sortDescending={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn() }} />
+          <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={false} showHidden={false} sortKey="name" sortDescending={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(), rename: vi.fn(), move: vi.fn(), moveTo: vi.fn(), remove: vi.fn() }} />
         </I18nProvider>,
       )
     const other = vi.fn(async () => ({ entries: [], truncated: false }) as ListResult)
@@ -287,5 +287,136 @@ describe('ExplorerTree', () => {
       expect(title.split('\n')).toEqual(['mid.md', '2.0 KB', expect.stringContaining('2025')])
       expect(screen.getByRole('treeitem', { name: 'adir' }).getAttribute('title')!.split('\n')).toHaveLength(2)
     })
+  })
+})
+
+describe('ExplorerTree: changing the disk', () => {
+  const row = (name: string) => screen.getByRole('treeitem', { name })
+  const nameField = () => screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement
+  const rightClick = (name: string) => fireEvent.contextMenu(row(name))
+  const menuItem = (name: string) => screen.getByRole('menuitem', { name })
+
+  it('renames in the row: F2 puts a field there with the name (without its extension) selected, Enter says it', async () => {
+    const { rename } = show({ writable: true })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.focus(row('a.txt'))
+    fireEvent.keyDown(row('a.txt'), { key: 'F2' })
+    expect(nameField().value).toBe('a.txt')
+    expect([nameField().selectionStart, nameField().selectionEnd]).toEqual([0, 1])
+    fireEvent.change(nameField(), { target: { value: 'b.txt' } })
+    fireEvent.keyDown(nameField(), { key: 'Enter' })
+    await waitFor(() => expect(rename).toHaveBeenCalledWith('a.txt', 'b.txt'))
+    await waitFor(() => expect(screen.queryByRole('textbox')).toBeNull())
+  })
+  it('does nothing when the name did not change, and gives the field up on Escape or when the focus leaves', async () => {
+    const { rename } = show({ writable: true })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.keyDown(row('a.txt'), { key: 'F2' })
+    fireEvent.keyDown(nameField(), { key: 'Enter' })
+    expect(rename).not.toHaveBeenCalled()
+    expect(screen.queryByRole('textbox')).toBeNull()
+    fireEvent.keyDown(row('a.txt'), { key: 'F2' })
+    fireEvent.keyDown(nameField(), { key: 'Escape' })
+    expect(screen.queryByRole('textbox')).toBeNull()
+    fireEvent.keyDown(row('a.txt'), { key: 'F2' })
+    fireEvent.blur(nameField())
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(rename).not.toHaveBeenCalled()
+  })
+  it('refuses a bad name in words, before asking, and keeps the field; a taken name is said too', async () => {
+    const { rename } = show({ writable: true })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.focus(row('a.txt'))
+    fireEvent.keyDown(row('a.txt'), { key: 'F2' })
+    fireEvent.change(nameField(), { target: { value: 'a/b' } })
+    fireEvent.keyDown(nameField(), { key: 'Enter' })
+    expect(screen.getByRole('alert').textContent).toBe('A name cannot contain / or \\.')
+    expect(rename).not.toHaveBeenCalled()
+    rename.mockResolvedValueOnce({ ok: false, error: 'exists' })
+    fireEvent.change(nameField(), { target: { value: 'docs' } })
+    expect(screen.queryByRole('alert')).toBeNull()
+    fireEvent.keyDown(nameField(), { key: 'Enter' })
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('A file or folder with this name already exists here.'))
+    expect(nameField()).toBeTruthy()
+  })
+  it('makes a new file or folder in a field at the top of the folder that has the focus (it opens), and in the root when none has', async () => {
+    const { create, view } = show({ writable: true, createRequest: { kind: 'file', token: 1 } })
+    await waitFor(() => expect(nameField().value).toBe(''))
+    fireEvent.change(nameField(), { target: { value: 'new.txt' } })
+    fireEvent.keyDown(nameField(), { key: 'Enter' })
+    await waitFor(() => expect(create).toHaveBeenCalledWith('', 'new.txt', 'file'))
+    view.unmount()
+    cleanup()
+    const second = show({ writable: true })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.focus(row('docs'))
+    rightClick('docs')
+    fireEvent.click(menuItem('New Folder…'))
+    await waitFor(() => expect(nameField()).toBeTruthy())
+    expect(second.listDir).toHaveBeenCalledWith('docs')
+    fireEvent.change(nameField(), { target: { value: 'sub' } })
+    fireEvent.keyDown(nameField(), { key: 'Enter' })
+    await waitFor(() => expect(second.create).toHaveBeenCalledWith('docs', 'sub', 'dir'))
+  })
+  it('asks to delete with Delete and from the menu, and to move from the menu', async () => {
+    const { remove, moveTo } = show({ writable: true })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.focus(row('a.txt'))
+    fireEvent.keyDown(row('a.txt'), { key: 'Delete' })
+    expect(remove).toHaveBeenCalledWith(expect.objectContaining({ path: 'a.txt' }))
+    rightClick('a.txt')
+    fireEvent.click(menuItem('Move to…'))
+    expect(moveTo).toHaveBeenCalledWith(expect.objectContaining({ path: 'a.txt' }))
+    rightClick('docs')
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Delete/ }))
+    expect(remove).toHaveBeenCalledWith(expect.objectContaining({ path: 'docs' }))
+  })
+  it('offers none of it where nothing can be changed: a ZIP as the root, the trash, an entry of a ZIP', async () => {
+    const { remove, rename } = show({ writable: false })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.focus(row('a.txt'))
+    fireEvent.keyDown(row('a.txt'), { key: 'F2' })
+    fireEvent.keyDown(row('a.txt'), { key: 'Delete' })
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(rename).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+    rightClick('a.txt')
+    expect(screen.queryByRole('menuitem', { name: /^Rename/ })).toBeNull()
+    expect(row('a.txt').getAttribute('draggable')).toBe('false')
+    cleanup()
+    show({ writable: true })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.click(row('pack.zip'))
+    await waitFor(() => expect(screen.getByRole('treeitem', { name: 'src' })).toBeTruthy())
+    fireEvent.focus(screen.getByRole('treeitem', { name: 'src' }))
+    fireEvent.keyDown(screen.getByRole('treeitem', { name: 'src' }), { key: 'F2' })
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+  it('moves what is dropped on a folder into it, and what is dropped on the empty part into the root; never from another root', async () => {
+    const { move } = show({ writable: true })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    const data = (payload: unknown) => ({ dataTransfer: { types: [ENTRY_DRAG], getData: (type: string) => (type === ENTRY_DRAG ? JSON.stringify(payload) : ''), dropEffect: '' } })
+    fireEvent.dragOver(row('docs'), data({ rootId: 'r1', path: 'a.txt' }))
+    fireEvent.drop(row('docs'), data({ rootId: 'r1', path: 'a.txt' }))
+    expect(move).toHaveBeenCalledWith('a.txt', 'docs')
+    fireEvent.drop(screen.getByRole('tree'), data({ rootId: 'r1', path: 'docs/readme.md' }))
+    expect(move).toHaveBeenCalledWith('docs/readme.md', '')
+    fireEvent.drop(row('docs'), data({ rootId: 'other', path: 'a.txt' }))
+    fireEvent.drop(row('docs'), data({ rootId: 'r1', path: 'docs' }))
+    expect(move).toHaveBeenCalledTimes(2)
+    // A file is not a folder: what is dropped on it goes to the folder it is in (here the root); and what is in that folder already stays.
+    fireEvent.drop(row('a.txt'), data({ rootId: 'r1', path: 'docs/readme.md' }))
+    expect(move).toHaveBeenCalledTimes(3)
+    expect(move).toHaveBeenLastCalledWith('docs/readme.md', '')
+    fireEvent.drop(row('a.txt'), data({ rootId: 'r1', path: 'b.txt' }))
+    expect(move).toHaveBeenCalledTimes(3)
+  })
+  it('has New File and New Folder in the menu of the empty part of the tree, and Refresh', async () => {
+    show({ writable: true })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.contextMenu(screen.getByRole('tree'))
+    expect(menuItem('New File…')).toBeTruthy()
+    expect(menuItem('New Folder…')).toBeTruthy()
+    expect(menuItem('Refresh')).toBeTruthy()
   })
 })

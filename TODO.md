@@ -9,8 +9,9 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] Support files: `CLAUDE.md`, `README.md`, `README.pt-BR.md`, `CHANGELOG.md`, `TODO.md`, `docs/ARCHITECTURE.md`, `.editorconfig`, `.nvmrc`
 - [x] New icon (`build/icon.svg`, `build/icon.png`, `build/icons/*`, `public/icon.svg`): concept C2 chosen by the developer: folder with a zipper, a page, a pencil, play and the lens
 - [x] `asantos43/folder-browser` created on GitHub (private) and `main` pushed
-- [ ] `docs/USER-GUIDE*.md`, `docs/UI-DESIGN.md`, `docs/DEVELOPMENT.md`, `docs/RELEASING.md`, `PRIVACY.md`, `SECURITY.md`: rewrite the parts that still speak only of the viewer
-- [ ] `npm run notices` (`THIRD-PARTY-NOTICES.md`) after the new dependencies come in
+- [x] `docs/USER-GUIDE.md` and `docs/USER-GUIDE.pt-BR.md` rewritten for Folder Browser (phase 2); `docs/UI-DESIGN.md` (the table of what each part becomes), `docs/DEVELOPMENT.md`, `PRIVACY.md` (en and pt-BR) and `SECURITY.md` brought up to date. `docs/RELEASING.md` has nothing of the viewer that is wrong, but is untried (no release was made yet)
+- [ ] Screenshots for the user guide and the README (the old ones were of WSNP Viewer and were taken out of the guide)
+- [x] `npm run notices` (`THIRD-PARTY-NOTICES.md`) after the new dependencies come in
 
 ## Phase 1: browse
 - [x] Open a folder or a `.zip` (dialog, drag and drop, command line, a file's folder); the interface names a root by an id and a relative path, and `core/fs/guard.ts` refuses `..` and links that leave it
@@ -74,12 +75,18 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [ ] Print the bytes of a file; print a CSV table as a table
 - [ ] The header panel of ELF, PE and Mach-O files in the hex view
 - [ ] Previous/Next for the media of a snapshot; rename a favourite; columns for size and date the user can choose
-- [ ] The pull requests: phases 1 to 1p are stacked branches on one line of history (`phase-1-browse` … `phase-1p-zoom-find-print`); none is merged into `main` yet
+- [x] The pull requests: phases 1 to 1p were one line of history, merged into `main` as one pull request (#5). The CI jobs of GitHub could not start (billing of the account): the checks were run on the developer's computer
+- [ ] **GitHub Actions** (`ci.yml`, `release.yml`) have never run: the account's billing has to be fixed first
 
 ## Phase 2: change files on disk
-- [ ] Create file, create folder, **rename** (F2, inline), move (dialog and drag and drop), delete (to the trash, with confirmation)
-- [ ] Open tabs follow a renamed or moved item; the tree refreshes
-- [ ] Tests: path traversal, symlinks out of the root, move onto an existing name, move a folder into itself
+- [x] `core/fs/names.ts` (what a name may be; Windows rules on Windows) and `core/fs/ops.ts` (`createEntry`, `renameEntry`, `moveEntry`, `removeEntry`): never replace (a file is hard-linked to its new name, which fails if it is taken), never leave the root (the parent is resolved, so a symbolic link is renamed, moved or removed as the link), never put a folder inside itself, nothing inside a ZIP; `RootRegistry` lets go of the ZIPs it had read
+- [x] Create file and folder (a field in the tree, from the header buttons, the menu of a folder and the empty part of the tree), **rename** (`F2` or the menu, in the row, the name without its extension selected), **move** (Move to… with a folder picker, and drag and drop onto a folder or onto the empty part), **delete** (`Delete` or the menu, asks; to the trash, and for good only when the trash refused and the user said yes again)
+- [x] Open tabs follow a renamed or moved item (key, path, place, preview, pin, zoom, and the bytes tab of it) and close with a deleted one; the tree reads again without taking its rows away
+- [x] Tests: path traversal, symbolic links out of the root, move onto an existing name, move a folder into itself, names (unit); the tree's field, menu, keys and drops (component); the whole flow in the real app (e2e `fileops.spec.ts`)
+- [ ] Several rows selected (Ctrl/Shift click) to move, delete and extract at once
+- [ ] Drag onto a place of the side bar to move there, and onto Trash to delete (the places are other folders than the root)
+- [ ] Copy and paste; Duplicate
+- [ ] Undo of the last delete (Restore from the trash is there) or move
 
 ## Phase 3: editor
 - [ ] Editable CodeMirror 6 with the language modes; modified marker; `Ctrl+S`; warning on close; binary and over-5-MB files are not edited

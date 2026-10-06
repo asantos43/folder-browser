@@ -40,6 +40,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 - **Open With… and View as hex in the toolbars**: the document, the hexadecimal view, the CSV table and the card of a file that is not shown have **Open With…** (the chooser of this app); every text file (source, Markdown, CSV, SVG as source) has **View as hex**, which opens its bytes in a tab beside it.
 - **A `.log` opens as text** up to 32 MB (other text, 5 MB): logs are text, and big (`LOG_LIMIT`).
 
+- **Change the files of a folder** (phase 2): **New File…** and **New Folder…** (the buttons of the Files header, the menu of a folder, the empty part of the tree) name the new item in a field in the tree; **Rename** (`F2`, or the menu) edits the name in its row with the name without its extension selected; **Move to…** opens a folder picker, and dragging a row onto a folder (or onto the empty part, for the root) moves it; **Delete** (`Delete`, or the menu) asks and moves the item to the trash, and only if the trash cannot take it asks again to delete it for good. Nothing is ever replaced (a name that is taken is refused, in words), a folder never goes into itself, and nothing leaves the folder that was opened (a symbolic link is renamed, moved and removed as the link). The tabs of a renamed or moved item follow it, with their place, preview, pin and zoom, and the tabs of a deleted item close. Not inside a ZIP, in a ZIP root or in the trash (ZIPs come in phase 5). `core/fs/names.ts`, `core/fs/ops.ts`, `fb:fs-create|rename|move|remove`.
+
+- **Documentation brought up to date**: the user guide (en and pt-BR) is rewritten for Folder Browser; `PRIVACY.md` (what it keeps, the temporary copies, the files it now changes), `SECURITY.md` (the sandboxed frame of a document, the hexadecimal view, printing a document, the file operations), `docs/DEVELOPMENT.md` and `docs/UI-DESIGN.md`.
+
 ### Fixed
 
 - Five end-to-end specs inherited from WSNP Viewer that had gone stale (the language of a file is named twice on screen, and Markdown opens formatted); the same fix is in wsnp-viewer (branch `fix-stale-e2e-specs`). No change to the application.

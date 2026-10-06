@@ -1,6 +1,6 @@
 import type { SnapshotInfo } from '@core/snapshots.ts'
 import { describe, expect, it } from 'vitest'
-import { empty, fileKey, invalidProblems, isHeldBack, isSnapshotTab, metadataKey, reduce, released, snapshotKey, type Action, type Workspace } from './workspace.ts'
+import { empty, fileKey, invalidProblems, isHeldBack, isSnapshotTab, isUnder, metadataKey, reduce, released, remapPath, snapshotKey, type Action, type Workspace } from './workspace.ts'
 
 const snap = (id: string, signature: SnapshotInfo['signature'] = { state: 'unsigned' }): SnapshotInfo => ({ id, path: `/${id}.wsnp`, manifest: { title: id } as SnapshotInfo['manifest'], files: [], signature })
 const run = (actions: Action[], from: Workspace = empty): Workspace => actions.reduce(reduce, from)
@@ -344,5 +344,55 @@ describe('a file shown as its bytes', () => {
   it('follows the side bar to its root, as any file of a root does', () => {
     const ws = run({ type: 'root-opened', root }, { type: 'open-file', snapshotId: 'r1', path: 'a.bin', keep: true, as: 'hex' })
     expect(ws.selected).toBe('r1')
+  })
+})
+
+describe('an item of a folder renamed, moved or deleted', () => {
+  const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const other = { id: 'r2', kind: 'folder' as const, path: '/home/me/other', name: 'other' }
+  const open = (snapshotId: string, path: string, extra: Partial<Extract<Action, { type: 'open-file' }>> = {}): Action => ({ type: 'open-file', snapshotId, path, keep: true, ...extra })
+  const run = (...actions: Action[]) => actions.reduce(reduce, empty)
+
+  it('knows what is under a path: itself, what is in a folder, and the entries of a ZIP (and not a name that only starts the same)', () => {
+    expect(isUnder('a/b.txt', 'a')).toBe(true)
+    expect(isUnder('a', 'a')).toBe(true)
+    expect(isUnder('p.zip!/x/y', 'p.zip')).toBe(true)
+    expect(isUnder('ab/c', 'a')).toBe(false)
+    expect(isUnder('a.txt', 'a')).toBe(false)
+    expect(remapPath('docs/a/b.txt', 'docs/a', 'docs/z')).toBe('docs/z/b.txt')
+    expect(remapPath('p.zip!/in.txt', 'p.zip', 'q.zip')).toBe('q.zip!/in.txt')
+    expect(remapPath('other/x', 'docs', 'z')).toBe('other/x')
+  })
+  it('the tab of a renamed file follows it: its key and path, its place, its preview and its pin, and the one in front stays in front', () => {
+    let ws = run({ type: 'root-opened', root }, open('r1', 'a.txt'), open('r1', 'b.txt'), open('r1', 'c.txt', { keep: false }))
+    ws = reduce(ws, { type: 'pin', key: 'f:r1:b.txt', pinned: true })
+    ws = reduce(ws, { type: 'activate', key: 'f:r1:a.txt' })
+    const before = ws.tabs.map((t) => t.key)
+    ws = reduce(ws, { type: 'path-changed', rootId: 'r1', from: 'a.txt', to: 'z.txt' })
+    expect(ws.tabs.map((t) => t.key)).toEqual(before.map((k) => (k === 'f:r1:a.txt' ? 'f:r1:z.txt' : k)))
+    expect(ws.tabs.find((t) => t.path === 'z.txt')).toMatchObject({ key: 'f:r1:z.txt', path: 'z.txt' })
+    expect(ws.active).toBe('f:r1:z.txt')
+    expect(ws.recent).toContain('f:r1:z.txt')
+    expect(ws.recent).not.toContain('f:r1:a.txt')
+    expect(ws.tabs.find((t) => t.path === 'b.txt')?.pinned).toBe(true)
+    expect(ws.tabs.find((t) => t.path === 'c.txt')?.preview).toBe(true)
+  })
+  it('a renamed or moved folder takes the tabs of what is in it, the ZIP files in it and their entries, and the bytes of a file', () => {
+    let ws = run({ type: 'root-opened', root }, open('r1', 'docs/a.txt'), open('r1', 'docs/deep/b.md'), open('r1', 'docs/p.zip!/x.txt'), open('r1', 'docs/a.txt', { as: 'hex' }), open('r1', 'docsx/c.txt'))
+    ws = reduce(ws, { type: 'path-changed', rootId: 'r1', from: 'docs', to: 'papers/docs' })
+    expect(ws.tabs.map((t) => t.key)).toEqual(['f:r1:papers/docs/a.txt', 'f:r1:papers/docs/deep/b.md', 'f:r1:papers/docs/p.zip!/x.txt', 'x:r1:papers/docs/a.txt', 'f:r1:docsx/c.txt'])
+  })
+  it('leaves the tabs of another root and of snapshots alone, and does nothing when no tab is of the item', () => {
+    const ws = run({ type: 'root-opened', root }, { type: 'root-opened', root: other }, open('r1', 'a.txt'), open('r2', 'a.txt'))
+    const after = reduce(ws, { type: 'path-changed', rootId: 'r1', from: 'a.txt', to: 'z.txt' })
+    expect(after.tabs.map((t) => t.key)).toEqual(['f:r1:z.txt', 'f:r2:a.txt'])
+    expect(reduce(ws, { type: 'path-changed', rootId: 'r1', from: 'nope', to: 'x' })).toBe(ws)
+  })
+  it('a deleted file closes its tab, and a deleted folder the tabs of all that was in it; another tab comes to the front', () => {
+    let ws = run({ type: 'root-opened', root }, open('r1', 'keep.txt'), open('r1', 'docs/a.txt'), open('r1', 'docs/deep/b.md'), open('r1', 'docs/a.txt', { as: 'hex' }), open('r1', 'docsx/c.txt'))
+    ws = reduce(ws, { type: 'path-removed', rootId: 'r1', path: 'docs' })
+    expect(ws.tabs.map((t) => t.key)).toEqual(['f:r1:keep.txt', 'f:r1:docsx/c.txt'])
+    expect(ws.tabs.some((t) => t.key === ws.active)).toBe(true)
+    expect(reduce(ws, { type: 'path-removed', rootId: 'r1', path: 'nothing' })).toBe(ws)
   })
 })

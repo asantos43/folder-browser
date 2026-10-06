@@ -201,3 +201,36 @@ describe('closing', () => {
     expect(await roots.diskPath(root.id, '../outside.txt')).toBeNull()
   })
 })
+
+describe('changing the disk', () => {
+  const none = async () => {}
+  it('creates, renames, moves and removes in a folder root, with paths relative to it', async () => {
+    const { root } = (await roots.openPath(dir)) as { root: { id: string } }
+    expect(await roots.create(root.id, 'docs', 'new.txt', 'file')).toEqual({ ok: true, path: 'docs/new.txt' })
+    expect(await roots.rename(root.id, 'docs/new.txt', 'old.txt')).toEqual({ ok: true, path: 'docs/old.txt' })
+    expect(await roots.move(root.id, 'docs/old.txt', '')).toEqual({ ok: true, path: 'old.txt' })
+    expect(await roots.remove(root.id, 'old.txt', 'forever', none)).toEqual({ ok: true, path: 'old.txt' })
+    expect(fs.existsSync(path.join(dir, 'old.txt'))).toBe(false)
+  })
+  it('refuses in a ZIP root, in a root that is not open, and in the trash', async () => {
+    const zipRoot = (await roots.openPath(path.join(dir, 'pack.zip'))) as { root: { id: string } }
+    expect(await roots.create(zipRoot.root.id, '', 'x.txt', 'file')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await roots.rename('nope', 'a.txt', 'b.txt')).toEqual({ ok: false, error: 'unsupported' })
+    const trash = (await roots.openPath(dir, { trash: true })) as { root: { id: string } }
+    expect(await roots.remove(trash.root.id, 'a.txt', 'forever', none)).toEqual({ ok: false, error: 'unsupported' })
+    expect(fs.existsSync(path.join(dir, 'a.txt'))).toBe(true)
+  })
+  it('refuses inside a ZIP of a folder root', async () => {
+    const { root } = (await roots.openPath(dir)) as { root: { id: string } }
+    expect(await roots.rename(root.id, 'pack.zip!/top.txt', 'x.txt')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await roots.remove(root.id, 'pack.zip!/src', 'forever', none)).toEqual({ ok: false, error: 'unsupported' })
+  })
+  it('lets go of a ZIP read before, so that one renamed and replaced is read again', async () => {
+    const { root } = (await roots.openPath(dir)) as { root: { id: string } }
+    expect(await text(root.id, 'pack.zip!/top.txt')).toBe('top')
+    fs.writeFileSync(path.join(dir, 'other.zip'), await zipBuffer([{ name: 'top.txt', data: 'changed' }]))
+    expect(await roots.remove(root.id, 'pack.zip', 'forever', none)).toMatchObject({ ok: true })
+    expect(await roots.rename(root.id, 'other.zip', 'pack.zip')).toMatchObject({ ok: true })
+    expect(await text(root.id, 'pack.zip!/top.txt')).toBe('changed')
+  })
+})

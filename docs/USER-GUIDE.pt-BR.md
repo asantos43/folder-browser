@@ -1,195 +1,117 @@
 # Guia do usuário
 
-O Folder Browser abre **arquivos `.wsnp`**: páginas da web salvas pela extensão [PageKeep](https://github.com/asantos43/webpage-snapshot) para ler offline. Um `.wsnp`
-é um **contêiner**, um único arquivo que guarda uma página, todos os arquivos de que ela precisa e um manifesto que os descreve. [English](USER-GUIDE.md).
+O Folder Browser mostra as pastas do seu computador e o que há nelas. Abre **pastas e arquivos ZIP** como árvores, mostra **texto, imagens, PDFs, documentos de escritório, tabelas, vídeos, sons e os bytes de qualquer arquivo**, e **cria, renomeia, move e apaga** arquivos e pastas. Também abre **arquivos `.wsnp`** (páginas da web salvas pela extensão [PageKeep](https://github.com/asantos43/webpage-snapshot)) como as páginas que eles são. [English](USER-GUIDE.md).
 
-## Abrindo arquivos
+Editar um arquivo, comparar dois arquivos e alterar o que há dentro de um ZIP ainda não existem (veja o fim).
 
-- **Duplo clique** num `.wsnp` (os instaladores registram o tipo de arquivo), ou **Arquivo › Abrir Arquivo…** (`Ctrl+O`, `⌘O` no macOS).
-- **Arraste** um ou mais arquivos para a janela.
-- **Arquivo › Abrir Recente** lista os arquivos abertos há pouco; **Limpar Abertos Recentemente** esvazia a lista.
-- Abrir um segundo arquivo com o aplicativo em execução acrescenta uma aba à mesma janela. Um arquivo que já está aberto apenas mostra a aba dele.
-- O seletor de arquivos lista primeiro os **arquivos `.wsnp` e `.zip`**, e cada tipo sozinho; **Todos os arquivos** é a última escolha.
-- Quando o aplicativo inicia sem um arquivo para abrir, ele **abre de novo o que estava aberto** quando foi fechado, na mesma ordem e com a mesma aba na frente
-  (**Configurações ▸ Reabrir os arquivos que estavam abertos**; desligado, nada é guardado). Um arquivo dado na linha de comando, ou aberto com duplo clique, abre sozinho.
+## Abrir uma pasta
 
-### Um ZIP salvo por um PageKeep antigo
-
-Antes de existir o `.wsnp`, o PageKeep salvava uma página como um ZIP simples. O visualizador abre esses também: escolha o `.zip` em **Abrir Arquivo…**, solte-o na janela ou abra-o com duplo clique pelo visualizador.
-
-- Ele é **convertido em um `.wsnp`** (um arquivo temporário, apagado quando você fecha a aba) e mostrado como qualquer snapshot, com uma faixa sobre a página que diz
-  "Este é um ZIP salvo por PageKeep … O arquivo original não é alterado."
-- **Detalhes** na faixa lista o que a conversão teve de remover para deixar a página segura (scripts e referências que carregariam da internet) e o que o ZIP não registrou
-  (o tamanho da janela e a densidade de pixels: presume-se 1280 × 800 e 1).
-- **Salvar como .wsnp…** (o botão, ou **Arquivo ▸ Salvar como .wsnp…**) grava o arquivo convertido onde você escolher, depois que ele passa pelas mesmas verificações de qualquer `.wsnp`. O ZIP nunca é alterado.
-- Um ZIP que não é do PageKeep, ou cujo `snapshot.json` não pode ser usado, é recusado em palavras.
-
-Um arquivo que não pode ser aberto diz por quê, em palavras: por exemplo "feito por uma versão mais nova do formato", "protegido por senha, e esta versão ainda não
-abre arquivos protegidos" ou "contém um aplicativo que este visualizador ainda não consegue executar". Um erro fica na tela até você dispensá-lo; uma informação some sozinha.
+- **Arquivo ▸ Abrir Pasta…** (`Ctrl+Shift+O`, `⇧⌘O` no macOS), ou **arraste** uma pasta, um ZIP ou qualquer arquivo para a janela, ou diga um deles na linha de comando.
+- Um **arquivo ZIP** abre como uma pasta, também um ZIP dentro de um ZIP. Um arquivo dito sozinho abre numa aba, com a pasta dele aberta ao lado.
+- **Arquivo ▸ Abrir Arquivo…** (`Ctrl+O`) pede um arquivo; os instaladores registram `.wsnp` e `.zip` no aplicativo, então um duplo clique no gerenciador de arquivos também funciona.
+- Quando o aplicativo inicia sem nada para abrir, ele **abre de novo o que estava aberto** (as pastas e as abas, na mesma ordem, com a mesma aba na frente): **Configurações ▸ Reabrir os arquivos que estavam abertos**; desligue e nada é guardado.
+- As pastas abertas aparecem em **Pastas Abertas** na barra lateral; o × ao lado de uma fecha a pasta e as abas dela.
 
 ## A janela
 
-![A janela: barra de título, barra de atividades, barra lateral, abas, editor e barra de status](images/workbench-dark.png)
+Ela é organizada como o Visual Studio Code: uma **barra de título** com o menu, uma **barra de atividades**, uma **barra lateral**, **abas** com o caminho embaixo, o arquivo no meio e uma **barra de status**. `Ctrl+B` esconde e mostra a barra lateral; arraste a borda dela para mudar o tamanho.
 
-Ela é organizada como o Visual Studio Code: uma **barra de título** com o menu, uma **barra de atividades**, uma **barra lateral**, as **abas** com o caminho (breadcrumbs) embaixo,
-a página ou o arquivo no meio e uma **barra de status**. `Ctrl+B` oculta e mostra a barra lateral. Arraste a borda da barra lateral para redimensioná-la; o tamanho é lembrado.
-(As imagens mostram a interface em inglês.)
-
-### A barra de título
-
-- As **setas** são **Voltar** e **Avançar**: percorrem as abas que você visitou, como num navegador (`Alt+Esquerda`, `Alt+Direita`; no macOS `⌃-` e `⌃⇧-`). Ficam desligadas quando não há para onde ir.
-- A **caixa do meio** abre **Ir para Arquivo** (`Ctrl+E`): digite parte de um nome para abrir um arquivo de qualquer snapshot aberto (sem digitar nada, ela lista as suas abas, a usada há menos tempo primeiro).
-  Digite `>` (ou aperte `Ctrl+Shift+P`) para a **paleta de comandos**: todo comando dos menus que pode ser executado agora, e os temas de cores.
-- O menu fica à esquerda dela (Arquivo, Editar, Exibir, Ir, Ajuda); o botão da barra lateral fica à direita.
-
-![Ir para Arquivo: parte de um nome encontra um arquivo dos snapshots abertos](images/quick-open.png)
-
-### O endereço de um link
-
-Deixe o ponteiro sobre um link de uma página e o endereço dele aparece ao lado, como uma dica: o endereço da web, o caminho de um arquivo do snapshot, ou `#fragmento` para um link dentro da própria página. Nada é aberto até você clicar.
-
-### Zoom
-
-O zoom é da **aba**, nunca do aplicativo inteiro (a interface, os menus e as outras abas ficam como estão):
-
-- **A página de um snapshot** amplia como a página de um navegador (25 % a 500 %): o texto cresce e o layout é refeito para o espaço menor. Use `Ctrl+=`, `Ctrl+-` e `Ctrl+0` (`⌘` no macOS), ou `Ctrl` e a roda, também com o ponteiro ou o foco do teclado dentro da página.
-- **Um arquivo de texto** é desenhado no zoom da aba, do mesmo modo.
-- **Uma imagem ou um PDF** guardam o seu próprio zoom, com barra de ferramentas e modos de ajuste; as mesmas teclas o ajustam (`Ctrl+0` o ajusta de novo à janela) e a roda amplia em torno do ponteiro.
-- Para uma página ou um texto, a **barra de status** tem controles de zoom à direita: **−**, o valor (clique nele para voltar a 100 %) e **+**. Eles mexem no mesmo zoom das teclas e da roda, e mostram o valor quando elas o mudam. Uma aba fechada esquece o zoom.
-- Ampliar, Reduzir e Redefinir Zoom estão na paleta de comandos (`Ctrl+Shift+P`), não no menu Exibir.
-
-### Abas
-
-- Cada snapshot abre numa aba. Um clique num arquivo da barra lateral abre uma **aba de prévia** (o nome em itálico) que o próximo clique substitui; um duplo clique
-  (ou Enter) a **mantém**.
-- Feche com o × da aba, um clique com o botão do meio ou `Ctrl+W`. **Arraste** uma aba para movê-la. O menu de contexto da aba tem Fechar, Fechar Outros, Fechar à Direita,
-  Fechar Todos, Fixar, **Mostrar Metadados**, Copiar Endereço de Origem (ou Copiar Caminho) e Mostrar no Gerenciador de Arquivos.
-- `Ctrl+Tab` percorre as abas na ordem em que você as usou; `Alt+1…9` vai para a enésima aba (`⌘1…9` no macOS).
-- Um snapshot mantém o estado (rolagem, um carrossel no item 3) enquanto você olha outra aba.
+- As **setas** da barra de título são **Voltar** e **Avançar** pelas abas que você visitou (`Alt+Esquerda`, `Alt+Direita`).
+- A **caixa do meio** é **Ir para o Arquivo** (`Ctrl+E`): parte de um nome acha um arquivo dos snapshots abertos; sem nada digitado ela lista as suas abas, a mais recente primeiro. Digite `>` (ou aperte `Ctrl+Shift+P`) para a **paleta de comandos**, que tem todo comando que pode rodar agora e os temas de cor.
 
 ### A barra lateral
 
-- **Snapshots Abertos**: os snapshots que estão abertos.
-- **Arquivos**: os arquivos do snapshot selecionado em árvore. As setas se movem, digitar pula para um nome, Enter mantém um arquivo aberto, e o menu de contexto tem
-  **Abrir**, **Abrir com…** e **Salvar Como…** para todo arquivo. **Abrir com…** pergunta ao seu sistema qual aplicativo deve abrir o arquivo (a janela "Abrir com" do Windows, o seletor do macOS,
-  e no Linux uma janela do próprio visualizador, desenhada como a da área de trabalho, com os aplicativos registrados para o tipo do arquivo primeiro, depois todos os outros, uma caixa de busca e **Sempre usar para este tipo de arquivo**, que torna a escolha o padrão da área de trabalho; o seletor da própria área de trabalho abre atrás da janela de um programa no Wayland, e por isso o visualizador o desenha; onde o sistema não tem como escolher (sem `gio`), o aplicativo padrão é usado e o visualizador avisa). O aplicativo recebe uma **cópia somente leitura** na sua pasta temporária,
-  removida quando o visualizador fecha. Um tipo de arquivo que pode ser executado como programa (`.exe`, `.bat`, `.sh`, `.desktop`, `.jar`…) nunca é entregue: use **Salvar Como…**.
-- **Informações**: de onde a página veio, quando e com quê. **Mostrar todos os metadados…** abre a visão completa.
-- **Integridade**: o resultado da verificação de cada arquivo.
+- **Lugares**: Home, Desktop, Documentos, Downloads, Música, Imagens, Vídeos, **Lixeira**, Computador (os que este computador tem), os **Favoritos** que você fixou, as **Pastas Recentes** e os **Dispositivos** montados. Um clique abre aquela pasta como a árvore. Fixe uma pasta com **Adicionar aos Favoritos** no menu dela, ou arraste uma pasta para os Favoritos; mova-os para cima e para baixo e remova-os pelo menu deles. **Limpar Pastas Recentes** está no menu dessa lista.
+- **Arquivos**: a pasta que você escolheu, como uma árvore que lê um nível por vez (uma pasta com cem mil arquivos só é lida quando você a abre). Um **clique** abre uma **aba de visualização** (nome em itálico) que o próximo clique substitui; um **duplo clique** ou `Enter` a **mantém**. As setas movem, `→` e `←` abrem e fecham, e digitar pula para um nome.
+- Os ícones do cabeçalho de Arquivos: **Novo Arquivo…**, **Nova Pasta…**, **Ordenar** (por nome, data ou tamanho, crescente ou decrescente; as pastas ficam primeiro), **Mostrar Arquivos Ocultos** (`Ctrl+H`) e **Atualizar**. Cada linha mostra o tamanho e a data da mudança, pequenos e à direita: com pouco espaço o que define a ordem, com a barra lateral larga os dois.
+- **Arquivos ocultos** (nome que começa com ponto) são listados, mas só aparecem quando você pede: o olho, **Exibir ▸ Mostrar Arquivos Ocultos** ou as **Configurações**. Vale também para as entradas de um ZIP.
+- O lugar **Lixeira** abre a lixeira do sistema como uma pasta (Linux e macOS): **Restaurar** devolve um item ao lugar de onde saiu (nunca por cima de algo que está lá agora) e **Esvaziar a Lixeira** apaga tudo de vez, depois de perguntar. No Windows abre a Lixeira.
+
+### O menu do botão direito
+
+O menu de uma linha depende do que ela é. Uma pasta: expandir, atualizar, **Novo Arquivo…**, **Nova Pasta…**, **Renomear**, **Mover para…**, **Apagar**, adicionar aos Favoritos. Um arquivo ZIP: expandir, **Abrir como Lista**. Um `.wsnp`: **Abrir** (a página dele) ou **Abrir como ZIP**. Um arquivo: **Abrir** (ou **Tocar**). **Para todo arquivo**: **Abrir como Hex**, **Abrir com…**, **Abrir com o Aplicativo Padrão**, **Salvar Como…**, **Mostrar no Gerenciador de Arquivos**, **Copiar Caminho**, **Copiar Nome**, **Propriedades**.
+
+**Abrir com…** pergunta ao seu sistema qual aplicativo deve abrir o arquivo (o diálogo do Windows, o seletor do macOS, e no Linux um diálogo do próprio aplicativo, com os aplicativos registrados para o tipo primeiro, depois todos os outros, uma caixa de busca e **Sempre usar para este tipo de arquivo**). O aplicativo recebe uma **cópia somente leitura** na sua pasta temporária, removida quando o aplicativo fecha. Um tipo de arquivo que pode rodar como programa (`.exe`, `.bat`, `.sh`, `.desktop`, `.jar`…) nunca é entregue: use **Salvar Como…**.
+
+## Criar, renomear, mover e apagar
+
+Isto vale para os arquivos e pastas de uma pasta que você abriu (ainda não dentro de um ZIP, nem no lugar Lixeira).
+
+- **Novo Arquivo…** e **Nova Pasta…** (os ícones do cabeçalho de Arquivos, o menu de uma pasta, ou a parte vazia embaixo da árvore para a raiz) colocam um campo na árvore: digite o nome e aperte `Enter` (`Esc` desiste). O item novo é criado onde está o foco: na pasta que o tem, ou na pasta do arquivo que o tem, ou na raiz.
+- **Renomear** (`F2`, ou o menu) edita o nome na própria linha, com o nome sem a extensão selecionado. `Enter` renomeia; `Esc`, ou sair do campo, desiste.
+- **Mover para…** abre um seletor com as pastas da raiz; uma pasta nunca é oferecida a ela mesma nem ao que há nela, nem a pasta em que o item já está. **Arraste** uma linha para uma pasta, ou para a parte vazia embaixo da árvore (a raiz), para movê-la para lá; um arquivo solto sobre outro arquivo vai para a pasta em que esse arquivo está.
+- **Apagar** (`Delete`, ou o menu) pergunta e move o item para a **lixeira** (uma pasta com tudo o que há nela). Só se a lixeira não puder receber o item você é perguntado de novo, se quer apagá-lo **definitivamente**, e isso não pode ser desfeito.
+- **Nada é substituído.** Um nome já usado é recusado, com palavras, e o campo fica para você digitar outro. Um nome que nenhum arquivo pode ter (vazio, `.` ou `..`, com `/` ou `\`, caracteres de controle, mais de 255 bytes; no Windows também `< > : " | ? *`, os nomes que o sistema reserva como `CON` ou `NUL`, e um nome terminado em espaço ou ponto) é recusado antes de perguntar qualquer coisa. Uma pasta nunca é movida para dentro dela mesma. Nada sai da pasta que você abriu: um link simbólico é renomeado, movido ou apagado como o link, nunca o que ele aponta.
+- As **abas acompanham**: a aba de um arquivo renomeado ou movido (ou de um arquivo de uma pasta renomeada) mantém o lugar, o zoom e a visualização, com o nome novo, e a aba de um item apagado fecha.
 
 ## O que uma aba pode mostrar
 
 | Arquivo | O que você vê |
 | --- | --- |
-| O próprio snapshot | A página, como era, com os scripts do formato funcionando (carrosséis, abas, menus). |
-| HTML, CSS, JavaScript, TypeScript, JSON, XML, Markdown, YAML, texto, SVG, e código-fonte em Python, C, C++, C#, Java, Kotlin, Scala, Go, Rust, Swift, Dart, PHP, Ruby, Perl, Lua, R, Groovy, Haskell, Julia, Clojure, Erlang, Pascal (`.pas`, `.pp`, `.dpr`, `.lpr`, `.inc`), shell (`.sh`, `.bash`, `.zsh`), PowerShell, SQL, TOML, INI e `.env`, Dockerfile, CMake, Diff, Protocol Buffers, SCSS, Sass, Less | Código com cores e numeração de linhas, somente leitura. Um arquivo HTML, CSS, JavaScript, JSON ou XML minificado ou numa só linha aparece **organizado** (indentado, um membro por linha): o botão **Formatar** da barra mostra como foi salvo, e Salvar Como grava sempre o arquivo como foi salvo. **Quebra de Linha** quebra as linhas longas (`Alt+Z`). As duas escolhas valem para todos os arquivos, ficam guardadas e também estão em Configurações. Um arquivo com mais de 2 MB aparece como foi salvo. |
-| Imagens | A imagem com uma **barra de ferramentas**: reduzir e ampliar, uma caixa (Ajustar, Ajustar à Largura, Ajustar à Página, 25 % a 400 % e mais), tamanho real (1:1), **Salvar Como…**. `Ctrl` e a roda ampliam em torno do ponteiro, `+` `-` `0` ampliam pelo teclado, e uma imagem ampliada pode ser arrastada. O zoom fica com a aba. |
-| PDFs | As páginas, uma após a outra, com texto selecionável, e uma **barra de ferramentas**: o mesmo zoom, página anterior e próxima, uma caixa para ir a uma página, **Salvar Como…**. Ainda não: links e formulários dentro do PDF, e senha de um PDF protegido (ele avisa, e pode ser salvo). |
+| Código, texto e dados: HTML, CSS, JavaScript, TypeScript, JSON, XML, YAML, TOML, INI, `.env`, shell, SQL, Dockerfile, e código em Python, C, C++, C#, Java, Kotlin, Scala, Go, Rust, Swift, Dart, PHP, Ruby, Perl, Lua, R, Groovy, Haskell, Julia, Clojure, Erlang, Pascal, PowerShell, CMake, Diff, Protocol Buffers, SCSS, Sass, Less, texto simples | Código com cores e números de linha, somente leitura. Um HTML, CSS, JavaScript, JSON ou XML minificado ou de uma linha só é mostrado **organizado**; o botão **Formatar** da barra de ferramentas o mostra como foi salvo, e Salvar Como sempre grava o arquivo como foi salvo. **Quebra de Linha** quebra linhas longas (`Alt+Z`). As duas escolhas são guardadas e estão nas Configurações. Texto acima de 5 MB não abre numa aba; um **`.log`** abre até 32 MB. |
+| Um arquivo de um tipo que o aplicativo não conhece | Mostrado como texto quando o que há nele é texto; senão, como os bytes (hexadecimal). |
+| Markdown (`.md`) | Uma **página formatada** (títulos, listas, tabelas, código; um link da web abre no seu navegador; uma imagem não é carregada e o HTML escrito dentro aparece como texto), com os botões **Formatado / Texto**; **Largura Total** e **Quebrar Código**. |
+| CSV e TSV | Uma **tabela**: a primeira linha é o cabeçalho e fica à vista, as linhas são numeradas; o delimitador (vírgula, ponto e vírgula, tab, barra) é achado sozinho. Até 5.000 linhas e 200 colunas, dito quando corta. Os botões **Tabela / Texto** passam para o código. |
+| Imagens | A imagem com uma **barra de ferramentas**: diminuir e aumentar, uma caixa (Ajustar, Ajustar à Largura, Ajustar à Página, 25 % a 400 %…), tamanho real, **Salvar Como…**. `Ctrl` e a roda dão zoom ao redor do ponteiro. |
+| SVG | Uma imagem no início, com os botões **Imagem / Código** para o código. |
+| PDFs | As páginas com texto selecionável, uma barra de ferramentas com o mesmo zoom, página anterior e seguinte, uma caixa para ir a uma página. Ainda não: links e formulários dentro do PDF, e senhas. |
 | Fontes | Uma amostra em vários tamanhos. |
-| SVG | Uma **imagem** no começo, com a barra de zoom; os botões **Imagem / Código** no início da barra alternam para o código-fonte (colorido como XML, com Localizar, Quebra de Linha e o zoom da aba) e de volta. A escolha vale para todos os SVG. |
-| Um arquivo de texto na linguagem errada | A barra de status mostra a linguagem do arquivo na tela (ao lado do idioma da interface). Clique nela para **Selecionar Modo de Linguagem**: uma lista de todas as linguagens que o visualizador sabe colorir, para escolher a certa para aquele arquivo (**Detectar Automaticamente** volta ao que o visualizador escolheu). A escolha vale enquanto a janela estiver aberta e nunca altera o arquivo. |
-| Markdown (`.md`) | Uma **página formatada** no começo (títulos, listas, tabelas, código; um link da web abre no navegador; uma imagem não é carregada, aparece a descrição dela, e o HTML escrito dentro aparece como texto); os botões **Formatado / Texto** no início da barra alternam para o texto (com cores, Localizar e Quebra de Linha) e de volta. A escolha vale para todos os arquivos Markdown. **Largura Total** deixa a página tão larga quanto a janela (sem barra de rolagem num bloco de código largo) e **Quebrar Código** quebra as linhas longas de código; as duas escolhas ficam guardadas. |
-| Um arquivo de tipo que o visualizador não conhece (`.py`, `.sh`, `.toml`, `LICENSE`, uma entrada de ZIP com extensão incomum) | Aparece como texto quando o conteúdo é texto; senão é oferecido com Salvar Como. |
-| Arquivos ZIP | A **lista de arquivos** do ZIP, com tamanhos e datas: veja "Arquivos ZIP" abaixo. |
-| Qualquer outra coisa (um documento, áudio, vídeo, um arquivo grande demais) | Uma página com o nome, o tipo e o tamanho, e **Salvar Como…**. |
+| **Documentos de escritório**: Word (`.docx`), PowerPoint (`.pptx`), LibreOffice e OpenDocument (`.odt`, `.ods`, `.odp`, `.odg`), Excel (`.xlsx`, `.xls`), e os antigos `.doc` e `.ppt` | Desenhados **como uma página** por bibliotecas prontas (docx-preview, pptx-renderer e odr-core), num quadro que não tem rede e não alcança o resto da janela, de modo que um arquivo hostil, no máximo, se desenha mal. Uma planilha mostra uma aba por vez, com uma barra de nomes. Até 48 MB. Fontes que o documento pede e o computador não tem são trocadas, gráficos são aproximados e nada se anima. Um arquivo que não pode ser desenhado diz por quê, com **Salvar Como…** e **Ver em hexadecimal**. Um documento já desenhado é mantido enquanto você olha outra aba. |
+| **Bytes**: programas e bibliotecas (`.exe`, `.dll`, `.so`, `.o`, `.class`, `.wasm`…), imagens de disco, bancos de dados, e qualquer arquivo de tipo desconhecido que não seja texto | **Visualização hexadecimal**: a posição, 16 bytes em hex (oito e oito) e os mesmos bytes como texto. Clique num byte (`Shift`+clique ou as setas para estender); `Ctrl+C` copia os bytes como hex (a barra de ferramentas também copia como texto); **Ir para a posição** aceita hex, `0x…` ou `#decimal`; **Localizar** procura bytes ou texto, para frente e para trás, no arquivo todo (`Ctrl+F` vai para a caixa dele). A barra de ferramentas diz o que é o cabeçalho (ELF, PE, Mach-O, classe Java, ZIP, PDF, PNG, SQLite…) lendo-o, nunca executando o arquivo. Um arquivo de uma pasta, de qualquer tamanho, é lido uma janela por vez. Qualquer arquivo pode ser aberto assim: **Abrir como Hex** no menu, ou **Ver em hexadecimal** na barra de ferramentas. |
+| Um vídeo ou um som | **Tocado** numa aba com o player do próprio navegador (tocar, buscar, volume, velocidade, repetir, tela cheia para vídeo, Anterior e Próximo pela mídia da pasta; as teclas de mídia do sistema funcionam; continua tocando quando outra aba está na frente). Também de dentro de um ZIP e de um snapshot. O que o navegador não decodifica (HEVC…) é dito, com **Abrir com…** e **Salvar Como…**. |
+| Arquivos ZIP | A **lista de arquivos** (veja abaixo). |
+| Um `.wsnp` | A **página que ele guarda** (veja abaixo). |
+| Qualquer outra coisa (um arquivo grande demais) | Um cartão com o nome, o tipo e o tamanho, e **Salvar Como…**, **Abrir com…** e **Ver em hexadecimal**. |
 
-Um clique num link **dentro de uma página**: um link `#seção` rola na página; um link para um arquivo salvo no snapshot abre uma aba (uma imagem, um PDF, código) ou oferece
-**Salvar Como…** (um documento ou um vídeo); um ZIP abre como uma lista; um link para a web abre o seu **navegador padrão**, só quando você clica, e nunca dentro da página.
+**Abrir com…** e **Ver em hexadecimal** estão na barra de ferramentas do documento, da tabela, dos bytes e de todo texto, e nos cartões.
 
-### Arquivos ZIP
+## Arquivos ZIP
 
-![Um ZIP dentro de um snapshot: seus arquivos, dois selecionados, e o menu de contexto](images/zip-viewer.png)
+Um arquivo ZIP abre na árvore como uma pasta, e as entradas abrem em abas como arquivos. **Abrir como Lista** mostra as entradas como uma tabela de nomes, tamanhos, tamanhos compactados e datas, onde você pode selecionar (clique, `Ctrl` e `Shift`, as caixas, `Ctrl+A`) e **Extrair** para uma pasta: um arquivo pede um nome, **Extrair Tudo…** grava tudo, e um arquivo que já existe nunca é sobrescrito (o novo se chama `nome (2)`). Nada é gravado no disco até você extrair. Nomes que poderiam sair da pasta escolhida nunca são gravados, links não são seguidos, e uma entrada protegida por senha aparece esmaecida e é pulada. Um ZIP acima de 256 MB só é oferecido com Salvar Como. ZIP64 e ZIPs criptografados são somente leitura.
 
-Um ZIP guardado num snapshot abre como uma **lista dos seus arquivos**: nome, tamanho, tamanho compactado e data. Nada é gravado no disco até você extrair.
+## Zoom, Localizar, Copiar e Imprimir
 
-- **Selecione** como num gerenciador de arquivos: clique, `Ctrl`+clique, `Shift`+clique, as caixas, a caixa do cabeçalho para todos, `Ctrl+A`, e as setas e `Espaço` pelo teclado.
-- **Extrair Selecionados…** grava a seleção numa pasta que você escolhe (as pastas do ZIP são mantidas). Um só arquivo pede um nome de arquivo, como o Salvar Como.
-  **Extrair Tudo…** grava tudo. Um arquivo que já existe nunca é sobrescrito: o novo se chama `nome (2)`.
-- **Exibir** (duplo clique, `Enter` ou o menu de contexto) abre uma entrada numa aba própria: texto como código, uma imagem, um PDF, e um ZIP dentro do ZIP como uma lista de novo.
-  O **Salvar Como…** da aba salva essa entrada.
-- O clique direito numa linha abre um menu com **Exibir** e **Extrair…** (para várias linhas, **Extrair N Selecionados…**).
-- O visualizador não grava um nome que poderia sair da pasta escolhida (`../x`, um caminho absoluto), não segue atalhos e não abre uma entrada protegida por senha:
-  elas aparecem esmaecidas, com o motivo ao apontar, e são puladas (e contadas) na extração. Um ZIP com mais de 256 MB só é oferecido com Salvar Como.
+- O **zoom** pertence à **aba**, nunca ao aplicativo todo. `Ctrl+=`, `Ctrl+-` e `Ctrl+0` (`⌘` no macOS), ou `Ctrl` e a roda (também sobre um documento ou uma página), dão zoom na página de um snapshot, num texto, numa tabela, num documento e nas linhas da visualização hexadecimal (25 % a 500 %). A **barra de status** tem **−**, o nível (clique nele para voltar a 100 %) e **+**. Uma imagem e um PDF guardam o zoom deles (as mesmas teclas o variam). Cada aba tem o seu; uma aba fechada o esquece.
+- **Localizar** (`Ctrl+F`, **Editar ▸ Localizar**) funciona em toda aba que tem texto: um arquivo de código (no texto todo), uma tabela, um PDF, um documento (no quadro dele; numa planilha, a aba na tela), os metadados e as listas. A caixa diz qual ocorrência de quantas; `Enter` e `Shift+Enter` vão para a próxima e a anterior, **Aa** diferencia maiúsculas, `Esc` fecha. Nos bytes de um arquivo `Ctrl+F` vai para a caixa que procura bytes ou texto.
+- **Copiar** (`Ctrl+C`) copia o que está selecionado.
+- **Imprimir** (`Ctrl+P`, **Arquivo ▸ Imprimir…**, ou o ícone da impressora) imprime um texto como a aba o mostra, uma imagem, a página de um snapshot e um **documento inteiro** (toda planilha, todo slide). **Salvar como PDF…** grava o mesmo como PDF. A lista de um ZIP, um PDF, uma tabela e os bytes de um arquivo ainda não podem ser impressos.
 
-## Localizar, copiar, imprimir e salvar como PDF
+## Arquivos `.wsnp`
 
-![Localizar na lista de um ZIP: as ocorrências são marcadas, e a caixa diz qual de quantas](images/find.png)
+Um `.wsnp` é uma "foto" em ZIP de uma página da web para ler offline: a página, todos os arquivos de que ela precisa e um manifesto. No Folder Browser ele é **um arquivo como os outros** na árvore: um clique mostra a página numa aba de visualização, um duplo clique a mantém, e **Abrir como ZIP** lista as entradas. A página roda como o formato manda (carrosséis, menus), num quadro sem rede. Os links nela abrem numa aba (uma imagem, um PDF, código, um ZIP como lista), ou no seu navegador para um endereço da web, só quando você clica. A **barra de status** diz o que a verificação achou, e a aba **Metadados** (pelo menu da aba ou pela barra de status) mostra o que o manifesto diz. Os arquivos dentro de um snapshot abrem pelos links dele, pelos metadados e por Ir para o Arquivo. Para algo a mais (uma árvore dos arquivos dele, exportar), use **Abrir com…** e entregue-o ao [WSNP Viewer](https://github.com/asantos43/wsnp-viewer).
 
-- **Localizar** (`Ctrl+F`, **Editar ▸ Localizar**) funciona em toda aba que tem texto: a página do snapshot, um arquivo de código (em todo o texto, não só nas linhas à vista), um PDF (em todas as páginas),
-  a lista de um ZIP, os metadados e as Configurações. A caixa diz qual ocorrência de quantas; `Enter` e `Shift+Enter` (ou as setas) vão à próxima e à anterior, **Aa** diferencia maiúsculas,
-  `Esc` fecha. Cada aba tem a sua busca: a caixa fecha quando você muda de aba. Uma imagem não tem texto, então Localizar fica desligado nela.
-- **Copiar** (**Editar ▸ Copiar**, ou `Ctrl+C`) copia o que está selecionado na página, num arquivo de código, num PDF, ou nas listas e textos do próprio visualizador. O texto de todos eles pode ser selecionado com o mouse.
-- **Imprimir** (**Arquivo ▸ Imprimir…**, `Ctrl+P`, ou o ícone da impressora na barra de atividades) imprime a página do snapshot como foi salva, um arquivo HTML do snapshot como a página que ele é, qualquer outro texto
-  como a aba o mostra (organizado ou como foi salvo), ou uma imagem, com a janela de impressão do sistema. A lista de um ZIP, um PDF e os metadados ainda não podem ser impressos.
-- **Salvar como PDF…** (**Arquivo ▸ Salvar como PDF…**) grava a mesma coisa como PDF, com o nome do título da página ou do arquivo, onde você escolher.
-- Um **clique direito** na página de um snapshot abre um menu com **Selecionar Tudo**, **Copiar**, **Imprimir…** e **Salvar como PDF…**; num arquivo de texto, com **Selecionar Tudo** e **Copiar**.
-- **Abrir Arquivo** também é um ícone da barra de atividades, acima da impressora.
-
-## Conferindo um arquivo
-
-O visualizador confere um arquivo quando o abre, e de novo em segundo plano:
-
-1. **Estrutura**: o ZIP, a entrada de identificação, o manifesto, os nomes das entradas e se todo arquivo está listado.
-2. **Conteúdo**: o SHA-256 e o tamanho de cada arquivo contra o manifesto (a barra de status mostra *Verificando…* e depois *Intacto*).
-3. **Assinatura**: se o manifesto é assinado, e se ainda é o que foi assinado.
-
-![A aba de metadados: o que o manifesto diz e o que foi conferido](images/metadata.png)
-
-### Um snapshot que não é válido
-
-Um `.wsnp` é um ZIP, então qualquer pessoa pode descompactá-lo, mudar um arquivo ou o manifesto e compactá-lo de novo. Se um arquivo não é o que o manifesto diz, ou um manifesto
-assinado foi editado, o snapshot **não é válido**: a página dele não é exibida. Você vê quais arquivos e escolhe **Mostrar Mesmo Assim**, **Fechar Snapshot** ou **Mostrar Metadados**.
-A barra de status diz *Inválido*.
-
-### Assinaturas
-
-O PageKeep assina todo `.wsnp` que grava, com uma chave que fica no seu navegador. O visualizador mostra o **assinante** como uma impressão digital (`5647-5AA7-…`):
-
-- **Sem assinatura**: arquivos gravados antes de o PageKeep começar a assinar. Eles abrem, e o visualizador diz discretamente que os metadados deles não são protegidos: alguém poderia tê-los editado.
-- **Assinado por uma chave que este visualizador ainda não conhece**: a assinatura é boa (o manifesto não foi editado depois de assinado), mas qualquer pessoa pode criar uma chave. Se você sabe que
-  é a sua (a Ajuda do PageKeep mostra a impressão digital da sua), escolha **Confiar neste assinante** em **Mostrar Metadados** e, se quiser, dê um nome a ela.
-- **Assinado por** um nome que você deu: uma chave em que você confia. **Deixar de confiar** desfaz.
-
-O desenho está em [`MANIFEST-SIGNING.md`](MANIFEST-SIGNING.md) (em inglês).
+O arquivo é verificado quando abre, e de novo em segundo plano: a **estrutura**, o **SHA-256 e o tamanho de cada arquivo** contra o manifesto, e a **assinatura**. Se um arquivo não é o que o manifesto diz, ou um manifesto assinado foi editado, o snapshot **não é válido** e a página dele não aparece até você escolher **Mostrar Mesmo Assim**. O PageKeep assina o que grava; o signatário aparece como uma impressão digital, e **Confiar neste signatário** nos metadados lembra uma chave que você sabe ser sua (projeto: [`MANIFEST-SIGNING.md`](MANIFEST-SIGNING.md)). Um ZIP salvo por um PageKeep antigo abre convertido num `.wsnp` temporário, com uma barra que diz isso e pode **Salvar como .wsnp…**.
 
 ## Atalhos
 
 | Ação | Windows, Linux | macOS |
 | --- | --- | --- |
-| Abrir Arquivo | `Ctrl+O` | `⌘O` |
+| Abrir Pasta / Abrir Arquivo | `Ctrl+Shift+O` / `Ctrl+O` | `⇧⌘O` / `⌘O` |
+| Mostrar arquivos ocultos | `Ctrl+H` | `⌘H` |
+| Renomear / Apagar o item da árvore | `F2` / `Delete` | `F2` / `Delete` |
 | Fechar a aba | `Ctrl+W` | `⌘W` |
-| Próxima / anterior aba | `Ctrl+PageDown` / `Ctrl+PageUp` | `⌘PageDown` / `⌘PageUp` |
-| Pelas abas, a usada há menos tempo primeiro | `Ctrl+Tab`, `Ctrl+Shift+Tab` | `⌃Tab`, `⌃⇧Tab` |
+| Aba seguinte / anterior | `Ctrl+PageDown` / `Ctrl+PageUp` | `⌘PageDown` / `⌘PageUp` |
+| Pelas abas, a mais recente primeiro | `Ctrl+Tab`, `Ctrl+Shift+Tab` | `⌃Tab`, `⌃⇧Tab` |
 | Ir para a aba 1…9 | `Alt+1…9` | `⌘1…9` |
-| Ocultar / mostrar a barra lateral | `Ctrl+B` | `⌘B` |
+| Esconder / mostrar a barra lateral | `Ctrl+B` | `⌘B` |
 | Configurações | `Ctrl+,` | `⌘,` |
-| Zoom da aba: ampliar / reduzir / redefinir (a página, um texto; uma imagem ou um PDF ajusta o seu) | `Ctrl+=` / `Ctrl+-` / `Ctrl+0`, ou `Ctrl` + roda | `⌘=` / `⌘-` / `⌘0`, ou `⌘` + roda |
+| Zoom da aba: aumentar / diminuir / zerar | `Ctrl+=` / `Ctrl+-` / `Ctrl+0`, ou `Ctrl` + roda | `⌘=` / `⌘-` / `⌘0`, ou `⌘` + roda |
 | Quebra de Linha numa aba de código | `Alt+Z` | `⌥Z` |
 | Voltar / Avançar | `Alt+Esquerda` / `Alt+Direita` | `⌃-` / `⌃⇧-` |
-| Ir para Arquivo | `Ctrl+E` | `⌘E` |
+| Ir para o Arquivo | `Ctrl+E` | `⌘E` |
 | Paleta de comandos | `Ctrl+Shift+P` | `⇧⌘P` |
 | Localizar na aba | `Ctrl+F` | `⌘F` |
 | Copiar | `Ctrl+C` | `⌘C` |
 | Imprimir | `Ctrl+P` | `⌘P` |
-| Zoom de uma imagem ou de um PDF em torno do ponteiro | `Ctrl` + roda, ou `+` `-` `0` com o visualizador em foco | o mesmo |
 
-Os atalhos funcionam onde estiver o foco, também dentro de uma página.
+Os atalhos funcionam onde quer que esteja o foco, também dentro de uma página ou de um documento.
 
-## Configurações
+## Configurações, Ajuda e Sobre
 
-**Configurações** (a engrenagem no fim da barra de atividades, Arquivo › Configurações ou `Ctrl+,`) abre numa aba, com uma caixa que as filtra:
+As **Configurações** (a engrenagem na barra de atividades, **Arquivo ▸ Preferências ▸ Configurações**, ou `Ctrl+,`) abrem numa aba com uma caixa que as filtra: **Tema de Cor** (Dark+, Light+ ou Auto), **Idioma de Exibição** (inglês, português do Brasil ou automático), se deve **reabrir o que estava aberto**, **Mostrar arquivos ocultos**, e para código **Quebra de Linha** e **Formatar arquivos de código**. As outras escolhas (Markdown, SVG, CSV, a ordem) são feitas onde são usadas, e também são guardadas. As configurações ficam no seu computador, na pasta do próprio aplicativo, e em nenhum outro lugar: veja [`../PRIVACY.md`](../PRIVACY.md).
 
-- **Tema de Cores**: Dark+, Light+ ou Automático, que segue o sistema operacional.
-- **Idioma de Exibição**: inglês, português do Brasil ou automático (o do sistema). A mudança é imediata.
-
-As configurações ficam no seu computador, na pasta do próprio aplicativo, e em nenhum outro lugar. Veja [`../PRIVACY.md`](../PRIVACY.md) (em inglês).
-
-## Ajuda e Sobre
-
-**Ajuda › Sobre o Folder Browser** mostra a versão, em que ele roda, a licença e os avisos das bibliotecas que há dentro dele, e copia as informações da versão para um relato de problema.
-Relate um problema em <https://github.com/asantos43/folder-browser/issues>, **sem anexar um snapshot privado**; uma vulnerabilidade segue o que diz [`../SECURITY.md`](../SECURITY.md).
+**Ajuda ▸ Sobre o Folder Browser** mostra a versão, em que ele roda, a licença e os avisos das bibliotecas que há nele, e copia as informações de versão para um relato de erro. Relate um problema em <https://github.com/asantos43/folder-browser/issues>, **sem anexar um arquivo privado**; uma vulnerabilidade segue o que diz [`../SECURITY.md`](../SECURITY.md).
 
 ## O que ainda não existe
 
-Ler um ZIP simples salvo pelo PageKeep e convertê-lo, exportar para PNG, JPG e PDF, busca em todos os snapshots abertos, proteção por senha e `.wsnpx` vêm em fases posteriores
-([`ARCHITECTURE.md`](ARCHITECTURE.md), "Phases").
+Editar e salvar um arquivo de texto, comparar dois arquivos de texto, e criar, renomear, mover e apagar **dentro de um ZIP** vêm nas próximas fases (veja [`../TODO.md`](../TODO.md)). Selecionar várias linhas de uma vez, arrastar para um lugar da barra lateral, e imprimir os bytes de um arquivo ou uma tabela como tabela também estão na lista.

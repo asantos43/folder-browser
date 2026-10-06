@@ -1,3 +1,4 @@
+import type { OpError, OpResult } from './fs/ops.ts'
 import type { ExtractResult } from './extract.ts'
 import type { PlacesData } from './places.ts'
 import type { ListResult, RootInfo } from './roots.ts'
@@ -18,6 +19,8 @@ export type ReadResult = { bytes: Uint8Array } | { error: 'no-snapshot' | 'no-fi
 export type RangeResult = { bytes: Uint8Array; size: number } | { error: 'no-snapshot' | 'no-file' | 'too-large' }
 /** A document of a root, ready to be drawn in a frame at `url` (`fb-doc://<token>/`): by the library `flavour` (core/docs.ts). */
 export type DocOpen = { token: string; url: string; flavour: 'docx' | 'pptx' | 'odf' } | { error: 'no-file' | 'too-large' | 'unsupported' }
+/** What an operation on the files of a folder answers (`core/fs/ops.ts`): the new path of the item, or why nothing was done. */
+export type { OpError, OpResult }
 export type SaveResult = { saved: true; path: string } | { saved: false; reason: 'cancelled' | 'error'; message?: string }
 export type IntegrityEvent = { id: string; state: 'running'; done: number; total: number } | { id: string; state: 'done'; report: IntegrityReport }
 
@@ -85,6 +88,14 @@ export interface FbApi {
   openFolderDialog(): Promise<OpenResult[]>
   /** Of a root: makes a file playable (`fb-media://`), by ranges. A file of the disk is served as it is; an entry of a ZIP is copied first, to a folder of its own (up to 2 GB). */
   media: { open(id: string, path: string): Promise<MediaOpen>; release(token: string): Promise<void> }
+  /** Changes the disk, in a folder that was opened (never in a ZIP, a snapshot or the trash): `path`s are relative to the root. Nothing is ever replaced; a name that is taken is refused. */
+  fs: {
+    create(id: string, parent: string, name: string, kind: 'file' | 'dir'): Promise<OpResult>
+    rename(id: string, path: string, name: string): Promise<OpResult>
+    move(id: string, path: string, toFolder: string): Promise<OpResult>
+    /** `trash`: to the system's trash. `forever`: gone for good (asked only after the trash refused, or by the user). */
+    remove(id: string, path: string, how: 'trash' | 'forever'): Promise<OpResult>
+  }
   /** An office document of a root or a snapshot (docx, pptx, odt, ods, odp, xlsx, xls…): makes its page, which draws it in a sandboxed frame with no network. The token lives as long as the tab. */
   docs: { open(id: string, path: string): Promise<DocOpen>; release(token: string): Promise<void> }
   /** Opens a `.wsnp` of a folder (a file of the disk, by its path in the root) as a snapshot. */

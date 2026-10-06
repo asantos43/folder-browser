@@ -7,6 +7,7 @@ import type { ByteRange } from './archive/reader.ts'
 import { ZIP_LIMIT } from './filekind.ts'
 import { isHidden } from './fs/hidden.ts'
 import { resolveInside } from './fs/guard.ts'
+import { createEntry, moveEntry, removeEntry, renameEntry, type OpResult } from './fs/ops.ts'
 import { sortEntries } from './fs/sort.ts'
 import { INNER, MAX_DEPTH, partsOf } from './vpath.ts'
 import { openZipBuffer, ZipError, type ZipArchive, type ZipEntryInfo } from './zip.ts'
@@ -259,6 +260,46 @@ export class RootRegistry {
     if (!root) return null
     if (root.kind === 'zip') return root.real
     return resolveInside(root.real, partsOf(name)[0])
+  }
+
+  // ---- changing the disk (phase 2): only a folder root, never the trash (its items are put back or emptied), never inside a ZIP
+
+  private writable(id: string): OpenRoot | null {
+    const root = this.open.get(id)
+    return root && root.kind === 'folder' && !root.trash ? root : null
+  }
+
+  /** What was in memory of the ZIP files of a root is not what the disk has now. */
+  private forgetZips(id: string): void {
+    for (const key of [...this.zips.keys()]) if (key.startsWith(`${id}\0`)) this.zips.delete(key)
+  }
+
+  private async changed(id: string, done: Promise<OpResult>): Promise<OpResult> {
+    const result = await done
+    if (result.ok) this.forgetZips(id)
+    return result
+  }
+
+  /** A new empty file or folder in `parent` of the root. */
+  create(id: string, parent: string, name: string, kind: 'file' | 'dir'): Promise<OpResult> {
+    const root = this.writable(id)
+    return root ? this.changed(id, createEntry(root.real, parent, name, kind)) : Promise.resolve({ ok: false, error: 'unsupported' })
+  }
+
+  rename(id: string, name: string, newName: string): Promise<OpResult> {
+    const root = this.writable(id)
+    return root ? this.changed(id, renameEntry(root.real, name, newName)) : Promise.resolve({ ok: false, error: 'unsupported' })
+  }
+
+  move(id: string, name: string, toFolder: string): Promise<OpResult> {
+    const root = this.writable(id)
+    return root ? this.changed(id, moveEntry(root.real, name, toFolder)) : Promise.resolve({ ok: false, error: 'unsupported' })
+  }
+
+  /** To the trash (`trash` is the system's), or for good. */
+  remove(id: string, name: string, how: 'trash' | 'forever', trash: (file: string) => Promise<void>): Promise<OpResult> {
+    const root = this.writable(id)
+    return root ? this.changed(id, removeEntry(root.real, name, how, trash)) : Promise.resolve({ ok: false, error: 'unsupported' })
   }
 
   // ---- listing

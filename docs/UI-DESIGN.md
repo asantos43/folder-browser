@@ -1,8 +1,7 @@
 # Interface design: as close to VS Code as possible
 
-The viewer's interface must look and behave as much like Visual Studio Code as possible (the requirement is in
-[`VIEWER-GUIDELINES.md`](VIEWER-GUIDELINES.md), "Look and feel"). This document records the research on how to get there,
-the decisions taken, and where phase 1 starts. Sources are at the end.
+The interface of Folder Browser looks and behaves like Visual Studio Code's, as WSNP Viewer's did (the requirement is in
+[`VIEWER-GUIDELINES.md`](VIEWER-GUIDELINES.md), "Look and feel"). This document records the research on how to get there, the decisions taken, and where the work started (the research was made for WSNP Viewer, and the sections after "What each part becomes" still speak of it: the look, the tokens, the metrics and the icons are the same here). Sources are at the end.
 
 ## The reference
 
@@ -23,19 +22,21 @@ showing a JSON file. It is not committed (it shows a private project), so it is 
 
 ## What each part becomes in the Folder Browser
 
-| VS Code part | In the viewer |
+| VS Code part | In the Folder Browser |
 | --- | --- |
-| Title bar menu | File (Open…, Open Recent, Print…, Convert PageKeep ZIP…, Save as…, Export ▸ PNG / JPG / PDF, Preferences ▸ Settings, Close), Edit (Copy, Find), View (Toggle Side Bar, Command Palette), Go (next / previous snapshot), Help |
-| Command center, `Ctrl+P`, `Ctrl+Shift+P` | Quick open of an open snapshot by title or address; command palette for every command |
-| Activity bar | Snapshots, Search across snapshots, Convert / Export queue, Settings (language, theme) |
-| Side bar: Explorer | **Open snapshots** (title, address, capture date, preview) and the **files of the selected snapshot** as a tree (`manifest.json`, `index.html`, `assets/…`, `_wsnp/`) |
-| Side bar: Outline, Timeline | **Information** (source address, capture date, generator, viewport, what could not be saved) and **Integrity** (SHA-256 result, per file) |
-| Editor tabs | One tab per open snapshot (the rendered page), several at once; a click on a file of the tree opens it in a preview tab (JSON, HTML, CSS, JS as read-only source, pictures, fonts); a picture opens with a zoom toolbar, a PDF in a viewer with zoom, page navigation and Save As, a ZIP opens as a list of its files to select, extract and view, and a file that cannot be shown (office documents, video) opens a tab that offers **Save As…**; the tree's context menu has Open, Open With… (the system's chooser) and Save As… for every file. A web link in a page opens the default browser at once, never a tab. |
-| Breadcrumbs | `title › index.html`, or the path of the file being read |
-| Editor area | The page in its isolated view, or a read-only source viewer with the theme's syntax colours |
-| Find widget | The same widget, driving in-page search; it cannot cover the page if the page is a native view (see "The hard part") |
-| Status bar | Source address (opens in the browser), capture date, viewport, integrity, generator, converted-from note, language |
-| Notifications | Refusals in plain words ("made by a newer version", "password-protected…"), conversion and export progress |
+| Title bar menu | File (Open Folder…, Open File…, Open Recent, Print…, Save as PDF…, Preferences ▸ Settings, Close), Edit (Copy, Find), View (Show Hidden Files, Sort Files By, Toggle Side Bar, Command Palette), Go (Back, Forward, Go to File, next / previous tab), Help |
+| Command center, `Ctrl+E`, `Ctrl+Shift+P` | Go to File over the open snapshots and the tabs; the command palette for every command and the colour themes |
+| Activity bar | Explorer (the side bar), Open Folder, Print, Settings |
+| Side bar: Explorer | **Places** (Home, Documents, …, Trash, Recent Folders, Favorites, devices), **Open Folders**, and the **Files** tree of the selected folder or ZIP, one level at a time, with the header icons New File, New Folder, Sort, Show Hidden Files, Refresh; a right-click menu by kind of row; a field in a row to name or rename; drag and drop to move |
+| Editor tabs | One tab per file, in preview (italics) or kept; the same file can be open in a tab of its kind and in a `Hex:` tab; a `.wsnp` is a page in a tab; the file is shown by what it is: source, Markdown, a CSV table, a picture, a PDF, a font, an office document (in a sandboxed frame), a video or a sound (player), a ZIP (list), the bytes (hexadecimal view), or a card with Save As, Open With… and View as hex |
+| Breadcrumbs | The folder opened and the path of the file |
+| Editor area | The view of the file, each with a toolbar of 35 px under the breadcrumbs (zoom, Save As, Open With…, View as hex, the switches of Markdown, SVG and CSV) |
+| Find widget | The same widget for text; in the hexadecimal view the toolbar's own box for bytes or text |
+| Status bar | The folder, the zoom of the tab (− level +), what the check of a snapshot found, the language of the file, the interface language |
+| Notifications | Refusals and failures in plain words ("Could not move a.txt: A file or folder with this name already exists here."), moved and deleted |
+| Dialogs | Confirm (move to the trash, delete for good, empty the trash), Move to… (a folder picker), Open With…, Properties, About |
+
+(The first version of this table, for WSNP Viewer, spoke of open snapshots, their information and integrity in the side bar, and conversion and export; those were taken out in phases 1j to 1l: a snapshot is a page in a tab.)
 
 ## How to get the VS Code look
 

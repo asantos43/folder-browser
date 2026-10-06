@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AppInfo, DocOpen, ExtractResult, IntegrityEvent, OpenResult, ListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
+import type { AppInfo, DocOpen, OpResult, ExtractResult, IntegrityEvent, OpenResult, ListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
 
 /** What the interface may ask of the main process: nothing else crosses the boundary (core/api.ts). */
 const on = <T>(channel: string, listener: (value: T) => void) => {
@@ -19,6 +19,12 @@ const api: FbApi = {
   media: {
     open: (id, path) => ipcRenderer.invoke('fb:media-open', id, path) as Promise<MediaOpen>,
     release: (token) => ipcRenderer.invoke('fb:media-release', token) as Promise<void>,
+  },
+  fs: {
+    create: (id, parent, name, kind) => ipcRenderer.invoke('fb:fs-create', id, parent, name, kind) as Promise<OpResult>,
+    rename: (id, path, name) => ipcRenderer.invoke('fb:fs-rename', id, path, name) as Promise<OpResult>,
+    move: (id, path, toFolder) => ipcRenderer.invoke('fb:fs-move', id, path, toFolder) as Promise<OpResult>,
+    remove: (id, path, how) => ipcRenderer.invoke('fb:fs-remove', id, path, how) as Promise<OpResult>,
   },
   docs: {
     open: (id, path) => ipcRenderer.invoke('fb:doc-open', id, path) as Promise<DocOpen>,
