@@ -52,4 +52,4 @@ renderer. The release notes say which Electron a version has (Help › About sho
 
 ## Releases
 
-The release files are built by GitHub Actions from the repository, and are **not signed yet** (Windows and macOS warn on the first launch). Check a file against the checksums in the release notes.
+The release files are built from the repository (the `.exe`, `.deb` and `.rpm` on the maintainer's computer, the `.dmg` by a GitHub Actions workflow started by hand), and are **not signed yet** (Windows and macOS warn on the first launch). Check a file against the checksums in the release notes.

@@ -89,7 +89,7 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [ ] The header panel of ELF, PE and Mach-O files in the hex view
 - [ ] Previous/Next for the media of a snapshot; rename a favourite; columns for size and date the user can choose
 - [x] The pull requests: phases 1 to 1p were one line of history, merged into `main` as one pull request (#5). The CI jobs of GitHub could not start (billing of the account): the checks were run on the developer's computer
-- [ ] **GitHub Actions** (`ci.yml`, `release.yml`) have never run: the account's billing has to be fixed first
+- [x] **GitHub Actions** only for the macOS `.dmg` (`release.yml`, started by hand: unit tests, packaging smoke test, adds the `.dmg` and its checksum to the release); no CI on pull requests (the free quota is spared). Not yet tried: it needs the account's billing fixed, and a release to add to
 
 ## Phase 2: change files on disk
 - [x] `core/fs/names.ts` (what a name may be; Windows rules on Windows) and `core/fs/ops.ts` (`createEntry`, `renameEntry`, `moveEntry`, `removeEntry`): never replace (a file is hard-linked to its new name, which fails if it is taken), never leave the root (the parent is resolved, so a symbolic link is renamed, moved or removed as the link), never put a folder inside itself, nothing inside a ZIP; `RootRegistry` lets go of the ZIPs it had read
