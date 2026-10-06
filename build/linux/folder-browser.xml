@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   The file type of a .wsnp for the Linux desktop (shared-mime-info). A .wsnp is a ZIP, so a magic rule on its first entry (`mimetype`,
-  stored, at byte 30, with the media type after it at byte 38; docs/FORMAT.md section 3) keeps it from being taken for plain application/zip,
+  stored, at byte 30, with the media type after it at byte 38; wsnp-format/FORMAT.md section 3) keeps it from being taken for plain application/zip,
   whatever its name.
 -->
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">

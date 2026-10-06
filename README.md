@@ -74,7 +74,7 @@ sends deletions to the trash and writes through a temporary file; how hostile fi
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the app is built, and its safety rules |
 | [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) ([pt-BR](docs/USER-GUIDE.pt-BR.md)) | Using the app, every feature, with pictures |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/RELEASING.md`](docs/RELEASING.md) | Setting up, testing, making a release |
-| [`docs/FORMAT.md`](docs/FORMAT.md), [`docs/MANIFEST-SIGNING.md`](docs/MANIFEST-SIGNING.md), [`docs/PAGEKEEP-ZIP.md`](docs/PAGEKEEP-ZIP.md), [`docs/VIEWER-GUIDELINES.md`](docs/VIEWER-GUIDELINES.md) | The WSNP format and what a viewer must do (copied from WSNP Viewer) |
+| [`wsnp-format/FORMAT.md`](https://github.com/asantos43/wsnp-format/blob/main/FORMAT.md), [`wsnp-format/MANIFEST-SIGNING.md`](https://github.com/asantos43/wsnp-format/blob/main/MANIFEST-SIGNING.md), [`docs/PAGEKEEP-ZIP.md`](docs/PAGEKEEP-ZIP.md), [`docs/VIEWER-GUIDELINES.md`](docs/VIEWER-GUIDELINES.md) | The WSNP format and what a viewer must do (copied from WSNP Viewer) |
 | [`docs/UI-DESIGN.md`](docs/UI-DESIGN.md) | The VS Code-style interface |
 | [`docs/WSNP-VIEWER-ARCHITECTURE.md`](docs/WSNP-VIEWER-ARCHITECTURE.md), [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP-VIEWER-HISTORY.md) | What was inherited from WSNP Viewer 0.1.0 |
 | [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) | The libraries inside the application and their licences |

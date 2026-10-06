@@ -30,7 +30,7 @@ const ARCHIVE_CODES: Record<ArchiveError['code'], IssueCode> = {
 const refuse = (issues: Issue[]): OpenResult => ({ ok: false, issues: issues.slice(0, MAX_ISSUES), omitted: Math.max(0, issues.length - MAX_ISSUES) })
 
 /**
- * Opens a .wsnp and checks its structure, following the checklist of docs/FORMAT.md section 10 (steps 1 to 8) except
+ * Opens a .wsnp and checks its structure, following the checklist of wsnp-format/FORMAT.md section 10 (steps 1 to 8) except
  * the files' bytes: sizes come from the ZIP directory, the SHA-256 of each file is checked later by `verifyContents`,
  * so a file of gigabytes opens at once. A protected file or a `.wsnpx` is not opened, and the issue says which.
  */

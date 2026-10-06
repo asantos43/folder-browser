@@ -6,7 +6,7 @@ import { shortFingerprint } from '../core/validate/signature.ts'
 import { richFiles, writeRichWsnp } from '../fixtures/build.ts'
 import { ecdsaSigner, ed25519Signer, fingerprintHex, writeSignedWsnp, type SignedOptions, type Signer } from '../fixtures/sign.ts'
 
-// End-to-end: the signature of the manifest (FORMAT.md section 12, docs/MANIFEST-SIGNING.md). Unzipping a file and editing its manifest
+// End-to-end: the signature of the manifest (FORMAT.md section 12, wsnp-format/MANIFEST-SIGNING.md). Unzipping a file and editing its manifest
 // makes it not valid; who signed it is the user's to trust.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
 let dir: string

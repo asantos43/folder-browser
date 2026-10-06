@@ -10,7 +10,7 @@ export interface Signer {
 const FINGERPRINT = /^[0-9a-f]{64}$/
 
 /**
- * The signers the user trusts, by the SHA-256 fingerprint of their public key: trust on first use, told by the user (docs/MANIFEST-SIGNING.md).
+ * The signers the user trusts, by the SHA-256 fingerprint of their public key: trust on first use, told by the user (wsnp-format/MANIFEST-SIGNING.md).
  * One small JSON file in the user's own profile. A signature proves the manifest was not edited; this list says whose key it is.
  */
 export class SignerStore {
