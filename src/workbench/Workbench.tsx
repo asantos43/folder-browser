@@ -574,19 +574,24 @@ export function Workbench() {
     },
     [api, notify, t, pathChanged],
   )
+  // Whether Shift is down is followed all the time, not from when a question opens: a click on Delete in a menu with Shift already held sends no key event after the
+  // question is on screen, and it must still ask for the permanent delete.
   useEffect(() => {
-    if (!deleting) return setShiftHeld(false)
-    const track = (event: KeyboardEvent) => setShiftHeld(event.shiftKey)
+    const track = (event: KeyboardEvent | MouseEvent) => setShiftHeld(event.shiftKey)
     const release = () => setShiftHeld(false)
-    window.addEventListener('keydown', track)
-    window.addEventListener('keyup', track)
+    window.addEventListener('keydown', track, true)
+    window.addEventListener('keyup', track, true)
+    window.addEventListener('mousedown', track, true)
+    window.addEventListener('mouseup', track, true)
     window.addEventListener('blur', release)
     return () => {
-      window.removeEventListener('keydown', track)
-      window.removeEventListener('keyup', track)
+      window.removeEventListener('keydown', track, true)
+      window.removeEventListener('keyup', track, true)
+      window.removeEventListener('mousedown', track, true)
+      window.removeEventListener('mouseup', track, true)
       window.removeEventListener('blur', release)
     }
-  }, [deleting])
+  }, [])
   /** A copy of an item (a drop with Shift held): the copy is numbered when the name is taken, and the tree shows it. */
   const doCopy = useCallback(
     (rootId: string, path: string, toFolder: string) => {

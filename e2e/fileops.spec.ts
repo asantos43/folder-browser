@@ -318,3 +318,22 @@ test('a dragged item resting on a closed folder opens it, and again one level do
   await expect.poll(() => fs.existsSync(onDisk('docs', 'deep', 'b.txt'))).toBe(true)
   expect(fs.existsSync(onDisk('b.txt'))).toBe(false)
 })
+
+test('Shift held while choosing Delete in the menu asks for the permanent delete (Shift already down when the question opens)', async () => {
+  const page = await launch(work)
+  await item(page, 'a.txt').click({ button: 'right' })
+  await page.keyboard.down('Shift')
+  await page.getByRole('menuitem', { name: /^Delete/ }).click()
+  const forever = page.getByRole('alertdialog', { name: 'Delete permanently?' })
+  await expect(forever).toBeVisible()
+  await expect(forever.getByRole('button', { name: 'Delete Permanently' })).toBeVisible()
+  // Let go of Shift: it is the question about the trash again.
+  await page.keyboard.up('Shift')
+  await expect(page.getByRole('alertdialog', { name: 'Move to the trash?' })).toBeVisible()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click()
+  expect(fs.existsSync(onDisk('a.txt'))).toBe(true)
+  // And without Shift, the menu asks about the trash as before.
+  await item(page, 'a.txt').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: /^Delete/ }).click()
+  await expect(page.getByRole('alertdialog', { name: 'Move to the trash?' })).toBeVisible()
+})
