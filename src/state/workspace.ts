@@ -15,6 +15,8 @@ export interface Tab {
   path?: string
   /** The size of a file that is an entry of a ZIP (the manifest does not list it), known when it is opened from the ZIP's list. */
   size?: number
+  /** How the file is shown when the user chose, whatever its kind: its bytes (hexadecimal). The same file can be open in a tab of its own kind and in one of these. */
+  as?: 'hex'
   /** A view of the snapshot that is not a file of it: its metadata. */
   view?: 'metadata' | 'settings'
   /** Shown in italics and replaced by the next single click, until it is kept (double click, or a tab of the snapshot itself). */
@@ -59,6 +61,8 @@ export const invalidProblems = (ws: Workspace, id: string): Issue[] => {
 /** Not valid, and not yet chosen to be shown anyway: the page is held back. */
 export const isHeldBack = (ws: Workspace, id: string): boolean => invalidProblems(ws, id).length > 0 && !ws.shownAnyway[id]
 export const fileKey = (id: string, path: string) => `f:${id}:${path}`
+/** The tab of a file shown as its bytes: a key of its own, so that the file can be open both ways. */
+export const hexKey = (id: string, path: string) => `x:${id}:${path}`
 
 export type Action =
   /**
@@ -68,7 +72,7 @@ export type Action =
   | { type: 'snapshot-opened'; snapshot: SnapshotInfo; preview?: boolean }
   | { type: 'root-opened'; root: RootInfo }
   | { type: 'root-closed'; id: string }
-  | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number }
+  | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number; /** Show the bytes (hexadecimal) instead of what the kind of the file gets. */ as?: 'hex' }
   | { type: 'open-metadata'; snapshotId: string }
   | { type: 'open-settings' }
   | { type: 'show-anyway'; snapshotId: string }
@@ -156,13 +160,13 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       return without({ ...ws, roots }, new Set(ws.tabs.filter((t) => t.snapshotId === action.id).map((t) => t.key)))
     }
     case 'open-file': {
-      const key = fileKey(action.snapshotId, action.path)
+      const key = action.as === 'hex' ? hexKey(action.snapshotId, action.path) : fileKey(action.snapshotId, action.path)
       const existing = ws.tabs.find((t) => t.key === key)
       if (existing) {
         const tabs = existing.preview && action.keep ? ws.tabs.map((t) => (t.key === key ? { ...t, preview: false } : t)) : ws.tabs
         return withActive({ ...ws, tabs }, key)
       }
-      const tab: Tab = { key, snapshotId: action.snapshotId, path: action.path, ...(action.size === undefined ? {} : { size: action.size }), preview: !action.keep, pinned: false }
+      const tab: Tab = { key, snapshotId: action.snapshotId, path: action.path, ...(action.size === undefined ? {} : { size: action.size }), ...(action.as ? { as: action.as } : {}), preview: !action.keep, pinned: false }
       // A new preview takes the place of the old one; a kept tab opens beside the active one, as VS Code does.
       const old = tab.preview ? ws.tabs.findIndex((t) => t.preview && !t.pinned) : -1
       // (A snapshot that was only previewed goes with its preview: the snapshot is closed, not left open with no tab.)

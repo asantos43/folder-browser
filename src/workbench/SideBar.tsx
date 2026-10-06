@@ -52,7 +52,7 @@ function SortButton({ by, descending }: { by: SortKey; descending: boolean }) {
 export interface SideBarActions {
   openFolder: () => void
   listDir: (rootId: string, path: string) => Promise<ListResult>
-  openRootFile: (rootId: string, entry: Pick<DirEntry, 'path' | 'size'>, keep: boolean) => void
+  openRootFile: (rootId: string, entry: Pick<DirEntry, 'path' | 'size'>, keep: boolean, as?: 'hex') => void
   reveal: (rootId: string, path: string) => void
   closeRoot: (rootId: string) => void
   openPlace: (place: Place) => void
@@ -178,7 +178,7 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
               refreshToken={refreshToken + treeVersion}
               actions={{
                 listDir: (path) => actions.listDir(root.id, path),
-                open: (entry, keep) => actions.openRootFile(root.id, entry, keep),
+                open: (entry, keep, as) => actions.openRootFile(root.id, entry, keep, as),
                 openSnapshot: (entry, keep) => actions.openSnapshot(root.id, entry.path, keep),
                 openWith: (path) => actions.openWith(root.id, path),
                 openDefault: (path) => actions.openDefault(root.id, path),

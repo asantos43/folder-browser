@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { translator } from '@/i18n/index.ts'
 import { snapshotInfo } from '@/test/fixtures.ts'
 import { empty, reduce, type Action, type Workspace } from '@/state/workspace.ts'
-import { describeTabs, snapshotTitle, sourceTitle } from './tabInfo.ts'
+import { describeTabs, kindOf, snapshotTitle, sourceTitle } from './tabInfo.ts'
 
 const t = translator('en')
 const run = (...actions: Action[]): Workspace => actions.reduce(reduce, empty)
@@ -38,5 +38,19 @@ describe('the title of a snapshot in the tabs', () => {
     const views = describeTabs(ws, t)
     expect(views.get('m:a')?.label).toBe('Metadata: harbor.wsnp')
     expect(views.get('f:a:index.html')?.tooltip).toBe('harbor.wsnp › index.html')
+  })
+})
+
+describe('a file shown as its bytes', () => {
+  const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const ws = run({ type: 'root-opened', root }, { type: 'open-file', snapshotId: 'r1', path: 'docs/a.docx', keep: true, size: 900 }, { type: 'open-file', snapshotId: 'r1', path: 'docs/a.docx', keep: true, size: 900, as: 'hex' })
+  it('is called Hex, with the name, and has the icon of bytes; the file in its own kind keeps its name', () => {
+    const views = describeTabs(ws, t)
+    expect(views.get('f:r1:docs/a.docx')).toMatchObject({ label: 'a.docx', icon: 'file-text' })
+    expect(views.get('x:r1:docs/a.docx')).toMatchObject({ label: 'Hex: a.docx', icon: 'file-binary' })
+  })
+  it('is of kind hex whatever the file is, and the same file in the other tab is a document', () => {
+    expect(kindOf(ws, ws.tabs.find((tab) => tab.key === 'x:r1:docs/a.docx')!).kind).toBe('hex')
+    expect(kindOf(ws, ws.tabs.find((tab) => tab.key === 'f:r1:docs/a.docx')!).kind).toBe('document')
   })
 })

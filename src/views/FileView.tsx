@@ -10,7 +10,6 @@ import { TextView } from './TextView.tsx'
 import { FontView } from './FontView.tsx'
 import { ImageView } from './ImageView.tsx'
 import { CsvToggle, CsvView } from './CsvView.tsx'
-import { DocumentView } from './DocumentView.tsx'
 import { OtherView } from './OtherView.tsx'
 import { HEX_WHOLE_LIMIT, HexView, RangeHexView } from './HexView.tsx'
 import { PdfView } from './PdfView.tsx'
@@ -68,20 +67,19 @@ function useLate(ms: number): boolean {
 }
 
 /** The tab of one file of a snapshot: source, picture or font when it can be shown, and a way to save it when it cannot. */
-export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onViewEntry, onNotify, zoom = 1 }: { /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
+export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onHex, onViewEntry, onNotify, zoom = 1 }: { /** Opens the file as its bytes (hexadecimal), in a tab of its own: offered on what is not shown. */ onHex: () => void; /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
   const { t } = useI18n()
   const key = `${snapshotId}:${path}`
   // A file of no known type (an entry of a ZIP with an extension the viewer has never heard of) is read and looked at: if it is text, it is shown as text.
   const probe = canProbe(mediaType, path, size)
   const [sniffed, setSniffed] = useState<'text' | 'binary' | undefined>(undefined)
   const kind: ViewKind = probe && sniffed === 'text' ? 'text' : declaredKind
-  // A program, a library or any file of bytes is shown in hexadecimal; so is a file of an unknown type that is not text, and any other file when the user asks.
-  const [hexed, setHexed] = useState(false)
-  const hex = kind === 'hex' || hexed || (probe && sniffed === 'binary')
+  // A program, a library or any file of bytes is shown in hexadecimal; so is a file of an unknown type that is not text (and any file the user opens as Hex: its tab says so).
+  const hex = kind === 'hex' || (probe && sniffed === 'binary')
   // Over the limit it is read a window at a time instead (a file of a folder only).
   const windowed = hex && size > HEX_WHOLE_LIMIT
   const [loaded, setLoaded] = useState<Loaded>(() => {
-    const bytes = (kind === 'other' && !probe) || kind === 'zip' || (kind === 'document' && !hexed) || ((kind === 'hex' || kind === 'document') && size > HEX_WHOLE_LIMIT) ? undefined : recall(key)
+    const bytes = (kind === 'other' && !probe) || kind === 'zip' || (kind === 'hex' && size > HEX_WHOLE_LIMIT) ? undefined : recall(key)
     return bytes ? { state: 'ready', bytes } : { state: 'loading' }
   })
   const late = useLate(150)
@@ -100,7 +98,7 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   }, [sourceShown, key, language, detected])
 
   useEffect(() => {
-    if ((kind === 'other' && !probe && !hexed) || kind === 'zip' || (kind === 'document' && !hexed) || windowed) return
+    if ((kind === 'other' && !probe) || kind === 'zip' || windowed) return
     let alive = true
     const again = recall(key)
     if (again) {
@@ -116,7 +114,7 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
     return () => {
       alive = false
     }
-  }, [snapshotId, path, kind, key, probe, hexed, windowed])
+  }, [snapshotId, path, kind, key, probe, windowed])
 
   useEffect(() => {
     if (!probe) return
@@ -128,10 +126,8 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
 
   // A ZIP is listed by the main process, which keeps it: nothing is read into the interface.
   if (kind === 'zip') return <ZipView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} onView={onViewEntry} onNotify={onNotify} />
-  // An office document is drawn by a page of its own, in a frame that reaches nothing; the bytes are there for the hexadecimal view only.
-  if (kind === 'document' && !hexed) return <DocumentView snapshotId={snapshotId} path={path} name={name} mediaType={mediaType} size={size} onSave={onSave} onHex={() => setHexed(true)} />
   if (windowed) return <RangeHexView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} fallback={() => <OtherView name={name} mediaType={mediaType} size={size} reason="tooLarge" onSave={onSave} />} />
-  if (kind === 'other' && !probe && !hexed) return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} onHex={() => setHexed(true)} />
+  if (kind === 'other' && !probe) return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} onHex={onHex} />
   // A moment of nothing, not of a message that flashes: "Loading…" appears only when the file is slow.
   if (loaded.state === 'loading' || (probe && loaded.state === 'ready' && sniffed === undefined)) return late ? <p className="m-0 p-6 text-fg-muted">{t('file.loading')}</p> : <div className="min-h-0 flex-1 bg-editor" />
   if (loaded.state === 'failed') return <OtherView name={name} mediaType={mediaType} size={size} reason={loaded.error === 'too-large' ? 'tooLarge' : 'readError'} onSave={onSave} />

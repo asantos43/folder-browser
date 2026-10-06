@@ -16,6 +16,10 @@ describe('treeMenuFor', () => {
     expect(actions('file')).not.toContain('openSnapshot')
     expect(actions('zip')).not.toContain('openSnapshot')
   })
+  it('offers Open as Hex on every file, a ZIP and a .wsnp included, and not on a folder', () => {
+    for (const kind of ['file', 'zip', 'wsnp'] as const) expect(actions(kind), kind).toContain('openAsHex')
+    expect(actions('dir')).not.toContain('openAsHex')
+  })
   it('keeps the groups apart with separators, never first, last or twice in a row', () => {
     for (const kind of ['dir', 'file', 'zip', 'wsnp'] as const) {
       const items = treeMenuFor({ kind })

@@ -42,7 +42,9 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
     // (The tooltip of a page: where the file is, and the address the page was saved from.)
     if (tab.path === undefined) return [tab, snapshotTitle(ws, tab.snapshotId), 'browser', [snapshot?.path, snapshot?.manifest.source.url].filter(Boolean).join('\n')]
     const file = snapshot?.files.find((f) => f.path === tab.path)
-    return [tab, basename(tab.path), fileIcon(file?.mediaType, tab.path), `${sourceTitle(ws, tab.snapshotId)} › ${tab.path.replaceAll('!/', ' › ')}`]
+    const where = `${sourceTitle(ws, tab.snapshotId)} › ${tab.path.replaceAll('!/', ' › ')}`
+    if (tab.as === 'hex') return [tab, t('tabs.hexOf', { name: basename(tab.path) }), 'file-binary', where]
+    return [tab, basename(tab.path), fileIcon(file?.mediaType, tab.path), where]
   })
   const counts = new Map<string, number>()
   for (const [, label] of base) counts.set(label, (counts.get(label) ?? 0) + 1)
@@ -61,6 +63,12 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
 
 /** How the file of a tab is shown, from what the manifest and the archive say about it. */
 export const kindOf = (ws: Workspace, tab: Tab) => {
+  const found = kindOfFile(ws, tab)
+  // A file shown as its bytes by the user's choice, whatever it is.
+  return tab.as === 'hex' && found.file ? { ...found, kind: 'hex' as const } : found
+}
+
+const kindOfFile = (ws: Workspace, tab: Tab) => {
   // A file of a folder or a ZIP that was opened to browse: no manifest, so its type is told by its name (and, if that says nothing, by looking at it) and its size is the one the tree listed.
   if (ws.roots[tab.snapshotId] && tab.path) {
     const file: { path: string; size: number; mediaType?: string } = { path: tab.path, size: tab.size ?? 0 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createDomFindTarget } from '@/find/dom.ts'
 import { FindBar } from '@/find/FindBar.tsx'
 import { ConvertedBar } from './ConvertedBar.tsx'
@@ -11,6 +11,7 @@ import type { Notice } from '@/state/messages.ts'
 import { describeIssue } from '@/state/messages.ts'
 import { invalidProblems, isHeldBack, isSnapshotTab, snapshotKey, type Action, type Workspace } from '@/state/workspace.ts'
 import { FileView } from '@/views/FileView.tsx'
+import { DocumentView } from '@/views/DocumentView.tsx'
 import { MediaView } from '@/views/MediaView.tsx'
 import { MetadataView } from '@/views/MetadataView.tsx'
 import { SettingsView } from '@/views/SettingsView.tsx'
@@ -43,6 +44,17 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
     const { kind, file } = tab.path !== undefined ? kindOf(ws, tab) : { kind: undefined, file: undefined }
     return kind === 'media' ? [{ tab, size: file?.size ?? 0 }] : []
   })
+
+  // An office document is drawn once and kept (hidden, but laid out, so that what measures its room still can) while another tab is in front: the file is not read and drawn
+  // again at every switch. A document is drawn when its tab is first brought to the front (a session of twenty is not drawn all at once), and goes with its tab.
+  const documents = ws.tabs.flatMap((tab) => {
+    const { kind, file } = tab.path !== undefined ? kindOf(ws, tab) : { kind: undefined, file: undefined }
+    return kind === 'document' && file ? [{ tab, file }] : []
+  })
+  const [drawn, setDrawn] = useState<ReadonlySet<string>>(new Set())
+  useEffect(() => {
+    if (ws.active && documents.some(({ tab }) => tab.key === ws.active)) setDrawn((old) => (old.has(ws.active!) ? old : new Set(old).add(ws.active!)))
+  }, [ws.active, documents])
 
   // What Find searches: the page of a snapshot (in its own frame, through the main process), the source editor or the PDF (they register
   // themselves), or the text of whatever else is shown (metadata, a ZIP's list, Settings).
@@ -104,8 +116,21 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
             />
           </div>
         ))}
-        {fileTab && info?.file && info.kind !== 'media' ? (
-          <FileView key={fileTab.key} snapshotId={fileTab.snapshotId} path={fileTab.path!} kind={info.kind} mediaType={info.file.mediaType} size={info.file.size} onSave={() => onSaveFile(fileTab.snapshotId, fileTab.path!)} onViewEntry={(entry) => onViewEntry(fileTab.snapshotId, fileTab.path!, entry)} onNotify={onNotify} zoom={tabZoomOf(zooms, fileTab.key)} />
+        {documents.filter(({ tab }) => drawn.has(tab.key) || tab.key === ws.active).map(({ tab, file }) => (
+          <div key={tab.key} className={ws.active === tab.key ? 'flex min-h-0 flex-1 flex-col' : 'pointer-events-none invisible absolute inset-0 flex flex-col'} aria-hidden={ws.active !== tab.key}>
+            <DocumentView
+              snapshotId={tab.snapshotId}
+              path={tab.path!}
+              name={tab.path!.split(/[!/]+/).pop() ?? tab.path!}
+              mediaType={file.mediaType}
+              size={file.size}
+              onSave={() => onSaveFile(tab.snapshotId, tab.path!)}
+              onHex={() => dispatch({ type: 'open-file', snapshotId: tab.snapshotId, path: tab.path!, keep: true, size: file.size, as: 'hex' })}
+            />
+          </div>
+        ))}
+        {fileTab && info?.file && info.kind !== 'media' && info.kind !== 'document' ? (
+          <FileView key={fileTab.key} snapshotId={fileTab.snapshotId} path={fileTab.path!} kind={info.kind} mediaType={info.file.mediaType} size={info.file.size} onSave={() => onSaveFile(fileTab.snapshotId, fileTab.path!)} onHex={() => dispatch({ type: 'open-file', snapshotId: fileTab.snapshotId, path: fileTab.path!, keep: true, size: info.file!.size, as: 'hex' })} onViewEntry={(entry) => onViewEntry(fileTab.snapshotId, fileTab.path!, entry)} onNotify={onNotify} zoom={tabZoomOf(zooms, fileTab.key)} />
         ) : null}
         {!active ? (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 text-fg-muted">

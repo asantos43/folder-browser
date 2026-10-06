@@ -30,7 +30,8 @@ const ERROR_TEXT: Record<Extract<ListResult, { error: string }>['error'], Messag
 export interface ExplorerActions {
   listDir: (path: string) => Promise<ListResult>
   /** A file was clicked (`keep` for a double click or Enter). */
-  open: (entry: DirEntry, keep: boolean) => void
+  /** `as`: show the bytes (hexadecimal) instead of what the kind of the file gets. */
+  open: (entry: DirEntry, keep: boolean, as?: 'hex') => void
   /** A `.wsnp` of the disk: previewed as a file is (`keep` false: a click), or opened as a snapshot (a double click, Enter, the menu). */
   openSnapshot: (entry: DirEntry, keep: boolean) => void
   openWith: (path: string) => void
@@ -206,6 +207,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
         case 'open': return { id: action, label: t('tree.open'), run: () => actions.open(entry, true) }
         case 'openAsList': return { id: action, label: t('tree.openAsList'), run: () => actions.open(entry, true) }
         case 'openAsZip': return { id: action, label: t('tree.openAsZip'), run: () => actions.open(entry, true) }
+        case 'openAsHex': return { id: action, label: t('tree.openAsHex'), run: () => actions.open(entry, true, 'hex') }
         case 'openSnapshot': return { id: action, label: t('tree.open'), run: () => actions.openSnapshot(entry, true) }
         case 'openWith': return { id: action, label: t('tree.openWith'), run: () => actions.openWith(entry.path) }
         case 'openDefault': return { id: action, label: t('tree.openDefault'), run: () => actions.openDefault(entry.path) }

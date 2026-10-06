@@ -25,7 +25,7 @@ const PNG = new Uint8Array([137, 80, 78, 71])
 const show = (path = 'a.txt', id = 's1') =>
   render(
     <I18nProvider language="en">
-      <FileView snapshotId={id} path={path} kind="text" mediaType="text/plain" size={5} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      <FileView snapshotId={id} path={path} kind="text" mediaType="text/plain" size={5} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
     </I18nProvider>,
   )
 
@@ -82,12 +82,12 @@ describe('FileView: no flash between one file and the next', () => {
     window.fb = { readFile } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="big.png" kind="image" mediaType="image/png" size={big.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path="big.png" kind="image" mediaType="image/png" size={big.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     ).unmount()
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="big.png" kind="image" mediaType="image/png" size={big.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path="big.png" kind="image" mediaType="image/png" size={big.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     )
     await waitFor(() => expect(readFile).toHaveBeenCalledTimes(2))
@@ -123,7 +123,7 @@ describe('FileView: an SVG is a picture and its source', () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(SVG) })) } as unknown as FbApi
     return render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path={path} kind="text" mediaType="image/svg+xml" size={SVG.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path={path} kind="text" mediaType="image/svg+xml" size={SVG.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     )
   }
@@ -162,7 +162,7 @@ describe('FileView: an SVG is a picture and its source', () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode('<a/>') })) } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="a.xml" kind="text" mediaType="application/xml" size={4} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path="a.xml" kind="text" mediaType="application/xml" size={4} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     )
     await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
@@ -174,7 +174,7 @@ describe('FileView: an SVG is a picture and its source', () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(SVG) })) } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="z.svg" kind="text" mediaType="image/svg+xml" size={SVG.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} zoom={1.5} />
+        <FileView snapshotId="s1" path="z.svg" kind="text" mediaType="image/svg+xml" size={SVG.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} zoom={1.5} />
       </I18nProvider>,
     )
     await waitFor(() => expect(document.querySelector('.cm-editor')?.closest('div[style]')?.getAttribute('style')).toContain('--wsnp-zoom: 1.5'))
@@ -184,7 +184,7 @@ describe('FileView: an SVG is a picture and its source', () => {
 const other = (path: string, size: number, mediaType?: string) =>
   render(
     <I18nProvider language="en">
-      <FileView snapshotId="s1" path={path} kind="other" mediaType={mediaType} size={size} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      <FileView snapshotId="s1" path={path} kind="other" mediaType={mediaType} size={size} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
     </I18nProvider>,
   )
 
@@ -217,20 +217,24 @@ describe('FileView: hexadecimal', () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new Uint8Array([0x4d, 0x5a, 0, 0, 0]) })) } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="setup.exe" kind="hex" mediaType={undefined} size={5} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path="setup.exe" kind="hex" mediaType={undefined} size={5} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     )
     await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of setup.exe' })).toBeTruthy())
     await waitFor(() => expect(screen.getByText('MS-DOS executable')).toBeTruthy())
   })
-  it('offers "View as hex" on a file that is not shown (a document), and shows its bytes when asked', async () => {
-    const readFile = vi.fn(async () => ({ bytes: new Uint8Array([0x50, 0x4b, 3, 4]) }))
+  it('offers "View as hex" on a file that is not shown (a text file too large), which opens its bytes in a tab of their own', () => {
+    const readFile = vi.fn()
     window.fb = { readFile } as unknown as FbApi
-    other('report.docx', 4, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    const onHex = vi.fn()
+    render(
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path="huge.log" kind="other" mediaType="text/plain" size={9 * 2 ** 20} onSave={() => {}} onHex={onHex} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>,
+    )
     expect(readFile).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'View as hex' }))
-    await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of report.docx' })).toBeTruthy())
-    expect(readFile).toHaveBeenCalledOnce()
+    expect(onHex).toHaveBeenCalledOnce()
   })
   it('reads a big file a window at a time, not whole', async () => {
     const readFile = vi.fn()
@@ -238,40 +242,11 @@ describe('FileView: hexadecimal', () => {
     window.fb = { readFile, readRange } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="disk.iso" kind="hex" mediaType={undefined} size={40 * 2 ** 20} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path="disk.iso" kind="hex" mediaType={undefined} size={40 * 2 ** 20} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     )
     await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of disk.iso' })).toBeTruthy())
     expect(readFile).not.toHaveBeenCalled()
-  })
-})
-
-describe('FileView: office documents', () => {
-  it('is drawn by the document view, and its bytes are not read into the interface', async () => {
-    const readFile = vi.fn()
-    const open = vi.fn(async () => ({ token: 'dx', url: 'fb-doc://dx/', flavour: 'docx' as const }))
-    window.fb = { readFile, docs: { open, release: vi.fn(async () => {}) } } as unknown as FbApi
-    render(
-      <I18nProvider language="en">
-        <FileView snapshotId="s1" path="report.docx" kind="document" mediaType={undefined} size={1200} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
-      </I18nProvider>,
-    )
-    await waitFor(() => expect(screen.getByTitle('Document: report.docx').getAttribute('src')).toBe('fb-doc://dx/'))
-    expect(open).toHaveBeenCalledWith('s1', 'report.docx')
-    expect(readFile).not.toHaveBeenCalled()
-  })
-  it('falls back to its bytes in hexadecimal when it cannot be drawn and the user asks', async () => {
-    window.fb = {
-      readFile: vi.fn(async () => ({ bytes: new Uint8Array([0x50, 0x4b, 3, 4]) })),
-      docs: { open: vi.fn(async () => ({ error: 'unsupported' as const })), release: vi.fn(async () => {}) },
-    } as unknown as FbApi
-    render(
-      <I18nProvider language="en">
-        <FileView snapshotId="s1" path="report.docx" kind="document" mediaType={undefined} size={4} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
-      </I18nProvider>,
-    )
-    fireEvent.click(await screen.findByRole('button', { name: 'View as hex' }))
-    await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of report.docx' })).toBeTruthy())
   })
 })
 
@@ -280,7 +255,7 @@ describe('FileView: CSV', () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(body) })) } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path={path} kind="text" mediaType={undefined} size={body.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path={path} kind="text" mediaType={undefined} size={body.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     )
   }
@@ -306,7 +281,7 @@ describe('FileView: Markdown', () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(MD) })), openExternal: vi.fn(async () => {}) } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="docs/README.md" kind="text" mediaType="text/markdown" size={MD.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} zoom={zoom} />
+        <FileView snapshotId="s1" path="docs/README.md" kind="text" mediaType="text/markdown" size={MD.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} zoom={zoom} />
       </I18nProvider>,
     )
   }

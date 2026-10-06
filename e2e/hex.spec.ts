@@ -94,6 +94,7 @@ test('a file of an unknown type that is a ZIP is shown in hexadecimal, and a tex
   await item(page, 'huge.log').dblclick()
   await expect(page.getByText('This kind of file is not shown here.')).toBeVisible()
   await page.getByRole('button', { name: 'View as hex' }).click()
+  await expect(page.getByRole('tab', { name: /^Hex: huge\.log/ })).toBeVisible()
   await expect(grid(page, 'huge.log')).toBeVisible()
   await expect(grid(page, 'huge.log').getByRole('row').first()).toContainText('6c696e65206f66')
 })

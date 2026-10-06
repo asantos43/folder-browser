@@ -80,6 +80,47 @@ test('a file that is not what its name says is explained, and can be seen as byt
   await expect(page.getByText(/This document could not be drawn/)).toBeVisible()
   await page.getByRole('button', { name: 'View as hex' }).click()
   await expect(page.getByRole('grid', { name: 'Hexadecimal view of broken.docx' })).toBeVisible()
+  // The bytes are in a tab of their own: the document's tab is still there.
+  await expect(page.getByRole('tab', { name: /^Hex: broken\.docx/ })).toBeVisible()
+  await expect(page.getByRole('tab', { name: /^broken\.docx/ })).toBeVisible()
+})
+
+test('a document is drawn once and kept: going to another tab and back does not draw it again', async () => {
+  const page = await launch(work)
+  await item(page, 'report.docx').dblclick()
+  const doc = frameOf(page, 'report.docx')
+  await expect(doc.getByText('Harbor report')).toBeVisible()
+  // A mark in the frame's own window: it is gone if the frame is made again.
+  const frame = page.frames().find((f) => f.url().startsWith('fb-doc://'))!
+  await frame.evaluate(() => void ((window as unknown as { __kept: number }).__kept = 42))
+  await item(page, 'boats.csv').dblclick()
+  await expect(page.getByRole('table', { name: 'Table of boats.csv' })).toBeVisible()
+  await expect(page.locator('iframe[title="Document: report.docx"]')).toBeHidden()
+  await page.getByRole('tab', { name: /^report\.docx/ }).click()
+  await expect(doc.getByText('Harbor report')).toBeVisible()
+  expect(await frame.evaluate(() => (window as unknown as { __kept?: number }).__kept)).toBe(42)
+  // Closing its tab lets it go: the page of that document is gone.
+  await page.getByRole('tab', { name: /^report\.docx/ }).getByRole('button', { name: /close/i }).click()
+  await expect.poll(() => page.frames().some((f) => f.url().startsWith('fb-doc://'))).toBe(false)
+})
+
+test('Open as Hex in the menu of the tree shows any file as its bytes, beside the file in its own kind, and the tab comes back at the next start', async () => {
+  const page = await launch(work)
+  await item(page, 'report.docx').dblclick()
+  await expect(frameOf(page, 'report.docx').getByText('Harbor report')).toBeVisible()
+  await item(page, 'report.docx').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Open as Hex' }).click()
+  const hex = page.getByRole('grid', { name: 'Hexadecimal view of report.docx' })
+  await expect(hex).toBeVisible()
+  await expect(hex.getByRole('row').first()).toContainText('504b0304')
+  await expect(page.getByRole('tab', { name: /^Hex: report\.docx/ })).toBeVisible()
+  await expect(page.getByRole('tab', { name: /^report\.docx/ })).toBeVisible()
+  await app!.close()
+  app = undefined
+  const again = await launch()
+  await expect(again.getByRole('tab', { name: /^Hex: report\.docx/ })).toBeVisible()
+  await again.getByRole('tab', { name: /^Hex: report\.docx/ }).click()
+  await expect(again.getByRole('grid', { name: 'Hexadecimal view of report.docx' })).toBeVisible()
 })
 
 test('the frame of a document is cut off: it has no network, no way into the window, and the page of the interface cannot be reached from it', async () => {

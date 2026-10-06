@@ -1,7 +1,7 @@
 import type { DirEntry, RootInfo } from '@core/api.ts'
 
 /** What a row of the tree can offer. The menu of each kind of row is a list of these (and separators); the tree gives each its label and what it does. */
-export type TreeAction = 'play' | 'restore' | 'addFavorite' | 'toggle' | 'refresh' | 'open' | 'openAsList' | 'openSnapshot' | 'openAsZip' | 'openWith' | 'openDefault' | 'save' | 'reveal' | 'copyPath' | 'copyName' | 'properties'
+export type TreeAction = 'play' | 'restore' | 'addFavorite' | 'toggle' | 'refresh' | 'open' | 'openAsList' | 'openSnapshot' | 'openAsZip' | 'openAsHex' | 'openWith' | 'openDefault' | 'save' | 'reveal' | 'copyPath' | 'copyName' | 'properties'
 export type TreeMenuItem = TreeAction | 'separator'
 
 /**
@@ -12,7 +12,7 @@ export type TreeMenuItem = TreeAction | 'separator'
 export function treeMenuFor(entry: Pick<DirEntry, 'kind'>, context: { /** The folder can be pinned to the favourites: a folder of the disk. */ canPin?: boolean; /** A top-level row of the trash: it can be put back. */ trashItem?: boolean; /** The file is a video or a sound: it is played. */ media?: boolean } = {}): TreeMenuItem[] {
   const restore: TreeMenuItem[] = context.trashItem ? ['restore', 'separator'] : []
   const where: TreeMenuItem[] = ['reveal', 'copyPath', 'copyName', 'separator', 'properties']
-  const application: TreeMenuItem[] = ['openWith', 'openDefault', 'save', 'separator']
+  const application: TreeMenuItem[] = ['openAsHex', 'openWith', 'openDefault', 'save', 'separator']
   switch (entry.kind) {
     case 'dir':
       return [...restore, 'toggle', 'refresh', ...(context.canPin ? (['addFavorite'] as const) : []), 'separator', ...where]

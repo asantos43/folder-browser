@@ -326,3 +326,23 @@ describe('a snapshot is a page in a tab, never what the side bar shows', () => {
     expect(ws.selected).toBe('r2')
   })
 })
+
+describe('a file shown as its bytes', () => {
+  const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const run = (...actions: Action[]) => actions.reduce(reduce, empty)
+  it('has a tab of its own, so the file can be open both ways', () => {
+    const ws = run({ type: 'root-opened', root }, { type: 'open-file', snapshotId: 'r1', path: 'a.docx', keep: true, size: 9 }, { type: 'open-file', snapshotId: 'r1', path: 'a.docx', keep: true, size: 9, as: 'hex' })
+    expect(ws.tabs.map((t) => [t.key, t.as])).toEqual([['f:r1:a.docx', undefined], ['x:r1:a.docx', 'hex']])
+    expect(ws.active).toBe('x:r1:a.docx')
+  })
+  it('opened again, brings its tab to the front and does not open another', () => {
+    let ws = run({ type: 'root-opened', root }, { type: 'open-file', snapshotId: 'r1', path: 'a.bin', keep: true, as: 'hex' }, { type: 'open-file', snapshotId: 'r1', path: 'b.txt', keep: true })
+    ws = reduce(ws, { type: 'open-file', snapshotId: 'r1', path: 'a.bin', keep: true, as: 'hex' })
+    expect(ws.tabs).toHaveLength(2)
+    expect(ws.active).toBe('x:r1:a.bin')
+  })
+  it('follows the side bar to its root, as any file of a root does', () => {
+    const ws = run({ type: 'root-opened', root }, { type: 'open-file', snapshotId: 'r1', path: 'a.bin', keep: true, as: 'hex' })
+    expect(ws.selected).toBe('r1')
+  })
+})

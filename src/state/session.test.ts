@@ -29,6 +29,15 @@ describe('session', () => {
     expect(JSON.stringify(session)).not.toContain('contents')
   })
 
+  it('remembers that a file was shown as its bytes, and brings it back as that tab', () => {
+    const ws = run({ type: 'snapshot-opened', snapshot: a }, { type: 'open-file', snapshotId: 'a', path: 'assets/files/x.bin', keep: true, size: 5, as: 'hex' })
+    const session = sessionOf(ws)
+    expect(session.tabs.at(-1)).toMatchObject({ kind: 'file', file: 'assets/files/x.bin', as: 'hex' })
+    expect(isSession(session)).toBe(true)
+    expect(keyOfEntry(session.tabs.at(-1)!, 'q')).toBe('x:q:assets/files/x.bin')
+    expect(isSession({ ...session, tabs: [{ snapshot: 's', kind: 'file', file: 'f', as: 'other' }] })).toBe(false)
+  })
+
   it('has nothing to remember when nothing is open', () => {
     expect(sessionOf(empty)).toEqual({ roots: [], tabs: [], active: -1 })
   })

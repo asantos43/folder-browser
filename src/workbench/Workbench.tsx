@@ -153,7 +153,7 @@ export function Workbench() {
         if (!opened) return
         const id = 'root' in opened ? opened.root.id : opened.snapshot.id
         show(entry.snapshot, opened)
-        if (entry.kind === 'file') dispatch({ type: 'open-file', snapshotId: id, path: entry.file!, keep: true, ...(entry.size === undefined ? {} : { size: entry.size }) })
+        if (entry.kind === 'file') dispatch({ type: 'open-file', snapshotId: id, path: entry.file!, keep: true, ...(entry.size === undefined ? {} : { size: entry.size }), ...(entry.as ? { as: entry.as } : {}) })
         else if (entry.kind === 'metadata') dispatch({ type: 'open-metadata', snapshotId: id })
         if (i === session.active) activeKey = keyOfEntry(entry, id)
       })
@@ -540,7 +540,7 @@ export function Workbench() {
     () => ({
       openFolder: () => run('openFolder'),
       listDir: (id: string, path: string) => api!.listDir(id, path),
-      openRootFile: (id: string, entry: { path: string; size: number }, keep: boolean) => dispatch({ type: 'open-file', snapshotId: id, path: entry.path, keep, size: entry.size }),
+      openRootFile: (id: string, entry: { path: string; size: number }, keep: boolean, as?: 'hex') => dispatch({ type: 'open-file', snapshotId: id, path: entry.path, keep, size: entry.size, ...(as ? { as } : {}) }),
       reveal: (id: string, path: string) => void api?.reveal(id, path),
       closeRoot: (id: string) => dispatch({ type: 'root-closed', id }),
       openDefault: (id: string, path: string) => void api?.openDefault(id, path).then((result) => reportOpenWith(basename(path), result)),
