@@ -104,7 +104,7 @@ export function Workbench() {
   const refreshPlaces = useCallback(() => void api?.places.list().then(setPlacesData), [api])
   useEffect(refreshPlaces, [refreshPlaces])
   const handleResults = useCallback(
-    (results: OpenResult[], options?: { preview?: boolean }) => {
+    (results: OpenResult[], options?: { preview?: boolean; asFile?: boolean }) => {
       for (const result of results) {
         if (!result.ok) notify(refusalNotice(t, result))
         else if ('root' in result) {
@@ -112,7 +112,7 @@ export function Workbench() {
           dispatch({ type: 'root-opened', root: result.root })
           if (result.open) dispatch({ type: 'open-file', snapshotId: result.root.id, path: result.open.path, keep: true, size: result.open.size })
         } else {
-          dispatch({ type: 'snapshot-opened', snapshot: result.snapshot, ...(options?.preview ? { preview: true } : {}) })
+          dispatch({ type: 'snapshot-opened', snapshot: result.snapshot, ...(options?.preview ? { preview: true } : {}), ...(options?.asFile ? { asFile: true } : {}) })
           if (!result.already) void api?.verify(result.snapshot.id)
         }
       }
@@ -132,12 +132,13 @@ export function Workbench() {
       const byPath = new Map<string, Extract<OpenResult, { ok: true }>>()
       results.forEach((result, i) => (result.ok ? byPath.set(paths[i], result) : notify(refusalNotice(t, result))))
       const shown = new Set<string>()
+      const viewedAsFile = new Set(session.tabs.filter((tab) => tab.kind === 'page' && tab.asFile).map((tab) => tab.snapshot))
       const show = (path: string, opened: Extract<OpenResult, { ok: true }>) => {
         if (shown.has(path)) return
         shown.add(path)
         if ('root' in opened) dispatch({ type: 'root-opened', root: opened.root })
         else {
-          dispatch({ type: 'snapshot-opened', snapshot: opened.snapshot })
+          dispatch({ type: 'snapshot-opened', snapshot: opened.snapshot, ...(viewedAsFile.has(path) ? { asFile: true } : {}) })
           if (!opened.already) void api.verify(opened.snapshot.id)
         }
       }
@@ -559,8 +560,9 @@ export function Workbench() {
           setTreeVersion((n) => n + 1)
         }),
       emptyTrash: (id: string) => setEmptying(id),
-      // A click only previews the snapshot, as it would a picture; a double click opens it for good.
-      openSnapshot: (id: string, path: string, keep: boolean) => void api?.openInRoot(id, path).then((results) => handleResults(results, { preview: !keep })),
+      // A `.wsnp` of a folder is a file like the others: a click shows its page in a preview tab, as a picture is, and a double click keeps it in a tab of its own. It is not an open
+      // snapshot: no list of them, no side bar for it.
+      openSnapshot: (id: string, path: string, keep: boolean) => void api?.openInRoot(id, path).then((results) => handleResults(results, { preview: !keep, asFile: true })),
       openTreeFile: (snapshotId: string, path: string, keep: boolean) => dispatch({ type: 'open-file', snapshotId, path, keep }),
       saveFile,
       openWith,

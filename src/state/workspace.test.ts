@@ -265,76 +265,80 @@ describe('roots (folders and ZIP files opened to browse)', () => {
   })
 })
 
-describe('the preview of a snapshot (a click on a .wsnp of a folder)', () => {
+describe('the page of a .wsnp viewed as a file of a folder (a click or a double click in the tree)', () => {
   const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
   const base = (): Workspace => run([{ type: 'root-opened', root }])
-  const preview = (id: string): Action => ({ type: 'snapshot-opened', snapshot: snap(id), preview: true })
+  const view = (id: string, keep = false): Action => ({ type: 'snapshot-opened', snapshot: snap(id), asFile: true, ...(keep ? {} : { preview: true }) })
 
-  it('opens a tab in italics and leaves the side bar on the folder', () => {
-    const ws = run([preview('a')], base())
-    expect(ws.tabs).toMatchObject([{ key: 's:a', snapshotId: 'a', preview: true }])
+  it('a click opens a tab in italics, and the side bar stays on the folder', () => {
+    const ws = run([view('a')], base())
+    expect(ws.tabs).toMatchObject([{ key: 's:a', snapshotId: 'a', preview: true, asFile: true }])
     expect(ws.active).toBe('s:a')
     expect(ws.selected).toBe('r1')
     expect(Object.keys(ws.snapshots)).toEqual(['a'])
   })
   it('is replaced by the next preview, a file or another snapshot, and the snapshot it was is closed', () => {
-    let ws = run([preview('a')], base())
-    ws = reduce(ws, file('r1', 'notes.txt'))
+    let ws = reduce(run([view('a')], base()), file('r1', 'notes.txt'))
     expect(ws.tabs.map((t) => t.key)).toEqual(['f:r1:notes.txt'])
     expect(Object.keys(ws.snapshots)).toEqual([])
-    expect(released(run([preview('a')], base()), ws)).toEqual(['a'])
-    ws = run([preview('a'), preview('b')], base())
+    expect(released(run([view('a')], base()), ws)).toEqual(['a'])
+    ws = run([view('a'), view('b')], base())
     expect(ws.tabs.map((t) => t.key)).toEqual(['s:b'])
     expect(Object.keys(ws.snapshots)).toEqual(['b'])
     expect(ws.selected).toBe('r1')
   })
-  it('is opened for good by a double click: the tab is kept and the side bar goes to the snapshot', () => {
-    const ws = run([preview('a'), { type: 'snapshot-opened', snapshot: snap('a') }], base())
-    expect(ws.tabs).toMatchObject([{ key: 's:a', preview: false }])
-    expect(ws.selected).toBe('a')
+  it('a double click keeps the tab (another tab, not a preview any more) and the side bar still stays on the folder', () => {
+    const ws = run([view('a'), view('a', true)], base())
+    expect(ws.tabs).toMatchObject([{ key: 's:a', preview: false, asFile: true }])
+    expect(ws.selected).toBe('r1')
     // Whatever order the answers of the main process come in, a preview never takes it back.
-    const again = reduce(ws, preview('a'))
+    const again = reduce(ws, view('a'))
     expect(again.tabs).toMatchObject([{ key: 's:a', preview: false }])
-    expect(again.selected).toBe('a')
+    expect(again.selected).toBe('r1')
+    expect(run([view('a', true), view('a')], base()).tabs).toMatchObject([{ key: 's:a', preview: false }])
   })
-  it('is opened for good at once when it is not there yet (a double click that is answered before its click)', () => {
-    const ws = run([{ type: 'snapshot-opened', snapshot: snap('a') }, preview('a')], base())
-    expect(ws.tabs).toMatchObject([{ key: 's:a', preview: false }])
-    expect(ws.selected).toBe('a')
-  })
-  it('does not take the side bar when its tab is brought to the front, but a kept one does', () => {
-    let ws = run([preview('a'), file('r1', 'x.txt', true)], base())
+  it('is listed nowhere and followed by no side bar, whatever is done with its tab', () => {
+    let ws = run([view('a', true), file('r1', 'x.txt', true)], base())
     ws = reduce(ws, { type: 'activate', key: 's:a' })
     expect(ws.selected).toBe('r1')
     ws = reduce(ws, { type: 'keep', key: 's:a' })
-    expect(ws.selected).toBe('a')
-    expect(ws.tabs.find((t) => t.key === 's:a')?.preview).toBe(false)
-  })
-  it('is closed with its snapshot by its own close button', () => {
-    const ws = reduce(run([preview('a')], base()), { type: 'close', key: 's:a' })
-    expect(ws.tabs).toEqual([])
-    expect(ws.snapshots).toEqual({})
     expect(ws.selected).toBe('r1')
-  })
-  it('does not replace a kept tab', () => {
-    const ws = run([file('r1', 'kept.txt', true), preview('a')], base())
-    expect(ws.tabs.map((t) => [t.key, t.preview])).toEqual([['f:r1:kept.txt', false], ['s:a', true]])
-  })
-
-  it('shows one that is open for good when it is previewed again, and leaves the side bar on the folder', () => {
-    let ws = run([{ type: 'snapshot-opened', snapshot: snap('a') }, { type: 'snapshot-opened', snapshot: snap('b') }, { type: 'select', snapshotId: 'r1' }], base())
-    expect(ws.selected).toBe('r1')
-    ws = reduce(ws, preview('a'))
+    ws = reduce(ws, { type: 'close', key: 'f:r1:x.txt' })
     expect(ws.active).toBe('s:a')
     expect(ws.selected).toBe('r1')
-    expect(ws.tabs.find((t) => t.key === 's:a')?.preview).toBe(false)
+  })
+  it('is closed with its snapshot by its own close button, and does not replace a kept tab', () => {
+    const closed = reduce(run([view('a')], base()), { type: 'close', key: 's:a' })
+    expect(closed.tabs).toEqual([])
+    expect(closed.snapshots).toEqual({})
+    const ws = run([file('r1', 'kept.txt', true), view('a')], base())
+    expect(ws.tabs.map((t) => [t.key, t.preview])).toEqual([['f:r1:kept.txt', false], ['s:a', true]])
+  })
+  it('shows one that was opened for itself, when it is viewed in the folder, and leaves the side bar where it is', () => {
+    let ws = run([{ type: 'snapshot-opened', snapshot: snap('a') }, { type: 'snapshot-opened', snapshot: snap('b') }, { type: 'select', snapshotId: 'r1' }], base())
+    expect(ws.selected).toBe('r1')
+    ws = reduce(ws, view('a'))
+    expect(ws.active).toBe('s:a')
+    expect(ws.selected).toBe('r1')
+    expect(ws.tabs.find((t) => t.key === 's:a')).toMatchObject({ preview: false })
+    expect(ws.tabs.find((t) => t.key === 's:a')?.asFile).toBeUndefined()
     expect(ws.tabs).toHaveLength(2)
   })
-  it('goes to the files of the snapshot only when it is chosen in the list of open snapshots, or opened for good again', () => {
+  it('becomes an open snapshot (listed, with the side bar on its files) when it is opened for itself', () => {
+    const ws = run([view('a', true), { type: 'select', snapshotId: 'r1' }, { type: 'snapshot-opened', snapshot: snap('a') }], base())
+    expect(ws.tabs[0].asFile).toBeUndefined()
+    expect(ws.selected).toBe('a')
+  })
+  it('an open snapshot is chosen in the list of them, and that is what takes the side bar to it', () => {
     let ws = run([{ type: 'snapshot-opened', snapshot: snap('a') }, { type: 'select', snapshotId: 'r1' }], base())
     ws = reduce(ws, { type: 'activate', key: 's:a' })
     expect(ws.selected).toBe('a')
-    ws = run([{ type: 'select', snapshotId: 'r1' }, { type: 'snapshot-opened', snapshot: snap('a') }], ws)
-    expect(ws.selected).toBe('a')
+  })
+  it('its metadata and its files do not take the side bar either', () => {
+    let ws = run([view('a', true), { type: 'open-metadata', snapshotId: 'a' }], base())
+    expect(ws.active).toBe('m:a')
+    expect(ws.selected).toBe('r1')
+    ws = reduce(ws, { type: 'open-file', snapshotId: 'a', path: 'manifest.json', keep: true })
+    expect(ws.selected).toBe('r1')
   })
 })

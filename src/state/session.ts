@@ -10,6 +10,8 @@ export interface SessionTab {
   /** The size of a file that is an entry of a ZIP (the manifest does not list it). */
   size?: number
   pinned?: boolean
+  /** The page of a snapshot viewed as a file of a folder, not an open snapshot. */
+  asFile?: boolean
 }
 
 export interface Session {
@@ -32,7 +34,7 @@ export function sessionOf(ws: Workspace): Session {
     if (tab.key === ws.active) active = tabs.length
     if (tab.view === 'metadata') tabs.push({ snapshot, kind: 'metadata' })
     else if (tab.path !== undefined) tabs.push({ snapshot, kind: 'file', file: tab.path, ...(tab.size === undefined ? {} : { size: tab.size }), ...(tab.pinned ? { pinned: true } : {}) })
-    else if (isSnapshotTab(tab)) tabs.push({ snapshot, kind: 'page', ...(tab.pinned ? { pinned: true } : {}) })
+    else if (isSnapshotTab(tab)) tabs.push({ snapshot, kind: 'page', ...(tab.pinned ? { pinned: true } : {}), ...(tab.asFile ? { asFile: true } : {}) })
   }
   return { roots: Object.values(ws.roots).map((r) => r.path).slice(0, MAX_TABS), tabs, active }
 }

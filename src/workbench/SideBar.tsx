@@ -84,8 +84,8 @@ export interface SideBarActions {
 /** The side bar of the Snapshots view: the open snapshots, the files of the selected one, what its manifest says and what its integrity check found. */
 export function SideBar({ ws, dispatch, actions, signers, places, treeVersion }: { /** The places of the side bar, once the main process has listed them. */ places: PlacesData | null; /** Changes when something outside the tree changed what it lists (the trash was emptied). */ treeVersion: number; ws: Workspace; dispatch: (a: Action) => void; actions: SideBarActions; signers: Signers }) {
   const { t } = useI18n()
-  // (A snapshot that is only previewed is not listed: it is not what the side bar is about, until it is opened for good.)
-  const ids = ws.tabs.filter((tab) => isSnapshotTab(tab) && !tab.preview).map((tab) => tab.snapshotId)
+  // (The page of a `.wsnp` viewed as a file of a folder is not an open snapshot: it is not listed.)
+  const ids = ws.tabs.filter((tab) => isSnapshotTab(tab) && !tab.asFile).map((tab) => tab.snapshotId)
   const selected = ws.selected ? ws.snapshots[ws.selected] : undefined
   const root = ws.selected ? ws.roots[ws.selected] : undefined
   const hidden = showHidden.use()

@@ -17,6 +17,8 @@ export interface Tab {
   size?: number
   /** A view of the snapshot that is not a file of it: its metadata. */
   view?: 'metadata' | 'settings'
+  /** The page of a snapshot viewed as a file of a folder (a click or a double click on a `.wsnp` in the tree): not an opened snapshot, so it is not listed under Open Snapshots and never takes the side bar. */
+  asFile?: boolean
   /** Shown in italics and replaced by the next single click, until it is kept (double click, or a tab of the snapshot itself). */
   preview: boolean
   pinned: boolean
@@ -61,8 +63,11 @@ export const isHeldBack = (ws: Workspace, id: string): boolean => invalidProblem
 export const fileKey = (id: string, path: string) => `f:${id}:${path}`
 
 export type Action =
-  /** `preview`: shown as a file is on a single click (italic tab, the side bar stays where it is, replaced by the next preview); without it the snapshot is opened for good and becomes what the side bar shows. */
-  | { type: 'snapshot-opened'; snapshot: SnapshotInfo; preview?: boolean }
+  /**
+   * `asFile`: the page of the snapshot viewed as a file of a folder: no list of open snapshots, no side bar for it. `preview`: shown as a file is on a single click (an italic tab,
+   * replaced by the next preview). Neither: a snapshot opened for itself (File ▸ Open File, a drop, the command line), listed and with its files in the side bar.
+   */
+  | { type: 'snapshot-opened'; snapshot: SnapshotInfo; preview?: boolean; asFile?: boolean }
   | { type: 'root-opened'; root: RootInfo }
   | { type: 'root-closed'; id: string }
   | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number }
@@ -85,14 +90,14 @@ export type Action =
 /** Pinned tabs come first, in the order they have; the rest keep theirs. */
 const arranged = (tabs: Tab[]): Tab[] => [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)]
 
-/** The page of a snapshot that is only being previewed: it is not what the side bar shows, so coming to its tab does not change the side bar. */
-const isPreviewedSnapshot = (tab: Tab | undefined): boolean => tab !== undefined && isSnapshotTab(tab) && tab.preview
+/** The snapshot is only viewed as a file of a folder (its page is a tab with `asFile`): neither it nor its metadata nor its files are what the side bar shows, so coming to their tabs does not change it. */
+const isViewedAsFile = (ws: Pick<Workspace, 'tabs'>, snapshotId: string | undefined): boolean => snapshotId !== undefined && ws.tabs.some((t) => t.snapshotId === snapshotId && isSnapshotTab(t) && t.asFile === true)
 
 /** `follow` false: the tab comes to the front but the side bar stays on what it shows (a click on a file of the tree is not a choice of what the side bar is about). */
 function withActive(ws: Workspace, key: string | null, touch = true, follow = true): Workspace {
   if (key === null) return { ...ws, active: null }
   const tab = ws.tabs.find((t) => t.key === key)
-  const follows = follow && tab?.snapshotId && !isPreviewedSnapshot(tab)
+  const follows = follow && tab?.snapshotId && !isViewedAsFile(ws, tab.snapshotId)
   return { ...ws, active: key, selected: follows ? tab!.snapshotId : ws.selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
 }
 
@@ -119,7 +124,7 @@ function without(ws: Workspace, keys: Set<string>): Workspace {
   }
   const next = { ...ws, tabs, snapshots, integrity, shownAnyway, recent }
   const activeTab = active ? tabs.find((t) => t.key === active) : undefined
-  const selected = isPreviewedSnapshot(activeTab) ? undefined : activeTab?.snapshotId
+  const selected = isViewedAsFile({ tabs }, activeTab?.snapshotId) ? undefined : activeTab?.snapshotId
   const exists = (id: string | null): id is string => id !== null && Boolean(snapshots[id] || ws.roots[id])
   return { ...next, active, selected: selected || (exists(ws.selected) ? ws.selected : (Object.keys(snapshots)[0] ?? Object.keys(ws.roots)[0] ?? null)) }
 }
@@ -132,13 +137,13 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const snapshots = { ...ws.snapshots, [id]: action.snapshot }
       const existing = ws.tabs.find((t) => t.key === key)
       if (existing) {
-        // Opened for good what was only previewed (a double click): it is kept and the side bar goes to it. A preview of what is open already changes nothing.
-        const tabs = existing.preview && !action.preview ? ws.tabs.map((t) => (t.key === key ? { ...t, preview: false } : t)) : ws.tabs
-        // A mere preview (a click on its file in the tree) of one that is open already brings its tab to the front and leaves the side bar on the folder: only the list of
-        // open snapshots, or opening it for good, takes the side bar to a snapshot.
-        return withActive({ ...ws, snapshots, tabs }, key, true, action.preview !== true)
+        // A double click keeps what was only previewed. A page viewed as a file leaves the side bar where it is, even when the snapshot is open for itself already.
+        // (Opened for itself what was only viewed as a file of a folder, by File ▸ Open File for example: it becomes an open snapshot, listed, with the side bar on its files.)
+        const becomes = existing.asFile === true && action.asFile !== true
+        const tabs = (existing.preview && !action.preview) || becomes ? ws.tabs.map((t) => (t.key === key ? { ...t, preview: existing.preview && !action.preview ? false : t.preview, ...(becomes ? { asFile: undefined } : {}) } : t)) : ws.tabs
+        return withActive({ ...ws, snapshots, tabs }, key, true, action.asFile !== true)
       }
-      const tab: Tab = { key, snapshotId: id, preview: action.preview === true, pinned: false }
+      const tab: Tab = { key, snapshotId: id, preview: action.preview === true, pinned: false, ...(action.asFile ? { asFile: true } : {}) }
       if (!tab.preview) return withActive({ ...ws, snapshots, tabs: arranged([...ws.tabs, tab]) }, key)
       // A preview takes the place of the one before it, and that one (a snapshot too, perhaps) is closed.
       const old = ws.tabs.findIndex((t) => t.preview && !t.pinned)
@@ -203,9 +208,9 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       return ws.tabs.some((t) => t.key === action.key) ? withActive(ws, action.key, !action.transient) : ws
     case 'keep': {
       const kept = { ...ws, tabs: ws.tabs.map((t) => (t.key === action.key && t.preview ? { ...t, preview: false } : t)) }
-      // A snapshot that was previewed is now opened for good: the side bar goes to it.
+      // A snapshot that was previewed as a snapshot (not as a file) is opened for good: the side bar goes to it.
       const tab = kept.tabs.find((t) => t.key === action.key)
-      return tab && isSnapshotTab(tab) && ws.active === tab.key ? { ...kept, selected: tab.snapshotId } : kept
+      return tab && isSnapshotTab(tab) && !tab.asFile && ws.active === tab.key ? { ...kept, selected: tab.snapshotId } : kept
     }
     case 'touch':
       return ws.active ? withActive(ws, ws.active) : ws
