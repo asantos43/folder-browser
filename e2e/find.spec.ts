@@ -175,6 +175,8 @@ test.describe('Copy', () => {
     test.skip(process.platform === 'darwin', 'macOS has the native menu')
     const page = await launch()
     await openFile(page, ['assets', 'files'], 'notes.md')
+    // Markdown opens formatted; its source is the other button of the toolbar.
+    await page.getByRole('button', { name: 'Show the Markdown as text' }).click()
     await expect(page.locator('.cm-content')).toContainText('# Notes')
     await page.locator('.cm-line').first().click({ clickCount: 3 })
     await app!.evaluate(({ clipboard }) => clipboard.writeText('before'))

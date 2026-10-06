@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 It was **started from `~/Dev/AI/projetos/github/wsnp-viewer` 0.1.0** (a copy, not a fork: the history is not shared). The plan is in `TODO.md`; the design in `docs/ARCHITECTURE.md`. Releases: `.exe`, universal `.dmg`, `.deb`, `.rpm` (electron-builder; no AppImage).
 
-**Status:** phase 0 (scaffold) is done and phase 1 (browse a folder or a ZIP, hidden files) is done on branch `phase-1-browse`; the `.wsnp` in the tree (1b), Places (1d), media (1e), the context menu by kind (1c), file operations, the editor, the diff and ZIP editing are not written yet. Read `TODO.md` for what is next. Five end-to-end specs fail the same way in wsnp-viewer 0.1.0 (`find` Copy of a source file, `pdf` Save as PDF, three in `source`: they look for Markdown in the code editor and for a `JSON` that is on screen twice); they are inherited, not new.
+**Status:** phase 0 (scaffold) is done and phase 1 (browse a folder or a ZIP, hidden files) is done on branch `phase-1-browse`; the `.wsnp` in the tree (1b), Places (1d), media (1e), the context menu by kind (1c), file operations, the editor, the diff and ZIP editing are not written yet. Read `TODO.md` for what is next.
 
 ## Workflow
 

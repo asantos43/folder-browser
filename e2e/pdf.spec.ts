@@ -84,6 +84,8 @@ test.describe('Save as PDF', () => {
     expect(await suggested()).toBe('page.pdf')
 
     await openFile(page, ['assets', 'files'], 'notes.md')
+    // Markdown opens formatted; its source is the other button of the toolbar.
+    await page.getByRole('button', { name: 'Show the Markdown as text' }).click()
     await expect(page.locator('.cm-content')).toContainText('# Notes')
     const text = path.join(dir, 'text.pdf')
     await answerSave(text)

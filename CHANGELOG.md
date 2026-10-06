@@ -22,6 +22,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 - `core/fs/guard.ts` (`resolveInside`): a path that leaves a root by `..`, an absolute path, a drive, a backslash, a NUL or a symbolic link is refused; the interface never sends an absolute path (`docs/ARCHITECTURE.md`, "Safety rules").
 - The desktop file of the Linux packages also lists `application/zip` and `inode/directory`.
 
+### Fixed
+
+- Five end-to-end specs inherited from WSNP Viewer that had gone stale (the language of a file is named twice on screen, and Markdown opens formatted); the same fix is in wsnp-viewer (branch `fix-stale-e2e-specs`). No change to the application.
+
 ### Changed
 
 - A ZIP that is not a PageKeep ZIP opens to be browsed, instead of being refused as a `.wsnp`. The side bar is called **Explorer**.
