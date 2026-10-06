@@ -56,3 +56,7 @@ export const sortKey = createSetting<SortKey>('sortKey', 'name', (v): v is SortK
 export const sortDescending = createSetting('sortDescending', false, isBoolean)
 /** Source files that a formatter can lay out again (HTML, CSS, JavaScript, JSON, XML) are shown formatted. On by default: a saved page is usually minified. */
 export const formatSource = createSetting('formatSource', true, isBoolean)
+/** Two files compared are shown next to each other or in one column: the last choice is kept (side by side at first). */
+export const diffLayout = createSetting<'side' | 'inline'>('diffLayout', 'side', (v): v is 'side' | 'inline' => v === 'side' || v === 'inline')
+/** The long stretches of lines that are the same in a comparison are folded (the lines around a change stay). On by default. */
+export const diffCollapse = createSetting('diffCollapse', true, isBoolean)

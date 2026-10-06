@@ -24,7 +24,7 @@ Brasil, conforme o idioma do sistema. [English](README.md).
 | **Documentos** | Arquivos do Word, PowerPoint, LibreOffice e Excel (`.docx`, `.pptx`, `.odt`, `.ods`, `.odp`, `.xlsx`, `.xls`…) são desenhados numa aba, num quadro sem rede; CSV e TSV abrem como tabela que você pode ordenar, filtrar, buscar, consultar em SQL (`SELECT`, executado pelo SQLite num worker) e **editar célula a célula**. |
 | **Hex** | Programas, bibliotecas e qualquer arquivo de bytes (`.exe`, `.dll`, `.so`, `.bin`, `.iso`…) abrem como posição, hexadecimal e texto, com seleção, cópia, Ir para a posição e Localizar bytes ou texto; o cabeçalho diz o que o arquivo é (ELF, PE, Mach-O, ZIP…) sem executá-lo. **Editar** muda os bytes (dígitos hex ou texto, Insert, Delete, desfazer) e salva como o texto. |
 | **Tocar** | Vídeos e sons tocam numa aba (mp4, webm, mp3, flac, wav…), com busca, volume, velocidade e Próximo/Anterior na pasta, também de dentro de um ZIP. |
-| **Comparar** | Escolha dois arquivos de texto (disco ou ZIP) e veja o **diff**, lado a lado ou unificado. |
+| **Comparar** | **Selecionar para comparar** e **Comparar com o selecionado**, no menu da árvore, põem dois arquivos de texto (disco ou ZIP) numa aba de **diff**, lado a lado ou em uma coluna, com cores de sintaxe, as alterações contadas e F7 para percorrê-las. |
 | **Botão direito** | Um menu por tipo de arquivo (texto, imagem, PDF, ZIP, `.wsnp`, pasta) e **Abrir com…** em todo arquivo, com os aplicativos instalados no computador. |
 | **WSNP** | Arquivos `.wsnp` abrem como snapshots, isolados, verificados (SHA-256, assinatura) e sem rede, como no WSNP Viewer. São somente leitura. |
 

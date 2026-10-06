@@ -1,6 +1,6 @@
 import type { SnapshotInfo } from '@core/snapshots.ts'
 import { describe, expect, it } from 'vitest'
-import { empty, fileKey, invalidProblems, isHeldBack, isSnapshotTab, isUnder, metadataKey, reduce, released, remapPath, snapshotKey, type Action, type Workspace } from './workspace.ts'
+import { diffKey, empty, fileKey, invalidProblems, isHeldBack, isSnapshotTab, isUnder, metadataKey, reduce, released, remapPath, snapshotKey, type Action, type Workspace } from './workspace.ts'
 
 const snap = (id: string, signature: SnapshotInfo['signature'] = { state: 'unsigned' }): SnapshotInfo => ({ id, path: `/${id}.wsnp`, manifest: { title: id } as SnapshotInfo['manifest'], files: [], signature })
 const run = (actions: Action[], from: Workspace = empty): Workspace => actions.reduce(reduce, from)
@@ -419,5 +419,47 @@ describe('tabs with changes not saved', () => {
     expect(ws.dirty).toEqual({ 'f:r1:papers/b.txt': true })
     ws = reduce(ws, { type: 'path-removed', rootId: 'r1', path: 'papers' })
     expect(ws.dirty).toEqual({})
+  })
+})
+
+describe('two files compared', () => {
+  const r1 = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const r2 = { id: 'r2', kind: 'zip' as const, path: '/home/me/backup.zip', name: 'backup.zip' }
+  const left = { rootId: 'r1', path: 'a.txt' }
+  const right = { rootId: 'r2', path: 'docs/a.txt' }
+  const base = () => run([{ type: 'root-opened', root: r1 }, { type: 'root-opened', root: r2 }, file('r1', 'a.txt', true)])
+  const opened = () => reduce(base(), { type: 'open-diff', left, right })
+
+  it('opens one kept tab for the pair, beside the active tab, and shows it again instead of opening a second', () => {
+    const ws = opened()
+    expect(keys(ws)).toEqual(['f:r1:a.txt', diffKey(left, right)])
+    expect(ws.active).toBe(diffKey(left, right))
+    expect(ws.tabs[1]).toMatchObject({ view: 'diff', snapshotId: 'r1', preview: false, diff: { left, right } })
+    expect(isSnapshotTab(ws.tabs[1])).toBe(false)
+    const again = reduce(reduce(ws, { type: 'activate', key: 'f:r1:a.txt' }), { type: 'open-diff', left, right })
+    expect(again.tabs).toHaveLength(2)
+    expect(again.active).toBe(diffKey(left, right))
+    // The other way round is another comparison.
+    expect(reduce(ws, { type: 'open-diff', left: right, right: left }).tabs).toHaveLength(3)
+  })
+  it('is not opened for a root that is not open', () => {
+    const ws = base()
+    expect(reduce(ws, { type: 'open-diff', left, right: { rootId: 'nope', path: 'x' } })).toBe(ws)
+  })
+  it('follows a side that is renamed or moved, and closes when a side is deleted', () => {
+    const renamed = reduce(opened(), { type: 'path-changed', rootId: 'r1', from: 'a.txt', to: 'b.txt' })
+    const key = diffKey({ rootId: 'r1', path: 'b.txt' }, right)
+    expect(keys(renamed)).toEqual(['f:r1:b.txt', key])
+    expect(renamed.tabs[1].diff).toEqual({ left: { rootId: 'r1', path: 'b.txt' }, right })
+    expect(renamed.active).toBe(key)
+    expect(renamed.recent).toContain(key)
+    // A path that is the same in another root is not the one that moved.
+    expect(keys(reduce(opened(), { type: 'path-changed', rootId: 'r2', from: 'a.txt', to: 'c.txt' }))).toEqual(['f:r1:a.txt', diffKey(left, right)])
+    expect(keys(reduce(opened(), { type: 'path-removed', rootId: 'r2', path: 'docs' }))).toEqual(['f:r1:a.txt'])
+    expect(keys(reduce(opened(), { type: 'path-removed', rootId: 'r1', path: 'a.txt' }))).toEqual([])
+  })
+  it('closes when either root is closed', () => {
+    expect(keys(reduce(opened(), { type: 'root-closed', id: 'r2' }))).toEqual(['f:r1:a.txt'])
+    expect(keys(reduce(opened(), { type: 'root-closed', id: 'r1' }))).toEqual([])
   })
 })

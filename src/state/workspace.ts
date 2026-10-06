@@ -1,4 +1,5 @@
 import type { IntegrityEvent, RootInfo } from '@core/api.ts'
+import type { DiffSide } from '@core/diff.ts'
 import type { SnapshotInfo } from '@core/snapshots.ts'
 import type { IntegrityReport } from '@core/validate/index.ts'
 import type { Issue } from '@core/validate/issues.ts'
@@ -17,8 +18,10 @@ export interface Tab {
   size?: number
   /** How the file is shown when the user chose, whatever its kind: its bytes (hexadecimal). The same file can be open in a tab of its own kind and in one of these. */
   as?: 'hex'
-  /** A view of the snapshot that is not a file of it: its metadata. */
-  view?: 'metadata' | 'settings'
+  /** A view that is not a file: a snapshot's metadata, the settings, or two files compared (`diff`; `snapshotId` is the left side's root). */
+  view?: 'metadata' | 'settings' | 'diff'
+  /** The two files of a comparison: files of the folders and ZIP files that were opened, read-only. */
+  diff?: { left: DiffSide; right: DiffSide }
   /** Shown in italics and replaced by the next single click, until it is kept (double click, or a tab of the snapshot itself). */
   preview: boolean
   pinned: boolean
@@ -65,6 +68,8 @@ export const isHeldBack = (ws: Workspace, id: string): boolean => invalidProblem
 export const fileKey = (id: string, path: string) => `f:${id}:${path}`
 /** The tab of a file shown as its bytes: a key of its own, so that the file can be open both ways. */
 export const hexKey = (id: string, path: string) => `x:${id}:${path}`
+/** The tab of two files compared: one tab for the pair, in the order given. */
+export const diffKey = (left: DiffSide, right: DiffSide) => `d:${left.rootId}:${left.path}\0${right.rootId}:${right.path}`
 
 /** Whether `path` is `from` or something inside it (a folder, or a ZIP file and its entries: `from!/…`). */
 export const isUnder = (path: string, from: string): boolean => path === from || path.startsWith(`${from}/`) || path.startsWith(`${from}!/`)
@@ -72,8 +77,12 @@ export const isUnder = (path: string, from: string): boolean => path === from ||
 /** `path` after `from` became `to`; the same path when it was not under `from`. */
 export const remapPath = (path: string, from: string, to: string): string => (isUnder(path, from) ? to + path.slice(from.length) : path)
 
-/** The key of a tab of a file, by how it is shown. */
-const keyOfFileTab = (tab: Tab): string => (tab.as === 'hex' ? hexKey(tab.snapshotId, tab.path!) : fileKey(tab.snapshotId, tab.path!))
+/** The key of a tab of a file or of a comparison, by how it is shown. */
+const keyOfFileTab = (tab: Tab): string => (tab.diff ? diffKey(tab.diff.left, tab.diff.right) : tab.as === 'hex' ? hexKey(tab.snapshotId, tab.path!) : fileKey(tab.snapshotId, tab.path!))
+
+/** Whether the tab shows `path` of the root `rootId` or something in it: its file, or a side of its comparison. */
+const touches = (t: Tab, rootId: string, path: string): boolean =>
+  (t.snapshotId === rootId && t.path !== undefined && isUnder(t.path, path)) || (t.diff !== undefined && [t.diff.left, t.diff.right].some((side) => side.rootId === rootId && isUnder(side.path, path)))
 
 export type Action =
   /**
@@ -83,6 +92,8 @@ export type Action =
   | { type: 'snapshot-opened'; snapshot: SnapshotInfo; preview?: boolean }
   | { type: 'root-opened'; root: RootInfo }
   | { type: 'root-closed'; id: string }
+  /** Two files compared, in a tab of their own (kept, beside the active tab). */
+  | { type: 'open-diff'; left: DiffSide; right: DiffSide }
   | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number; /** Show the bytes (hexadecimal) instead of what the kind of the file gets. */ as?: 'hex' }
   /** An item of a folder was renamed or moved: the tabs of it (and of what is in it) follow it, keeping their place, their preview and their pin. */
   | { type: 'path-changed'; rootId: string; from: string; to: string }
@@ -175,7 +186,7 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       if (!ws.roots[action.id]) return ws
       const roots = { ...ws.roots }
       delete roots[action.id]
-      return without({ ...ws, roots }, new Set(ws.tabs.filter((t) => t.snapshotId === action.id).map((t) => t.key)))
+      return without({ ...ws, roots }, new Set(ws.tabs.filter((t) => t.snapshotId === action.id || t.diff?.right.rootId === action.id).map((t) => t.key)))
     }
     case 'open-file': {
       const key = action.as === 'hex' ? hexKey(action.snapshotId, action.path) : fileKey(action.snapshotId, action.path)
@@ -203,12 +214,13 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       return withActive({ ...ws, tabs, recent: ws.recent.filter((k) => k !== replaced) }, key)
     }
     case 'path-changed': {
-      const moved = (t: Tab) => t.snapshotId === action.rootId && t.path !== undefined && isUnder(t.path, action.from)
+      const moved = (t: Tab) => touches(t, action.rootId, action.from)
       if (!ws.tabs.some(moved)) return ws
       const keys = new Map<string, string>()
+      const follow = (side: DiffSide): DiffSide => (side.rootId === action.rootId ? { ...side, path: remapPath(side.path, action.from, action.to) } : side)
       let tabs = ws.tabs.map((t) => {
         if (!moved(t)) return t
-        const next = { ...t, path: remapPath(t.path!, action.from, action.to) }
+        const next: Tab = t.diff ? { ...t, diff: { left: follow(t.diff.left), right: follow(t.diff.right) } } : { ...t, path: remapPath(t.path!, action.from, action.to) }
         next.key = keyOfFileTab(next)
         keys.set(t.key, next.key)
         return next
@@ -226,7 +238,7 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       return { ...ws, tabs, active: rekey(ws.active), recent: [...new Set(ws.recent.map((k) => rekey(k)!))].filter((k) => alive.has(k)), dirty }
     }
     case 'path-removed': {
-      const gone = ws.tabs.filter((t) => t.snapshotId === action.rootId && t.path !== undefined && isUnder(t.path, action.path))
+      const gone = ws.tabs.filter((t) => touches(t, action.rootId, action.path))
       return gone.length ? without(ws, new Set(gone.map((t) => t.key))) : ws
     }
     case 'dirty': {
@@ -235,6 +247,15 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       if (action.dirty) dirty[action.key] = true
       else delete dirty[action.key]
       return { ...ws, dirty }
+    }
+    case 'open-diff': {
+      const key = diffKey(action.left, action.right)
+      if (!ws.roots[action.left.rootId] || !ws.roots[action.right.rootId]) return ws
+      if (ws.tabs.some((t) => t.key === key)) return withActive(ws, key)
+      const tab: Tab = { key, snapshotId: action.left.rootId, view: 'diff', diff: { left: action.left, right: action.right }, preview: false, pinned: false }
+      const at = ws.tabs.findIndex((t) => t.key === ws.active)
+      const tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]
+      return withActive({ ...ws, tabs: arranged(tabs) }, key)
     }
     case 'open-metadata': {
       const key = metadataKey(action.snapshotId)

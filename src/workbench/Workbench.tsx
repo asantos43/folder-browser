@@ -24,6 +24,7 @@ import { readFrameMessage, wheelSteps } from '@core/frameScript.ts'
 import { pruneZooms, stepTabZoom, tabZoomOf } from '@/state/tabZoom.ts'
 import { viewZoom } from '@/state/viewZoom.ts'
 import type { AppInfo } from '@core/api.ts'
+import type { DiffSide } from '@core/diff.ts'
 import { innerPath } from '@core/vpath.ts'
 import { fileTarget } from '@/find/types.ts'
 import { shownText } from '@/state/shown.ts'
@@ -774,6 +775,9 @@ export function Workbench() {
     [api, notify, t],
   )
 
+  const [compareChosen, setCompareChosen] = useState<DiffSide | null>(null)
+  // (Closing the folder it is in forgets the choice.)
+  const compareSource = compareChosen && ws.roots[compareChosen.rootId] ? compareChosen : null
   const sideBarActions = useMemo(
     () => ({
       openFolder: () => run('openFolder'),
@@ -821,11 +825,20 @@ export function Workbench() {
       removeEntry: (id: string, entry: DirEntry, forever = false) => setDeleting({ rootId: id, entry, forever, refused: false }),
       // A `.wsnp` of a folder is a file like the others: a click shows its page in a preview tab, as a picture is, and a double click keeps it in a tab of its own.
       openSnapshot: (id: string, path: string, keep: boolean) => void api?.openInRoot(id, path).then((results) => handleResults(results, { preview: !keep })),
+      // The file chosen with Select for Compare is the left side; the one the menu is on is the right (as VS Code does). The choice stays, to compare more files with it.
+      compare: {
+        selected: compareSource,
+        select: (id: string, entry: DirEntry) => {
+          setCompareChosen({ rootId: id, path: entry.path })
+          notify({ level: 'info', text: t('diff.selected', { name: entry.name }) })
+        },
+        with: (id: string, entry: DirEntry) => compareSource && dispatch({ type: 'open-diff', left: compareSource, right: { rootId: id, path: entry.path } }),
+      },
       saveFile,
       openWith,
       copy,
     }),
-    [run, api, saveFile, openWith, copy, handleResults, reportOpenWith, refreshPlaces, notify, t, pathChanged, doMove, doCopy],
+    [run, api, saveFile, openWith, copy, handleResults, reportOpenWith, refreshPlaces, notify, t, pathChanged, doMove, doCopy, compareSource],
   )
 
   return (

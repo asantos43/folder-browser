@@ -1,4 +1,5 @@
 import type { DirEntry, ListResult, OpResult } from '@core/api.ts'
+import { comparable, type DiffSide } from '@core/diff.ts'
 import { mediaKind } from '@core/filekind.ts'
 import { nameProblem } from '@core/fs/names.ts'
 import { compareEntries, type SortKey } from '@core/fs/sort.ts'
@@ -66,6 +67,8 @@ export interface ExplorerActions {
   copyTo: (path: string, toFolder: string) => void
   /** Asks, and moves an item to the trash; `forever` (Shift held): asks to delete it permanently. */
   remove: (entry: DirEntry, forever?: boolean) => void
+  /** Comparing two text files: the file chosen as one side (of any root that is open), choosing one, and comparing with it. */
+  compare?: { selected: DiffSide | null; select: (entry: DirEntry) => void; with: (entry: DirEntry) => void }
 }
 
 /** A text field in a row of the tree, to name something: Enter says it, Esc (or leaving) does not. */
@@ -338,6 +341,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
     event.stopPropagation()
     setFocused(entry.path)
     const expanded = open.has(entry.path)
+    const selectedForCompare = actions.compare?.selected
     const item = (action: TreeAction): MenuEntry => {
       switch (action) {
         case 'newFile': return { id: action, label: t('tree.newFile'), run: () => startNew(entry.path, 'file') }
@@ -361,10 +365,12 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         case 'reveal': return { id: action, label: t('tabs.reveal'), run: () => actions.reveal(entry.path) }
         case 'copyPath': return { id: action, label: t('tabs.copyPath'), run: () => actions.copy(entry.path) }
         case 'copyName': return { id: action, label: t('tree.copyName'), run: () => actions.copy(entry.name) }
+        case 'selectForCompare': return { id: action, label: t('tree.selectForCompare'), run: () => actions.compare?.select(entry) }
+        case 'compareWithSelected': return { id: action, label: t('tree.compareWithSelected'), run: () => actions.compare?.with(entry) }
         case 'properties': return { id: action, label: t('tree.properties'), run: () => actions.properties(entry) }
       }
     }
-    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), trashItem: trash && !entry.path.includes('/'), media: mediaKind(undefined, entry.name) !== null, writable: changeable(entry) }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
+    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), trashItem: trash && !entry.path.includes('/'), media: mediaKind(undefined, entry.name) !== null, writable: changeable(entry), comparable: actions.compare !== undefined && entry.kind === 'file' && comparable(entry.name, entry.size), compareWithSelected: Boolean(selectedForCompare) && !(selectedForCompare!.rootId === rootId && selectedForCompare!.path === entry.path) }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
   }
 
   // The item that was just named takes the focus once the listing that has it is in.

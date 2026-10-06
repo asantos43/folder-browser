@@ -4,7 +4,7 @@ import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from '@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
 import type { SortKey } from '@core/fs/sort.ts'
-import { ENTRY_DRAG, ExplorerTree, HOVER_OPEN_MS } from './ExplorerTree.tsx'
+import { ENTRY_DRAG, ExplorerTree, HOVER_OPEN_MS, type ExplorerActions } from './ExplorerTree.tsx'
 
 afterEach(cleanup)
 
@@ -18,9 +18,9 @@ const disk: Record<string, ListResult> = {
   locked: { error: 'denied' },
 }
 
-function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false, writable = false, sortKey = 'name', sortDescending = false, createRequest }: { writable?: boolean; createRequest?: { kind: 'file' | 'dir'; token: number }; showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean; sortKey?: SortKey; sortDescending?: boolean } = {}) {
+function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false, writable = false, sortKey = 'name', sortDescending = false, createRequest, compare }: { compare?: ExplorerActions['compare']; writable?: boolean; createRequest?: { kind: 'file' | 'dir'; token: number }; showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean; sortKey?: SortKey; sortDescending?: boolean } = {}) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
-  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), remove: vi.fn() }
+  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), remove: vi.fn(), ...(compare ? { compare } : {}) }
   type Props = { showHidden: boolean; activePath?: string; refreshToken: number; sortKey: SortKey; sortDescending: boolean }
   const tree = (props: Props) => (
     <I18nProvider language="en">
@@ -141,6 +141,44 @@ describe('ExplorerTree', () => {
     expect(screen.getByRole('menuitem', { name: 'Open as List' })).toBeTruthy()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Open as List' }))
     expect(open).toHaveBeenCalledWith(expect.objectContaining({ path: 'pack.zip', kind: 'zip' }), true)
+  })
+  it('offers Select for Compare on a text file, and Compare with Selected on another once one is chosen (not on the chosen one, a folder, a ZIP or a picture)', async () => {
+    const lists: Record<string, ListResult> = { '': { entries: [entry('docs', 'dir'), entry('a.txt', 'file'), entry('b.txt', 'file'), entry('pic.png', 'file'), entry('pack.zip', 'zip')], truncated: false } }
+    const select = vi.fn()
+    const compareWith = vi.fn()
+    show({ lists, compare: { selected: null, select, with: compareWith } })
+    await waitFor(() => expect(names()).toHaveLength(5))
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'a.txt' }))
+    expect(screen.queryByRole('menuitem', { name: 'Compare with Selected' })).toBeNull()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Select for Compare' }))
+    expect(select).toHaveBeenCalledWith(expect.objectContaining({ path: 'a.txt' }))
+    for (const name of ['docs', 'pack.zip', 'pic.png']) {
+      fireEvent.contextMenu(screen.getByRole('treeitem', { name }))
+      expect(screen.queryByRole('menuitem', { name: 'Select for Compare' }), name).toBeNull()
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+    }
+    cleanup()
+    show({ lists, compare: { selected: { rootId: 'r1', path: 'a.txt' }, select, with: compareWith } })
+    await waitFor(() => expect(names()).toHaveLength(5))
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'a.txt' }))
+    expect(screen.queryByRole('menuitem', { name: 'Compare with Selected' })).toBeNull()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'b.txt' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Compare with Selected' }))
+    expect(compareWith).toHaveBeenCalledWith(expect.objectContaining({ path: 'b.txt' }))
+  })
+  it('can compare a file of the same path in another root with the one chosen, and has no compare items when the tree is given none', async () => {
+    const lists: Record<string, ListResult> = { '': { entries: [entry('a.txt', 'file')], truncated: false } }
+    show({ lists })
+    await waitFor(() => expect(names()).toHaveLength(1))
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'a.txt' }))
+    expect(screen.queryByRole('menuitem', { name: 'Select for Compare' })).toBeNull()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    cleanup()
+    show({ lists, compare: { selected: { rootId: 'r2', path: 'a.txt' }, select: vi.fn(), with: vi.fn() } })
+    await waitFor(() => expect(names()).toHaveLength(1))
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'a.txt' }))
+    expect(screen.getByRole('menuitem', { name: 'Compare with Selected' })).toBeTruthy()
   })
   it('previews a .wsnp with a click, as a picture would be (not opened as a snapshot), and opens it for good with a double click or Enter', async () => {
     const { openSnapshot, open } = show()

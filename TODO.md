@@ -120,8 +120,11 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [ ] Drafts of a new, never-saved file (when New File… edits before it creates)
 
 ## Phase 4: diff
-- [ ] Select two text files (Ctrl+click, or "Select for compare" and "Compare with selected"), including entries in a ZIP
-- [ ] `@codemirror/merge`: side by side and unified, with syntax colours
+- [x] Select two text files with **Select for Compare** and **Compare with Selected** in the tree's menu (as VS Code), including entries in a ZIP and files of two different open folders; the tab follows a rename of a side and closes when a side is deleted or its folder closed (`core/diff.ts`, `open-diff` in `src/state/workspace.ts`)
+- [x] `@codemirror/merge` in `DiffView`: side by side and in one column, with the colours of each file's language and of the theme; changes counted, Previous / Next Change (`F7`, `Shift+F7`), Swap Sides, Collapse Unchanged; line endings are not compared (and the toolbar says when they differ); files that are not UTF-8 text, or over 5 MB, are refused with the reason
+- [ ] Ctrl+click to select two rows of the tree (the tree has no multiple selection yet), and Compare from a tab's menu
+- [ ] Compare a text with the unsaved changes of its tab (today a side is the file as it is on disk), and a file of a snapshot as a side
+- [ ] Edit in the diff (accept or reject a change), and a diff of two folders
 
 ## Phase 5: edit inside a ZIP
 - [ ] `core/archive/edit.ts`: add, replace, delete, rename/move, mkdir; one rewrite for many operations, into a temporary file, then rename

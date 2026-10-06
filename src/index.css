@@ -179,3 +179,42 @@ body {
 .markdown-body th { font-weight: 600; background: var(--vscode-editorWidget-background); }
 .markdown-body .md-image { padding: 0 0.35em; border: 1px dashed var(--vscode-editorGroup-border); border-radius: 3px; color: var(--vscode-descriptionForeground); }
 .markdown-body .md-image::before { content: '🖼 '; }
+
+/* Two files compared (src/views/DiffView.tsx): the marks of @codemirror/merge in the colours of the theme (tokens.css), whichever of its light and dark styles it picked. */
+.fb-diff .cm-merge-a .cm-changedLine,
+.fb-diff .cm-deletedChunk {
+  background: var(--wsnp-diff-removed-line) !important;
+}
+.fb-diff .cm-merge-b .cm-changedLine,
+.fb-diff .cm-inlineChangedLine {
+  background: var(--wsnp-diff-inserted-line) !important;
+}
+.fb-diff .cm-merge-a .cm-changedText,
+.fb-diff .cm-deletedChunk .cm-deletedText,
+.fb-diff .cm-merge-b .cm-deletedText {
+  background: var(--wsnp-diff-removed-text) !important;
+}
+.fb-diff .cm-merge-b .cm-changedText {
+  background: var(--wsnp-diff-inserted-text) !important;
+}
+.fb-diff .cm-changeGutter .cm-changedLineGutter,
+.fb-diff .cm-changeGutter .cm-deletedLineGutter {
+  background: var(--vscode-editorGutter-modifiedBackground) !important;
+}
+.fb-diff .cm-merge-b .cm-changedLineGutter {
+  background: var(--vscode-editorGutter-addedBackground) !important;
+}
+.fb-diff .cm-merge-a .cm-changedLineGutter,
+.fb-diff .cm-deletedLineGutter {
+  background: var(--vscode-editorGutter-deletedBackground) !important;
+}
+.fb-diff .cm-collapsedLines {
+  color: var(--vscode-descriptionForeground) !important;
+  background: var(--vscode-editorWidget-background) !important;
+}
+.fb-diff .cm-mergeView {
+  height: 100%;
+}
+.fb-diff .cm-merge-a .cm-gutters {
+  border-right: 1px solid var(--vscode-editorGroup-border);
+}

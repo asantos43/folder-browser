@@ -12,16 +12,18 @@ import { describeIssue } from '@/state/messages.ts'
 import { invalidProblems, isHeldBack, isSnapshotTab, snapshotKey, type Action, type Workspace } from '@/state/workspace.ts'
 import { FileView } from '@/views/FileView.tsx'
 import { DocumentView } from '@/views/DocumentView.tsx'
+import { DiffView } from '@/views/DiffView.tsx'
 import { MediaView } from '@/views/MediaView.tsx'
 import { MetadataView } from '@/views/MetadataView.tsx'
 import { SettingsView } from '@/views/SettingsView.tsx'
 import type { ThemeSetting } from '@/theme/theme.ts'
 import { Icon } from '@/components/Icon.tsx'
+import { basename } from '@/lib/format.ts'
 import { Breadcrumbs } from './Breadcrumbs.tsx'
 import { shortcut } from './commands.ts'
 import type { Signers } from './signature.ts'
 import { tabZoomOf } from '@/state/tabZoom.ts'
-import { describeTabs, isEditable, kindOf, snapshotTitle, sourceTitle } from './tabInfo.ts'
+import { describeTabs, isEditable, kindOf, sideLabel, snapshotTitle, sourceTitle } from './tabInfo.ts'
 import { TabStrip } from './TabStrip.tsx'
 
 /**
@@ -34,7 +36,7 @@ export function EditorGroup({ zooms, onZoom, reloads, onSaveTab, onSaveBufferAs,
   const active = ws.tabs.find((tab) => tab.key === ws.active)
   // The frames keep the order in which the snapshots were opened, whatever the order of the tabs: moving an iframe in the page reloads it.
   const frames = Object.keys(ws.snapshots).flatMap((id) => ws.tabs.filter((tab) => tab.snapshotId === id && isSnapshotTab(tab)))
-  const trail = active ? (active.view === 'settings' ? [t('settings.title')] : [sourceTitle(ws, active.snapshotId), ...(active.view === 'metadata' ? [t('metadata.breadcrumb')] : active.path ? trailOf(active.path) : [])]) : []
+  const trail = active ? (active.view === 'settings' ? [t('settings.title')] : active.view === 'diff' && active.diff ? [t('tabs.diffOf', { left: basename(active.diff.left.path), right: basename(active.diff.right.path) })] : [sourceTitle(ws, active.snapshotId), ...(active.view === 'metadata' ? [t('metadata.breadcrumb')] : active.path ? trailOf(active.path) : [])]) : []
   const fileTab = active?.path !== undefined ? active : undefined
   const metadataTab = active?.view === 'metadata' ? active : undefined
   const heldBack = active && isSnapshotTab(active) && isHeldBack(ws, active.snapshotId) ? active : undefined
@@ -90,6 +92,7 @@ export function EditorGroup({ zooms, onZoom, reloads, onSaveTab, onSaveBufferAs,
           )
         })}
         {heldBack ? <Invalid ws={ws} id={heldBack.snapshotId} dispatch={dispatch} /> : null}
+        {active?.view === 'diff' && active.diff ? <DiffView key={active.key} left={active.diff.left} right={active.diff.right} leftTitle={sideLabel(ws, active.diff.left)} rightTitle={sideLabel(ws, active.diff.right)} zoom={tabZoomOf(zooms, active.key)} /> : null}
         {active?.view === 'settings' ? <SettingsView theme={theme} setTheme={setTheme} /> : null}
         {metadataTab && ws.snapshots[metadataTab.snapshotId] ? (
           <MetadataView

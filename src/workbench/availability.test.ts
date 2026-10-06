@@ -28,6 +28,13 @@ describe('zoomTargetOf: what the zoom keys act on', () => {
     expect(zoomTargetOf(run({ type: 'open-settings' }))).toBeNull()
     expect(zoomTargetOf(empty)).toBeNull()
   })
+  it('is the tab’s own zoom for two files compared (drawn as text)', () => {
+    const root = (id: string, path: string) => ({ type: 'root-opened' as const, root: { id, kind: 'folder' as const, path, name: id } })
+    const ws = run(root('r1', '/a'), root('r2', '/b'), { type: 'open-diff', left: { rootId: 'r1', path: 'x.txt' }, right: { rootId: 'r2', path: 'x.txt' } })
+    expect(zoomTargetOf(ws)).toBe('text')
+    expect(canFind(ws)).toBe(true)
+    expect(canPrint(ws)).toBe(false)
+  })
   it('follows the way an SVG is shown: a picture keeps its own zoom, source has the tab’s', () => {
     const ws = on('assets/images/mark.svg')
     expect(zoomTargetOf(ws)).toBe('view')

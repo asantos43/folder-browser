@@ -50,7 +50,7 @@ export function TabStrip({ ws, views, dispatch, onReveal, onCopy, onOpenWith }: 
         ...(tab.view === 'settings' || ws.roots[tab.snapshotId] ? [] : [{ id: 'metadata', label: t('tabs.showMetadata'), run: () => dispatch({ type: 'open-metadata', snapshotId: tab.snapshotId }) }]),
         ...(tab.view ? [] : tab.path === undefined ? [{ id: 'source', label: t('tabs.copySource'), disabled: !source, run: () => source && onCopy(source) }] : [{ id: 'path', label: t('tabs.copyPath'), run: () => onCopy(tab.path!) }]),
         ...(tab.path !== undefined && onOpenWith ? [{ id: 'openWith', label: t('tree.openWith'), run: () => onOpenWith(tab.snapshotId, tab.path!) }] : []),
-        ...(tab.view === 'settings' ? [] : [{ id: 'reveal', label: t('tabs.reveal'), run: () => (ws.roots[tab.snapshotId] && tab.path !== undefined ? onReveal(tab.snapshotId, tab.path) : onReveal(tab.snapshotId)) }]),
+        ...(tab.view === 'settings' || tab.view === 'diff' ? [] : [{ id: 'reveal', label: t('tabs.reveal'), run: () => (ws.roots[tab.snapshotId] && tab.path !== undefined ? onReveal(tab.snapshotId, tab.path) : onReveal(tab.snapshotId)) }]),
       ],
     })
   }
