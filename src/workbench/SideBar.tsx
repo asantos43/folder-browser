@@ -164,7 +164,7 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
           actions={
             (
               <>
-                {root.kind === 'folder' && !root.trash ? (
+                {!root.trash ? (
                   <>
                     <button type="button" title={t('tree.newFile')} aria-label={t('tree.newFile')} onClick={() => setCreateRequest((c) => ({ kind: 'file', token: (c?.token ?? 0) + 1 }))} className={iconButton}>
                       <Icon name="new-file" className="text-[16px]" />
@@ -195,7 +195,7 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
               rootId={root.id}
               rootKind={root.kind}
               trash={root.trash === true}
-              writable={root.kind === 'folder' && root.trash !== true}
+              writable={root.trash !== true}
               createRequest={createRequest}
               activePath={activePath}
               showHidden={hidden}

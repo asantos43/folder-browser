@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
 import { isUnder } from '@/state/workspace.ts'
+import { isInner, parentPath } from '@core/vpath.ts'
 
 type Listing = { state: 'loading' } | { state: 'ready'; folders: DirEntry[] } | { state: 'error' }
 
@@ -19,12 +20,14 @@ export function MoveDialog({ rootName, entry, listDir, onMove, onCancel }: { roo
   const dialog = useRef<HTMLDivElement>(null)
   // The keys (Esc, Enter) are the dialog's from the start: the focus is in it.
   useEffect(() => dialog.current?.focus(), [])
-  const parent = entry.path.split('/').slice(0, -1).join('/')
+  const parent = parentPath(entry.path)
+  // An entry of a ZIP is moved inside its ZIP: the ZIP files (and their folders) are places too; an item of the disk goes to a folder of the disk.
+  const inZip = isInner(entry.path)
 
   const load = (path: string) => {
     setListings((all) => (all[path] ? all : { ...all, [path]: { state: 'loading' } }))
     void listDir(path).then(
-      (result) => setListings((all) => ({ ...all, [path]: 'entries' in result ? { state: 'ready', folders: result.entries.filter((e) => e.kind === 'dir' && !(entry.kind === 'dir' && isUnder(e.path, entry.path))) } : { state: 'error' } })),
+      (result) => setListings((all) => ({ ...all, [path]: 'entries' in result ? { state: 'ready', folders: result.entries.filter((e) => (e.kind === 'dir' || (inZip && e.kind === 'zip')) && !((entry.kind === 'dir' || entry.kind === 'zip') && isUnder(e.path, entry.path))) } : { state: 'error' } })),
       () => setListings((all) => ({ ...all, [path]: { state: 'error' } })),
     )
   }

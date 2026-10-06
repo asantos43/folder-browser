@@ -3,7 +3,7 @@ import { comparable, type DiffSide } from '@core/diff.ts'
 import { mediaKind } from '@core/filekind.ts'
 import { nameProblem } from '@core/fs/names.ts'
 import { compareEntries, type SortKey } from '@core/fs/sort.ts'
-import { listingsAbove } from '@core/vpath.ts'
+import { listingsAbove, parentPath } from '@core/vpath.ts'
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { Icon } from '@/components/Icon.tsx'
@@ -117,7 +117,7 @@ function NameInput({ initial, label, problem, onChange, onSubmit, onCancel }: { 
  * not read until it is opened). A ZIP opens like a folder, also inside a ZIP. Clicks and keys are as in the tree of a snapshot: a click opens a preview tab, a double click (or
  * Enter) keeps it, arrows move, typing jumps to a name. Hidden files are listed but shown only when `showHidden` says so, so the switch needs no new request.
  */
-export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest, activePath, showHidden, sortKey, sortDescending, refreshToken, actions }: { /** How the rows of a folder are ordered (folders first, whatever it is), and which of size and date each row shows when there is little room. */ sortKey: SortKey; sortDescending: boolean; rootId: string; rootKind: 'folder' | 'zip'; /** The root is the trash: its top-level rows can be put back. */ trash: boolean; /** Files and folders of this root can be made, renamed, moved and deleted (a folder of the disk, not a ZIP and not the trash). */ writable: boolean; /** A new file or folder was asked for from outside the tree (the buttons of the side bar): `token` counts the requests. */ createRequest?: { kind: 'file' | 'dir'; token: number } | undefined; activePath?: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
+export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest, activePath, showHidden, sortKey, sortDescending, refreshToken, actions }: { /** How the rows of a folder are ordered (folders first, whatever it is), and which of size and date each row shows when there is little room. */ sortKey: SortKey; sortDescending: boolean; rootId: string; rootKind: 'folder' | 'zip'; /** The root is the trash: its top-level rows can be put back. */ trash: boolean; /** Files and folders of this root can be made, renamed, moved and deleted (a folder of the disk, not a ZIP, an entry of a ZIP; not the trash). */ writable: boolean; /** A new file or folder was asked for from outside the tree (the buttons of the side bar): `token` counts the requests. */ createRequest?: { kind: 'file' | 'dir'; token: number } | undefined; activePath?: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
   const { t, language } = useI18n()
   const [listings, setListings] = useState<Record<string, Listing>>({})
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
@@ -224,8 +224,8 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
   }, [listings, open, showHidden, sortKey, sortDescending, t, editing])
   const entries = useMemo(() => rows.filter((r): r is Extract<Row, { type: 'entry' }> => r.type === 'entry'), [rows])
 
-  /** An item of the disk of this root can be changed: not one inside a ZIP, and not in a root that is a ZIP or the trash. */
-  const changeable = (entry: DirEntry) => writable && !entry.path.includes('!/') && !trash
+  /** An item of this root can be changed (a file or folder of the disk, an entry of a ZIP): not in the trash. */
+  const canChange = writable && !trash
 
   /** Starts to name a new file or folder in `parent` (a folder of the disk; the folder opens to show the field). */
   const startNew = useCallback(
@@ -248,7 +248,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
     handled.current = createRequest.token
     const { path, entries: all } = focusedRef.current
     const at = all.find((e) => e.path === path)
-    const parent = !at ? '' : at.kind === 'dir' && !at.path.includes('!/') ? at.path : at.path.includes('!/') ? '' : at.path.split('/').slice(0, -1).join('/')
+    const parent = !at ? '' : at.kind === 'dir' || at.kind === 'zip' ? at.path : parentPath(at.path)
     if (writable) startNew(parent, createRequest.kind)
   }, [createRequest, writable, startNew])
 
@@ -305,14 +305,14 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         else if (row.parent) focusRow(row.parent)
         break
       case 'F2':
-        if (changeable(row.entry)) {
+        if (canChange) {
           setProblem(null)
           setEditing({ mode: 'rename', path: row.entry.path })
         }
         break
       case 'Delete':
         // Shift+Delete: the permanent delete, asked about first.
-        if (changeable(row.entry)) actions.remove(row.entry, event.shiftKey)
+        if (canChange) actions.remove(row.entry, event.shiftKey)
         break
       case 'Enter':
         if (expandable) toggle(row.entry.path)
@@ -373,7 +373,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         case 'properties': return { id: action, label: t('tree.properties'), run: () => actions.properties(entry) }
       }
     }
-    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), trashItem: trash && !entry.path.includes('/'), media: mediaKind(undefined, entry.name) !== null, writable: changeable(entry), comparable: actions.compare !== undefined && entry.kind === 'file' && comparable(entry.name, entry.size), compareWithSelected: Boolean(selectedForCompare) && !(selectedForCompare!.rootId === rootId && selectedForCompare!.path === entry.path) }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
+    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), trashItem: trash && !entry.path.includes('/'), media: mediaKind(undefined, entry.name) !== null, writable: canChange, comparable: actions.compare !== undefined && entry.kind === 'file' && comparable(entry.name, entry.size), compareWithSelected: Boolean(selectedForCompare) && !(selectedForCompare!.rootId === rootId && selectedForCompare!.path === entry.path) }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
   }
 
   // The item that was just named takes the focus once the listing that has it is in.
@@ -422,7 +422,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         if (dragged.rootId !== rootId || typeof dragged.path !== 'string' || dragged.path === folder) return
         // With Shift: a copy (into the folder it is in too: a duplicate). Without: a move, which into the folder it is in is nothing.
         if (e.shiftKey) actions.copyTo(dragged.path, folder)
-        else if (dragged.path.split('/').slice(0, -1).join('/') !== folder) actions.move(dragged.path, folder)
+        else if (parentPath(dragged.path) !== folder) actions.move(dragged.path, folder)
       } catch {
         // not ours
       }
@@ -474,7 +474,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
           const expandable = entry.kind === 'dir' || entry.kind === 'zip'
           const expanded = expandable && open.has(entry.path)
           const selected = !expandable && entry.path === activePath
-          const folderDrop = changeable(entry) ? dropOn(entry.kind === 'dir' ? entry.path : row.parent, entry.kind === 'dir') : undefined
+          const folderDrop = canChange ? dropOn(entry.kind === 'dir' ? entry.path : row.parent, entry.kind === 'dir') : undefined
           return (
             <div
               key={entry.path}
@@ -489,9 +489,9 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
               onFocus={() => setFocused(entry.path)}
               onClick={() => (expandable ? toggle(entry.path) : entry.kind === 'wsnp' ? actions.openSnapshot(entry, false) : actions.open(entry, false))}
               onDoubleClick={() => (entry.kind === 'wsnp' ? actions.openSnapshot(entry, true) : !expandable && actions.open(entry, true))}
-              draggable={(pinnable(entry) || changeable(entry) || entry.kind === 'file') && !renaming}
+              draggable={(pinnable(entry) || canChange || entry.kind === 'file') && !renaming}
               onDragStart={(e) => {
-                const move = changeable(entry)
+                const move = canChange
                 // Any file can be dragged to the editor (to open it there) or onto another text file.
                 if (entry.kind === 'file') {
                   draggedFile.current = { rootId, path: entry.path, name: entry.name, size: entry.size }

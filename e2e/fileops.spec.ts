@@ -203,16 +203,8 @@ test('dragging a file onto a folder moves it, and dragging onto the empty part m
   expect(fs.existsSync(onDisk('empty', 'b.txt'))).toBe(false)
 })
 
-test('a ZIP and what is in it cannot be changed from the tree (the whole ZIP file can be), and nothing is replaced by a move', async () => {
+test('a move onto a name that is taken is refused, and both files are as they were', async () => {
   const page = await launch(work)
-  await item(page, 'pack.zip').click()
-  await item(page, 'in.txt').click({ button: 'right' })
-  await expect(menu(page, /^Rename/)).toHaveCount(0)
-  await expect(menu(page, 'Open as Hex')).toBeVisible()
-  await page.keyboard.press('Escape')
-  await item(page, 'pack.zip').click({ button: 'right' })
-  await expect(menu(page, /^Rename/)).toBeVisible()
-  await page.keyboard.press('Escape')
   // A move onto a name that is taken is refused, and both files are as they were.
   fs.writeFileSync(onDisk('docs', 'a.txt'), 'other a')
   await item(page, 'docs').click()

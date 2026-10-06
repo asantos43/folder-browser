@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
 import { ZipView } from './ZipView.tsx'
 
-const entry = (name: string, size = 10, extra: Partial<ZipEntryInfo> = {}): ZipEntryInfo => ({ name, size, compressedSize: size - 2, directory: name.endsWith('/'), modified: '2026-09-29T12:00:00.000Z', ...extra })
+const entry = (name: string, size = 10, extra: Partial<ZipEntryInfo> = {}): ZipEntryInfo => ({ name, size, compressedSize: size - 2, directory: name.endsWith('/'), crc32: 0, modified: '2026-09-29T12:00:00.000Z', ...extra })
 const ENTRIES = [entry('docs/', 0), entry('docs/readme.txt', 40), entry('docs/data.json', 23), entry('img/dot.png', 70), entry('secret.txt', 5, { unreadable: 'encrypted' }), entry('nested.zip', 300)]
 
 let api: { zipList: ReturnType<typeof vi.fn>; zipExtract: ReturnType<typeof vi.fn> }

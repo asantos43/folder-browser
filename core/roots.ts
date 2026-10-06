@@ -3,12 +3,14 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import type { Readable } from 'node:stream'
 import path from 'node:path'
+import { editZip, zipIsWritable, type ZipEditResult, type ZipOp } from './archive/edit.ts'
 import type { ByteRange } from './archive/reader.ts'
 import { ZIP_LIMIT } from './filekind.ts'
 import { isHidden } from './fs/hidden.ts'
 import { resolveInside } from './fs/guard.ts'
-import { readBytesForEdit, readForEdit, saveEdited, saveEditedBytes, type EditBytesOpen, type EditOpen, type EditSave, type FileVersion, type LineEnding } from './fs/edit.ts'
-import { copyEntry, createEntry, moveEntry, removeEntry, renameEntry, type OpResult } from './fs/ops.ts'
+import { decodeForEdit, EDIT_LIMIT, encodeEdited, readBytesForEdit, readForEdit, SAVE_LIMIT, saveEdited, saveEditedBytes, type EditBytesOpen, type EditOpen, type EditSave, type FileVersion, type LineEnding } from './fs/edit.ts'
+import { nameProblem } from './fs/names.ts'
+import { copyEntry, createEntry, moveEntry, removeEntry, renameEntry, type OpError, type OpResult } from './fs/ops.ts'
 import { sortEntries } from './fs/sort.ts'
 import { INNER, MAX_DEPTH, partsOf } from './vpath.ts'
 import { openZipBuffer, ZipError, type ZipArchive, type ZipEntryInfo } from './zip.ts'
@@ -55,6 +57,13 @@ const WSNP_NAME = /\.wsnp$/i
 interface OpenRoot extends RootInfo {
   /** The real path (symbolic links resolved), the one every file is checked to be inside. */
   real: string
+}
+
+/** Where a path in a ZIP is, for changing it: `file` is the ZIP file of the disk, `chain` the ZIPs inside it to open one from the other, `entry` the path inside the innermost (`''` is its top). */
+interface ZipSpot {
+  file: string
+  chain: string[]
+  entry: string
 }
 
 /** Where a path is: a file of the disk, or an entry of a ZIP (`zip` is the ZIP's own path, `''` for the root ZIP). */
@@ -263,50 +272,223 @@ export class RootRegistry {
     return resolveInside(root.real, partsOf(name)[0])
   }
 
-  // ---- changing the disk (phase 2): only a folder root, never the trash (its items are put back or emptied), never inside a ZIP
+  // ---- changing the disk (phase 2) and the ZIPs (phase 5): never the trash (its items are put back or emptied)
 
   private writable(id: string): OpenRoot | null {
     const root = this.open.get(id)
     return root && root.kind === 'folder' && !root.trash ? root : null
   }
 
-  /** What was in memory of the ZIP files of a root is not what the disk has now. */
-  private forgetZips(id: string): void {
-    for (const key of [...this.zips.keys()]) if (key.startsWith(`${id}\0`)) this.zips.delete(key)
+  /** What was in memory of the ZIP files was not what the disk has now. */
+  private forgetZips(): void {
+    this.zips.clear()
   }
 
-  private async changed(id: string, done: Promise<OpResult>): Promise<OpResult> {
+  private async changed(done: Promise<OpResult>): Promise<OpResult> {
     const result = await done
-    if (result.ok) this.forgetZips(id)
+    if (result.ok) this.forgetZips()
     return result
   }
 
+  /** Changes to one ZIP file go one after the other: each reads the file as the one before left it. */
+  private readonly queues = new Map<string, Promise<unknown>>()
+  private queued<T>(file: string, task: () => Promise<T>): Promise<T> {
+    const run = (this.queues.get(file) ?? Promise.resolve()).then(task, task)
+    const tail = run.then(() => undefined, () => undefined)
+    this.queues.set(file, tail)
+    void tail.then(() => this.queues.get(file) === tail && this.queues.delete(file))
+    return run
+  }
+
+  /**
+   * Where a path is, when it is in a ZIP. `item` is a file or folder to be changed (an entry of a ZIP, or an entry of a ZIP in it): `null` when it is of the disk. `container` is a
+   * place to put things in: the top of a ZIP (a ZIP file of the disk, the root of a ZIP root, an entry that is a ZIP) or a folder of one; `null` when it is a folder of the disk.
+   * `file` is the real ZIP file of the disk, `chain` the entries to open one inside the other from it, and `entry` the path inside the innermost ZIP (`''` for its top).
+   */
+  private async zipSpot(root: OpenRoot, name: string, as: 'item' | 'container'): Promise<ZipSpot | null | { error: OpError }> {
+    const parts = partsOf(name)
+    if (parts.length > MAX_DEPTH + 1) return { error: 'not-found' }
+    let file: string
+    let rest: string[]
+    if (root.kind === 'zip') {
+      file = root.real
+      rest = name === '' ? [] : parts
+    } else if (parts.length === 1) {
+      if (as === 'item') return null
+      const real = name === '' ? null : await resolveInside(root.real, name)
+      const stat = real ? await fsp.stat(real).catch(() => null) : null
+      if (!real || !stat?.isFile() || !ZIP_NAME.test(real)) return null
+      return { file: real, chain: [], entry: '' }
+    } else {
+      const real = await resolveInside(root.real, parts[0])
+      const stat = real ? await fsp.stat(real).catch(() => null) : null
+      if (!real || !stat?.isFile() || !ZIP_NAME.test(real)) return { error: 'not-found' }
+      file = real
+      rest = parts.slice(1)
+    }
+    if (as === 'item') return rest.length ? { file, chain: rest.slice(0, -1), entry: rest.at(-1)! } : { error: 'unsupported' }
+    if (!rest.length) return { file, chain: [], entry: '' }
+    // The last part is a ZIP inside (its top), or a folder of the ZIP that holds it.
+    const last = rest.at(-1)!
+    const holder = (root.kind === 'zip' ? rest.slice(0, -1) : [parts[0], ...rest.slice(0, -1)]).join(INNER)
+    const archive = await this.zipArchive(root, holder).catch(() => null)
+    if (!archive) return { error: 'not-found' }
+    const info = archive.info(last)
+    if (info && !info.directory && ZIP_NAME.test(last)) return { file, chain: rest, entry: '' }
+    const found = archive.entries.some((e) => e.name === `${last}/` || e.name.startsWith(`${last}/`))
+    if (!found) return { error: info ? 'not-folder' : 'not-found' }
+    return { file, chain: rest.slice(0, -1), entry: last }
+  }
+
+  /** The same ZIP: the file and the chain of ZIPs inside it. */
+  private sameZip(a: ZipSpot, b: ZipSpot): boolean {
+    return a.file === b.file && a.chain.length === b.chain.length && a.chain.every((part, i) => part === b.chain[i])
+  }
+
+  private async zipChange(spot: ZipSpot, ops: ZipOp[]): Promise<ZipEditResult> {
+    const result = await this.queued(spot.file, () => editZip(spot.file, spot.chain, ops))
+    if (result.ok) this.forgetZips()
+    return result
+  }
+
+  /** What `zipChange` said, as the answer of an operation whose result is `path`. */
+  private opResult(result: ZipEditResult, path: (names: string[]) => string): OpResult {
+    return result.ok ? { ok: true, path: path(result.names) } : { ok: false, error: result.error }
+  }
+
+  /** The path of `name` in the container `at` (`parent` is the path the interface knows it by). */
+  private childPath(parent: string, at: ZipSpot, name: string): string {
+    return at.entry === '' ? (parent === '' ? name : `${parent}${INNER}${name}`) : `${parent}/${name}`
+  }
+
+  /** The root for a change: any root that is not the trash. */
+  private changeable(id: string): OpenRoot | null {
+    const root = this.open.get(id)
+    return root && !root.trash ? root : null
+  }
+
   /** A new empty file or folder in `parent` of the root. */
-  create(id: string, parent: string, name: string, kind: 'file' | 'dir'): Promise<OpResult> {
-    const root = this.writable(id)
-    return root ? this.changed(id, createEntry(root.real, parent, name, kind)) : Promise.resolve({ ok: false, error: 'unsupported' })
+  async create(id: string, parent: string, name: string, kind: 'file' | 'dir'): Promise<OpResult> {
+    const root = this.changeable(id)
+    if (!root) return { ok: false, error: 'unsupported' }
+    const spot = await this.zipSpot(root, parent, 'container')
+    if (spot && 'error' in spot) return { ok: false, error: spot.error }
+    if (spot) {
+      if (nameProblem(name, 'linux')) return { ok: false, error: 'invalid-name' }
+      const full = spot.entry === '' ? name : `${spot.entry}/${name}`
+      return this.opResult(await this.zipChange(spot, [kind === 'dir' ? { op: 'mkdir', name: full } : { op: 'create', name: full }]), () => this.childPath(parent, spot, name))
+    }
+    const disk = this.writable(id)
+    return disk ? this.changed(createEntry(disk.real, parent, name, kind)) : { ok: false, error: 'unsupported' }
   }
 
-  rename(id: string, name: string, newName: string): Promise<OpResult> {
-    const root = this.writable(id)
-    return root ? this.changed(id, renameEntry(root.real, name, newName)) : Promise.resolve({ ok: false, error: 'unsupported' })
+  async rename(id: string, name: string, newName: string): Promise<OpResult> {
+    const root = this.changeable(id)
+    if (!root) return { ok: false, error: 'unsupported' }
+    const spot = await this.zipSpot(root, name, 'item')
+    if (spot && 'error' in spot) return { ok: false, error: spot.error }
+    if (spot) {
+      if (nameProblem(newName, 'linux')) return { ok: false, error: 'invalid-name' }
+      const to = [...spot.entry.split('/').slice(0, -1), newName].join('/')
+      return this.opResult(await this.zipChange(spot, [{ op: 'move', from: spot.entry, to }]), () => name.slice(0, name.length - spot.entry.length) + to)
+    }
+    const disk = this.writable(id)
+    return disk ? this.changed(renameEntry(disk.real, name, newName)) : { ok: false, error: 'unsupported' }
   }
 
-  move(id: string, name: string, toFolder: string): Promise<OpResult> {
-    const root = this.writable(id)
-    return root ? this.changed(id, moveEntry(root.real, name, toFolder)) : Promise.resolve({ ok: false, error: 'unsupported' })
+  async move(id: string, name: string, toFolder: string): Promise<OpResult> {
+    const root = this.changeable(id)
+    if (!root) return { ok: false, error: 'unsupported' }
+    const from = await this.zipSpot(root, name, 'item')
+    const into = await this.zipSpot(root, toFolder, 'container')
+    if (from && 'error' in from) return { ok: false, error: from.error }
+    if (into && 'error' in into) return { ok: false, error: into.error }
+    if (from || into) {
+      // Between the disk and a ZIP, or from one ZIP to another, nothing is moved (yet).
+      if (!from || !into || !this.sameZip(from, into)) return { ok: false, error: 'unsupported' }
+      const base = from.entry.split('/').at(-1)!
+      const to = into.entry === '' ? base : `${into.entry}/${base}`
+      return this.opResult(await this.zipChange(from, [{ op: 'move', from: from.entry, to }]), () => this.childPath(toFolder, into, base))
+    }
+    const disk = this.writable(id)
+    return disk ? this.changed(moveEntry(disk.real, name, toFolder)) : { ok: false, error: 'unsupported' }
   }
 
-  /** A file of a folder root to be edited: its text and what it was like (not inside a ZIP, in a ZIP root, in the trash, nor a snapshot). */
-  edit(id: string, name: string): Promise<EditOpen> {
-    const root = this.writable(id)
-    return root ? readForEdit(root.real, name) : Promise.resolve({ ok: false, error: 'unsupported' })
+  /** A copy in a folder of the root (numbered when the name is taken: nothing is replaced). */
+  async copy(id: string, name: string, toFolder: string): Promise<OpResult> {
+    const root = this.changeable(id)
+    if (!root) return { ok: false, error: 'unsupported' }
+    const from = await this.zipSpot(root, name, 'item')
+    const into = await this.zipSpot(root, toFolder, 'container')
+    if (from && 'error' in from) return { ok: false, error: from.error }
+    if (into && 'error' in into) return { ok: false, error: into.error }
+    if (from || into) {
+      if (!from || !into || !this.sameZip(from, into)) return { ok: false, error: 'unsupported' }
+      return this.opResult(await this.zipChange(from, [{ op: 'copy', from: from.entry, toFolder: into.entry }]), (names) => this.childPath(toFolder, into, names[0].split('/').at(-1)!))
+    }
+    const disk = this.writable(id)
+    return disk ? this.changed(copyEntry(disk.real, name, toFolder)) : { ok: false, error: 'unsupported' }
   }
 
-  /** The edited text of a file, written whole and atomically (and only if the disk still has what was read, unless `overwrite`). */
-  saveEdit(id: string, name: string, text: string, base: FileVersion, options: { eol: LineEnding; bom: boolean; overwrite?: boolean }): Promise<EditSave> {
-    const root = this.writable(id)
-    return root ? saveEdited(root.real, name, text, base, options) : Promise.resolve({ ok: false, error: 'unsupported' })
+  /** To the trash (`trash` is the system's), or for good. An entry of a ZIP has no trash: it is only removed for good (`trash-failed` for the trash, so that the caller asks). */
+  async remove(id: string, name: string, how: 'trash' | 'forever', trash: (file: string) => Promise<void>): Promise<OpResult> {
+    const root = this.changeable(id)
+    if (!root) return { ok: false, error: 'unsupported' }
+    const spot = await this.zipSpot(root, name, 'item')
+    if (spot && 'error' in spot) return { ok: false, error: spot.error }
+    if (spot) return how === 'trash' ? { ok: false, error: 'trash-failed' } : this.opResult(await this.zipChange(spot, [{ op: 'remove', name: spot.entry }]), () => name)
+    const disk = this.writable(id)
+    return disk ? this.changed(removeEntry(disk.real, name, how, trash)) : { ok: false, error: 'unsupported' }
+  }
+
+  /** The text of a file in a ZIP, read again from the disk (not from what was kept), and what the entry was like. */
+  private async editZipEntry(root: OpenRoot, name: string, spot: ZipSpot): Promise<EditOpen> {
+    if (!(await zipIsWritable(spot.file))) return { ok: false, error: 'read-only' }
+    this.forgetZips()
+    const archive = await this.zipArchive(root, partsOf(name).slice(0, -1).join(INNER)).catch(() => null)
+    const info = archive?.info(spot.entry)
+    if (!archive || !info || info.directory) return { ok: false, error: 'no-file' }
+    if (info.unreadable) return { ok: false, error: 'unsupported' }
+    if (info.size > EDIT_LIMIT) return { ok: false, error: 'too-large' }
+    let bytes: Buffer
+    try {
+      bytes = await archive.read(info.name, EDIT_LIMIT)
+    } catch {
+      return { ok: false, error: 'no-file' }
+    }
+    const decoded = decodeForEdit(bytes)
+    return 'error' in decoded ? { ok: false, error: decoded.error } : { ok: true, ...decoded, version: { mtimeMs: Date.parse(info.modified), size: info.size, crc32: info.crc32 } }
+  }
+
+  /** A file to be edited: its text and what it was like (a file of a folder or an entry of a ZIP; not in the trash, nor a snapshot). */
+  async edit(id: string, name: string): Promise<EditOpen> {
+    const root = this.changeable(id)
+    if (!root) return { ok: false, error: 'unsupported' }
+    const spot = await this.zipSpot(root, name, 'item')
+    if (spot && 'error' in spot) return { ok: false, error: 'no-file' }
+    if (spot) return this.editZipEntry(root, name, spot)
+    const disk = this.writable(id)
+    return disk ? readForEdit(disk.real, name) : { ok: false, error: 'unsupported' }
+  }
+
+  /** The edited text of a file, written whole and atomically (and only if what was read is still there, unless `overwrite`). */
+  async saveEdit(id: string, name: string, text: string, base: FileVersion, options: { eol: LineEnding; bom: boolean; overwrite?: boolean }): Promise<EditSave> {
+    const root = this.changeable(id)
+    if (!root) return { ok: false, error: 'unsupported' }
+    const spot = await this.zipSpot(root, name, 'item')
+    if (spot && 'error' in spot) return { ok: false, error: 'no-file' }
+    if (spot) {
+      const data = encodeEdited(text, options)
+      if (data.length > SAVE_LIMIT) return { ok: false, error: 'too-large' }
+      const checked = options.overwrite !== true && base.crc32 !== undefined ? { base: { size: base.size, crc32: base.crc32 } } : {}
+      const result = await this.zipChange(spot, [{ op: 'replace', name: spot.entry, data, ...checked }])
+      if (!result.ok) return { ok: false, error: result.error === 'not-found' ? 'no-file' : result.error === 'changed' || result.error === 'denied' || result.error === 'too-large' || result.error === 'read-only' ? result.error : 'failed' }
+      const archive = await this.zipArchive(root, partsOf(name).slice(0, -1).join(INNER)).catch(() => null)
+      const info = archive?.info(spot.entry)
+      return info ? { ok: true, version: { mtimeMs: Date.parse(info.modified), size: info.size, crc32: info.crc32 } } : { ok: false, error: 'failed' }
+    }
+    const disk = this.writable(id)
+    return disk ? saveEdited(disk.real, name, text, base, options) : { ok: false, error: 'unsupported' }
   }
 
   /** A file of a folder root to be edited as bytes (the hexadecimal view): all of them, up to 16 MiB. */
@@ -318,18 +500,6 @@ export class RootRegistry {
   saveEditBytes(id: string, name: string, bytes: Uint8Array, base: FileVersion, overwrite: boolean): Promise<EditSave> {
     const root = this.writable(id)
     return root ? saveEditedBytes(root.real, name, bytes, base, overwrite) : Promise.resolve({ ok: false, error: 'unsupported' })
-  }
-
-  /** A copy in a folder of the root (numbered when the name is taken: nothing is replaced). */
-  copy(id: string, name: string, toFolder: string): Promise<OpResult> {
-    const root = this.writable(id)
-    return root ? this.changed(id, copyEntry(root.real, name, toFolder)) : Promise.resolve({ ok: false, error: 'unsupported' })
-  }
-
-  /** To the trash (`trash` is the system's), or for good. */
-  remove(id: string, name: string, how: 'trash' | 'forever', trash: (file: string) => Promise<void>): Promise<OpResult> {
-    const root = this.writable(id)
-    return root ? this.changed(id, removeEntry(root.real, name, how, trash)) : Promise.resolve({ ok: false, error: 'unsupported' })
   }
 
   // ---- listing

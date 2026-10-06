@@ -1,8 +1,6 @@
 # Guia do usuário
 
-O Folder Browser mostra as pastas do seu computador e o que há nelas. Abre **pastas e arquivos ZIP** como árvores, mostra **texto, imagens, PDFs, documentos de escritório, tabelas, vídeos, sons e os bytes de qualquer arquivo**, e **cria, renomeia, move e apaga** arquivos e pastas. Também abre **arquivos `.wsnp`** (páginas da web salvas pela extensão [PageKeep](https://github.com/asantos43/webpage-snapshot)) como as páginas que eles são. [English](USER-GUIDE.md).
-
-Alterar o que há dentro de um ZIP ainda não existe (veja o fim).
+O Folder Browser mostra as pastas do seu computador e o que há nelas. Abre **pastas e arquivos ZIP** como árvores, mostra **texto, imagens, PDFs, documentos de escritório, tabelas, vídeos, sons e os bytes de qualquer arquivo**, e **cria, renomeia, move, edita e apaga** arquivos e pastas, numa pasta ou dentro de um arquivo ZIP. Também abre **arquivos `.wsnp`** (páginas da web salvas pela extensão [PageKeep](https://github.com/asantos43/webpage-snapshot)) como as páginas que eles são. [English](USER-GUIDE.md).
 
 ## Abrir uma pasta
 
@@ -35,7 +33,7 @@ O menu de uma linha depende do que ela é. Uma pasta: expandir, atualizar, **Nov
 
 ## Criar, renomear, mover e apagar
 
-Isto vale para os arquivos e pastas de uma pasta que você abriu (ainda não dentro de um ZIP, nem no lugar Lixeira).
+Isto vale para os arquivos e pastas de uma pasta que você abriu, e para o que há dentro de um arquivo ZIP (veja "Dentro de um ZIP" abaixo); não vale no lugar Lixeira.
 
 - **Novo Arquivo…** e **Nova Pasta…** (os ícones do cabeçalho de Arquivos, o menu de uma pasta, ou a parte vazia embaixo da árvore para a raiz) colocam um campo na árvore: digite o nome e aperte `Enter` (`Esc` desiste). O item novo é criado onde está o foco: na pasta que o tem, ou na pasta do arquivo que o tem, ou na raiz.
 - **Renomear** (`F2`, ou o menu) edita o nome na própria linha, com o nome sem a extensão selecionado. `Enter` renomeia; `Esc`, ou sair do campo, desiste.
@@ -48,7 +46,7 @@ Isto vale para os arquivos e pastas de uma pasta que você abriu (ainda não den
 
 | Arquivo | O que você vê |
 | --- | --- |
-| Código, texto e dados: HTML, CSS, JavaScript, TypeScript, JSON, XML, YAML, TOML, INI, `.env`, shell, SQL, Dockerfile, e código em Python, C, C++, C#, Java, Kotlin, Scala, Go, Rust, Swift, Dart, PHP, Ruby, Perl, Lua, R, Groovy, Haskell, Julia, Clojure, Erlang, Pascal, PowerShell, CMake, Diff, Protocol Buffers, SCSS, Sass, Less, texto simples | Código com cores e números de linha. Um arquivo de texto **de uma pasta que você abriu é editado** (veja "Editar texto"); um texto de um ZIP ou de um snapshot, ou que não pode ser editado, é somente leitura, e um HTML, CSS, JavaScript, JSON ou XML minificado ou de uma linha só é então mostrado **organizado** (o botão **Formatar** o mostra como foi salvo; Salvar Como sempre grava o arquivo como foi salvo). **Quebra de Linha** quebra linhas longas (`Alt+Z`). As duas escolhas são guardadas e estão nas Configurações. Texto acima de 5 MB não abre numa aba; um **`.log`** abre até 32 MB. |
+| Código, texto e dados: HTML, CSS, JavaScript, TypeScript, JSON, XML, YAML, TOML, INI, `.env`, shell, SQL, Dockerfile, e código em Python, C, C++, C#, Java, Kotlin, Scala, Go, Rust, Swift, Dart, PHP, Ruby, Perl, Lua, R, Groovy, Haskell, Julia, Clojure, Erlang, Pascal, PowerShell, CMake, Diff, Protocol Buffers, SCSS, Sass, Less, texto simples | Código com cores e números de linha. Um arquivo de texto **de uma pasta que você abriu é editado** (veja "Editar texto"); um texto de um snapshot, ou que não pode ser editado, é somente leitura, e um HTML, CSS, JavaScript, JSON ou XML minificado ou de uma linha só é então mostrado **organizado** (o botão **Formatar** o mostra como foi salvo; Salvar Como sempre grava o arquivo como foi salvo). **Quebra de Linha** quebra linhas longas (`Alt+Z`). As duas escolhas são guardadas e estão nas Configurações. Texto acima de 5 MB não abre numa aba; um **`.log`** abre até 32 MB. |
 | Um arquivo de um tipo que o aplicativo não conhece | Mostrado como texto quando o que há nele é texto; senão, como os bytes (hexadecimal). |
 | Markdown (`.md`) | Uma **página formatada** (títulos, listas, tabelas, código; um link da web abre no seu navegador; uma imagem não é carregada e o HTML escrito dentro aparece como texto), com os botões **Formatado / Texto**; **Largura Total** e **Quebrar Código**. |
 | CSV e TSV | Uma **tabela** com ordenação, filtros, busca, consulta SQL e edição: veja [Tabelas](#tabelas-csv-e-tsv). Os botões **Tabela / Texto** passam para o código. |
@@ -67,14 +65,14 @@ Isto vale para os arquivos e pastas de uma pasta que você abriu (ainda não den
 
 ## Editar texto
 
-Um arquivo de texto de uma pasta que você abriu abre pronto para editar, com as cores da linguagem, desfazer e refazer (`Ctrl+Z`, `Ctrl+Shift+Z`), fechamento automático de colchetes, `Tab` para indentar e Quebra de Linha.
+Um arquivo de texto de uma pasta que você abriu, ou de dentro de um ZIP, abre pronto para editar, com as cores da linguagem, desfazer e refazer (`Ctrl+Z`, `Ctrl+Shift+Z`), fechamento automático de colchetes, `Tab` para indentar e Quebra de Linha.
 
 - **Salvar** com `Ctrl+S` (`⌘S`), o botão **Salvar** da barra de ferramentas, ou **Arquivo ▸ Salvar**; **Salvar Tudo** (`Ctrl+Alt+S`, `⌘⌥S`) grava todas as abas com alterações. Uma aba com alterações mostra um **ponto** no lugar do × (o × volta quando o ponteiro está sobre a aba), e a barra de ferramentas diz **● Modificado**.
 - O arquivo é gravado **inteiro e com segurança**: num arquivo temporário ao lado, depois renomeado sobre ele, com as permissões mantidas, de modo que uma falha ou um disco cheio deixa o arquivo antigo. As **terminações de linha** (LF, CRLF ou CR, mostradas na barra de ferramentas) e a **marca de ordem de bytes** (UTF-8 com BOM) são mantidas, então um arquivo que você abre e salva sem mudar fica com os mesmos bytes. Um arquivo cujas linhas terminam em estilos misturados fica uniforme ao salvar.
 - Se o arquivo **mudou no disco** desde que você o abriu (outro programa o gravou), Salvar não grava: pergunta se **Sobrescrever** com o seu texto ou **Carregar do Disco** (as suas alterações se perdem). Cancelar deixa tudo como está.
 - **Fechar uma aba** com alterações pergunta **Salvar / Não Salvar / Cancelar**, também para Fechar Todas, Fechar Outras e fechar a pasta; **fechar a janela** também pergunta, para todas as abas com alterações. As alterações e o histórico de desfazer ficam com a aba enquanto você olha outra, e a acompanham se você renomear ou mover o arquivo.
 - **Formatar Documento** (HTML, CSS, JavaScript, JSON, XML) organiza o texto para leitura como uma edição que **pode ser desfeita**. **Salvar Como…** grava o texto da tela num arquivo que você escolhe. Uma página Markdown formatada ou uma tabela CSV do mesmo arquivo mostra o que você digitou, salvo ou não.
-- Só se edita **texto UTF-8 de até 5 MB**. Um arquivo em outra codificação, um binário, um arquivo maior e os arquivos dentro de um ZIP ou de um snapshot são mostrados, não editados, e a barra de ferramentas diz por quê.
+- Só se edita **texto UTF-8 de até 5 MB**. Um arquivo em outra codificação, um binário, um arquivo maior, os arquivos de um snapshot e os arquivos de um ZIP que não pode ser regravado (veja "Dentro de um ZIP") são mostrados, não editados, e a barra de ferramentas diz por quê.
 
 - **As alterações não salvas são guardadas.** O que você digitou (ou mudou nos bytes) fica num rascunho na pasta do próprio aplicativo logo depois que você para. Se você fechar a janela ou sair, nada é perguntado: na próxima vez a aba volta **com as suas alterações, marcada como modificada**, e uma mensagem avisa. Salvar grava como sempre (e ainda percebe um arquivo que mudou no disco nesse meio-tempo). **Configurações ▸ Manter alterações não salvas** desliga isso: a janela volta a perguntar Salvar / Não Salvar ao fechar, e os rascunhos são apagados.
 - **Editar bytes.** Numa aba hex (qualquer arquivo: **Abrir como Hex**, ou **Ver em hexadecimal** num texto), o botão **Editar** torna os bytes editáveis. Clique num byte e digite **dígitos hexadecimais** (dois por byte; os bytes alterados ficam em negrito), ou clique na coluna de texto e digite caracteres. **Insert** alterna entre sobrescrever (`OVR`) e inserir (`INS`); **Delete** e **Backspace** removem o byte ou a seleção; depois do último byte dá para acrescentar mais. `Ctrl+Z` / `Ctrl+Y` desfazem e refazem; **Salvar** funciona como no texto. Só se editam arquivos de uma pasta de até 16 MiB; arquivos maiores e os de um ZIP ou de um snapshot são só vistos.
@@ -113,6 +111,16 @@ O editor pode mostrar **dois grupos de abas lado a lado**, como o VS Code. Há t
 ## Arquivos ZIP
 
 Um arquivo ZIP abre na árvore como uma pasta, e as entradas abrem em abas como arquivos. **Abrir como Lista** mostra as entradas como uma tabela de nomes, tamanhos, tamanhos compactados e datas, onde você pode selecionar (clique, `Ctrl` e `Shift`, as caixas, `Ctrl+A`) e **Extrair** para uma pasta: um arquivo pede um nome, **Extrair Tudo…** grava tudo, e um arquivo que já existe nunca é sobrescrito (o novo se chama `nome (2)`). Nada é gravado no disco até você extrair. Nomes que poderiam sair da pasta escolhida nunca são gravados, links não são seguidos, e uma entrada protegida por senha aparece esmaecida e é pulada. Um ZIP acima de 256 MB só é oferecido com Salvar Como. ZIP64 e ZIPs criptografados são somente leitura.
+
+## Dentro de um ZIP
+
+Um arquivo ZIP, também um ZIP dentro de um ZIP, é alterado como uma pasta, e o que você altera é gravado de volta no arquivo ZIP.
+
+- **Novo Arquivo…** e **Nova Pasta…** funcionam no menu de um arquivo ZIP (criam o item no topo dele) e das pastas dele; **Renomear** (`F2`), **Mover para…** (ou um arrasto sobre uma pasta do mesmo ZIP), a **cópia com Shift** (numerada quando o nome já existe) e **Apagar** funcionam nas entradas. Um ZIP não tem lixeira, então **Apagar** pergunta "Apagar definitivamente?" logo de cara, e isso não pode ser desfeito. Uma pasta que você esvazia continua no ZIP, como num disco. Nada é substituído, e uma pasta nunca vai para dentro dela mesma.
+- Uma **entrada de texto abre pronta para editar**, como um arquivo de uma pasta (veja "Editar texto"): **Salvar** (`Ctrl+S`) grava o ZIP de novo. Se outro programa mudou essa mesma entrada enquanto isso, Salvar pergunta **Sobrescrever** ou **Carregar do Disco**; uma mudança em outra entrada do ZIP não é um conflito.
+- O ZIP é **regravado inteiro e com segurança**: as entradas que você não tocou são copiadas como estavam (compactadas ou só armazenadas, com as datas e permissões) para um arquivo temporário ao lado do ZIP, e o arquivo só é renomeado sobre ele quando está completo, então uma queda ou um disco cheio deixa o ZIP antigo. Se outra coisa mudou o ZIP enquanto ele era gravado, nada é gravado e você é avisado para tentar de novo. Um ZIP grande leva um instante a cada alteração. Um ZIP dentro de um ZIP é tirado para um arquivo temporário, alterado e colocado de volta.
+- Um ZIP que **não pode ser regravado fielmente** é mostrado mas não alterado, e diz por quê: ZIP64, uma entrada criptografada, um método de compressão que não seja armazenado ou DEFLATE, um nome que poderia sair da pasta em que é extraído (`..`, um caminho absoluto, uma barra invertida), duas entradas com o mesmo nome, ou mais de 100.000 entradas. Um `.wsnp` nunca é alterado por dentro (editar quebraria a assinatura dele); o arquivo inteiro pode ser renomeado, movido ou apagado. Nomes numa codificação antiga são gravados de volta em UTF-8.
+- **Nada se move entre uma pasta e um arquivo ZIP, nem de um arquivo ZIP para outro**: o arrasto ou o **Mover para…** é recusado, com palavras, e os dois ficam como estavam. O arquivo ZIP em si é renomeado, movido e apagado (para a lixeira) como qualquer arquivo da pasta dele. Os bytes de uma entrada só são vistos na visão hexadecimal.
 
 ## Zoom, Localizar, Copiar e Imprimir
 
@@ -160,4 +168,4 @@ As **Configurações** (a engrenagem na barra de atividades, **Arquivo ▸ Prefe
 
 ## O que ainda não existe
 
-Criar, renomear, mover e apagar **dentro de um ZIP** vêm na próxima fase (veja [`../TODO.md`](../TODO.md)). Selecionar várias linhas de uma vez (por isso a comparação se escolhe no menu, não com `Ctrl+clique`), comparar um arquivo com as alterações ainda não salvas na aba dele, mais de dois grupos de editor, arrastar para um lugar da barra lateral, e imprimir os bytes de um arquivo ou uma tabela como tabela também estão na lista.
+Mover ou copiar entre uma pasta e um arquivo ZIP (ou entre dois arquivos ZIP), acrescentar um arquivo do disco a um ZIP e editar os bytes de uma entrada de um ZIP ainda não existem (veja [`../TODO.md`](../TODO.md)). Selecionar várias linhas de uma vez (por isso a comparação se escolhe no menu, não com `Ctrl+clique`), comparar um arquivo com as alterações ainda não salvas na aba dele, mais de dois grupos de editor, arrastar para um lugar da barra lateral, e imprimir os bytes de um arquivo ou uma tabela como tabela também estão na lista.

@@ -48,7 +48,7 @@ const EOCD = 0x06054b50
 const ZIP64_LOCATOR = 0x07064b50
 
 /** A ZIP64 archive is refused by the format (FORMAT.md section 2): look for its end-of-directory markers. */
-function assertNotZip64(path: string): void {
+export function assertNotZip64(path: string): void {
   const fd = fs.openSync(path, 'r')
   const buf = Buffer.alloc(0xffff + 22 + 20)
   let read: number

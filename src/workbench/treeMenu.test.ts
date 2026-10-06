@@ -35,9 +35,11 @@ describe('treeMenuFor: changing the disk', () => {
   it('offers Rename, Move to… and Delete for what is on the disk of a folder that was opened, and New File and New Folder in a folder', () => {
     for (const kind of ['file', 'zip', 'wsnp', 'dir'] as const) expect(treeMenuFor({ kind }, { writable: true }), kind).toEqual(expect.arrayContaining(edit))
     expect(treeMenuFor({ kind: 'dir' }, { writable: true })).toEqual(expect.arrayContaining(['newFile', 'newFolder']))
-    for (const kind of ['file', 'zip', 'wsnp'] as const) expect(treeMenuFor({ kind }, { writable: true }), kind).not.toContain('newFile')
+    // A ZIP file is a place to put things in too; a file and a snapshot are not.
+    expect(treeMenuFor({ kind: 'zip' }, { writable: true })).toEqual(expect.arrayContaining(['newFile', 'newFolder']))
+    for (const kind of ['file', 'wsnp'] as const) expect(treeMenuFor({ kind }, { writable: true }), kind).not.toContain('newFile')
   })
-  it('offers none of it for what cannot be changed (inside a ZIP, in the trash, a ZIP as the root)', () => {
+  it('offers none of it for what cannot be changed (in the trash)', () => {
     for (const kind of ['file', 'zip', 'wsnp', 'dir'] as const) {
       const items = treeMenuFor({ kind })
       for (const action of [...edit, 'newFile', 'newFolder']) expect(items, `${kind} ${action}`).not.toContain(action)

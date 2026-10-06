@@ -1,8 +1,6 @@
 # User guide
 
-Folder Browser looks at the folders on your computer and at what is in them. It opens **folders and ZIP files** as trees, shows **text, pictures, PDFs, office documents, tables, videos, sounds and the bytes of any file**, and **makes, renames, moves and deletes** files and folders. It also opens **`.wsnp` files** (web pages saved by the [PageKeep](https://github.com/asantos43/webpage-snapshot) extension) as the pages they are. [Português do Brasil](USER-GUIDE.pt-BR.md).
-
-Changing what is inside a ZIP is not here yet (see the end).
+Folder Browser looks at the folders on your computer and at what is in them. It opens **folders and ZIP files** as trees, shows **text, pictures, PDFs, office documents, tables, videos, sounds and the bytes of any file**, and **makes, renames, moves, edits and deletes** files and folders, in a folder or inside a ZIP file. It also opens **`.wsnp` files** (web pages saved by the [PageKeep](https://github.com/asantos43/webpage-snapshot) extension) as the pages they are. [Português do Brasil](USER-GUIDE.pt-BR.md).
 
 ## Opening a folder
 
@@ -35,7 +33,7 @@ The menu of a row depends on what it is. A folder: expand, refresh, **New File�
 
 ## Making, renaming, moving and deleting
 
-These work on the files and folders of a folder you opened (not yet inside a ZIP, nor in the Trash place).
+These work on the files and folders of a folder you opened, and on what is inside a ZIP file (see "Inside a ZIP" below); not in the Trash place.
 
 - **New File…** and **New Folder…** (the icons of the Files header, the menu of a folder, or the empty part under the tree for the root) put a field in the tree: type the name and press `Enter` (`Esc` gives up). The new item is made where the focus is: in the folder that has it, or in the folder of the file that has it, or in the root.
 - **Rename** (`F2`, or the menu) edits the name in its row, with the name without its extension selected. `Enter` renames; `Esc`, or leaving the field, gives up.
@@ -48,7 +46,7 @@ These work on the files and folders of a folder you opened (not yet inside a ZIP
 
 | File | What you get |
 | --- | --- |
-| Source, text and data: HTML, CSS, JavaScript, TypeScript, JSON, XML, YAML, TOML, INI, `.env`, shell, SQL, Dockerfile, and source in Python, C, C++, C#, Java, Kotlin, Scala, Go, Rust, Swift, Dart, PHP, Ruby, Perl, Lua, R, Groovy, Haskell, Julia, Clojure, Erlang, Pascal, PowerShell, CMake, Diff, Protocol Buffers, SCSS, Sass, Less, plain text | Source with colours and line numbers. A text file **of a folder you opened is edited** (see "Editing text"); a text file of a ZIP or a snapshot, or one that cannot be edited, is read-only, and a minified or one-line HTML, CSS, JavaScript, JSON or XML file is then shown **laid out** (the toolbar's **Format** button shows it as saved; Save As always writes the file as it was saved). **Word Wrap** wraps long lines (`Alt+Z`). Both choices are kept and are in Settings too. Text over 5 MB is not opened in a tab; a **`.log`** opens up to 32 MB. |
+| Source, text and data: HTML, CSS, JavaScript, TypeScript, JSON, XML, YAML, TOML, INI, `.env`, shell, SQL, Dockerfile, and source in Python, C, C++, C#, Java, Kotlin, Scala, Go, Rust, Swift, Dart, PHP, Ruby, Perl, Lua, R, Groovy, Haskell, Julia, Clojure, Erlang, Pascal, PowerShell, CMake, Diff, Protocol Buffers, SCSS, Sass, Less, plain text | Source with colours and line numbers. A text file **of a folder you opened is edited** (see "Editing text"); a text file of a snapshot, or one that cannot be edited, is read-only, and a minified or one-line HTML, CSS, JavaScript, JSON or XML file is then shown **laid out** (the toolbar's **Format** button shows it as saved; Save As always writes the file as it was saved). **Word Wrap** wraps long lines (`Alt+Z`). Both choices are kept and are in Settings too. Text over 5 MB is not opened in a tab; a **`.log`** opens up to 32 MB. |
 | A file of a kind the application does not know | Shown as text when what it holds is text; otherwise as its bytes (hexadecimal). |
 | Markdown (`.md`) | A **formatted page** (headings, lists, tables, code; a web link opens in your browser; a picture is not loaded and HTML inside is shown as text), with **Formatted / Text** buttons; **Full Width** and **Wrap Code**. |
 | CSV and TSV | A **table** with sorting, filters, search, a SQL query and editing: see [Tables](#tables-csv-and-tsv). **Table / Text** buttons switch to the source. |
@@ -67,14 +65,14 @@ These work on the files and folders of a folder you opened (not yet inside a ZIP
 
 ## Editing text
 
-A text file of a folder you opened opens ready to edit, with the colours of its language, undo and redo (`Ctrl+Z`, `Ctrl+Shift+Z`), automatic closing of brackets, `Tab` to indent, and Word Wrap.
+A text file of a folder you opened, or inside a ZIP, opens ready to edit, with the colours of its language, undo and redo (`Ctrl+Z`, `Ctrl+Shift+Z`), automatic closing of brackets, `Tab` to indent, and Word Wrap.
 
 - **Save** with `Ctrl+S` (`⌘S`), the **Save** button of the toolbar, or **File ▸ Save**; **Save All** (`Ctrl+Alt+S`, `⌘⌥S`) writes every tab with changes. A tab with changes shows a **dot** where the × is (the × comes back when the pointer is over the tab), and the toolbar says **● Modified**.
 - The file is written **whole and safely**: to a temporary file next to it, then renamed over it, with its permissions kept, so a crash or a full disk leaves the old file. Its **line endings** (LF, CRLF or CR, shown in the toolbar) and its **byte order mark** (UTF-8 with BOM) are kept, so a file you open and save without changing is the same bytes. A file whose lines end in a mix of styles is made uniform when you save.
 - If the file **changed on disk** since you opened it (another program wrote it), Save does not write: it asks whether to **Overwrite** it with your text or **Load from Disk** (your changes are lost). Cancel leaves everything as it is.
 - **Closing a tab** with changes asks **Save / Don't Save / Cancel**, also for Close All, Close Others and closing the folder; **closing the window** asks too, for all the tabs with changes. The changes, and the undo history, stay with a tab while you look at another one, and follow it if you rename or move the file.
 - **Format Document** (HTML, CSS, JavaScript, JSON, XML) lays the text out for reading as an edit that **can be undone**. **Save As…** writes the text on screen to a file you choose. A formatted Markdown page or a CSV table of the same file shows what you have typed, saved or not.
-- Only **UTF-8 text up to 5 MB** is edited. A file in another encoding, a binary file, a bigger file and the files inside a ZIP or a snapshot are shown, not edited, and the toolbar says why.
+- Only **UTF-8 text up to 5 MB** is edited. A file in another encoding, a binary file, a bigger file, the files of a snapshot and the files of a ZIP that cannot be rewritten (see "Inside a ZIP") are shown, not edited, and the toolbar says why.
 
 - **Unsaved changes are kept.** What you typed (or changed in the bytes) stays in a draft in the application's own folder a moment after you stop. If you close the window or quit, nothing is asked: at the next start the tab comes back **with your changes, marked as modified**, and a message says so. Save writes it as usual (and still notices a file that changed on disk meanwhile). **Settings ▸ Keep changes that are not saved** turns this off: the window then asks Save / Don't Save before it closes, and drafts are deleted.
 - **Editing bytes.** In a hex tab (any file: **Open as Hex**, or **View as hex** on a text), the **Edit** button makes the bytes editable. Click a byte and type **hexadecimal digits** (two to a byte; the changed bytes turn bold), or click the text column and type characters. **Insert** switches between overwriting (`OVR`) and inserting (`INS`); **Delete** and **Backspace** remove the byte or the selection; after the last byte you can add more. `Ctrl+Z` / `Ctrl+Y` undo and redo; **Save** works as for text. Only files of a folder up to 16 MiB are edited; bigger files and the files of a ZIP or a snapshot are only looked at.
@@ -113,6 +111,16 @@ The editor can show **two groups of tabs side by side**, as VS Code does. There 
 ## ZIP files
 
 A ZIP file opens in the tree like a folder, and the entries open in tabs like files. **Open as List** shows its entries as a table of names, sizes, packed sizes and dates, where you can select (click, `Ctrl` and `Shift`, the boxes, `Ctrl+A`) and **Extract** to a folder: one file asks for a name, **Extract All…** writes everything, and a file that is already there is never overwritten (the new one is called `name (2)`). Nothing is written to disk until you extract. Names that could leave the folder you chose are never written, links are not followed, and an entry protected with a password is shown dimmed and skipped. A ZIP over 256 MB is only offered with Save As. ZIP64 and encrypted ZIPs are read-only.
+
+## Inside a ZIP
+
+A ZIP file, also a ZIP inside a ZIP, is changed like a folder, and what you change is written back into the ZIP file.
+
+- **New File…** and **New Folder…** work in the menu of a ZIP file (they make the item at its top) and of its folders; **Rename** (`F2`), **Move to…** (or a drag onto a folder of the same ZIP), a **Shift-drag copy** (numbered when the name is taken) and **Delete** work on its entries. A ZIP has no trash, so **Delete** asks "Delete permanently?" at once, and that cannot be undone. A folder that you empty stays in the ZIP, as it would on a disk. Nothing is replaced, and a folder never goes into itself.
+- A **text entry opens ready to edit**, like a file of a folder (see "Editing text"): **Save** (`Ctrl+S`) writes the ZIP again. If another program changed that same entry meanwhile, Save asks **Overwrite** or **Load from Disk**; a change to another entry of the ZIP is not a conflict.
+- The ZIP is **rewritten whole and safely**: the entries you did not touch are copied as they were (compressed or stored, with their dates and permissions) to a temporary file next to the ZIP, and the file is renamed over it only when it is complete, so a crash or a full disk leaves the old ZIP. If something else changed the ZIP while it was being written, nothing is written and you are told to try again. A big ZIP takes a moment for each change. A ZIP inside a ZIP is taken out to a temporary file, changed and put back.
+- A ZIP that **cannot be written back faithfully** is shown but not changed, and says why: ZIP64, an encrypted entry, a compression method other than stored and DEFLATE, a name that could leave the folder it is extracted to (`..`, an absolute path, a backslash), two entries with one name, or over 100,000 entries. A `.wsnp` is never changed inside (editing would break its signature); the whole file can be renamed, moved or deleted. Names in an old encoding are written back as UTF-8.
+- **Nothing moves between a folder and a ZIP file, or from one ZIP file to another**: the drop or the **Move to…** is refused in words and both are as they were. The ZIP file itself is renamed, moved and deleted (to the trash) like any file of its folder. The bytes of an entry are only looked at in the hex view.
 
 ## Zoom, Find, Copy and Print
 
@@ -160,4 +168,4 @@ The shortcuts work wherever the focus is, also inside a page or a document.
 
 ## What is not here yet
 
-Making, renaming, moving and deleting **inside a ZIP** come in the next phase (see [`../TODO.md`](../TODO.md)). Selecting several rows at once (so a comparison is chosen from the menu, not with `Ctrl+click`), comparing a file with the changes not yet saved in its tab, more than two editor groups, dragging onto a place of the side bar, and printing the bytes of a file or a table as a table are on the list too.
+Moving or copying between a folder and a ZIP file (or between two ZIP files), adding a file from the disk into a ZIP, and editing the bytes of an entry of a ZIP are not here yet (see [`../TODO.md`](../TODO.md)). Selecting several rows at once (so a comparison is chosen from the menu, not with `Ctrl+click`), comparing a file with the changes not yet saved in its tab, more than two editor groups, dragging onto a place of the side bar, and printing the bytes of a file or a table as a table are on the list too.

@@ -212,26 +212,17 @@ describe('changing the disk', () => {
     expect(await roots.remove(root.id, 'old.txt', 'forever', none)).toEqual({ ok: true, path: 'old.txt' })
     expect(fs.existsSync(path.join(dir, 'old.txt'))).toBe(false)
   })
-  it('copies a file or a folder in a folder root, numbered when the name is taken, and refuses in a ZIP root', async () => {
+  it('copies a file or a folder in a folder root, numbered when the name is taken', async () => {
     const { root } = (await roots.openPath(dir)) as { root: { id: string } }
     expect(await roots.copy(root.id, 'a.txt', 'docs')).toEqual({ ok: true, path: 'docs/a.txt' })
     expect(await roots.copy(root.id, 'a.txt', '')).toEqual({ ok: true, path: 'a (2).txt' })
     expect(fs.readFileSync(path.join(dir, 'a (2).txt'), 'utf8')).toBe('hello')
-    const zipRoot = (await roots.openPath(path.join(dir, 'pack.zip'))) as { root: { id: string } }
-    expect(await roots.copy(zipRoot.root.id, 'top.txt', '')).toEqual({ ok: false, error: 'unsupported' })
   })
-  it('refuses in a ZIP root, in a root that is not open, and in the trash', async () => {
-    const zipRoot = (await roots.openPath(path.join(dir, 'pack.zip'))) as { root: { id: string } }
-    expect(await roots.create(zipRoot.root.id, '', 'x.txt', 'file')).toEqual({ ok: false, error: 'unsupported' })
+  it('refuses in a root that is not open, and in the trash', async () => {
     expect(await roots.rename('nope', 'a.txt', 'b.txt')).toEqual({ ok: false, error: 'unsupported' })
     const trash = (await roots.openPath(dir, { trash: true })) as { root: { id: string } }
     expect(await roots.remove(trash.root.id, 'a.txt', 'forever', none)).toEqual({ ok: false, error: 'unsupported' })
     expect(fs.existsSync(path.join(dir, 'a.txt'))).toBe(true)
-  })
-  it('refuses inside a ZIP of a folder root', async () => {
-    const { root } = (await roots.openPath(dir)) as { root: { id: string } }
-    expect(await roots.rename(root.id, 'pack.zip!/top.txt', 'x.txt')).toEqual({ ok: false, error: 'unsupported' })
-    expect(await roots.remove(root.id, 'pack.zip!/src', 'forever', none)).toEqual({ ok: false, error: 'unsupported' })
   })
   it('lets go of a ZIP read before, so that one renamed and replaced is read again', async () => {
     const { root } = (await roots.openPath(dir)) as { root: { id: string } }
@@ -240,5 +231,216 @@ describe('changing the disk', () => {
     expect(await roots.remove(root.id, 'pack.zip', 'forever', none)).toMatchObject({ ok: true })
     expect(await roots.rename(root.id, 'other.zip', 'pack.zip')).toMatchObject({ ok: true })
     expect(await text(root.id, 'pack.zip!/top.txt')).toBe('changed')
+  })
+})
+
+describe('changing a ZIP (phase 5)', () => {
+  const none = async () => {}
+  const open = async (target = dir) => ((await roots.openPath(target)) as { root: { id: string } }).root.id
+  const zipOf = async (id: string, at: string) => {
+    const zip = await roots.zipAt(id, at)
+    if (!('entries' in zip)) throw new Error(`no zip: ${zip.error}`)
+    return zip
+  }
+  const listed = async (id: string, at: string) => entries(await roots.list(id, at)).map((e) => `${e.kind}:${e.path}`)
+
+  it('creates a file and a folder at the top of a ZIP and in one of its folders, with the paths the tree uses', async () => {
+    const id = await open()
+    expect(await roots.create(id, 'pack.zip', 'new.txt', 'file')).toEqual({ ok: true, path: 'pack.zip!/new.txt' })
+    expect(await roots.create(id, 'pack.zip!/src', 'util.c', 'file')).toEqual({ ok: true, path: 'pack.zip!/src/util.c' })
+    expect(await roots.create(id, 'pack.zip!/src', 'inc', 'dir')).toEqual({ ok: true, path: 'pack.zip!/src/inc' })
+    expect(await listed(id, 'pack.zip')).toContain('file:pack.zip!/new.txt')
+    expect(await listed(id, 'pack.zip!/src')).toEqual(['dir:pack.zip!/src/inc', 'file:pack.zip!/src/main.c', 'file:pack.zip!/src/util.c'])
+    expect(await text(id, 'pack.zip!/new.txt')).toBe('')
+    expect(await text(id, 'pack.zip!/src/main.c')).toBe('int main(){}')
+  })
+
+  it('renames and moves files and folders inside a ZIP, with what is in them', async () => {
+    const id = await open()
+    expect(await roots.rename(id, 'pack.zip!/top.txt', 'first.txt')).toEqual({ ok: true, path: 'pack.zip!/first.txt' })
+    expect(await roots.rename(id, 'pack.zip!/src', 'code')).toEqual({ ok: true, path: 'pack.zip!/code' })
+    expect(await roots.rename(id, 'pack.zip!/code/main.c', 'app.c')).toEqual({ ok: true, path: 'pack.zip!/code/app.c' })
+    expect(await roots.move(id, 'pack.zip!/first.txt', 'pack.zip!/code')).toEqual({ ok: true, path: 'pack.zip!/code/first.txt' })
+    expect(await roots.move(id, 'pack.zip!/code/app.c', 'pack.zip')).toEqual({ ok: true, path: 'pack.zip!/app.c' })
+    expect(await text(id, 'pack.zip!/app.c')).toBe('int main(){}')
+    expect(await text(id, 'pack.zip!/code/first.txt')).toBe('top')
+    expect(await text(id, 'pack.zip!/src/main.c')).toBe('no-file')
+    // Nothing is replaced, nothing goes into itself, and the same place is not a move.
+    expect(await roots.rename(id, 'pack.zip!/app.c', 'code')).toEqual({ ok: false, error: 'exists' })
+    expect(await roots.move(id, 'pack.zip!/code', 'pack.zip!/code')).toEqual({ ok: false, error: 'into-itself' })
+    expect(await roots.move(id, 'pack.zip!/code/first.txt', 'pack.zip!/code')).toEqual({ ok: false, error: 'same-place' })
+    expect(await roots.rename(id, 'pack.zip!/app.c', 'a/b')).toEqual({ ok: false, error: 'invalid-name' })
+  })
+
+  it('copies inside a ZIP under a numbered name, and removes only for good', async () => {
+    const id = await open()
+    expect(await roots.copy(id, 'pack.zip!/top.txt', 'pack.zip')).toEqual({ ok: true, path: 'pack.zip!/top (2).txt' })
+    expect(await roots.copy(id, 'pack.zip!/src', 'pack.zip')).toEqual({ ok: true, path: 'pack.zip!/src (2)' })
+    expect(await text(id, 'pack.zip!/src (2)/main.c')).toBe('int main(){}')
+    // The trash has no ZIP entries: the caller is told so, and asks for a permanent delete.
+    expect(await roots.remove(id, 'pack.zip!/top.txt', 'trash', none)).toEqual({ ok: false, error: 'trash-failed' })
+    expect(await text(id, 'pack.zip!/top.txt')).toBe('top')
+    expect(await roots.remove(id, 'pack.zip!/top.txt', 'forever', none)).toEqual({ ok: true, path: 'pack.zip!/top.txt' })
+    expect(await roots.remove(id, 'pack.zip!/src', 'forever', none)).toEqual({ ok: true, path: 'pack.zip!/src' })
+    expect(await listed(id, 'pack.zip')).toEqual(['dir:pack.zip!/src (2)', 'file:pack.zip!/.hidden', 'zip:pack.zip!/nested.zip', 'file:pack.zip!/top (2).txt'])
+    expect(await roots.remove(id, 'pack.zip!/gone', 'forever', none)).toEqual({ ok: false, error: 'not-found' })
+  })
+
+  it('changes a ZIP inside a ZIP, and the ZIP file keeps its own entries', async () => {
+    const id = await open()
+    expect(await roots.create(id, 'pack.zip!/nested.zip', 'more.txt', 'file')).toEqual({ ok: true, path: 'pack.zip!/nested.zip!/more.txt' })
+    expect(await roots.rename(id, 'pack.zip!/nested.zip!/in.txt', 'inner.txt')).toEqual({ ok: true, path: 'pack.zip!/nested.zip!/inner.txt' })
+    expect(await listed(id, 'pack.zip!/nested.zip')).toEqual(['file:pack.zip!/nested.zip!/inner.txt', 'file:pack.zip!/nested.zip!/more.txt'])
+    expect(await text(id, 'pack.zip!/nested.zip!/inner.txt')).toBe('inner text')
+    expect(await text(id, 'pack.zip!/top.txt')).toBe('top')
+    expect(await roots.move(id, 'pack.zip!/nested.zip!/more.txt', 'pack.zip!/nested.zip')).toEqual({ ok: false, error: 'same-place' })
+  })
+
+  it('changes a ZIP that is the root, and a ZIP in it', async () => {
+    const id = await open(path.join(dir, 'pack.zip'))
+    expect(await roots.create(id, '', 'a.txt', 'file')).toEqual({ ok: true, path: 'a.txt' })
+    expect(await roots.create(id, 'src', 'b.txt', 'file')).toEqual({ ok: true, path: 'src/b.txt' })
+    expect(await roots.create(id, 'nested.zip', 'c.txt', 'file')).toEqual({ ok: true, path: 'nested.zip!/c.txt' })
+    expect(await roots.rename(id, 'top.txt', 'first.txt')).toEqual({ ok: true, path: 'first.txt' })
+    expect(await roots.move(id, 'first.txt', 'src')).toEqual({ ok: true, path: 'src/first.txt' })
+    expect(await roots.rename(id, 'nested.zip!/c.txt', 'd.txt')).toEqual({ ok: true, path: 'nested.zip!/d.txt' })
+    expect(await roots.remove(id, 'a.txt', 'forever', none)).toEqual({ ok: true, path: 'a.txt' })
+    expect(await listed(id, 'src')).toEqual(['file:src/b.txt', 'file:src/first.txt', 'file:src/main.c'])
+    expect(await listed(id, 'nested.zip')).toEqual(['file:nested.zip!/d.txt', 'file:nested.zip!/in.txt'])
+    // The file on the disk is the one that changed.
+    expect(fs.readFileSync(path.join(dir, 'pack.zip')).length).toBeGreaterThan(0)
+    expect((await zipOf(id, '')).entries.map((e) => e.name)).not.toContain('a.txt')
+  })
+
+  it('moves nothing between the disk and a ZIP, or between two ZIPs', async () => {
+    const id = await open()
+    fs.writeFileSync(path.join(dir, 'second.zip'), await zipBuffer([{ name: 'x.txt', data: 'x' }]))
+    expect(await roots.move(id, 'a.txt', 'pack.zip')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await roots.move(id, 'pack.zip!/top.txt', 'docs')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await roots.move(id, 'pack.zip!/top.txt', 'second.zip')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await roots.copy(id, 'pack.zip!/top.txt', 'second.zip')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await roots.copy(id, 'a.txt', 'pack.zip')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await text(id, 'pack.zip!/top.txt')).toBe('top')
+    expect(fs.existsSync(path.join(dir, 'a.txt'))).toBe(true)
+  })
+
+  it('refuses a path that leaves the root, a symbolic link to a ZIP outside it, a folder that is not there, and the root of a ZIP root as an item', async () => {
+    const id = await open()
+    fs.writeFileSync(path.join(base, 'outside.zip'), await zipBuffer([{ name: 'o.txt', data: 'o' }]))
+    fs.symlinkSync(path.join(base, 'outside.zip'), path.join(dir, 'link.zip'))
+    const before = fs.readFileSync(path.join(base, 'outside.zip'))
+    expect(await roots.create(id, '../outside.zip', 'x.txt', 'file')).toMatchObject({ ok: false })
+    expect(await roots.create(id, 'link.zip', 'x.txt', 'file')).toMatchObject({ ok: false })
+    expect(await roots.rename(id, '../outside.zip!/o.txt', 'p.txt')).toEqual({ ok: false, error: 'not-found' })
+    expect(await roots.rename(id, 'link.zip!/o.txt', 'p.txt')).toEqual({ ok: false, error: 'not-found' })
+    expect(fs.readFileSync(path.join(base, 'outside.zip')).equals(before)).toBe(true)
+    expect(await roots.create(id, 'pack.zip!/nope', 'x.txt', 'file')).toEqual({ ok: false, error: 'not-found' })
+    expect(await roots.create(id, 'pack.zip!/top.txt', 'x.txt', 'file')).toEqual({ ok: false, error: 'not-folder' })
+    const zipRoot = await open(path.join(dir, 'pack.zip'))
+    expect(await roots.rename(zipRoot, '', 'x')).toEqual({ ok: false, error: 'unsupported' })
+  })
+
+  it('does not change a ZIP in the trash, or one that cannot be written back', async () => {
+    const bytes = await zipBuffer([{ name: 'a.txt', data: 'aaaa'.repeat(30) }])
+    const central = bytes.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]))
+    bytes.writeUInt16LE(bytes.readUInt16LE(central + 8) | 1, central + 8)
+    fs.writeFileSync(path.join(dir, 'locked.zip'), bytes)
+    const id = await open()
+    expect(await roots.create(id, 'locked.zip', 'x.txt', 'file')).toMatchObject({ ok: false })
+    const trash = (await roots.openPath(dir, { trash: true })) as { root: { id: string } }
+    expect(await roots.create(trash.root.id, 'pack.zip', 'x.txt', 'file')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await roots.remove(trash.root.id, 'pack.zip!/top.txt', 'forever', none)).toEqual({ ok: false, error: 'unsupported' })
+  })
+
+  it('does changes to one ZIP one after the other, so that none is lost', async () => {
+    const id = await open()
+    const made = await Promise.all(['a', 'b', 'c', 'd', 'e', 'f'].map((n) => roots.create(id, 'pack.zip', `${n}.txt`, 'file')))
+    expect(made.every((r) => r.ok)).toBe(true)
+    const have = (await zipOf(id, 'pack.zip')).entries.map((e) => e.name)
+    for (const n of ['a', 'b', 'c', 'd', 'e', 'f']) expect(have).toContain(`${n}.txt`)
+    expect(fs.readdirSync(dir).filter((n) => n.endsWith('.fbtmp'))).toEqual([])
+  })
+})
+
+describe('editing a text file of a ZIP', () => {
+  const open = async (target = dir) => ((await roots.openPath(target)) as { root: { id: string } }).root.id
+
+  it('reads the text with a version that says which entry it was, and saves it back with the new version', async () => {
+    const id = await open()
+    const opened = await roots.edit(id, 'pack.zip!/top.txt')
+    expect(opened).toMatchObject({ ok: true, text: 'top', eol: 'lf', bom: false, version: { size: 3 } })
+    if (!opened.ok) return
+    expect(typeof opened.version.crc32).toBe('number')
+    const saved = await roots.saveEdit(id, 'pack.zip!/top.txt', 'top, changed\nline 2', opened.version, { eol: 'lf', bom: false })
+    expect(saved).toMatchObject({ ok: true, version: { size: 19 } })
+    expect(await text(id, 'pack.zip!/top.txt')).toBe('top, changed\nline 2')
+    expect(await text(id, 'pack.zip!/src/main.c')).toBe('int main(){}')
+    // What save said the entry is like is what opening it says now.
+    const again = await roots.edit(id, 'pack.zip!/top.txt')
+    expect(again.ok && saved.ok && again.version).toEqual(saved.ok && saved.version)
+  })
+
+  it('keeps the line endings and the byte order mark, as a file of a folder does', async () => {
+    fs.writeFileSync(path.join(dir, 'crlf.zip'), await zipBuffer([{ name: 'w.txt', data: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('a\r\nb\r\n')]) }]))
+    const id = await open()
+    const opened = await roots.edit(id, 'crlf.zip!/w.txt')
+    expect(opened).toMatchObject({ ok: true, text: 'a\nb\n', eol: 'crlf', bom: true })
+    if (!opened.ok) return
+    await roots.saveEdit(id, 'crlf.zip!/w.txt', 'a\nb\nc\n', opened.version, { eol: opened.eol, bom: opened.bom })
+    const got = await roots.read(id, 'crlf.zip!/w.txt', 100)
+    expect('bytes' in got && [...got.bytes]).toEqual([0xef, 0xbb, 0xbf, ...Buffer.from('a\r\nb\r\nc\r\n')])
+  })
+
+  it('says the entry changed when it is not the one that was read, unless the user chose to overwrite; another entry changing is not a conflict', async () => {
+    const id = await open()
+    const opened = await roots.edit(id, 'pack.zip!/top.txt')
+    if (!opened.ok) throw new Error('not open')
+    // Someone else writes the same entry (here: another save), and another entry changes too.
+    expect(await roots.saveEdit(id, 'pack.zip!/top.txt', 'theirs', opened.version, { eol: 'lf', bom: false })).toMatchObject({ ok: true })
+    expect(await roots.saveEdit(id, 'pack.zip!/top.txt', 'mine', opened.version, { eol: 'lf', bom: false })).toEqual({ ok: false, error: 'changed' })
+    expect(await text(id, 'pack.zip!/top.txt')).toBe('theirs')
+    expect(await roots.saveEdit(id, 'pack.zip!/top.txt', 'mine', opened.version, { eol: 'lf', bom: false, overwrite: true })).toMatchObject({ ok: true })
+    expect(await text(id, 'pack.zip!/top.txt')).toBe('mine')
+    const other = await roots.edit(id, 'pack.zip!/src/main.c')
+    if (!other.ok) throw new Error('not open')
+    expect(await roots.create(id, 'pack.zip', 'x.txt', 'file')).toMatchObject({ ok: true })
+    expect(await roots.saveEdit(id, 'pack.zip!/src/main.c', 'int main(){return 0;}', other.version, { eol: 'lf', bom: false })).toMatchObject({ ok: true })
+  })
+
+  it('edits a file of a ZIP in a ZIP, and of a ZIP that is the root', async () => {
+    const id = await open()
+    const inner = await roots.edit(id, 'pack.zip!/nested.zip!/in.txt')
+    expect(inner).toMatchObject({ ok: true, text: 'inner text' })
+    if (!inner.ok) return
+    expect(await roots.saveEdit(id, 'pack.zip!/nested.zip!/in.txt', 'inner edited', inner.version, { eol: 'lf', bom: false })).toMatchObject({ ok: true })
+    expect(await text(id, 'pack.zip!/nested.zip!/in.txt')).toBe('inner edited')
+    const zipRoot = await open(path.join(dir, 'pack.zip'))
+    const top = await roots.edit(zipRoot, 'top.txt')
+    if (!top.ok) throw new Error('not open')
+    expect(await roots.saveEdit(zipRoot, 'top.txt', 'root edit', top.version, { eol: 'lf', bom: false })).toMatchObject({ ok: true })
+    expect(await text(zipRoot, 'top.txt')).toBe('root edit')
+  })
+
+  it('refuses what is not a text to edit, a folder, what is not there, a ZIP that is read-only, and the trash', async () => {
+    fs.writeFileSync(path.join(dir, 'mixed.zip'), await zipBuffer([{ name: 'bin.dat', data: Buffer.from([1, 0, 2]) }, { name: 'latin.txt', data: Buffer.from([0x63, 0x61, 0x66, 0xe9]) }, { name: 'dir/' }]))
+    const id = await open()
+    expect(await roots.edit(id, 'mixed.zip!/bin.dat')).toEqual({ ok: false, error: 'not-text' })
+    expect(await roots.edit(id, 'mixed.zip!/latin.txt')).toEqual({ ok: false, error: 'not-utf8' })
+    expect(await roots.edit(id, 'mixed.zip!/dir')).toEqual({ ok: false, error: 'no-file' })
+    expect(await roots.edit(id, 'mixed.zip!/nope.txt')).toEqual({ ok: false, error: 'no-file' })
+    expect(await roots.edit(id, 'nowhere.zip!/a.txt')).toEqual({ ok: false, error: 'no-file' })
+    expect(await roots.saveEdit(id, 'mixed.zip!/nope.txt', 'x', { mtimeMs: 0, size: 0, crc32: 0 }, { eol: 'lf', bom: false, overwrite: true })).toEqual({ ok: false, error: 'no-file' })
+    const bytes = await zipBuffer([{ name: 'a.txt', data: 'aaaa'.repeat(30) }])
+    const central = bytes.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]))
+    bytes.writeUInt16LE(bytes.readUInt16LE(central + 8) | 1, central + 8)
+    fs.writeFileSync(path.join(dir, 'locked.zip'), bytes)
+    expect(await roots.edit(id, 'locked.zip!/a.txt')).toEqual({ ok: false, error: 'read-only' })
+    const trash = (await roots.openPath(dir, { trash: true })) as { root: { id: string } }
+    expect(await roots.edit(trash.root.id, 'pack.zip!/top.txt')).toEqual({ ok: false, error: 'unsupported' })
+  })
+
+  it('does not edit the bytes of an entry of a ZIP (the hexadecimal view is for files of a folder)', async () => {
+    const id = await open()
+    expect(await roots.editBytes(id, 'pack.zip!/top.txt')).toEqual({ ok: false, error: 'unsupported' })
   })
 })

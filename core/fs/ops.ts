@@ -17,6 +17,11 @@ export type OpError =
   | 'denied'
   | 'unsupported'
   | 'trash-failed'
+  /** A ZIP that cannot be written back faithfully (ZIP64, encryption, a method or names that cannot be kept). */
+  | 'read-only'
+  /** The ZIP was changed by something else while it was being written: nothing was done. */
+  | 'changed'
+  | 'too-large'
   | 'failed'
 export type OpResult = { ok: true; path: string } | { ok: false; error: OpError }
 

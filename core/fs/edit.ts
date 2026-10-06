@@ -10,17 +10,19 @@ import { resolveInside } from './guard.ts'
 export interface FileVersion {
   mtimeMs: number
   size: number
+  /** An entry of a ZIP also has the CRC-32 its directory declares (the ZIP's own date has a resolution of two seconds). */
+  crc32?: number
 }
 
 /** How the lines of a file end; an editor works with `\n` and the file's own ending is put back when it is saved. */
 export type LineEnding = 'lf' | 'crlf' | 'cr'
 
-export type EditError = 'too-large' | 'not-text' | 'not-utf8' | 'no-file' | 'unsupported' | 'denied'
+export type EditError = 'too-large' | 'not-text' | 'not-utf8' | 'no-file' | 'unsupported' | 'denied' | 'read-only'
 export type EditOpen = { ok: true; text: string; version: FileVersion; eol: LineEnding; bom: boolean } | { ok: false; error: EditError }
 /** The biggest file that is edited as bytes (the hexadecimal view reads such a file whole). */
 export const HEX_EDIT_LIMIT = 16 * 2 ** 20
 export type EditBytesOpen = { ok: true; bytes: Uint8Array; version: FileVersion } | { ok: false; error: 'too-large' | 'no-file' | 'unsupported' | 'denied' }
-export type SaveError = 'changed' | 'no-file' | 'unsupported' | 'denied' | 'too-large' | 'failed'
+export type SaveError = 'changed' | 'no-file' | 'unsupported' | 'denied' | 'too-large' | 'read-only' | 'failed'
 export type EditSave = { ok: true; version: FileVersion } | { ok: false; error: SaveError }
 
 /** The biggest file that is opened to be edited (a bigger one is shown, not edited), and the biggest one that is written. */
@@ -80,16 +82,28 @@ export async function readForEdit(root: string, relative: string): Promise<EditO
   } catch (err) {
     return { ok: false, error: failOf(err) === 'failed' ? 'no-file' : (failOf(err) as 'no-file' | 'denied') }
   }
-  if (bytes.includes(0)) return { ok: false, error: 'not-text' }
+  const decoded = decodeForEdit(bytes)
+  return 'error' in decoded ? { ok: false, error: decoded.error } : { ok: true, ...decoded, version: { mtimeMs: file.stat.mtimeMs, size: file.stat.size } }
+}
+
+/** The bytes of a text file as an editor takes them: `\n` for every line ending, no byte order mark, and how the lines ended and whether there was the mark. Binary and non-UTF-8 files are refused. */
+export function decodeForEdit(bytes: Uint8Array): { text: string; eol: LineEnding; bom: boolean } | { error: 'not-text' | 'not-utf8' } {
+  if (bytes.includes(0)) return { error: 'not-text' }
   const bom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf
   let raw: string
   try {
     raw = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bom ? bytes.subarray(3) : bytes)
   } catch {
-    return { ok: false, error: 'not-utf8' }
+    return { error: 'not-utf8' }
   }
   const eol = detectLineEnding(raw)
-  return { ok: true, text: eol === 'lf' ? raw.replace(/\r\n?/g, '\n') : raw.replace(/\r\n|\r/g, '\n'), version: { mtimeMs: file.stat.mtimeMs, size: file.stat.size }, eol, bom }
+  return { text: eol === 'lf' ? raw.replace(/\r\n?/g, '\n') : raw.replace(/\r\n|\r/g, '\n'), eol, bom }
+}
+
+/** The text of an editor as the bytes of its file: the line endings and the byte order mark put back. */
+export function encodeEdited(text: string, options: { eol: LineEnding; bom: boolean }): Buffer {
+  const body = Buffer.from(options.eol === 'lf' ? text : text.replace(/\n/g, ENDINGS[options.eol]), 'utf8')
+  return options.bom ? Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), body]) : body
 }
 
 /**
@@ -98,8 +112,7 @@ export async function readForEdit(root: string, relative: string): Promise<EditO
  * unless `overwrite` says the user chose to. The line endings and the byte order mark of the file are put back. A link is written through (the file it points to, inside the root).
  */
 export async function saveEdited(root: string, relative: string, text: string, base: FileVersion, options: { eol: LineEnding; bom: boolean; overwrite?: boolean }): Promise<EditSave> {
-  const body = Buffer.from(options.eol === 'lf' ? text : text.replace(/\n/g, ENDINGS[options.eol]), 'utf8')
-  return saveEditedBytes(root, relative, options.bom ? Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), body]) : body, base, options.overwrite === true)
+  return saveEditedBytes(root, relative, encodeEdited(text, options), base, options.overwrite === true)
 }
 
 /** A file of a folder to be edited as bytes (the hexadecimal view): all of them (up to 16 MiB), and what the file was like on the disk. */
