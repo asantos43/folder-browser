@@ -138,7 +138,7 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [ ] Resize the groups by dragging their edge and remember the sizes; `Ctrl+1` / `Ctrl+2` to go to a group, and a command to split from the keyboard
 - [x] A text file of the tree (or a tab) dropped on the middle of the editor or of a text tab asks Open Side by Side / Compare (Diff); the sides still open in the group on that side
 - [ ] Drag a tab to the tree or out of the window; the same file in two groups at once (a tab is one file today, so it moves)
-- [ ] Some unit tests (`HexEditView`, `DiffView`, the About window of `Workbench.open`) fail at random when the whole suite runs under load, and pass alone: give them room (`waitFor` timeouts) or run the suite with fewer workers
+- [x] Some unit tests (`HexEditView`, `DiffView`, the About window) failed at random when the whole suite ran under load: the wait of the component tests is five seconds (`src/test/setup.ts`)
 - [x] Ctrl+click to select two rows of the tree and **Compare Selected** in their menu
 - [ ] Compare from a tab's menu
 - [ ] Compare a text with the unsaved changes of its tab (today a side is the file as it is on disk), and a file of a snapshot as a side

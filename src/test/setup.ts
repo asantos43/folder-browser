@@ -1,7 +1,8 @@
 import { configure } from '@testing-library/dom'
 
 // The runners of the CI are slow (Windows above all): what a component test waits for (`findBy…`, `waitFor`) gets longer there than on a developer's machine.
-configure({ asyncUtilTimeout: process.env.CI ? 8000 : 1000 })
+// (Also with the whole suite running at once on a developer's machine: DiffView and HexEditView failed now and then with one second.)
+configure({ asyncUtilTimeout: process.env.CI ? 8000 : 5000 })
 
 // happy-dom prints a frame it was told not to load as an error straight to stderr. The workbench tests open many snapshots
 // (each an iframe whose page is the main process's business, not the test's), so that one message is dropped.
