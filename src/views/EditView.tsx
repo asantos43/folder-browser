@@ -1,4 +1,4 @@
-import { EditorState } from '@codemirror/state'
+import { EditorState, Text } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { FORMATTABLE, type Language } from '@core/filekind.ts'
 import type { EditError, LineEnding } from '@core/api.ts'
@@ -26,7 +26,7 @@ const EOL_LABEL: Record<LineEnding, string> = { lf: 'LF', crlf: 'CRLF', cr: 'CR'
  * saved, never laid out for reading. The editor's state is kept by the key of the tab (`editorBuffers`), so changes, undo history and the place survive going to another tab.
  * A file that cannot be edited (not UTF-8, not text, too big) is handed to `fallback`, which shows it as it is, with the reason.
  */
-export function EditView({ tabKey, rootId, path, language, zoom = 1, onSave, onSaveAs, onOpenWith, onHex, onChanged, dirty, leading, fallback }: { /** What the workbench says of the tab: when it changes (a save made the text clean), the toolbar looks at the buffer again. */ dirty?: boolean; tabKey: string; rootId: string; path: string; language: Language; zoom?: number; /** The Save button (the workbench saves, and says what went wrong). */ onSave: () => void; onSaveAs: (text: string, options: { eol: LineEnding; bom: boolean }) => void; onOpenWith?: () => void; onHex?: () => void; /** The text now has changes that are not saved, or no longer has. */ onChanged: (key: string, changed: boolean) => void; leading?: ReactNode; fallback: (reason: MessageKey) => ReactNode }) {
+export function EditView({ tabKey, rootId, path, language, zoom = 1, onSave, onSaveAs, onOpenWith, onHex, onChanged, onRestored, dirty, leading, fallback }: { /** Changes that were not saved came back from the draft kept for the next start. */ onRestored?: (name: string) => void;  /** What the workbench says of the tab: when it changes (a save made the text clean), the toolbar looks at the buffer again. */ dirty?: boolean; tabKey: string; rootId: string; path: string; language: Language; zoom?: number; /** The Save button (the workbench saves, and says what went wrong). */ onSave: () => void; onSaveAs: (text: string, options: { eol: LineEnding; bom: boolean }) => void; onOpenWith?: () => void; onHex?: () => void; /** The text now has changes that are not saved, or no longer has. */ onChanged: (key: string, changed: boolean) => void; leading?: ReactNode; fallback: (reason: MessageKey) => ReactNode }) {
   const { t } = useI18n()
   const wrap = wordWrap.use()
   const host = useRef<HTMLDivElement>(null)
@@ -47,6 +47,8 @@ export function EditView({ tabKey, rootId, path, language, zoom = 1, onSave, onS
   languageNow.current = language
   const changedNow = useRef(onChanged)
   changedNow.current = onChanged
+  const onRestoredNow = useRef(onRestored)
+  onRestoredNow.current = onRestored
   const keyNow = useRef(tabKey)
   keyNow.current = tabKey
 
@@ -54,14 +56,31 @@ export function EditView({ tabKey, rootId, path, language, zoom = 1, onSave, onS
   useEffect(() => {
     if (load.state !== 'loading') return
     let alive = true
-    void window.fb?.edit.open(rootId, path).then((result) => {
-      if (!alive) return
+    void (async () => {
+      // Changes of an earlier session that were not saved (a draft) come first: the tab shows them, with the file as it is on disk as what is saved.
+      const draft = await window.fb?.drafts.get(rootId, path).catch(() => null)
+      const result = await window.fb?.edit.open(rootId, path)
+      if (!alive || !result) return
+      const extensions = editableExtensions(languageNow.current, wrapNow.current)
+      if (draft && draft.kind === 'text' && (result.ok || result.error === 'no-file')) {
+        const onDisk = result.ok ? result.text : ''
+        const same = result.ok && draft.text === result.text && draft.base.mtimeMs === result.version.mtimeMs && draft.base.size === result.version.size
+        if (!same) {
+          const state = EditorState.create({ doc: draft.text, extensions })
+          // The version is the one the changes began from: if the file changed on disk since, Save notices.
+          const buffer: EditorBuffer = { state, saved: Text.of(onDisk.split('\n')), version: draft.base, eol: draft.eol ?? 'lf', bom: draft.bom ?? false }
+          editorBuffers.set(tabKey, buffer)
+          onRestoredNow.current?.(path.split(/[!/]+/).pop() ?? path)
+          return setLoad({ state: 'ready', buffer })
+        }
+        void window.fb?.drafts.delete(rootId, path)
+      }
       if (!result.ok) return setLoad({ state: 'refused', error: result.error })
-      const state = EditorState.create({ doc: result.text, extensions: editableExtensions(languageNow.current, wrapNow.current) })
+      const state = EditorState.create({ doc: result.text, extensions })
       const buffer: EditorBuffer = { state, saved: state.doc, version: result.version, eol: result.eol, bom: result.bom }
       editorBuffers.set(tabKey, buffer)
       setLoad({ state: 'ready', buffer })
-    })
+    })()
     return () => {
       alive = false
     }

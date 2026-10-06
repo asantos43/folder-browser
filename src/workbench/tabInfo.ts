@@ -63,11 +63,11 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
 
 /**
  * A text file of a tab can be edited when the tab is a file of a folder that was opened (not a ZIP root, not the trash, not an entry inside a ZIP, not a snapshot) and is not
- * the tab of its bytes. (Whether it is a text, and a UTF-8 one under 5 MB, is the main process's to say, when the file is opened.)
+ * (the tab of its bytes is edited as bytes). (Whether it is a text, and a UTF-8 one under 5 MB, is the main process's to say, when the file is opened.)
  */
 export function isEditable(ws: Workspace, tab: Tab): boolean {
   const root = ws.roots[tab.snapshotId]
-  return Boolean(root && root.kind === 'folder' && !root.trash && tab.path !== undefined && !isInner(tab.path) && tab.as !== 'hex' && tab.view === undefined)
+  return Boolean(root && root.kind === 'folder' && !root.trash && tab.path !== undefined && !isInner(tab.path) && tab.view === undefined)
 }
 
 /** How the file of a tab is shown, from what the manifest and the archive say about it. */

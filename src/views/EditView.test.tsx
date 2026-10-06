@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { undo } from '@codemirror/commands'
 import { EditorView } from '@codemirror/view'
-import type { EditOpen, FbApi } from '@core/api.ts'
+import type { Draft, EditOpen, FbApi } from '@core/api.ts'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
@@ -20,17 +20,18 @@ afterEach(() => {
 })
 
 const OK = (text: string, extra: Partial<Extract<EditOpen, { ok: true }>> = {}): EditOpen => ({ ok: true, text, version: { mtimeMs: 1, size: text.length }, eol: 'lf', bom: false, ...extra })
-function setup(open: EditOpen | (() => Promise<EditOpen>), props: { language?: 'plain' | 'json'; tabKey?: string } = {}) {
+function setup(open: EditOpen | (() => Promise<EditOpen>), props: { language?: 'plain' | 'json'; tabKey?: string; draft?: Draft | null } = {}) {
   const openFn = vi.fn(typeof open === 'function' ? open : async () => open)
-  window.fb = { edit: { open: openFn }, copyText: vi.fn() } as unknown as FbApi
-  const handlers = { onSave: vi.fn(), onSaveAs: vi.fn(), onChanged: vi.fn(), onOpenWith: vi.fn(), onHex: vi.fn() }
+  const drafts = { get: vi.fn(async () => props.draft ?? null), delete: vi.fn(async () => {}) }
+  window.fb = { edit: { open: openFn }, drafts, copyText: vi.fn() } as unknown as FbApi
+  const handlers = { onSave: vi.fn(), onSaveAs: vi.fn(), onChanged: vi.fn(), onRestored: vi.fn(), onOpenWith: vi.fn(), onHex: vi.fn() }
   const element = (
     <I18nProvider language="en">
       <EditView tabKey={props.tabKey ?? 'f:r1:a.txt'} rootId="r1" path="a.txt" language={props.language ?? 'plain'} fallback={(reason) => <p>fallback {reason}</p>} {...handlers} />
     </I18nProvider>
   )
   const view = render(element)
-  return { openFn, handlers, element, ...view }
+  return { openFn, drafts, handlers, element, ...view }
 }
 const editor = () => EditorView.findFromDOM(document.querySelector('.cm-editor') as HTMLElement)!
 const type = (text: string) => act(() => void editor().dispatch({ changes: { from: editor().state.doc.length, insert: text } }))
@@ -101,5 +102,37 @@ describe('EditView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View as hex' }))
     expect(handlers.onOpenWith).toHaveBeenCalledOnce()
     expect(handlers.onHex).toHaveBeenCalledOnce()
+  })
+
+  it('shows the changes of a draft kept by the last session, as changes not saved, with the file on disk as what is saved; the version is the one the changes began from', async () => {
+    const draft: Draft = { version: 1, rootPath: '/home/me/work', path: 'a.txt', kind: 'text', text: 'my unsaved words', base: { mtimeMs: 1, size: 5 }, eol: 'crlf', bom: false, at: '2026-10-06T12:00:00.000Z' }
+    const { handlers } = setup(OK('on disk', { version: { mtimeMs: 9, size: 7 } }), { draft })
+    await waitFor(() => expect(content()).toContain('my unsaved words'))
+    expect(screen.getByText('● Modified')).toBeTruthy()
+    expect(screen.getByText('CRLF')).toBeTruthy()
+    expect(handlers.onRestored).toHaveBeenCalledWith('a.txt')
+    expect(handlers.onChanged).toHaveBeenLastCalledWith('f:r1:a.txt', true)
+    const buffer = editorBuffers.get('f:r1:a.txt')!
+    expect(buffer.saved.toString()).toBe('on disk')
+    expect(buffer.version).toEqual({ mtimeMs: 1, size: 5 })
+  })
+  it('lets a draft go that is what the file is now (nothing is restored)', async () => {
+    const draft: Draft = { version: 1, rootPath: '/r', path: 'a.txt', kind: 'text', text: 'same', base: { mtimeMs: 1, size: 4 }, eol: 'lf', bom: false, at: '2026-10-06T12:00:00.000Z' }
+    const { handlers, drafts } = setup(OK('same', { version: { mtimeMs: 1, size: 4 } }), { draft })
+    await waitFor(() => expect(content()).toContain('same'))
+    expect(handlers.onRestored).not.toHaveBeenCalled()
+    expect(drafts.delete).toHaveBeenCalledWith('r1', 'a.txt')
+    expect(screen.queryByText('● Modified')).toBeNull()
+  })
+  it('restores the changes of a file that is not there any more, so they are not lost', async () => {
+    const draft: Draft = { version: 1, rootPath: '/r', path: 'a.txt', kind: 'text', text: 'rescued', base: { mtimeMs: 1, size: 4 }, eol: 'lf', bom: false, at: '2026-10-06T12:00:00.000Z' }
+    const { handlers } = setup({ ok: false, error: 'no-file' }, { draft })
+    await waitFor(() => expect(content()).toContain('rescued'))
+    expect(handlers.onRestored).toHaveBeenCalledOnce()
+  })
+  it('ignores a draft for a file that cannot be edited, and shows the file as it is', async () => {
+    const draft: Draft = { version: 1, rootPath: '/r', path: 'a.txt', kind: 'text', text: 'draft', base: { mtimeMs: 1, size: 4 }, eol: 'lf', bom: false, at: '2026-10-06T12:00:00.000Z' }
+    setup({ ok: false, error: 'not-utf8' }, { draft })
+    await waitFor(() => expect(screen.getByText('fallback edit.refused.not-utf8')).toBeTruthy())
   })
 })

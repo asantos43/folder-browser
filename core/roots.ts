@@ -7,7 +7,7 @@ import type { ByteRange } from './archive/reader.ts'
 import { ZIP_LIMIT } from './filekind.ts'
 import { isHidden } from './fs/hidden.ts'
 import { resolveInside } from './fs/guard.ts'
-import { readForEdit, saveEdited, type EditOpen, type EditSave, type FileVersion, type LineEnding } from './fs/edit.ts'
+import { readBytesForEdit, readForEdit, saveEdited, saveEditedBytes, type EditBytesOpen, type EditOpen, type EditSave, type FileVersion, type LineEnding } from './fs/edit.ts'
 import { copyEntry, createEntry, moveEntry, removeEntry, renameEntry, type OpResult } from './fs/ops.ts'
 import { sortEntries } from './fs/sort.ts'
 import { INNER, MAX_DEPTH, partsOf } from './vpath.ts'
@@ -307,6 +307,17 @@ export class RootRegistry {
   saveEdit(id: string, name: string, text: string, base: FileVersion, options: { eol: LineEnding; bom: boolean; overwrite?: boolean }): Promise<EditSave> {
     const root = this.writable(id)
     return root ? saveEdited(root.real, name, text, base, options) : Promise.resolve({ ok: false, error: 'unsupported' })
+  }
+
+  /** A file of a folder root to be edited as bytes (the hexadecimal view): all of them, up to 16 MiB. */
+  editBytes(id: string, name: string): Promise<EditBytesOpen> {
+    const root = this.writable(id)
+    return root ? readBytesForEdit(root.real, name) : Promise.resolve({ ok: false, error: 'unsupported' })
+  }
+
+  saveEditBytes(id: string, name: string, bytes: Uint8Array, base: FileVersion, overwrite: boolean): Promise<EditSave> {
+    const root = this.writable(id)
+    return root ? saveEditedBytes(root.real, name, bytes, base, overwrite) : Promise.resolve({ ok: false, error: 'unsupported' })
   }
 
   /** A copy in a folder of the root (numbered when the name is taken: nothing is replaced). */

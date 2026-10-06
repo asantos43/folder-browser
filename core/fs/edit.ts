@@ -17,6 +17,9 @@ export type LineEnding = 'lf' | 'crlf' | 'cr'
 
 export type EditError = 'too-large' | 'not-text' | 'not-utf8' | 'no-file' | 'unsupported' | 'denied'
 export type EditOpen = { ok: true; text: string; version: FileVersion; eol: LineEnding; bom: boolean } | { ok: false; error: EditError }
+/** The biggest file that is edited as bytes (the hexadecimal view reads such a file whole). */
+export const HEX_EDIT_LIMIT = 16 * 2 ** 20
+export type EditBytesOpen = { ok: true; bytes: Uint8Array; version: FileVersion } | { ok: false; error: 'too-large' | 'no-file' | 'unsupported' | 'denied' }
 export type SaveError = 'changed' | 'no-file' | 'unsupported' | 'denied' | 'too-large' | 'failed'
 export type EditSave = { ok: true; version: FileVersion } | { ok: false; error: SaveError }
 
@@ -95,11 +98,28 @@ export async function readForEdit(root: string, relative: string): Promise<EditO
  * unless `overwrite` says the user chose to. The line endings and the byte order mark of the file are put back. A link is written through (the file it points to, inside the root).
  */
 export async function saveEdited(root: string, relative: string, text: string, base: FileVersion, options: { eol: LineEnding; bom: boolean; overwrite?: boolean }): Promise<EditSave> {
+  const body = Buffer.from(options.eol === 'lf' ? text : text.replace(/\n/g, ENDINGS[options.eol]), 'utf8')
+  return saveEditedBytes(root, relative, options.bom ? Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), body]) : body, base, options.overwrite === true)
+}
+
+/** A file of a folder to be edited as bytes (the hexadecimal view): all of them (up to 16 MiB), and what the file was like on the disk. */
+export async function readBytesForEdit(root: string, relative: string): Promise<EditBytesOpen> {
   const file = await fileAt(root, relative)
   if ('error' in file) return { ok: false, error: file.error }
-  if (!options.overwrite && (file.stat.mtimeMs !== base.mtimeMs || file.stat.size !== base.size)) return { ok: false, error: 'changed' }
-  const body = Buffer.from(options.eol === 'lf' ? text : text.replace(/\n/g, ENDINGS[options.eol]), 'utf8')
-  const bytes = options.bom ? Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), body]) : body
+  if (file.stat.size > HEX_EDIT_LIMIT) return { ok: false, error: 'too-large' }
+  try {
+    const bytes = await fsp.readFile(file.real)
+    return { ok: true, bytes: new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.length), version: { mtimeMs: file.stat.mtimeMs, size: file.stat.size } }
+  } catch (err) {
+    return { ok: false, error: failOf(err) === 'failed' ? 'no-file' : (failOf(err) as 'no-file' | 'denied') }
+  }
+}
+
+/** The bytes of a file written whole, the way `saveEdited` writes a text: a temporary file renamed over it, the permissions kept, and the disk looked at first. */
+export async function saveEditedBytes(root: string, relative: string, bytes: Uint8Array, base: FileVersion, overwrite = false): Promise<EditSave> {
+  const file = await fileAt(root, relative)
+  if ('error' in file) return { ok: false, error: file.error }
+  if (!overwrite && (file.stat.mtimeMs !== base.mtimeMs || file.stat.size !== base.size)) return { ok: false, error: 'changed' }
   if (bytes.length > SAVE_LIMIT) return { ok: false, error: 'too-large' }
   const temporary = path.join(path.dirname(file.real), `.${path.basename(file.real)}.${crypto.randomBytes(6).toString('hex')}.fbtmp`)
   try {

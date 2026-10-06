@@ -46,6 +46,8 @@ export const markdownWide = createSetting('markdownWide', false, isBoolean)
 export const markdownWrapCode = createSetting('markdownWrapCode', false, isBoolean)
 /** At start, without a file to open, the snapshots and files that were open when the application was closed are opened again (VS Code does the same). */
 export const reopenSession = createSetting('reopenSession', true, isBoolean)
+/** The changes of a text that are not saved are kept for the next start (a hot exit): the window closes without asking, and the tabs come back with their changes. Off: the window asks. */
+export const hotExit = createSetting('hotExit', true, isBoolean)
 /** Hidden files and folders (a name that starts with a dot) are shown in the tree. Off by default, as in a file manager. */
 export const showHidden = createSetting('showHidden', false, isBoolean)
 /** What the files of a folder are ordered by (folders stay first): the name, the date they changed, or the size. */

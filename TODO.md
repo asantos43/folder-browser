@@ -108,6 +108,12 @@ What was tried: `sql.js` 1.14 (SQLite compiled to WebAssembly, MIT; 46 KB of scr
 - [ ] Other encodings (Latin-1, UTF-16) with a choice in the status bar; mixed line endings flagged
 - [ ] Edit the CSV and TSV **table** (cells), with sorting, filtering by column and value, search and a SQL-like query: see "Tables" below
 
+## Phase 3a: unsaved changes kept, and editing bytes
+- [x] Drafts (`core/drafts.ts`, `fb:draft-*`, `src/state/drafts.ts`): the changes of a text or hex tab are kept in the app's folder a moment after typing, restored at the next start as modified tabs, removed on save, reload or close; the window closes without asking; Settings ▸ Keep changes that are not saved
+- [x] Edit the bytes in the hex view (`core/hexEdit.ts`, `HexEditView`, `HexView` editing): overwrite by digit or character, Insert, Delete, Backspace, add at the end, undo and redo, Save with the atomic write and the disk check, drafts of bytes
+- [ ] Hex: paste bytes, fill a selection, search and replace bytes, a check mark for the bytes saved but not yet on disk
+- [ ] Drafts of a new, never-saved file (when New File… edits before it creates)
+
 ## Phase 4: diff
 - [ ] Select two text files (Ctrl+click, or "Select for compare" and "Compare with selected"), including entries in a ZIP
 - [ ] `@codemirror/merge`: side by side and unified, with syntax colours

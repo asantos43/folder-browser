@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { app, BrowserWindow } from 'electron'
+import { DraftStore } from '../core/drafts.ts'
 import { FavoriteFolders } from '../core/favorites.ts'
 import { RecentFiles } from '../core/recent.ts'
 import { SessionStore } from '../core/session-store.ts'
@@ -45,7 +46,10 @@ if (process.argv.includes('--app-version')) {
   })
 
   app.whenReady().then(async () => {
-    host = new SnapshotHost(new RecentFiles(path.join(app.getPath('userData'), 'recent-files.json')), new SignerStore(path.join(app.getPath('userData'), 'trusted-signers.json')), new SessionStore(path.join(app.getPath('userData'), 'session.json')), { recentFolders: new RecentFiles(path.join(app.getPath('userData'), 'recent-folders.json')), favorites: new FavoriteFolders(path.join(app.getPath('userData'), 'favorites.json')) })
+    // Changes not saved are kept here (a hot exit); the ones nobody came back to for three months go.
+    const drafts = new DraftStore(path.join(app.getPath('userData'), 'drafts'))
+    drafts.prune(90)
+    host = new SnapshotHost(new RecentFiles(path.join(app.getPath('userData'), 'recent-files.json')), new SignerStore(path.join(app.getPath('userData'), 'trusted-signers.json')), new SessionStore(path.join(app.getPath('userData'), 'session.json')), { recentFolders: new RecentFiles(path.join(app.getPath('userData'), 'recent-folders.json')), favorites: new FavoriteFolders(path.join(app.getPath('userData'), 'favorites.json')), drafts })
     host.registerIpc(() => win)
     void host.sweepOldCopies()
     win = createMainWindow(host)

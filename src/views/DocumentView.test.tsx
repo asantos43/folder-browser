@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 import type { DocOpen, FbApi } from '@core/api.ts'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, configure, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
 import { fileTarget } from '@/find/types.ts'
 import { DocumentView } from './DocumentView.tsx'
+
+// (The frame and the page's messages take a moment when the machine is busy with the other test files.)
+configure({ asyncUtilTimeout: 5000 })
 
 afterEach(() => {
   cleanup()

@@ -12,6 +12,7 @@ import { FontView } from './FontView.tsx'
 import { ImageView } from './ImageView.tsx'
 import { CsvToggle, CsvView } from './CsvView.tsx'
 import { EditView } from './EditView.tsx'
+import { HexEditView } from './HexEditView.tsx'
 import { OtherView } from './OtherView.tsx'
 import { HEX_WHOLE_LIMIT, HexView, RangeHexView } from './HexView.tsx'
 import { PdfView } from './PdfView.tsx'
@@ -77,7 +78,7 @@ function useLate(ms: number): boolean {
 }
 
 /** The tab of one file of a snapshot: source, picture or font when it can be shown, and a way to save it when it cannot. */
-export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onHex, onOpenWith, edit, findToken = 0, onViewEntry, onNotify, zoom = 1 }: { /** The file is a text of a folder that was opened: it is edited (it is a text, and is not shown as a page or a table). */ edit?: { rootId: string; tabKey: string; dirty: boolean; onSave: () => void; onSaveAs: (text: string, options: { eol: 'lf' | 'crlf' | 'cr'; bom: boolean }) => void; onChanged: (key: string, changed: boolean) => void };  /** Hands the file to another application, by the chooser of this app. */ onOpenWith?: () => void; /** Counts up at each Find (`Ctrl+F`): a view with a search of its own (hexadecimal) takes the focus there. */ findToken?: number; /** Opens the file as its bytes (hexadecimal), in a tab of its own: offered on what is not shown. */ onHex: () => void; /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
+export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onHex, onOpenWith, edit, findToken = 0, onViewEntry, onNotify, zoom = 1 }: { /** The file is a text of a folder that was opened: it is edited (it is a text, and is not shown as a page or a table). */ edit?: { rootId: string; tabKey: string; dirty: boolean; onRestored?: (name: string) => void; onSave: () => void; onSaveAs: (text: string, options: { eol: 'lf' | 'crlf' | 'cr'; bom: boolean }) => void; onSaveBytesAs: (name: string, bytes: Uint8Array) => void; onChanged: (key: string, changed: boolean) => void };  /** Hands the file to another application, by the chooser of this app. */ onOpenWith?: () => void; /** Counts up at each Find (`Ctrl+F`): a view with a search of its own (hexadecimal) takes the focus there. */ findToken?: number; /** Opens the file as its bytes (hexadecimal), in a tab of its own: offered on what is not shown. */ onHex: () => void; /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
   const { t } = useI18n()
   const key = `${snapshotId}:${path}`
   // A file of no known type (an entry of a ZIP with an extension the viewer has never heard of) is read and looked at: if it is text, it is shown as text.
@@ -144,6 +145,8 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   // A moment of nothing, not of a message that flashes: "Loading…" appears only when the file is slow.
   if (loaded.state === 'loading' || (probe && loaded.state === 'ready' && sniffed === undefined)) return late ? <p className="m-0 p-6 text-fg-muted">{t('file.loading')}</p> : <div className="min-h-0 flex-1 bg-editor" />
   if (loaded.state === 'failed') return <OtherView name={name} mediaType={mediaType} size={size} reason={loaded.error === 'too-large' ? 'tooLarge' : 'readError'} onSave={onSave} onOpenWith={onOpenWith} />
+  // The bytes of a file of a folder (up to 16 MiB) are edited in the hexadecimal view: it reads them itself, with what the file is like on disk.
+  if (hex && edit && size <= HEX_WHOLE_LIMIT) return <HexEditView tabKey={edit.tabKey} rootId={edit.rootId} path={path} name={name} onSave={edit.onSave} onSaveFile={onSave} onSaveAs={(bytes) => edit.onSaveBytesAs(name, bytes)} onOpenWith={onOpenWith} zoom={zoom} findToken={findToken} onChanged={edit.onChanged} onRestored={edit.onRestored} dirty={edit.dirty} fallback={() => <OtherView name={name} mediaType={mediaType} size={size} reason="readError" onSave={onSave} onOpenWith={onOpenWith} />} />
   if (hex) return <HexBytes name={name} bytes={loaded.bytes} onSave={onSave} onOpenWith={onOpenWith} zoom={zoom} findToken={findToken} />
   // An SVG is a picture and its source: the toolbar of either has the switch to the other.
   if (svg && svgAs === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType="image/svg+xml" name={name} onSave={onSave} leading={<SvgToggle />} />
@@ -155,7 +158,7 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
     const leading = svg ? <SvgToggle /> : language === 'markdown' ? <MarkdownToggle /> : delimited ? <CsvToggle /> : undefined
     const readOnly = (notice?: string) => <TextView text={text} language={language} size={size} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} leading={leading} notice={notice} />
     if (!edit) return readOnly()
-    return <EditView tabKey={edit.tabKey} rootId={edit.rootId} path={path} language={language} zoom={zoom} onSave={edit.onSave} onSaveAs={edit.onSaveAs} onOpenWith={onOpenWith} onHex={onHex} onChanged={edit.onChanged} dirty={edit.dirty} leading={leading} fallback={(reason) => readOnly(t(reason))} />
+    return <EditView tabKey={edit.tabKey} rootId={edit.rootId} path={path} language={language} zoom={zoom} onSave={edit.onSave} onSaveAs={edit.onSaveAs} onOpenWith={onOpenWith} onHex={onHex} onChanged={edit.onChanged} onRestored={edit.onRestored} dirty={edit.dirty} leading={leading} fallback={(reason) => readOnly(t(reason))} />
   }
   if (kind === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType={effectiveType(mediaType, path)} name={name} onSave={onSave} />
   if (kind === 'pdf') return <PdfView id={`${snapshotId}:${path}`} bytes={loaded.bytes} name={name} onSave={onSave} />

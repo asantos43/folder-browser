@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { detectLineEnding, EDIT_LIMIT, readForEdit, saveEdited } from './edit.ts'
+import { detectLineEnding, EDIT_LIMIT, HEX_EDIT_LIMIT, readBytesForEdit, readForEdit, saveEdited, saveEditedBytes } from './edit.ts'
 
 let base: string
 let root: string
@@ -129,5 +129,42 @@ describe('saveEdited', () => {
     }
     expect(fs.readFileSync(at('a.txt'), 'utf8')).toBe('line one\nline two\n')
     expect(fs.readdirSync(root).filter((n) => n.endsWith('.fbtmp'))).toEqual([])
+  })
+})
+
+describe('readBytesForEdit and saveEditedBytes', () => {
+  it('reads all the bytes of a file, binary too, with its version', async () => {
+    fs.writeFileSync(at('prog.bin'), Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0, 1, 2, 255]))
+    const got = await readBytesForEdit(root, 'prog.bin')
+    expect(got.ok && [...got.bytes]).toEqual([0x7f, 0x45, 0x4c, 0x46, 0, 1, 2, 255])
+    expect(got.ok && got.version.size).toBe(8)
+  })
+  it('refuses a file that is too big, a missing one, the root and the inside of a ZIP', async () => {
+    fs.writeFileSync(at('big.bin'), Buffer.alloc(HEX_EDIT_LIMIT + 1))
+    expect(await readBytesForEdit(root, 'big.bin')).toEqual({ ok: false, error: 'too-large' })
+    expect(await readBytesForEdit(root, 'gone.bin')).toEqual({ ok: false, error: 'no-file' })
+    expect(await readBytesForEdit(root, '')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await readBytesForEdit(root, 'p.zip!/a')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await readBytesForEdit(root, '../outside.txt')).toEqual({ ok: false, error: 'no-file' })
+  })
+  it('writes bytes whole through a temporary file, keeps the permissions (the executable bit), and a longer or shorter file is fine', async () => {
+    fs.writeFileSync(at('run.bin'), Buffer.from([1, 2, 3, 4]))
+    fs.chmodSync(at('run.bin'), 0o755)
+    const got = await readBytesForEdit(root, 'run.bin')
+    if (!got.ok) throw new Error('read')
+    const saved = await saveEditedBytes(root, 'run.bin', Uint8Array.from([9, 8, 7, 6, 5, 4]), got.version)
+    expect(saved.ok).toBe(true)
+    expect([...fs.readFileSync(at('run.bin'))]).toEqual([9, 8, 7, 6, 5, 4])
+    expect(fs.statSync(at('run.bin')).mode & 0o777).toBe(0o755)
+    expect(fs.readdirSync(root).filter((n) => n.endsWith('.fbtmp'))).toEqual([])
+  })
+  it('writes nothing when the file changed since it was read, unless told to overwrite', async () => {
+    fs.writeFileSync(at('x.bin'), Buffer.from([1, 2]))
+    const got = await readBytesForEdit(root, 'x.bin')
+    if (!got.ok) throw new Error('read')
+    fs.writeFileSync(at('x.bin'), Buffer.from([1, 2, 3]))
+    expect(await saveEditedBytes(root, 'x.bin', Uint8Array.from([0]), got.version)).toEqual({ ok: false, error: 'changed' })
+    expect((await saveEditedBytes(root, 'x.bin', Uint8Array.from([0]), got.version, true)).ok).toBe(true)
+    expect([...fs.readFileSync(at('x.bin'))]).toEqual([0])
   })
 })

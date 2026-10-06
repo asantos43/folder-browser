@@ -1,3 +1,4 @@
+import { insertByte, overwriteByte, redo as redoEdit, removeBytes, undo as undoEdit, isModified, type HexDoc } from '@core/hexEdit.ts'
 import { asciiOf, findInFile, firstRowAt, hexByte, HEX_WIDTH, identify, offsetLabel, parseHex, parseOffset, scrollMetrics, scrollTopOf, type ByteReader, type Identity } from '@core/hex.ts'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
@@ -88,6 +89,20 @@ export function RangeHexView({ snapshotId, path, name, size, onSave, onOpenWith,
   return readable ? <HexView name={name} source={source} onSave={onSave} onOpenWith={onOpenWith} zoom={zoom} findToken={findToken} /> : <>{fallback()}</>
 }
 
+/** What the tab gives a hexadecimal view of a file that can be edited. */
+export interface HexEditing {
+  doc: HexDoc
+  /** The bytes differ from what was saved. */
+  modified: boolean
+  /** The file is too big to be edited as bytes (the view shows it, and Edit is off). */
+  tooLarge?: boolean
+  /** An edit was made to `doc` (it holds the new bytes): the tab draws them and keeps the draft. */
+  onEdited: () => void
+  onSave: () => void
+  /** Save As of the bytes on screen. */
+  onSaveAs: () => void
+}
+
 const hex = (bytes: Uint8Array): string => Array.from(bytes, hexByte).join(' ')
 const text = (bytes: Uint8Array): string => Array.from(bytes, asciiOf).join('')
 
@@ -96,7 +111,7 @@ const text = (bytes: Uint8Array): string => Array.from(bytes, asciiOf).join('')
  * exist). It is read-only and runs nothing: what the first bytes say the file is (an ELF, a PE, a ZIP…) is read from its header, as `file` does. Click a byte (Shift-click or
  * the arrows with Shift to extend), Ctrl+C copies the bytes as hex, Ctrl+G goes to an offset, and Find looks for bytes or text.
  */
-export function HexView({ name, source, onSave, onOpenWith, zoom = 1, findToken = 0 }: { name: string; source: HexSource; onSave: () => void; onOpenWith?: () => void; /** The zoom of the tab: the rows and their text are drawn at that scale. */ zoom?: number; /** Counts up at each Find (`Ctrl+F`): the box that looks for bytes or text takes the focus. */ findToken?: number }) {
+export function HexView({ name, source, onSave, onOpenWith, zoom = 1, findToken = 0, editing }: { name: string; source: HexSource; onSave: () => void; onOpenWith?: () => void; /** The bytes can be edited (a file of a folder up to 16 MiB): the document being edited, and what the tab does about it. */ editing?: HexEditing; /** The zoom of the tab: the rows and their text are drawn at that scale. */ zoom?: number; /** Counts up at each Find (`Ctrl+F`): the box that looks for bytes or text takes the focus. */ findToken?: number }) {
   const { t } = useI18n()
   const size = sizeOf(source)
   const { at, need, failed } = useChunks(source)
@@ -113,9 +128,16 @@ export function HexView({ name, source, onSave, onOpenWith, zoom = 1, findToken 
   const gotoInput = useRef<HTMLInputElement>(null)
   const queryInput = useRef<HTMLInputElement>(null)
   const [identity, setIdentity] = useState<Identity | null>(null)
+  // Editing: whether the keys write bytes, insert or overwrite, which side of the row the user last clicked (the digits or the text), and the byte whose second digit is awaited.
+  const [typing, setTyping] = useState(() => editing !== undefined && isModified(editing.doc))
+  const [insertMode, setInsertMode] = useState(false)
+  const pane = useRef<'hex' | 'ascii'>('hex')
+  const nibble = useRef<number | null>(null)
+  const doc = editing?.doc
+  const edits = typing && doc !== undefined
 
   const rowHeight = Math.max(8, Math.round(ROW * zoom))
-  const metrics = useMemo(() => scrollMetrics(size, rowHeight, room.height), [size, rowHeight, room.height])
+  const metrics = useMemo(() => scrollMetrics(edits ? size + 1 : size, rowHeight, room.height), [size, rowHeight, room.height, edits])
   const firstRow = firstRowAt(metrics, scrollTop)
   const visibleRows = Math.min(metrics.rows - firstRow, Math.ceil(room.height / rowHeight) + 1)
   need(firstRow * HEX_WIDTH, (firstRow + visibleRows) * HEX_WIDTH - 1)
@@ -142,12 +164,14 @@ export function HexView({ name, source, onSave, onOpenWith, zoom = 1, findToken 
   )
   const select = useCallback(
     (anchor: number, head: number) => {
-      const last = Math.max(0, size - 1)
+      nibble.current = null
+      // (While editing the cursor can stand after the last byte, where a byte is added.)
+      const last = Math.max(0, edits ? size : size - 1)
       const clamped = { anchor: Math.max(0, Math.min(last, anchor)), head: Math.max(0, Math.min(last, head)) }
       setSelection(clamped)
       reveal(clamped.head)
     },
-    [size, reveal],
+    [size, reveal, edits],
   )
   const jump = (offset: number) => {
     const el = box.current
@@ -163,7 +187,88 @@ export function HexView({ name, source, onSave, onOpenWith, zoom = 1, findToken 
     void window.fb?.copyText(as === 'hex' ? hex(bytes) : text(bytes))
   }
 
+  /** An edit was made: the cursor goes where it says, and the tab is told (it draws the bytes again and keeps the draft). */
+  const edited = (cursor: number, keepNibble = false) => {
+    if (!keepNibble) nibble.current = null
+    editing?.onEdited()
+    setSelection({ anchor: cursor, head: cursor })
+    reveal(cursor)
+  }
+  /** The keys of editing; true when the key was one. */
+  const editKey = (event: KeyboardEvent): boolean => {
+    if (!doc) return false
+    const head = selection?.head ?? 0
+    const mod = event.ctrlKey || event.metaKey
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
+    if (mod && !event.altKey && key === 'z' && !event.shiftKey) {
+      const at = undoEdit(doc)
+      if (at !== null) edited(at)
+      return true
+    }
+    if (mod && !event.altKey && (key === 'y' || (key === 'z' && event.shiftKey))) {
+      const at = redoEdit(doc)
+      if (at !== null) edited(at)
+      return true
+    }
+    if (mod || event.altKey) return false
+    if (key === 'Insert') {
+      setInsertMode((on) => !on)
+      return true
+    }
+    const from = range?.from ?? head
+    const to = range?.to ?? head
+    if (key === 'Delete') {
+      if (from < doc.bytes.length) {
+        removeBytes(doc, from, to)
+        edited(Math.min(from, doc.bytes.length))
+      }
+      return true
+    }
+    if (key === 'Backspace') {
+      if (count > 1) {
+        removeBytes(doc, from, to)
+        edited(from)
+      } else if (head > 0) {
+        removeBytes(doc, head - 1, head - 1)
+        edited(head - 1)
+      }
+      return true
+    }
+    if (event.key.length !== 1) return false
+    const appending = head >= doc.bytes.length
+    if (pane.current === 'hex') {
+      if (!/^[0-9a-f]$/i.test(event.key)) return true
+      const digit = Number.parseInt(event.key, 16)
+      if (nibble.current === head) {
+        // The second digit: it completes the byte, and the cursor goes on.
+        const current = doc.bytes[head] ?? 0
+        const value = (current & 0xf0) | digit
+        if (insertMode || appending) insertByte(doc, head, value, true)
+        else overwriteByte(doc, head, value, true)
+        edited(head + 1)
+      } else {
+        // The first digit: the high half of the byte (the low half stays, or is zero in a byte that is added).
+        if (insertMode || appending) insertByte(doc, head, digit << 4)
+        else overwriteByte(doc, head, (digit << 4) | ((doc.bytes[head] ?? 0) & 0x0f))
+        edited(head, true)
+        nibble.current = head
+      }
+      return true
+    }
+    // The text side: the character is the byte.
+    const code = event.key.charCodeAt(0)
+    if (code < 0x20 || code > 0x7e) return true
+    if (insertMode || appending) insertByte(doc, head, code)
+    else overwriteByte(doc, head, code)
+    edited(head + 1)
+    return true
+  }
+
   const onKey = (event: KeyboardEvent) => {
+    if (edits && editKey(event)) {
+      event.preventDefault()
+      return
+    }
     const head = selection?.head ?? 0
     const page = Math.max(1, Math.floor(room.height / rowHeight) - 1) * HEX_WIDTH
     const moves: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: HEX_WIDTH, ArrowUp: -HEX_WIDTH, PageDown: page, PageUp: -page }
@@ -183,7 +288,8 @@ export function HexView({ name, source, onSave, onOpenWith, zoom = 1, findToken 
       select(event.shiftKey ? (selection?.anchor ?? head) : next, next)
     }
   }
-  const onByte = (event: MouseEvent, offset: number) => {
+  const onByte = (event: MouseEvent, offset: number, side: 'hex' | 'ascii' = 'hex') => {
+    pane.current = side
     box.current?.focus()
     select(event.shiftKey && selection ? selection.anchor : offset, offset)
   }
@@ -263,14 +369,29 @@ export function HexView({ name, source, onSave, onOpenWith, zoom = 1, findToken 
         <ToolbarButton icon="arrow-down" label={t('hex.findNext')} onClick={() => void find(false)} />
         {status ? <span role="status" className="text-[12px] text-fg-muted">{status}</span> : null}
         <Separator />
-        <SaveButton label={t('file.saveAs')} onClick={onSave} />
+        {editing ? (
+          <>
+            <ToolbarButton icon="edit" text={t('hex.edit')} label={editing.tooLarge ? t('hex.editTooLarge') : t('hex.editTitle')} pressed={typing} disabled={editing.tooLarge} onClick={() => setTyping((on) => !on)} />
+            {typing ? (
+              <>
+                <ToolbarButton icon="discard" label={t('hex.undo')} disabled={!doc || doc.undo.length === 0} onClick={() => doc && undoEdit(doc) !== null && edited(selection?.head ?? 0)} />
+                <ToolbarButton icon="redo" label={t('hex.redo')} disabled={!doc || doc.redo.length === 0} onClick={() => doc && redoEdit(doc) !== null && edited(selection?.head ?? 0)} />
+              </>
+            ) : null}
+            <ToolbarButton icon="save" text={t('edit.save')} label={t('edit.saveTitle')} disabled={!editing.modified} onClick={editing.onSave} />
+            <Separator />
+          </>
+        ) : null}
+        <SaveButton label={t('file.saveAs')} onClick={editing?.modified ? editing.onSaveAs : onSave} />
         <FileActions onOpenWith={onOpenWith} />
         <span className="ml-auto flex items-center gap-3 pr-1 text-[12px] whitespace-nowrap text-fg-muted">
+          {editing?.modified ? <span aria-live="polite">● {t('edit.modified')}</span> : null}
+          {edits ? <span title={t('hex.insertTitle')}>{insertMode ? t('hex.ins') : t('hex.ovr')}</span> : null}
           {identity ? <span>{identity.description}</span> : null}
           <span>{formatBytes(size)}</span>
         </span>
       </Toolbar>
-      {size === 0 ? (
+      {size === 0 && !edits ? (
         <p className="m-0 p-6 text-fg-muted">{t('hex.empty')}</p>
       ) : (
         <div
@@ -288,6 +409,8 @@ export function HexView({ name, source, onSave, onOpenWith, zoom = 1, findToken 
               {rows.map((row) => {
                 const start = row * HEX_WIDTH
                 const length = Math.min(HEX_WIDTH, size - start)
+                // While editing, the place after the last byte is a cell too (where a byte is added).
+                const cells = edits ? Math.min(HEX_WIDTH, size + 1 - start) : length
                 return (
                   <div key={row} role="row" style={{ height: rowHeight }} className="flex items-center gap-4 px-3 whitespace-pre">
                     <span className="text-fg-muted">{offsetLabel(start, size)}</span>
@@ -295,24 +418,27 @@ export function HexView({ name, source, onSave, onOpenWith, zoom = 1, findToken 
                       {Array.from({ length: HEX_WIDTH }, (_, i) => {
                         const offset = start + i
                         const value = i < length ? at(offset) : undefined
+                        const end = i === length && i < cells
+                        const marked = i < length && doc?.changed[offset] === 1
                         return (
                           <span
                             key={i}
                             role="gridcell"
                             aria-selected={inSelection(offset)}
-                            onMouseDown={i < length ? (e) => onByte(e, offset) : undefined}
-                            className={`w-[2.4ch] text-center ${i === 8 ? 'ml-[1.2ch]' : ''} ${inSelection(offset) ? 'bg-list-active text-list-active-fg' : ''}`}
+                            onMouseDown={i < cells ? (e) => onByte(e, offset, 'hex') : undefined}
+                            className={`w-[2.4ch] text-center ${i === 8 ? 'ml-[1.2ch]' : ''} ${inSelection(offset) ? 'bg-list-active text-list-active-fg' : ''} ${marked ? 'font-bold text-[var(--vscode-gitDecoration-modifiedResourceForeground,#e2c08d)]' : ''} ${end ? 'border-b border-fg-muted' : ''}`}
                           >
-                            {i >= length ? '' : value === undefined ? '··' : hexByte(value)}
+                            {i >= length ? (end ? ' ' : '') : value === undefined ? '··' : hexByte(value)}
                           </span>
                         )
                       })}
                     </span>
                     <span className="flex">
-                      {Array.from({ length }, (_, i) => {
-                        const value = at(start + i)
+                      {Array.from({ length: cells }, (_, i) => {
+                        const value = i < length ? at(start + i) : undefined
+                        const marked = i < length && doc?.changed[start + i] === 1
                         return (
-                          <span key={i} onMouseDown={(e) => onByte(e, start + i)} className={`w-[1ch] ${inSelection(start + i) ? 'bg-list-active text-list-active-fg' : ''}`}>
+                          <span key={i} onMouseDown={(e) => onByte(e, start + i, 'ascii')} className={`w-[1ch] ${inSelection(start + i) ? 'bg-list-active text-list-active-fg' : ''} ${marked ? 'font-bold text-[var(--vscode-gitDecoration-modifiedResourceForeground,#e2c08d)]' : ''}`}>
                             {value === undefined ? ' ' : asciiOf(value)}
                           </span>
                         )

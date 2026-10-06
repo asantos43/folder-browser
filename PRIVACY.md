@@ -29,6 +29,7 @@ In the application's own folder (`~/.config/folder-browser` on Linux, `%APPDATA%
 | The paths of the files you opened lately (up to 10) | `recent-files.json` | **Open Recent**. **Clear Recently Opened** empties it |
 | The folders you opened lately (up to 10) | `recent-folders.json` | **Recent Folders** in the side bar. **Clear Recent Folders** empties it |
 | The folders you pinned | `favorites.json` | **Favorites** in the side bar. Remove one from its menu |
+| The changes you made and did not save (the text or the bytes, with the path of the file) | `drafts/` | so that closing the application does not lose them (**Settings ▸ Keep changes that are not saved**; off, nothing is kept and the application asks before it closes). A draft is removed when you save, reload or close the tab without saving, and after 90 days |
 | The signers you chose to trust: the fingerprint of a signing key and the name you gave it | `trusted-signers.json` | to tell a key you know from one you do not (see `docs/MANIFEST-SIGNING.md`). **Stop trusting** removes one |
 | The files Chromium keeps for any window (caches of the interface itself) | the rest of the folder | they hold nothing from your snapshots |
 
@@ -74,6 +75,7 @@ Na pasta do próprio aplicativo (`~/.config/folder-browser` no Linux, `%APPDATA%
 | Os caminhos dos snapshots e arquivos que estão abertos (só os nomes, nunca o conteúdo) | `session.json` | para abri-los de novo na próxima vez (**Configurações ▸ Reabrir os arquivos que estavam abertos**; desligado, nada é guardado) |
 | Os caminhos dos arquivos que você abriu há pouco (até 10) | `recent-files.json` | **Abrir Recente**. **Limpar Abertos Recentemente** esvazia |
 | As pastas que você abriu há pouco (até 10) | `recent-folders.json` | **Pastas Recentes** na barra lateral. **Limpar Pastas Recentes** esvazia |
+| As alterações que você fez e não salvou (o texto ou os bytes, com o caminho do arquivo) | `drafts/` | para que fechar o aplicativo não as perca (**Configurações ▸ Manter alterações não salvas**; desligado, nada é guardado e o aplicativo pergunta antes de fechar). Um rascunho é removido quando você salva, recarrega ou fecha a aba sem salvar, e depois de 90 dias |
 | As pastas que você fixou | `favorites.json` | **Favoritos** na barra lateral. Remova uma pelo menu dela |
 | Os assinantes em que você decidiu confiar: a impressão digital de uma chave de assinatura e o nome que você deu | `trusted-signers.json` | para distinguir uma chave que você conhece de uma que não conhece (veja `docs/MANIFEST-SIGNING.md`). **Deixar de confiar** remove uma |
 | Os arquivos que o Chromium guarda para qualquer janela (caches da própria interface) | o resto da pasta | não guardam nada dos seus snapshots |

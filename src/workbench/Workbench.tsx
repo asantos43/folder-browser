@@ -8,11 +8,12 @@ import { readStored, writeStored } from '@/lib/storage.ts'
 import { refusalNotice } from '@/state/messages.ts'
 import { useNotifications } from '@/state/notifications.ts'
 import { empty, isHeldBack, isSnapshotTab, reduce, released, type Action } from '@/state/workspace.ts'
-import { editorBuffers, hasChanges, saveBuffer } from '@/state/editors.ts'
+import { bufferChanged, dropBuffer, keepBuffers, moveBuffer, saveAnyBuffer } from '@/state/buffers.ts'
+import { flushDrafts, setDraftsEnabled, syncDrafts, touchDraft } from '@/state/drafts.ts'
 import type { MessageKey } from '@/i18n/index.ts'
 import { emptyHistory, step, visit, type History } from '@/state/history.ts'
 import { isSession, keyOfEntry, sessionOf, type Session } from '@/state/session.ts'
-import { reopenSession, showHidden, sortDescending, sortKey, svgView } from '@/state/setting.ts'
+import { hotExit, reopenSession, showHidden, sortDescending, sortKey, svgView } from '@/state/setting.ts'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { shownSource } from '@/state/fileLanguage.ts'
 import { LanguagePicker } from './LanguagePicker.tsx'
@@ -186,8 +187,32 @@ export function Workbench() {
       })
       if (activeKey) dispatch({ type: 'activate', key: activeKey })
       refreshRecent()
+      return activeKey
     },
     [api, notify, refreshRecent, t],
+  )
+  /** The files whose changes were not saved when the application last closed come back in tabs, with their changes (the tab asks the main process for its draft when it opens). */
+  const restoreDrafts = useCallback(
+    async (activeKey?: string) => {
+      if (!api) return
+      if (!hotExit.get()) return void (await api.drafts.clear())
+      const list = await api.drafts.list()
+      if (!list.length) return
+      const folders = [...new Set(list.map((draft) => draft.rootPath))]
+      const results = await api.openPaths(folders)
+      const roots = new Map<string, RootInfo>()
+      results.forEach((result, i) => {
+        if (result.ok && 'root' in result) roots.set(folders[i], result.root)
+      })
+      for (const draft of list) {
+        const root = roots.get(draft.rootPath)
+        if (!root) continue
+        dispatch({ type: 'root-opened', root })
+        dispatch({ type: 'open-file', snapshotId: root.id, path: draft.path, keep: true, ...(draft.kind === 'bytes' ? { as: 'hex' as const } : {}) })
+      }
+      if (activeKey) dispatch({ type: 'activate', key: activeKey })
+    },
+    [api, dispatch],
   )
 
   useEffect(() => {
@@ -202,8 +227,10 @@ export function Workbench() {
       // (Once: a change of language runs this effect again, and the session is not read twice.)
       if (!started.current) {
         started.current = true
+        let active: string | undefined
         if (!reopenSession.get()) void api.session.save(null)
-        else if (!results.length) await restore(await api.session.load().then((value) => (isSession(value) ? value : null)))
+        else if (!results.length) active = await restore(await api.session.load().then((value) => (isSession(value) ? value : null)))
+        await restoreDrafts(active ?? wsNow.current.active ?? undefined)
       }
       sessionReady.current = true
     })
@@ -214,7 +241,7 @@ export function Workbench() {
       offFile()
       offSaved()
     }
-  }, [api, handleResults, refreshRecent, reportSave, restore])
+  }, [api, handleResults, refreshRecent, reportSave, restore, restoreDrafts])
 
   // The tabs are written as they change, so the next start (or the one after a crash) finds them; the setting off keeps nothing.
   useEffect(() => {
@@ -423,12 +450,11 @@ export function Workbench() {
       const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
       if (!api || !tab || tab.path === undefined) return false
       const name = basename(tab.path)
-      const result = await saveBuffer(api, tab.snapshotId, tab.path, key, overwrite)
+      const result = await saveAnyBuffer(api, tab.snapshotId, tab.path, key, overwrite)
       if (result.ok) {
         // What was read of the file before is old now (a formatted page or a table of the same file).
         forgetRead(tab.snapshotId, tab.path)
-        const buffer = editorBuffers.get(key)
-        rawDispatch({ type: 'dirty', key, dirty: buffer ? hasChanges(buffer) : false })
+        rawDispatch({ type: 'dirty', key, dirty: bufferChanged(key) })
         return true
       }
       // Someone else changed the file since it was read: the user chooses (overwrite, or load what is there).
@@ -448,7 +474,7 @@ export function Workbench() {
   /** Throws away the changes of a tab and reads the file again. */
   const reloadKey = useCallback((key: string) => {
     const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
-    editorBuffers.delete(key)
+    dropBuffer(key)
     if (tab?.path !== undefined) forgetRead(tab.snapshotId, tab.path)
     rawDispatch({ type: 'dirty', key, dirty: false })
     setReloads((all) => ({ ...all, [key]: (all[key] ?? 0) + 1 }))
@@ -462,14 +488,39 @@ export function Workbench() {
     },
     [api, notify, t],
   )
+  const saveBytesAs = useCallback(
+    (name: string, bytes: Uint8Array) => {
+      void api?.edit.saveBytesAs(name, bytes).then((result) => {
+        if (result.saved) notify({ level: 'info', text: t('edit.saved', { name: basename(result.path) }) })
+        else if (result.reason === 'error') notify({ level: 'error', text: t('edit.saveFailed', { name, reason: result.message ?? t('edit.error.failed') }) })
+      })
+    },
+    [api, notify, t],
+  )
   const dirtyKeys = Object.keys(ws.dirty)
   // The tabs with changes are counted for the window, which asks before it closes; and the text of a tab that is gone is let go.
   useEffect(() => {
     api?.setUnsaved(dirtyKeys.length)
   }, [api, dirtyKeys.length])
-  useEffect(() => api?.onCloseRequested(() => setQuitAsk(true)), [api])
+  // The setting that keeps changes for the next start: on, the window closes after the drafts are written; off, it asks.
+  const keepChanges = hotExit.use()
   useEffect(() => {
-    editorBuffers.keep(new Set(ws.tabs.map((tab) => tab.key)))
+    setDraftsEnabled(keepChanges)
+    if (!keepChanges) void api?.drafts.clear()
+  }, [api, keepChanges])
+  useEffect(() => {
+    if (api) syncDrafts(api, ws)
+  }, [api, ws])
+  useEffect(
+    () =>
+      api?.onCloseRequested(() => {
+        if (hotExit.get()) void flushDrafts(api).then(() => api.leave())
+        else setQuitAsk(true)
+      }),
+    [api],
+  )
+  useEffect(() => {
+    keepBuffers(new Set(ws.tabs.map((tab) => tab.key)))
   }, [ws.tabs])
 
   // On Linux a click of the middle button pastes the selection of the system where the focus is: a middle click on a tab (to close it) or anywhere else must not paste into the
@@ -648,7 +699,7 @@ export function Workbench() {
     const keys = before.flatMap((tab, i) => (after[i] && after[i].key !== tab.key ? [[tab.key, after[i].key] as const] : []))
     dispatch(action)
     // The text of a tab that is renamed goes with it (changes not saved, undo history).
-    for (const [old, now] of keys) editorBuffers.move(old, now)
+    for (const [old, now] of keys) moveBuffer(old, now)
     if (keys.length) {
       setZooms((all) => {
         const next = { ...all }
@@ -798,7 +849,11 @@ export function Workbench() {
               <SideBar ws={ws} dispatch={dispatch} actions={sideBarActions} places={placesData} treeVersion={treeVersion} />
             </Allotment.Pane>
             <Allotment.Pane minSize={200}>
-              <EditorGroup reloads={reloads} onSaveTab={(key) => void saveKey(key)} onSaveBufferAs={saveBufferAs} onChanged={(key, changed) => rawDispatch({ type: 'dirty', key, dirty: changed })} zooms={zooms} onZoom={(change) => ('wheel' in change ? zoomWheel(change.wheel) : zoomTab(change.direction === 'in' ? 1 : change.direction === 'out' ? -1 : 0))} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onOpenWith={openWith} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
+              <EditorGroup reloads={reloads} onSaveTab={(key) => void saveKey(key)} onSaveBufferAs={saveBufferAs} onSaveBytesAs={saveBytesAs} onChanged={(key, changed) => {
+            rawDispatch({ type: 'dirty', key, dirty: changed })
+            const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
+            if (changed && api && tab?.path !== undefined) touchDraft(api, key, tab.snapshotId, tab.path)
+          }} onRestored={(name) => notify({ level: 'info', text: t('edit.restored', { name }) })} zooms={zooms} onZoom={(change) => ('wheel' in change ? zoomWheel(change.wheel) : zoomTab(change.direction === 'in' ? 1 : change.direction === 'out' ? -1 : 0))} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onOpenWith={openWith} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
             </Allotment.Pane>
           </Allotment>
         </div>

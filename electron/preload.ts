@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AppInfo, DocOpen, EditOpen, EditSave, OpResult, ExtractResult, IntegrityEvent, OpenResult, ListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
+import type { AppInfo, DocOpen, EditBytesOpen, EditOpen, EditSave, OpResult, ExtractResult, IntegrityEvent, OpenResult, ListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
 
 /** What the interface may ask of the main process: nothing else crosses the boundary (core/api.ts). */
 const on = <T>(channel: string, listener: (value: T) => void) => {
@@ -30,7 +30,17 @@ const api: FbApi = {
   edit: {
     open: (id, path) => ipcRenderer.invoke('fb:edit-open', id, path) as Promise<EditOpen>,
     save: (id, path, text, base, options) => ipcRenderer.invoke('fb:edit-save', id, path, text, base, options) as Promise<EditSave>,
+    openBytes: (id, path) => ipcRenderer.invoke('fb:edit-open-bytes', id, path) as Promise<EditBytesOpen>,
+    saveBytes: (id, path, bytes, base, options) => ipcRenderer.invoke('fb:edit-save-bytes', id, path, bytes, base, options) as Promise<EditSave>,
+    saveBytesAs: (name, bytes) => ipcRenderer.invoke('fb:edit-save-bytes-as', name, bytes),
     saveAs: (name, text, options) => ipcRenderer.invoke('fb:edit-save-as', name, text, options),
+  },
+  drafts: {
+    put: (id, path, draft) => ipcRenderer.invoke('fb:draft-put', id, path, draft) as Promise<boolean>,
+    get: (id, path) => ipcRenderer.invoke('fb:draft-get', id, path),
+    delete: (id, path) => ipcRenderer.invoke('fb:draft-delete', id, path) as Promise<void>,
+    list: () => ipcRenderer.invoke('fb:draft-list'),
+    clear: () => ipcRenderer.invoke('fb:draft-clear') as Promise<void>,
   },
   setUnsaved: (count) => ipcRenderer.send('fb:unsaved', count),
   leave: () => ipcRenderer.send('fb:leave'),

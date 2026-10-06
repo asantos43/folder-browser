@@ -3,7 +3,8 @@ import type { FbApi } from '@core/api.ts'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
-import { HexView, RangeHexView, type HexSource } from './HexView.tsx'
+import { createHexDoc } from '@core/hexEdit.ts'
+import { HexView, RangeHexView, type HexEditing, type HexSource } from './HexView.tsx'
 
 beforeEach(() => {
   // happy-dom lays nothing out: the view has the room of 10 rows.
@@ -177,5 +178,126 @@ describe('a file read a window at a time', () => {
       </I18nProvider>,
     )
     await waitFor(() => expect(screen.getByText('fallback')).toBeTruthy())
+  })
+})
+
+describe('HexView: editing the bytes', () => {
+  const edit = (...bytes: number[]) => {
+    const doc = createHexDoc(Uint8Array.from(bytes))
+    const onEdited = vi.fn()
+    const handlers = { onSave: vi.fn(), onSaveAs: vi.fn() }
+    const make = (extra: Partial<HexEditing> = {}) => (
+      <I18nProvider language="en">
+        <HexView name="x.bin" source={{ bytes: doc.bytes }} onSave={() => {}} editing={{ doc, modified: doc.undo.length > 0, onEdited, ...handlers, ...extra }} />
+      </I18nProvider>
+    )
+    const view = render(make())
+    const again = () => view.rerender(make())
+    return { doc, onEdited, handlers, again }
+  }
+  const startEditing = () => fireEvent.click(screen.getByRole('button', { name: /^Edit the bytes/ }))
+  const cell = (n: number) => screen.getAllByRole('gridcell')[n]
+  const key = (k: string, extra: Partial<KeyboardEventInit> = {}) => fireEvent.keyDown(grid(), { key: k, ...extra })
+
+  it('does not write anything until Edit is on, and the keys then write: two hex digits make a byte, and the cursor goes on', () => {
+    const { doc, onEdited } = edit(0x11, 0x22, 0x33)
+    fireEvent.mouseDown(cell(0))
+    key('4')
+    expect([...doc.bytes]).toEqual([0x11, 0x22, 0x33])
+    startEditing()
+    fireEvent.mouseDown(cell(0))
+    key('4')
+    expect(doc.bytes[0]).toBe(0x41)
+    key('a')
+    expect(doc.bytes[0]).toBe(0x4a)
+    expect(doc.undo).toHaveLength(1)
+    expect(onEdited).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('Offset 0x1 (1)')).toBeTruthy()
+    key('f')
+    key('f')
+    expect([...doc.bytes]).toEqual([0x4a, 0xff, 0x33])
+  })
+  it('ignores a key that is not a digit in the hex column, and takes a character in the text column as the byte', () => {
+    const { doc } = edit(0x11, 0x22)
+    startEditing()
+    fireEvent.mouseDown(cell(0))
+    key('x')
+    key('?')
+    expect([...doc.bytes]).toEqual([0x11, 0x22])
+    // The text column is the last of the row.
+    fireEvent.mouseDown(rows()[0].querySelectorAll(':scope > span.flex')[1].children[0])
+    key('Z')
+    expect([...doc.bytes]).toEqual([0x5a, 0x22])
+    expect(screen.getByText('Offset 0x1 (1)')).toBeTruthy()
+  })
+  it('inserts instead of overwriting when Insert is pressed, and says which it is', () => {
+    const { doc } = edit(1, 2)
+    startEditing()
+    expect(screen.getByText('OVR')).toBeTruthy()
+    key('Insert')
+    expect(screen.getByText('INS')).toBeTruthy()
+    fireEvent.mouseDown(cell(1))
+    key('a')
+    key('b')
+    expect([...doc.bytes]).toEqual([1, 0xab, 2])
+    expect(doc.undo).toHaveLength(1)
+  })
+  it('adds bytes after the last one (the place after it is a cell while editing)', () => {
+    const { doc } = edit(1, 2)
+    startEditing()
+    fireEvent.mouseDown(cell(1))
+    key('ArrowRight')
+    key('c')
+    key('d')
+    expect([...doc.bytes]).toEqual([1, 2, 0xcd])
+  })
+  it('removes with Delete and Backspace, a range too, and undoes and redoes with Ctrl+Z and Ctrl+Y', () => {
+    const { doc } = edit(1, 2, 3, 4, 5)
+    startEditing()
+    fireEvent.mouseDown(cell(1))
+    key('Delete')
+    expect([...doc.bytes]).toEqual([1, 3, 4, 5])
+    fireEvent.mouseDown(cell(2))
+    key('Backspace')
+    expect([...doc.bytes]).toEqual([1, 4, 5])
+    fireEvent.mouseDown(cell(0))
+    fireEvent.mouseDown(cell(1), { shiftKey: true })
+    key('Delete')
+    expect([...doc.bytes]).toEqual([5])
+    key('z', { ctrlKey: true })
+    expect([...doc.bytes]).toEqual([1, 4, 5])
+    key('z', { ctrlKey: true })
+    key('z', { ctrlKey: true })
+    expect([...doc.bytes]).toEqual([1, 2, 3, 4, 5])
+    key('y', { ctrlKey: true })
+    expect([...doc.bytes]).toEqual([1, 3, 4, 5])
+  })
+  it('marks the bytes that were changed, and Save is on only when there are changes; Save and Save As are the tab’s', () => {
+    const { doc, handlers, again } = edit(1, 2)
+    startEditing()
+    expect((screen.getByRole('button', { name: /Save the file/ }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.mouseDown(cell(1))
+    key('f')
+    key('f')
+    again()
+    expect(cell(1).className).toContain('font-bold')
+    expect(cell(0).className).not.toContain('font-bold')
+    expect(screen.getByText('● Modified')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Save the file/ }))
+    expect(handlers.onSave).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: 'Save As…' }))
+    expect(handlers.onSaveAs).toHaveBeenCalledOnce()
+    expect([...doc.bytes]).toEqual([1, 0xff])
+  })
+  it('does not offer to edit a file that is too large', () => {
+    edit(1)
+    cleanup()
+    const doc = createHexDoc(Uint8Array.of(1))
+    render(
+      <I18nProvider language="en">
+        <HexView name="x.bin" source={{ bytes: doc.bytes }} onSave={() => {}} editing={{ doc, modified: false, tooLarge: true, onEdited: () => {}, onSave: () => {}, onSaveAs: () => {} }} />
+      </I18nProvider>,
+    )
+    expect((screen.getByRole('button', { name: /too large to edit as bytes/ }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

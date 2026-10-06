@@ -1,5 +1,6 @@
 import type { OpError, OpResult } from './fs/ops.ts'
-import type { EditError, EditOpen, EditSave, FileVersion, LineEnding } from './fs/edit.ts'
+import type { Draft } from './drafts.ts'
+import type { EditBytesOpen, EditError, EditOpen, EditSave, FileVersion, LineEnding } from './fs/edit.ts'
 import type { ExtractResult } from './extract.ts'
 import type { PlacesData } from './places.ts'
 import type { ListResult, RootInfo } from './roots.ts'
@@ -21,7 +22,16 @@ export type RangeResult = { bytes: Uint8Array; size: number } | { error: 'no-sna
 /** A document of a root, ready to be drawn in a frame at `url` (`fb-doc://<token>/`): by the library `flavour` (core/docs.ts). */
 export type DocOpen = { token: string; url: string; flavour: 'docx' | 'pptx' | 'odf' } | { error: 'no-file' | 'too-large' | 'unsupported' }
 /** What an operation on the files of a folder answers (`core/fs/ops.ts`): the new path of the item, or why nothing was done. */
-export type { OpError, OpResult, EditError, EditOpen, EditSave, FileVersion, LineEnding }
+/** What the interface hands over to be kept as a draft, and what it is told of a kept one. */
+export type DraftIn = { kind: 'text'; text: string; base: FileVersion; eol: LineEnding; bom: boolean } | { kind: 'bytes'; bytes: Uint8Array; base: FileVersion }
+export interface DraftEntry {
+  rootPath: string
+  path: string
+  kind: 'text' | 'bytes'
+  at: string
+}
+export type { Draft }
+export type { OpError, OpResult, EditBytesOpen, EditError, EditOpen, EditSave, FileVersion, LineEnding }
 export type SaveResult = { saved: true; path: string } | { saved: false; reason: 'cancelled' | 'error'; message?: string }
 export type IntegrityEvent = { id: string; state: 'running'; done: number; total: number } | { id: string; state: 'done'; report: IntegrityReport }
 
@@ -104,8 +114,22 @@ export interface FbApi {
     open(id: string, path: string): Promise<EditOpen>
     /** Writes the text whole, through a temporary file renamed over the file. `base` is what `open` (or the last save) said the file was like: if the disk has something else, the answer is `changed` and nothing is written, unless `overwrite`. */
     save(id: string, path: string, text: string, base: FileVersion, options: { eol: LineEnding; bom: boolean; overwrite?: boolean }): Promise<EditSave>
+    /** The bytes of a file of a folder (up to 16 MiB), to be edited in the hexadecimal view, and what the file was like. */
+    openBytes(id: string, path: string): Promise<EditBytesOpen>
+    saveBytes(id: string, path: string, bytes: Uint8Array, base: FileVersion, options: { overwrite?: boolean }): Promise<EditSave>
+    saveBytesAs(name: string, bytes: Uint8Array): Promise<SaveResult>
     /** Asks where, and writes the text there (Save As of an editor, which has the text and not the file). */
     saveAs(name: string, text: string, options: { eol: LineEnding; bom: boolean }): Promise<SaveResult>
+  }
+  /** Changes that were not saved, kept in the application's own folder (`core/drafts.ts`), so that they are there after the application is closed or crashes. A draft is of a file of a folder that was opened. */
+  drafts: {
+    put(rootId: string, path: string, draft: DraftIn): Promise<boolean>
+    get(rootId: string, path: string): Promise<Draft | null>
+    delete(rootId: string, path: string): Promise<void>
+    /** The drafts that are kept, whatever folder they are in (the interface opens the folder and the file of each at the start). */
+    list(): Promise<DraftEntry[]>
+    /** Forgets all of them (the setting that keeps them was turned off). */
+    clear(): Promise<void>
   }
   /** How many tabs have changes that are not saved: the window asks before it closes while there are some (`onCloseRequested`). */
   setUnsaved(count: number): void
