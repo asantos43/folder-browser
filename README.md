@@ -83,4 +83,4 @@ The interface is *inspired by* Visual Studio Code. Folder Browser is not Visual 
 
 ## Licence
 
-MIT. See [`LICENSE`](LICENSE).
+[Mozilla Public License 2.0](LICENSE) (MPL-2.0).

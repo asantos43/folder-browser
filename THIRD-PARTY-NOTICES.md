@@ -1,6 +1,6 @@
 # Third-party notices
 
-Folder Browser is MIT-licensed (`LICENSE`). It contains the libraries below, under their own licences, and Electron with Chromium. This file is made by
+Folder Browser is licensed under the Mozilla Public License 2.0 (`LICENSE`). It contains the libraries below, under their own licences, and Electron with Chromium. This file is made by
 `npm run notices` from the libraries that are bundled into the application, and it is shipped with every installer.
 
 ## Electron and Chromium
@@ -11,7 +11,7 @@ libraries Chromium contains. They are shipped unchanged by electron-builder.
 ## Icons
 
 - **Codicons** (`@vscode/codicons`), © Microsoft Corporation: the icons are under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and the code under MIT. The icons of the interface are Codicons.
-- The application icon is this project's own (`build/icon.svg`, MIT). The interface is *inspired by* Visual Studio Code and is not it, nor endorsed by Microsoft.
+- The application icon is this project's own (`build/icon.svg`, MPL-2.0). The interface is *inspired by* Visual Studio Code and is not it, nor endorsed by Microsoft.
 
 ## Libraries
 

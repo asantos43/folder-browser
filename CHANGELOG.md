@@ -8,6 +8,23 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-06
+
+### First release
+
+The first public release of **Folder Browser**: a desktop app for Linux, Windows and macOS (Electron and TypeScript, looking like Visual Studio Code's Dark+ and Light+; English and Brazilian Portuguese), under the Mozilla Public License 2.0.
+
+- **Browse** folders and ZIP files (a ZIP opens as a folder, also one inside another) in a tree, with a Places side bar (Home, Documents, Downloads…, Trash, favourites, devices) and a switch for hidden files.
+- **Change** files and folders, on the disk and **inside ZIP files**: create, rename, move, copy, cut and paste, delete (to the trash on the disk), with several rows marked at once; nothing is ever replaced.
+- **Edit** text files (CodeMirror 6) and the bytes of a file (hexadecimal), edit **CSV and TSV as a table** (sort, filter, search, SQL query); what you typed and did not save is kept for the next start.
+- **Compare** two text files in a diff, and keep two editor groups side by side; drag a file onto the editor to open it beside or to compare.
+- **Look at** pictures, PDFs, Word, PowerPoint, LibreOffice and Excel documents, videos and sounds (played), and any file as its bytes; Open With… on every file.
+- Open **`.wsnp`** web page snapshots exactly as WSNP Viewer does (read-only, checked, no network).
+- **Help ▸ User Guide** (`F1`) is inside the application, with pictures.
+- The files are **not signed**, so Windows and macOS warn on the first launch (the README says how to go on). It was tried on Linux; the Windows and macOS files are built and checked but were not run by the author on those systems.
+
+Everything that was built, phase by phase, follows.
+
 ### Added
 
 - The project, started from WSNP Viewer 0.1.0: Electron 44, React 19, Tailwind 4, Vite, CodeMirror 6, vitest and Playwright, with the `.wsnp` viewer, the tabs, the file tree, the ZIP list, Find, Print and Open With… it already had.
@@ -93,6 +110,7 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Changed
 
+- **The licence is the Mozilla Public License 2.0** (it was MIT), as WSNP Viewer's, which this project started from: `LICENSE`, `package.json`, the About window, the READMEs and `THIRD-PARTY-NOTICES.md`. The repository is public.
 
 - **GitHub Actions is manual.** The `CI` workflow (tests and packaging on every pull request and push, on three systems) is removed, to spare the free quota; the checks run on the developer's computer. The `Release` workflow no longer starts on a tag: it is started by hand for a release that already exists, builds only the macOS `.dmg` (unit tests, packaging smoke test, optional end-to-end tests) and adds it and its checksum to the release. The `.exe`, `.deb` and `.rpm` are made locally by `scripts/release-local.mjs` (`docs/RELEASING.md`).
 - **Folders first** (interface adjustments): a `.wsnp` in the tree is a file like the others: no icon of its own; a **click only previews** it (an italic tab with the page, as for a picture: the side bar stays on the folder, and the next preview closes it), and a **double click** (or Enter, or Open in its menu) opens it as a snapshot for good (a kept tab, listed under Open Snapshots, the side bar goes to its files); **Open as ZIP** stays in its menu. The activity bar has no Open File icon (Open Folder is there; File ▸ Open File… and `Ctrl+O` remain). The **Open Snapshots** section appears only while a snapshot is open, and has no Open File button; with nothing open the status bar says "No folder open" and the empty editor says "Open a folder to start".
