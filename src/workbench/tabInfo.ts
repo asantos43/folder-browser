@@ -41,6 +41,7 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
   const base = ws.tabs.map((tab): [Tab, string, string, string] => {
     const snapshot = ws.snapshots[tab.snapshotId]
     if (tab.view === 'settings') return [tab, t('settings.title'), 'settings-gear', t('settings.title')]
+    if (tab.view === 'guide') return [tab, t('guide.title'), 'book', t('guide.title')]
     if (tab.view === 'diff' && tab.diff) {
       const { left, right } = tab.diff
       return [tab, t('tabs.diffOf', { left: basename(left.path), right: basename(right.path) }), 'diff', `${sideLabel(ws, left)}\n${sideLabel(ws, right)}`]

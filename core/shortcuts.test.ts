@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { commandFor } from './shortcuts.ts'
 
+describe('commandFor: the guide', () => {
+  it('opens the user guide with F1 alone, on every system', () => {
+    expect(commandFor({ key: 'F1' }, false)).toBe('openGuide')
+    expect(commandFor({ key: 'F1' }, true)).toBe('openGuide')
+    expect(commandFor({ key: 'F1', control: true }, false)).toBeNull()
+    expect(commandFor({ key: 'F1', shift: true }, false)).toBeNull()
+  })
+})
+
 describe('commandFor', () => {
   it('uses Ctrl on Windows and Linux', () => {
     expect(commandFor({ key: 'b', control: true }, false)).toBe('toggleSideBar')

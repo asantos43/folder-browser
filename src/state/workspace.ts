@@ -19,7 +19,7 @@ export interface Tab {
   /** How the file is shown when the user chose, whatever its kind: its bytes (hexadecimal). The same file can be open in a tab of its own kind and in one of these. */
   as?: 'hex'
   /** A view that is not a file: a snapshot's metadata, the settings, or two files compared (`diff`; `snapshotId` is the left side's root). */
-  view?: 'metadata' | 'settings' | 'diff'
+  view?: 'metadata' | 'settings' | 'diff' | 'guide'
   /** The two files of a comparison: files of the folders and ZIP files that were opened, read-only. */
   diff?: { left: DiffSide; right: DiffSide }
   /** The editor group the tab is in: absent for the first (left) one, 1 for the second (right) one, which exists only while it has tabs. */
@@ -62,6 +62,7 @@ export const empty: Workspace = { snapshots: {}, roots: {}, tabs: [], active: nu
 export const snapshotKey = (id: string) => `s:${id}`
 export const metadataKey = (id: string) => `m:${id}`
 export const SETTINGS_KEY = 'settings'
+export const GUIDE_KEY = 'guide'
 /** The tab in front in a group. */
 export const shownIn = (ws: Workspace, group: GroupId): string | null => (group === ws.focus ? ws.active : ws.other)
 /** The workspace as one group sees it: its tabs, and the one in front of it as the active one. */
@@ -122,6 +123,8 @@ export type Action =
   | { type: 'dirty'; key: string; dirty: boolean }
   | { type: 'open-metadata'; snapshotId: string }
   | { type: 'open-settings' }
+  /** The user guide, in a tab of its own (one at most). */
+  | { type: 'open-guide' }
   | { type: 'show-anyway'; snapshotId: string }
   | { type: 'activate'; key: string; /** Do not count it as the most recent (a Ctrl+Tab in progress). */ transient?: boolean }
   | { type: 'touch' }
@@ -330,6 +333,13 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const at = ws.tabs.findIndex((t) => t.key === ws.active)
       const tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]
       return withActive({ ...ws, tabs: arranged(tabs) }, key)
+    }
+    case 'open-guide': {
+      if (ws.tabs.some((t) => t.key === GUIDE_KEY)) return withActive(ws, GUIDE_KEY)
+      const tab: Tab = { key: GUIDE_KEY, snapshotId: '', view: 'guide', ...(ws.focus === 1 ? { group: 1 as const } : {}), preview: false, pinned: false }
+      const at = ws.tabs.findIndex((t) => t.key === ws.active)
+      const tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]
+      return withActive({ ...ws, tabs: arranged(tabs) }, GUIDE_KEY)
     }
     case 'open-settings': {
       if (ws.tabs.some((t) => t.key === SETTINGS_KEY)) return withActive(ws, SETTINGS_KEY)

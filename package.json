@@ -146,19 +146,18 @@
         "ext": "wsnp",
         "name": "WSNP snapshot",
         "description": "WSNP snapshot (a saved web page)",
-        "mimeType": "application/vnd.wsnp+zip",
-        "role": "Viewer",
+          "role": "Viewer",
         "isPackage": false
       }
     ],
     "deb": {
       "fpm": [
-        "build/linux/folder-browser.xml=/usr/share/mime/packages/folder-browser-magic.xml"
+        "build/linux/folder-browser.xml=/usr/share/mime/packages/folder-browser.xml"
       ]
     },
     "rpm": {
       "fpm": [
-        "build/linux/folder-browser.xml=/usr/share/mime/packages/folder-browser-magic.xml"
+        "build/linux/folder-browser.xml=/usr/share/mime/packages/folder-browser.xml"
       ]
     },
     "extraResources": [

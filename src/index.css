@@ -177,6 +177,9 @@ body {
 .markdown-body table { border-collapse: collapse; display: block; max-width: 100%; overflow: auto; }
 .markdown-body th, .markdown-body td { padding: 6px 13px; border: 1px solid var(--vscode-editorGroup-border); }
 .markdown-body th { font-weight: 600; background: var(--vscode-editorWidget-background); }
+.markdown-body img { max-width: 100%; height: auto; border: 1px solid var(--vscode-editorGroup-border); border-radius: 3px; }
+.markdown-body a:not([href]) { color: inherit; }
+.markdown-body td, .markdown-body th { vertical-align: top; }
 .markdown-body .md-image { padding: 0 0.35em; border: 1px dashed var(--vscode-editorGroup-border); border-radius: 3px; color: var(--vscode-descriptionForeground); }
 .markdown-body .md-image::before { content: '🖼 '; }
 

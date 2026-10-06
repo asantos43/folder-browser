@@ -52,7 +52,7 @@ export function installMenu(send: (command: string) => void): void {
       ],
     },
     { role: 'windowMenu' },
-    { role: 'help', submenu: [] },
+    { role: 'help', submenu: [{ label: 'User Guide', accelerator: 'F1', click: () => send('openGuide') }] },
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }

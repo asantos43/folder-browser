@@ -12,10 +12,10 @@ Brasil, conforme o idioma do sistema. [English](README.md).
 
 ![Folder Browser: a árvore de pastas à esquerda, um arquivo numa aba à direita](docs/images/workbench.png)
 
-O [guia do usuário](docs/USER-GUIDE.pt-BR.md) mostra cada funcionalidade, com imagens, e como usá-la.
+O [guia do usuário](docs/USER-GUIDE.pt-BR.md) mostra cada funcionalidade, com imagens, e como usá-la; ele também está dentro do aplicativo: **Ajuda ▸ Guia do Usuário** (`F1`), em português ou inglês, sem rede.
 
-> **Situação: em construção.** Navegar por pastas e arquivos ZIP, a árvore com várias linhas marcadas, Recortar/Copiar/Colar, editar texto (também dentro de um ZIP), tabelas, diff, dois grupos de editor,
-> mídia, documentos de escritório, a visão hexadecimal e os snapshots `.wsnp` funcionam; a primeira versão (pacotes, imagens finais) é a última fase: veja o [`TODO.md`](TODO.md).
+> **Situação: primeira versão (0.1.0).** Navegar por pastas e arquivos ZIP, a árvore com várias linhas marcadas, Recortar/Copiar/Colar, editar texto (também dentro de um ZIP), tabelas, diff, dois grupos de editor,
+> mídia, documentos de escritório, a visão hexadecimal e os snapshots `.wsnp` funcionam; o que falta está no [`TODO.md`](TODO.md).
 
 ## O que faz
 
@@ -36,8 +36,8 @@ Nada sai do computador: sem conta, sem análise de uso, sem rede, exceto um link
 
 ## Instalação
 
-Os arquivos de versão serão publicados na [página de Releases](https://github.com/asantos43/folder-browser/releases). Eles **não são assinados**, então o primeiro
-início mostra um aviso no Windows e no macOS.
+Os arquivos de versão estão na [página de Releases](https://github.com/asantos43/folder-browser/releases). Eles **não são assinados**, então o primeiro
+início mostra um aviso no Windows e no macOS (Windows: **Mais informações ▸ Executar assim mesmo**; macOS: clique com o botão direito no aplicativo ▸ **Abrir**, ou permita-o em **Ajustes do Sistema ▸ Privacidade e Segurança**).
 
 | Sistema | Arquivo |
 | --- | --- |

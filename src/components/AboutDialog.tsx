@@ -4,10 +4,9 @@ import { useI18n } from '@/i18n/context.tsx'
 import { Icon } from './Icon.tsx'
 
 export const SOURCE_URL = 'https://github.com/asantos43/folder-browser'
-export const GUIDE_URL = 'https://github.com/asantos43/folder-browser/blob/main/docs/USER-GUIDE.md'
 
 /** The About window: version, what it runs on, the licence, the third-party notices and the links. A modal dialog: Esc or the button closes it. */
-export function AboutDialog({ info, onClose, onOpenExternal, onCopy }: { info: AppInfo | null; onClose: () => void; onOpenExternal: (url: string) => void; onCopy: (text: string) => void }) {
+export function AboutDialog({ info, onClose, onOpenExternal, onOpenGuide, onCopy }: { info: AppInfo | null; onClose: () => void; /** Opens the user guide that is inside the application, in a tab. */ onOpenGuide: () => void; onOpenExternal: (url: string) => void; onCopy: (text: string) => void }) {
   const { t } = useI18n()
   const [notices, setNotices] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -54,7 +53,7 @@ export function AboutDialog({ info, onClose, onOpenExternal, onCopy }: { info: A
           <button type="button" className={link} onClick={() => onOpenExternal(SOURCE_URL)}>
             {t('about.source')}
           </button>
-          <button type="button" className={link} onClick={() => onOpenExternal(GUIDE_URL)}>
+          <button type="button" className={link} onClick={onOpenGuide}>
             {t('about.guide')}
           </button>
           <button

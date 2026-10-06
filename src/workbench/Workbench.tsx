@@ -553,6 +553,7 @@ export function Workbench() {
       const current = wsNow.current
       if (command === 'toggleSideBar') return toggleSideBar()
       if (command === 'openSettings') return dispatch({ type: 'open-settings' })
+      if (command === 'openGuide') return dispatch({ type: 'open-guide' })
       if (command === 'showAbout') return void (api?.appInfo().then((info) => setAbout({ info })) ?? setAbout({ info: null }))
       if (command === 'zoomIn' || command === 'zoomOut' || command === 'zoomReset') return zoomTab(command === 'zoomIn' ? 1 : command === 'zoomOut' ? -1 : 0)
       if (command === 'openFile') return void api?.openDialog().then(handleResults)
@@ -677,6 +678,7 @@ export function Workbench() {
       nextEditor: () => run('nextEditor'),
       previousEditor: () => run('previousEditor'),
       openSettings: () => run('openSettings'),
+      openGuide: () => run('openGuide'),
       showAbout: () => run('showAbout'),
       zoomIn: () => run('zoomIn'),
       zoomOut: () => run('zoomOut'),
@@ -1129,7 +1131,7 @@ export function Workbench() {
         />
       ) : null}
       {properties ? <PropertiesDialog entry={properties.entry} location={properties.location} onClose={() => setProperties(null)} /> : null}
-      {about ? <AboutDialog info={about.info} onClose={() => setAbout(null)} onOpenExternal={openExternal} onCopy={copy} /> : null}
+      {about ? <AboutDialog info={about.info} onClose={() => setAbout(null)} onOpenExternal={openExternal} onOpenGuide={() => (setAbout(null), run('openGuide'))} onCopy={copy} /> : null}
       {pickingLanguage && shownFile ? <LanguagePicker file={shownFile} onClose={() => setPickingLanguage(false)} /> : null}
       {quick ? (
         <QuickOpen

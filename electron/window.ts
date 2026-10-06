@@ -25,6 +25,20 @@ function handleTitleBarColors(): void {
   })
 }
 
+/** What a message from the interface needs of its window: that it is still there (a message can arrive as the window goes, and `win.webContents` of a destroyed window throws "Object has been destroyed"), and that it came from the main frame. */
+type Window = { isDestroyed(): boolean; readonly webContents: { readonly mainFrame: unknown } }
+
+/** The number of tabs with changes that the interface says, or null when the message is not to be believed. */
+export function unsavedFrom(win: Window, frame: unknown, count: unknown): number | null {
+  if (win.isDestroyed() || frame !== win.webContents.mainFrame) return null
+  return typeof count === 'number' && Number.isInteger(count) && count >= 0 && count < 10_000 ? count : null
+}
+
+/** Whether the interface may ask the window to close (`fb:leave`, after it asked the user). */
+export function mayLeave(win: Window, frame: unknown): boolean {
+  return !win.isDestroyed() && frame === win.webContents.mainFrame
+}
+
 export function createMainWindow(host: SnapshotHost): BrowserWindow {
   const root = path.join(app.getAppPath(), 'dist')
   const ses = session.fromPartition(PARTITION)
@@ -70,10 +84,11 @@ export function createMainWindow(host: SnapshotHost): BrowserWindow {
   let unsaved = 0
   let leaving = false
   win.webContents.ipc.on('fb:unsaved', (event, count: unknown) => {
-    if (event.senderFrame === win.webContents.mainFrame && typeof count === 'number' && Number.isInteger(count) && count >= 0 && count < 10_000) unsaved = count
+    const next = unsavedFrom(win, event.senderFrame, count)
+    if (next !== null) unsaved = next
   })
   win.webContents.ipc.on('fb:leave', (event) => {
-    if (event.senderFrame !== win.webContents.mainFrame) return
+    if (!mayLeave(win, event.senderFrame)) return
     leaving = true
     win.close()
   })

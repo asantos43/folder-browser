@@ -190,6 +190,7 @@ O arquivo é verificado quando abre, e de novo em segundo plano: a **estrutura**
 | Ir para a aba 1…9 | `Alt+1…9` | `⌘1…9` |
 | Esconder / mostrar a barra lateral | `Ctrl+B` | `⌘B` |
 | Configurações | `Ctrl+,` | `⌘,` |
+| Abrir o guia do usuário | `F1` | `F1` |
 | Zoom da aba: aumentar / diminuir / zerar | `Ctrl+=` / `Ctrl+-` / `Ctrl+0`, ou `Ctrl` + roda | `⌘=` / `⌘-` / `⌘0`, ou `⌘` + roda |
 | Quebra de Linha numa aba de código | `Alt+Z` | `⌥Z` |
 | Próxima / anterior alteração numa comparação | `F7` / `Shift+F7` | `F7` / `Shift+F7` |
@@ -208,7 +209,7 @@ Os atalhos funcionam onde quer que esteja o foco, também dentro de uma página 
 
 As **Configurações** (a engrenagem na barra de atividades, **Arquivo ▸ Preferências ▸ Configurações**, ou `Ctrl+,`) abrem numa aba com uma caixa que as filtra: **Tema de Cor** (Dark+, Light+ ou Auto), **Idioma de Exibição** (inglês, português do Brasil ou automático), se deve **reabrir o que estava aberto**, **Mostrar arquivos ocultos**, e para código **Quebra de Linha** e **Formatar arquivos de código**. As outras escolhas (Markdown, SVG, CSV, a ordem) são feitas onde são usadas, e também são guardadas. As configurações ficam no seu computador, na pasta do próprio aplicativo, e em nenhum outro lugar: veja [`../PRIVACY.md`](../PRIVACY.md).
 
-**Ajuda ▸ Sobre o Folder Browser** mostra a versão, em que ele roda, a licença e os avisos das bibliotecas que há nele, e copia as informações de versão para um relato de erro. Relate um problema em <https://github.com/asantos43/folder-browser/issues>, **sem anexar um arquivo privado**; uma vulnerabilidade segue o que diz [`../SECURITY.md`](../SECURITY.md).
+**Ajuda ▸ Guia do Usuário** (ou `F1`) abre este guia numa aba, dentro do aplicativo, com as imagens e sem rede: ele está no idioma da interface, os links para outras partes rolam até elas, e `Ctrl+F` o pesquisa. **Ajuda ▸ Sobre o Folder Browser** mostra a versão, em que ele roda, a licença e os avisos das bibliotecas que há nele, e copia as informações de versão para um relato de erro. Relate um problema em <https://github.com/asantos43/folder-browser/issues>, **sem anexar um arquivo privado**; uma vulnerabilidade segue o que diz [`../SECURITY.md`](../SECURITY.md).
 
 ## O que ainda não existe
 

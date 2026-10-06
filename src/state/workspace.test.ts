@@ -211,6 +211,24 @@ describe('a signature that does not check', () => {
   })
 })
 
+describe('the guide tab', () => {
+  it('opens once, beside the active tab, in the group that has the focus, and is not a file or a snapshot', () => {
+    let ws = run([...open('a', 'b'), { type: 'open-guide' }])
+    expect(keys(ws)).toEqual(['s:a', 's:b', 'guide'])
+    expect(ws.active).toBe('guide')
+    ws = reduce(ws, { type: 'open-guide' })
+    expect(ws.tabs.filter((t) => t.key === 'guide')).toHaveLength(1)
+    const tab = ws.tabs.find((t) => t.key === 'guide')!
+    expect(isSnapshotTab(tab)).toBe(false)
+    expect(tab.path).toBeUndefined()
+  })
+  it('closes without touching the rest', () => {
+    const ws = run([...open('a'), { type: 'open-guide' }, { type: 'close', key: 'guide' }])
+    expect(keys(ws)).toEqual(['s:a'])
+    expect(ws.active).toBe('s:a')
+  })
+})
+
 describe('the settings tab', () => {
   it('opens once, beside the active tab, and does not change what the side bar is on', () => {
     const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }

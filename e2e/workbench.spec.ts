@@ -92,7 +92,7 @@ test('the interface reaches nothing outside itself', async () => {
   expect(attempts).toEqual(['refused', 'refused', 'refused'])
   // The window has no Node and offers only what the preload exposes.
   expect(await page.evaluate(() => typeof (globalThis as { require?: unknown }).require)).toBe('undefined')
-  expect(await page.evaluate(() => Object.keys((window as unknown as { fb: object }).fb).sort())).toEqual(['appInfo', 'clearFindInPage', 'close', 'copyFromPage', 'copyText', 'docs', 'drafts', 'edit', 'findInPage', 'fs', 'leave', 'listDir', 'media', 'onCloseRequested', 'onCommand', 'onIntegrity', 'onOpenFile', 'onOpened', 'onPageContext', 'onSaved', 'openDefault', 'openDialog', 'openExternal', 'openFolderDialog', 'openInRoot', 'openPaths', 'openWith', 'openWithApp', 'openWithCancel', 'pathForFile', 'places', 'platform', 'print', 'readFile', 'readRange', 'ready', 'recent', 'reveal', 'saveConverted', 'saveFileAs', 'savePdf', 'selectAllInPage', 'session', 'setTitleBar', 'setUnsaved', 'signers', 'trash', 'verify', 'zipExtract', 'zipList'])
+  expect(await page.evaluate(() => Object.keys((window as unknown as { fb: object }).fb).sort())).toEqual(['appInfo', 'clearFindInPage', 'close', 'copyFromPage', 'copyText', 'docs', 'drafts', 'edit', 'findInPage', 'fs', 'leave', 'listDir', 'media', 'onCloseRequested', 'onCommand', 'onIntegrity', 'onOpenFile', 'onOpened', 'onPageContext', 'onSaved', 'openDefault', 'openDialog', 'openExternal', 'openFolderDialog', 'openInRoot', 'openPaths', 'openWith', 'openWithApp', 'openWithCancel', 'openZipDialog', 'pathForFile', 'places', 'platform', 'print', 'readFile', 'readRange', 'ready', 'recent', 'reveal', 'saveConverted', 'saveFileAs', 'savePdf', 'selectAllInPage', 'session', 'setTitleBar', 'setUnsaved', 'signers', 'trash', 'verify', 'zipExtract', 'zipList'])
 })
 
 test('Settings opens in a tab (Ctrl+, or the gear), changes the language at once and remembers it', async () => {
@@ -167,3 +167,28 @@ test('Help > About shows the version, the licence and the notices of the librari
   await expect(dialog).toBeHidden()
 })
 
+
+test('Help > User Guide (and F1) opens the guide, in the language of the interface, with its pictures, from inside the application', async () => {
+  const page = await launch()
+  await page.getByRole('menuitem', { name: 'Help' }).click()
+  await page.getByRole('menuitem', { name: /^User Guide/ }).click()
+  await expect(page.getByRole('tab', { name: /^User Guide/ })).toBeVisible()
+  const guide = page.getByRole('article', { name: 'User Guide' })
+  await expect(guide.getByRole('heading', { name: 'User guide', level: 1 })).toBeVisible()
+  // A picture of the guide is loaded (it is in the build: no network).
+  const picture = guide.getByRole('img').first()
+  await expect.poll(() => picture.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+  // A link inside the guide scrolls to its heading.
+  await guide.getByRole('link', { name: 'Two editor groups' }).first().click()
+  await expect(guide.getByRole('heading', { name: 'Two editor groups' })).toBeInViewport()
+  // F1 asks for it again: still one tab.
+  await page.keyboard.press('F1')
+  await expect(page.getByRole('tab', { name: /^User Guide/ })).toHaveCount(1)
+})
+
+test('the guide is in Portuguese when the interface is', async () => {
+  const page = await launch('--lang=pt-BR')
+  await page.keyboard.press('F1')
+  await expect(page.getByRole('tab', { name: /^Guia do Usuário/ })).toBeVisible()
+  await expect(page.getByRole('article', { name: 'Guia do Usuário' }).getByRole('heading', { name: 'Guia do usuário', level: 1 })).toBeVisible()
+})

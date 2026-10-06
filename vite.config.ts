@@ -21,10 +21,26 @@ const pdfjsData = (): Plugin => ({
   },
 })
 
+/**
+ * The user guide travels inside the application, so Help ▸ User Guide works with no network: the two Markdown files and their pictures are copied into the
+ * build (`dist/guide/`), and the interface reads them by its own scheme.
+ */
+const guideFiles = (): Plugin => ({
+  name: 'fb-user-guide',
+  apply: 'build',
+  writeBundle(options) {
+    const docs = path.resolve(import.meta.dirname, 'docs')
+    const to = path.resolve(import.meta.dirname, options.dir ?? 'dist', 'guide')
+    fs.mkdirSync(to, { recursive: true })
+    for (const name of ['USER-GUIDE.md', 'USER-GUIDE.pt-BR.md']) fs.copyFileSync(path.join(docs, name), path.join(to, name))
+    fs.cpSync(path.join(docs, 'images'), path.join(to, 'images'), { recursive: true, filter: (source) => !source.endsWith('workbench-dark.png') })
+  },
+})
+
 // Builds the interface (the renderer) into dist/. The main process is built by vite.electron.config.ts.
 export default defineConfig({
   base: './',
-  plugins: [react(), tailwindcss(), pdfjsData()],
+  plugins: [react(), tailwindcss(), pdfjsData(), guideFiles()],
   resolve: {
     alias: {
       '@core': path.resolve(import.meta.dirname, './core'),

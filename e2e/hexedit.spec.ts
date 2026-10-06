@@ -21,7 +21,10 @@ test.beforeEach(() => {
 })
 test.afterEach(async () => {
   await app?.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((w) => w.destroy())).catch(() => {})
-  await app?.close().catch(() => {})
+  // (In a whole run of the suite the application sometimes did not quit after its windows were destroyed, and the test waited two minutes for it: after fifteen seconds it is ended.)
+  const child = app?.process()
+  await Promise.race([app?.close().catch(() => {}), new Promise((resolve) => setTimeout(resolve, 15_000))])
+  if (child && child.exitCode === null) child.kill('SIGKILL')
   app = undefined
   fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })
 })

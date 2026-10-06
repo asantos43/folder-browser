@@ -12,10 +12,10 @@ Brazilian Portuguese, following the system language. [Português do Brasil](READ
 
 ![Folder Browser: the folder tree on the left, a file in a tab on the right](docs/images/workbench.png)
 
-The [user guide](docs/USER-GUIDE.md) shows each feature, with pictures, and how to use it.
+The [user guide](docs/USER-GUIDE.md) shows each feature, with pictures, and how to use it; it is also inside the application: **Help ▸ User Guide** (`F1`), in English or Portuguese, with no network.
 
-> **Status: under construction.** Browsing folders and ZIP files, the tree with several rows marked, Cut/Copy/Paste, editing text (also inside a ZIP), tables, diff, two editor groups,
-> media, office documents, the hex view and `.wsnp` snapshots work; the first release (packages, final screenshots) is the last phase: see [`TODO.md`](TODO.md).
+> **Status: first release (0.1.0).** Browsing folders and ZIP files, the tree with several rows marked, Cut/Copy/Paste, editing text (also inside a ZIP), tables, diff, two editor groups,
+> media, office documents, the hex view and `.wsnp` snapshots work; what is left is in [`TODO.md`](TODO.md).
 
 ## What it does
 
@@ -36,8 +36,8 @@ Nothing leaves the computer: no account, no analytics, no network use except a w
 
 ## Install
 
-Release files will be published on the [Releases page](https://github.com/asantos43/folder-browser/releases). They are **not signed**, so the first launch
-shows a warning on Windows and macOS.
+Release files are on the [Releases page](https://github.com/asantos43/folder-browser/releases). They are **not signed**, so the first launch
+shows a warning on Windows and macOS (Windows: **More info ▸ Run anyway**; macOS: right-click the app ▸ **Open**, or allow it in **System Settings ▸ Privacy & Security**).
 
 | System | File |
 | --- | --- |
@@ -72,7 +72,7 @@ sends deletions to the trash and writes through a temporary file; how hostile fi
 | [`TODO.md`](TODO.md) | The plan, phase by phase, and what is next |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed, by version |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the app is built, and its safety rules |
-| [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) ([pt-BR](docs/USER-GUIDE.pt-BR.md)) | Using the app (so far: the WSNP part; the rest is written as it lands) |
+| [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) ([pt-BR](docs/USER-GUIDE.pt-BR.md)) | Using the app, every feature, with pictures |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/RELEASING.md`](docs/RELEASING.md) | Setting up, testing, making a release |
 | [`docs/FORMAT.md`](docs/FORMAT.md), [`docs/MANIFEST-SIGNING.md`](docs/MANIFEST-SIGNING.md), [`docs/PAGEKEEP-ZIP.md`](docs/PAGEKEEP-ZIP.md), [`docs/VIEWER-GUIDELINES.md`](docs/VIEWER-GUIDELINES.md) | The WSNP format and what a viewer must do (copied from WSNP Viewer) |
 | [`docs/UI-DESIGN.md`](docs/UI-DESIGN.md) | The VS Code-style interface |

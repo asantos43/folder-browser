@@ -56,10 +56,10 @@ export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenW
         // As VS Code's Split Right: the tab goes to a second group on the right (a tab is one file, so it moves and is not shown twice).
         { id: 'split', label: !split ? t('tabs.splitRight') : group === 0 ? t('tabs.moveToRight') : t('tabs.moveToLeft'), disabled: !split && tabs.length < 2, run: () => dispatch({ type: 'move-to-group', key: tab.key, group: group === 0 ? 1 : 0 }) },
         { separator: true },
-        ...(tab.view === 'settings' || ws.roots[tab.snapshotId] ? [] : [{ id: 'metadata', label: t('tabs.showMetadata'), run: () => dispatch({ type: 'open-metadata', snapshotId: tab.snapshotId }) }]),
+        ...(tab.view === 'settings' || tab.view === 'guide' || ws.roots[tab.snapshotId] ? [] : [{ id: 'metadata', label: t('tabs.showMetadata'), run: () => dispatch({ type: 'open-metadata', snapshotId: tab.snapshotId }) }]),
         ...(tab.view ? [] : tab.path === undefined ? [{ id: 'source', label: t('tabs.copySource'), disabled: !source, run: () => source && onCopy(source) }] : [{ id: 'path', label: t('tabs.copyPath'), run: () => onCopy(tab.path!) }]),
         ...(tab.path !== undefined && onOpenWith ? [{ id: 'openWith', label: t('tree.openWith'), run: () => onOpenWith(tab.snapshotId, tab.path!) }] : []),
-        ...(tab.view === 'settings' || tab.view === 'diff' ? [] : [{ id: 'reveal', label: t('tabs.reveal'), run: () => (ws.roots[tab.snapshotId] && tab.path !== undefined ? onReveal(tab.snapshotId, tab.path) : onReveal(tab.snapshotId)) }]),
+        ...(tab.view === 'settings' || tab.view === 'guide' || tab.view === 'diff' ? [] : [{ id: 'reveal', label: t('tabs.reveal'), run: () => (ws.roots[tab.snapshotId] && tab.path !== undefined ? onReveal(tab.snapshotId, tab.path) : onReveal(tab.snapshotId)) }]),
       ],
     })
   }
