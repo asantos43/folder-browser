@@ -157,6 +157,8 @@
     },
     "rpm": {
       "fpm": [
+        "--rpm-rpmbuild-define",
+        "_build_id_links none",
         "build/linux/folder-browser.xml=/usr/share/mime/packages/folder-browser.xml"
       ]
     },

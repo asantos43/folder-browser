@@ -32,6 +32,8 @@ function linuxPackage(kind, file, listing, scripts) {
   check(listing.includes('/usr/share/mime/packages/folder-browser.xml'), `${kind}: has the file type (by name, and by the first entry of the ZIP)`)
   check(listing.split('\n').filter((line) => /\/usr\/share\/mime\/packages\/[^/\s]+\.xml/.test(line)).length === 1, `${kind}: has only one file that says what a .wsnp is`)
   check(/folder-browser\.png/.test(listing), `${kind}: has the icon`)
+  // Every Electron application of the same version has the same build id, and rpm links each binary to /usr/lib/.build-id/<id>: two of them (this one and WSNP Viewer) could not be installed together.
+  check(!/\/usr\/lib\/\.build-id/.test(listing), `${kind}: has no /usr/lib/.build-id links (they would clash with another Electron application)`)
   // The desktop's icon theme (hicolor) lists sizes up to 512: a lone 1024 × 1024 picture is not found by it, and the menu shows no icon.
   for (const size of ['16x16', '32x32', '48x48', '128x128', '256x256', '512x512']) check(new RegExp(`/usr/share/icons/hicolor/${size}/apps/folder-browser\\.png`).test(listing), `${kind}: has the icon at ${size}`)
   check(!/hicolor\/1024x1024/.test(listing), `${kind}: has no icon at a size the icon theme does not list`)
