@@ -2,7 +2,7 @@
 
 Folder Browser looks at the folders on your computer and at what is in them. It opens **folders and ZIP files** as trees, shows **text, pictures, PDFs, office documents, tables, videos, sounds and the bytes of any file**, and **makes, renames, moves and deletes** files and folders. It also opens **`.wsnp` files** (web pages saved by the [PageKeep](https://github.com/asantos43/webpage-snapshot) extension) as the pages they are. [Português do Brasil](USER-GUIDE.pt-BR.md).
 
-Editing a file, comparing two files and changing what is inside a ZIP are not here yet (see the end).
+Comparing two files and changing what is inside a ZIP are not here yet (see the end).
 
 ## Opening a folder
 
@@ -48,7 +48,7 @@ These work on the files and folders of a folder you opened (not yet inside a ZIP
 
 | File | What you get |
 | --- | --- |
-| Source, text and data: HTML, CSS, JavaScript, TypeScript, JSON, XML, YAML, TOML, INI, `.env`, shell, SQL, Dockerfile, and source in Python, C, C++, C#, Java, Kotlin, Scala, Go, Rust, Swift, Dart, PHP, Ruby, Perl, Lua, R, Groovy, Haskell, Julia, Clojure, Erlang, Pascal, PowerShell, CMake, Diff, Protocol Buffers, SCSS, Sass, Less, plain text | Source with colours and line numbers, read-only. A minified or one-line HTML, CSS, JavaScript, JSON or XML file is shown **laid out**; the toolbar's **Format** button shows it as saved, and Save As always writes the file as it was saved. **Word Wrap** wraps long lines (`Alt+Z`). Both choices are kept and are in Settings too. Text over 5 MB is not opened in a tab; a **`.log`** opens up to 32 MB. |
+| Source, text and data: HTML, CSS, JavaScript, TypeScript, JSON, XML, YAML, TOML, INI, `.env`, shell, SQL, Dockerfile, and source in Python, C, C++, C#, Java, Kotlin, Scala, Go, Rust, Swift, Dart, PHP, Ruby, Perl, Lua, R, Groovy, Haskell, Julia, Clojure, Erlang, Pascal, PowerShell, CMake, Diff, Protocol Buffers, SCSS, Sass, Less, plain text | Source with colours and line numbers. A text file **of a folder you opened is edited** (see "Editing text"); a text file of a ZIP or a snapshot, or one that cannot be edited, is read-only, and a minified or one-line HTML, CSS, JavaScript, JSON or XML file is then shown **laid out** (the toolbar's **Format** button shows it as saved; Save As always writes the file as it was saved). **Word Wrap** wraps long lines (`Alt+Z`). Both choices are kept and are in Settings too. Text over 5 MB is not opened in a tab; a **`.log`** opens up to 32 MB. |
 | A file of a kind the application does not know | Shown as text when what it holds is text; otherwise as its bytes (hexadecimal). |
 | Markdown (`.md`) | A **formatted page** (headings, lists, tables, code; a web link opens in your browser; a picture is not loaded and HTML inside is shown as text), with **Formatted / Text** buttons; **Full Width** and **Wrap Code**. |
 | CSV and TSV | A **table**: the first row is the header and stays in view, the rows are numbered; the delimiter (comma, semicolon, tab, bar) is found by itself. Up to 5,000 rows and 200 columns, said when cut. **Table / Text** buttons switch to the source. |
@@ -64,6 +64,17 @@ These work on the files and folders of a folder you opened (not yet inside a ZIP
 | Anything else (a file that is too large) | A card with its name, type and size, and **Save As…**, **Open With…** and **View as hex**. |
 
 **Open With…** and **View as hex** are in the toolbar of the document, the table, the bytes and every text, and on the cards.
+
+## Editing text
+
+A text file of a folder you opened opens ready to edit, with the colours of its language, undo and redo (`Ctrl+Z`, `Ctrl+Shift+Z`), automatic closing of brackets, `Tab` to indent, and Word Wrap.
+
+- **Save** with `Ctrl+S` (`⌘S`), the **Save** button of the toolbar, or **File ▸ Save**; **Save All** (`Ctrl+Alt+S`, `⌘⌥S`) writes every tab with changes. A tab with changes shows a **dot** where the × is (the × comes back when the pointer is over the tab), and the toolbar says **● Modified**.
+- The file is written **whole and safely**: to a temporary file next to it, then renamed over it, with its permissions kept, so a crash or a full disk leaves the old file. Its **line endings** (LF, CRLF or CR, shown in the toolbar) and its **byte order mark** (UTF-8 with BOM) are kept, so a file you open and save without changing is the same bytes. A file whose lines end in a mix of styles is made uniform when you save.
+- If the file **changed on disk** since you opened it (another program wrote it), Save does not write: it asks whether to **Overwrite** it with your text or **Load from Disk** (your changes are lost). Cancel leaves everything as it is.
+- **Closing a tab** with changes asks **Save / Don't Save / Cancel**, also for Close All, Close Others and closing the folder; **closing the window** asks too, for all the tabs with changes. The changes, and the undo history, stay with a tab while you look at another one, and follow it if you rename or move the file.
+- **Format Document** (HTML, CSS, JavaScript, JSON, XML) lays the text out for reading as an edit that **can be undone**. **Save As…** writes the text on screen to a file you choose. A formatted Markdown page or a CSV table of the same file shows what you have typed, saved or not.
+- Only **UTF-8 text up to 5 MB** is edited. A file in another encoding, a binary file, a bigger file and the files inside a ZIP or a snapshot are shown, not edited, and the toolbar says why.
 
 ## ZIP files
 
@@ -114,4 +125,4 @@ The shortcuts work wherever the focus is, also inside a page or a document.
 
 ## What is not here yet
 
-Editing and saving a text file, comparing two text files, and making, renaming, moving and deleting **inside a ZIP** come in the next phases (see [`../TODO.md`](../TODO.md)). Selecting several rows at once, dragging onto a place of the side bar, and printing the bytes of a file or a table as a table are on the list too.
+Comparing two text files, and making, renaming, moving and deleting **inside a ZIP** come in the next phases (see [`../TODO.md`](../TODO.md)). Selecting several rows at once, dragging onto a place of the side bar, and printing the bytes of a file or a table as a table are on the list too.

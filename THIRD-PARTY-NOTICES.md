@@ -19,6 +19,7 @@ libraries Chromium contains. They are shipped unchanged by electron-builder.
 | --- | --- | --- | --- |
 | @aiden0z/pptx-renderer | 1.3.0 | Apache-2.0 | https://github.com/aiden0z/pptx-renderer |
 | @codemirror/autocomplete | 6.20.3 | MIT | https://code.haverbeke.berlin/codemirror/autocomplete |
+| @codemirror/commands | 6.11.1 | MIT | https://code.haverbeke.berlin/codemirror/commands |
 | @codemirror/lang-css | 6.3.1 | MIT | https://github.com/codemirror/lang-css |
 | @codemirror/lang-html | 6.4.12 | MIT | https://code.haverbeke.berlin/codemirror/lang-html |
 | @codemirror/lang-javascript | 6.2.5 | MIT | https://github.com/codemirror/lang-javascript |
@@ -314,7 +315,7 @@ Apache License
    limitations under the License.
 ```
 
-### @codemirror/autocomplete 6.20.3, @codemirror/lang-css 6.3.1, @codemirror/lang-html 6.4.12, @codemirror/lang-javascript 6.2.5, @codemirror/lang-json 6.0.2, @codemirror/lang-markdown 6.5.2, @codemirror/lang-xml 6.1.0, @codemirror/language 6.12.4, @codemirror/lint 6.9.7, @codemirror/state 6.7.6, @codemirror/view 6.43.13
+### @codemirror/autocomplete 6.20.3, @codemirror/commands 6.11.1, @codemirror/lang-css 6.3.1, @codemirror/lang-html 6.4.12, @codemirror/lang-javascript 6.2.5, @codemirror/lang-json 6.0.2, @codemirror/lang-markdown 6.5.2, @codemirror/lang-xml 6.1.0, @codemirror/language 6.12.4, @codemirror/lint 6.9.7, @codemirror/state 6.7.6, @codemirror/view 6.43.13
 
 ```text
 MIT License

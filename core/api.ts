@@ -1,4 +1,5 @@
 import type { OpError, OpResult } from './fs/ops.ts'
+import type { EditError, EditOpen, EditSave, FileVersion, LineEnding } from './fs/edit.ts'
 import type { ExtractResult } from './extract.ts'
 import type { PlacesData } from './places.ts'
 import type { ListResult, RootInfo } from './roots.ts'
@@ -20,7 +21,7 @@ export type RangeResult = { bytes: Uint8Array; size: number } | { error: 'no-sna
 /** A document of a root, ready to be drawn in a frame at `url` (`fb-doc://<token>/`): by the library `flavour` (core/docs.ts). */
 export type DocOpen = { token: string; url: string; flavour: 'docx' | 'pptx' | 'odf' } | { error: 'no-file' | 'too-large' | 'unsupported' }
 /** What an operation on the files of a folder answers (`core/fs/ops.ts`): the new path of the item, or why nothing was done. */
-export type { OpError, OpResult }
+export type { OpError, OpResult, EditError, EditOpen, EditSave, FileVersion, LineEnding }
 export type SaveResult = { saved: true; path: string } | { saved: false; reason: 'cancelled' | 'error'; message?: string }
 export type IntegrityEvent = { id: string; state: 'running'; done: number; total: number } | { id: string; state: 'done'; report: IntegrityReport }
 
@@ -98,6 +99,19 @@ export interface FbApi {
     /** `trash`: to the system's trash. `forever`: gone for good (asked only after the trash refused, or by the user). */
     remove(id: string, path: string, how: 'trash' | 'forever'): Promise<OpResult>
   }
+  /** Editing the text files of a folder that was opened (phase 3). The text has `\n` for every line ending; the file's own ending and byte order mark are kept in `eol` and `bom` and put back when it is saved. */
+  edit: {
+    open(id: string, path: string): Promise<EditOpen>
+    /** Writes the text whole, through a temporary file renamed over the file. `base` is what `open` (or the last save) said the file was like: if the disk has something else, the answer is `changed` and nothing is written, unless `overwrite`. */
+    save(id: string, path: string, text: string, base: FileVersion, options: { eol: LineEnding; bom: boolean; overwrite?: boolean }): Promise<EditSave>
+    /** Asks where, and writes the text there (Save As of an editor, which has the text and not the file). */
+    saveAs(name: string, text: string, options: { eol: LineEnding; bom: boolean }): Promise<SaveResult>
+  }
+  /** How many tabs have changes that are not saved: the window asks before it closes while there are some (`onCloseRequested`). */
+  setUnsaved(count: number): void
+  /** The user chose to close the window although it has unsaved changes (or has none left). */
+  leave(): void
+  onCloseRequested(listener: () => void): () => void
   /** An office document of a root or a snapshot (docx, pptx, odt, ods, odp, xlsx, xls…): makes its page, which draws it in a sandboxed frame with no network. The token lives as long as the tab. */
   docs: { open(id: string, path: string): Promise<DocOpen>; release(token: string): Promise<void> }
   /** Opens a `.wsnp` of a folder (a file of the disk, by its path in the root) as a snapshot. */

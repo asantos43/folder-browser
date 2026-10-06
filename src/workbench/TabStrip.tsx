@@ -106,6 +106,7 @@ export function TabStrip({ ws, views, dispatch, onReveal, onCopy, onOpenWith }: 
             >
               <Icon name={view.icon} className="shrink-0 text-[16px]" />
               <span className={`min-w-0 truncate ${tab.preview ? 'italic' : ''}`}>{view.label}</span>
+              {ws.dirty[tab.key] ? <span className="sr-only">{t('edit.modified')}</span> : null}
               {view.description ? <span className="min-w-0 truncate text-[11px] opacity-60">{view.description}</span> : null}
               <button
                 type="button"
@@ -117,9 +118,17 @@ export function TabStrip({ ws, views, dispatch, onReveal, onCopy, onOpenWith }: 
                   dispatch(tab.pinned ? { type: 'pin', key: tab.key, pinned: false } : { type: 'close', key: tab.key })
                 }}
                 onDoubleClick={(e) => e.stopPropagation()}
-                className={`ml-auto flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded hover:bg-toolbar-hover ${active || tab.pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                className={`ml-auto flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded hover:bg-toolbar-hover ${active || tab.pinned || ws.dirty[tab.key] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
               >
-                <Icon name={tab.pinned ? 'pinned' : 'close'} className="text-[16px]" />
+                {/* A text with changes not saved shows a dot in place of the ×, until the pointer is over the tab. */}
+                {ws.dirty[tab.key] && !tab.pinned ? (
+                  <>
+                    <Icon name="circle-filled" className="text-[10px] group-hover:hidden" />
+                    <Icon name="close" className="hidden text-[16px] group-hover:inline" />
+                  </>
+                ) : (
+                  <Icon name={tab.pinned ? 'pinned' : 'close'} className="text-[16px]" />
+                )}
               </button>
             </div>
           )

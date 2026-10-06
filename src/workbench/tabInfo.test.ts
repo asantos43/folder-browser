@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { translator } from '@/i18n/index.ts'
 import { snapshotInfo } from '@/test/fixtures.ts'
 import { empty, reduce, type Action, type Workspace } from '@/state/workspace.ts'
-import { describeTabs, kindOf, snapshotTitle, sourceTitle } from './tabInfo.ts'
+import { describeTabs, isEditable, kindOf, snapshotTitle, sourceTitle } from './tabInfo.ts'
 
 const t = translator('en')
 const run = (...actions: Action[]): Workspace => actions.reduce(reduce, empty)
@@ -52,5 +52,31 @@ describe('a file shown as its bytes', () => {
   it('is of kind hex whatever the file is, and the same file in the other tab is a document', () => {
     expect(kindOf(ws, ws.tabs.find((tab) => tab.key === 'x:r1:docs/a.docx')!).kind).toBe('hex')
     expect(kindOf(ws, ws.tabs.find((tab) => tab.key === 'f:r1:docs/a.docx')!).kind).toBe('document')
+  })
+})
+
+describe('isEditable', () => {
+  const folder = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const tabOf = (ws: Workspace, key: string) => ws.tabs.find((tab) => tab.key === key)!
+  it('is true for a file of a folder that was opened, and false for the bytes of it, an entry of a ZIP, a ZIP or the trash as the root, and a snapshot', () => {
+    const ws = run(
+      { type: 'root-opened', root: folder },
+      { type: 'root-opened', root: { id: 'r2', kind: 'zip', path: '/p.zip', name: 'p.zip' } },
+      { type: 'root-opened', root: { id: 'r3', kind: 'folder', path: '/trash', name: 'Trash', trash: true } },
+      { type: 'open-file', snapshotId: 'r1', path: 'a.txt', keep: true },
+      { type: 'open-file', snapshotId: 'r1', path: 'a.txt', keep: true, as: 'hex' },
+      { type: 'open-file', snapshotId: 'r1', path: 'pack.zip!/in.txt', keep: true },
+      { type: 'open-file', snapshotId: 'r2', path: 'top.txt', keep: true },
+      { type: 'open-file', snapshotId: 'r3', path: 'old.txt', keep: true },
+      { type: 'snapshot-opened', snapshot: snapshotInfo('s1', 'S') },
+      { type: 'open-metadata', snapshotId: 's1' },
+    )
+    expect(isEditable(ws, tabOf(ws, 'f:r1:a.txt'))).toBe(true)
+    expect(isEditable(ws, tabOf(ws, 'x:r1:a.txt'))).toBe(false)
+    expect(isEditable(ws, tabOf(ws, 'f:r1:pack.zip!/in.txt'))).toBe(false)
+    expect(isEditable(ws, tabOf(ws, 'f:r2:top.txt'))).toBe(false)
+    expect(isEditable(ws, tabOf(ws, 'f:r3:old.txt'))).toBe(false)
+    expect(isEditable(ws, tabOf(ws, 's:s1'))).toBe(false)
+    expect(isEditable(ws, tabOf(ws, 'm:s1'))).toBe(false)
   })
 })

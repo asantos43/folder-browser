@@ -396,3 +396,28 @@ describe('an item of a folder renamed, moved or deleted', () => {
     expect(reduce(ws, { type: 'path-removed', rootId: 'r1', path: 'nothing' })).toBe(ws)
   })
 })
+
+describe('tabs with changes not saved', () => {
+  const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const open = (path: string): Action => ({ type: 'open-file', snapshotId: 'r1', path, keep: true })
+  const run = (...actions: Action[]) => actions.reduce(reduce, empty)
+
+  it('is marked and unmarked by the tab, and a tab that is not open is not marked', () => {
+    let ws = run({ type: 'root-opened', root }, open('a.txt'))
+    ws = reduce(ws, { type: 'dirty', key: 'f:r1:a.txt', dirty: true })
+    expect(ws.dirty).toEqual({ 'f:r1:a.txt': true })
+    expect(reduce(ws, { type: 'dirty', key: 'f:r1:a.txt', dirty: true })).toBe(ws)
+    expect(reduce(ws, { type: 'dirty', key: 'f:r1:a.txt', dirty: false }).dirty).toEqual({})
+    expect(reduce(ws, { type: 'dirty', key: 'f:r1:nope', dirty: true })).toBe(ws)
+  })
+  it('goes with the tab when it is closed, and follows it when its file is renamed or moved', () => {
+    let ws = run({ type: 'root-opened', root }, open('a.txt'), open('docs/b.txt'))
+    ws = reduce(reduce(ws, { type: 'dirty', key: 'f:r1:a.txt', dirty: true }), { type: 'dirty', key: 'f:r1:docs/b.txt', dirty: true })
+    ws = reduce(ws, { type: 'path-changed', rootId: 'r1', from: 'docs', to: 'papers' })
+    expect(Object.keys(ws.dirty).sort()).toEqual(['f:r1:a.txt', 'f:r1:papers/b.txt'])
+    ws = reduce(ws, { type: 'close', key: 'f:r1:a.txt' })
+    expect(ws.dirty).toEqual({ 'f:r1:papers/b.txt': true })
+    ws = reduce(ws, { type: 'path-removed', rootId: 'r1', path: 'papers' })
+    expect(ws.dirty).toEqual({})
+  })
+})

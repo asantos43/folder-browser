@@ -32,6 +32,8 @@ import { UI_ORIGIN } from './ui-protocol.ts'
 const WEB_LINK = /^(https?|mailto):/i
 /** The most text the interface may put on the clipboard at once. */
 const MAX_COPY = 16 * 2 ** 20
+/** The most characters of a text the interface may hand over to be saved (a file is written up to 64 MiB). */
+const SAVE_CHARS = 64 * 2 ** 20
 /** The most bytes the hex view asks for at once. */
 const MAX_RANGE = 2 ** 20
 
@@ -690,6 +692,28 @@ export class SnapshotHost {
       short(id) && short(parent) && short(name) && (kind === 'file' || kind === 'dir') ? this.roots.create(id, parent, name, kind) : { ok: false, error: 'invalid-name' })
     handle('fb:fs-rename', (_win, id: unknown, name: unknown, newName: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(newName) ? this.roots.rename(id, name, newName) : { ok: false, error: 'invalid-name' }))
     handle('fb:fs-move', (_win, id: unknown, name: unknown, to: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(to) ? this.roots.move(id, name, to) : { ok: false, error: 'not-found' }))
+    // Editing a text file of a folder: the text in and out whole; the line ending and the byte order mark of the file travel with it.
+    const version = (v: unknown): v is { mtimeMs: number; size: number } => typeof v === 'object' && v !== null && Number.isFinite((v as { mtimeMs?: unknown }).mtimeMs) && Number.isFinite((v as { size?: unknown }).size)
+    const ending = (v: unknown): v is 'lf' | 'crlf' | 'cr' => v === 'lf' || v === 'crlf' || v === 'cr'
+    handle('fb:edit-open', (_win, id: unknown, name: unknown) => (short(id) && short(name) ? this.roots.edit(id, name) : ({ ok: false, error: 'no-file' } as const)))
+    handle('fb:edit-save', (_win, id: unknown, name: unknown, text: unknown, base: unknown, options: unknown) => {
+      const o = options as { eol?: unknown; bom?: unknown; overwrite?: unknown } | null
+      if (!short(id) || !short(name) || typeof text !== 'string' || text.length > SAVE_CHARS || !version(base) || !o || !ending(o.eol) || typeof o.bom !== 'boolean') return { ok: false, error: 'failed' } as const
+      return this.roots.saveEdit(id, name, text, base, { eol: o.eol, bom: o.bom, overwrite: o.overwrite === true })
+    })
+    handle('fb:edit-save-as', async (win, name: unknown, text: unknown, options: unknown): Promise<SaveResult> => {
+      const o = options as { eol?: unknown; bom?: unknown } | null
+      if (!short(name) || typeof text !== 'string' || text.length > SAVE_CHARS || !o || !ending(o.eol) || typeof o.bom !== 'boolean') return { saved: false, reason: 'error' }
+      const picked = await dialog.showSaveDialog(win, { defaultPath: path.basename(name) })
+      if (picked.canceled || !picked.filePath) return { saved: false, reason: 'cancelled' }
+      try {
+        const body = Buffer.from(o.eol === 'lf' ? text : text.replace(/\n/g, o.eol === 'crlf' ? '\r\n' : '\r'), 'utf8')
+        await fs.promises.writeFile(picked.filePath, o.bom ? Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), body]) : body)
+        return { saved: true, path: picked.filePath }
+      } catch (err) {
+        return { saved: false, reason: 'error', message: (err as Error).message }
+      }
+    })
     handle('fb:fs-copy', (_win, id: unknown, name: unknown, to: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(to) ? this.roots.copy(id, name, to) : { ok: false, error: 'not-found' }))
     handle('fb:fs-remove', (_win, id: unknown, name: unknown, how: unknown): Promise<OpResult> | OpResult =>
       short(id) && short(name) && (how === 'trash' || how === 'forever') ? this.roots.remove(id, name, how, (file) => shell.trashItem(file)) : { ok: false, error: 'not-found' })

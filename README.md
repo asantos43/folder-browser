@@ -20,7 +20,7 @@ Brazilian Portuguese, following the system language. [Português do Brasil](READ
 | **Places** | A side bar with **Home, Documents, Downloads, Music, Pictures, Videos, Desktop, Trash**, your **recent folders** and **favourite folders** (drag a folder to pin it). |
 | **Browse** | A tree of folders and ZIP files (a ZIP opens like a folder, even inside another ZIP), with a switch to **show hidden files** (`Ctrl+H`). |
 | **Change** | Create, **rename** (`F2`), move (a folder picker, or drag and drop) and delete files and folders of a folder you opened; delete goes to the trash, and nothing is ever replaced. (Inside a ZIP: coming.) |
-| **Edit** | Text files (HTML, TXT, JSON, Markdown, source code…) open in an editor with syntax colours; `Ctrl+S` saves to the folder or back into the ZIP. |
+| **Edit** | Text files (HTML, TXT, JSON, Markdown, source code…) open in an editor with syntax colours; `Ctrl+S` saves the file whole and safely (a temporary file renamed over it, line endings kept, and a question if it changed on disk meanwhile); a tab with changes shows a dot and asks before it closes. (Into a ZIP: coming.) |
 | **Documents** | Word, PowerPoint, LibreOffice and Excel files (`.docx`, `.pptx`, `.odt`, `.ods`, `.odp`, `.xlsx`, `.xls`…) are drawn in a tab, in a frame that has no network; CSV and TSV open as a table. |
 | **Hex** | Programs, libraries and any file of bytes (`.exe`, `.dll`, `.so`, `.bin`, `.iso`…) open as offset, hexadecimal and text, with selection, copy, Go to offset and Find for bytes or text; the header says what the file is (ELF, PE, Mach-O, ZIP…) without running it. |
 | **Play** | Videos and sounds play in a tab (mp4, webm, mp3, flac, wav…), with seek, volume, speed and Next/Previous in the folder, also from a ZIP. |

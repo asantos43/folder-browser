@@ -2,7 +2,7 @@
 
 O Folder Browser mostra as pastas do seu computador e o que há nelas. Abre **pastas e arquivos ZIP** como árvores, mostra **texto, imagens, PDFs, documentos de escritório, tabelas, vídeos, sons e os bytes de qualquer arquivo**, e **cria, renomeia, move e apaga** arquivos e pastas. Também abre **arquivos `.wsnp`** (páginas da web salvas pela extensão [PageKeep](https://github.com/asantos43/webpage-snapshot)) como as páginas que eles são. [English](USER-GUIDE.md).
 
-Editar um arquivo, comparar dois arquivos e alterar o que há dentro de um ZIP ainda não existem (veja o fim).
+Comparar dois arquivos e alterar o que há dentro de um ZIP ainda não existem (veja o fim).
 
 ## Abrir uma pasta
 
@@ -48,7 +48,7 @@ Isto vale para os arquivos e pastas de uma pasta que você abriu (ainda não den
 
 | Arquivo | O que você vê |
 | --- | --- |
-| Código, texto e dados: HTML, CSS, JavaScript, TypeScript, JSON, XML, YAML, TOML, INI, `.env`, shell, SQL, Dockerfile, e código em Python, C, C++, C#, Java, Kotlin, Scala, Go, Rust, Swift, Dart, PHP, Ruby, Perl, Lua, R, Groovy, Haskell, Julia, Clojure, Erlang, Pascal, PowerShell, CMake, Diff, Protocol Buffers, SCSS, Sass, Less, texto simples | Código com cores e números de linha, somente leitura. Um HTML, CSS, JavaScript, JSON ou XML minificado ou de uma linha só é mostrado **organizado**; o botão **Formatar** da barra de ferramentas o mostra como foi salvo, e Salvar Como sempre grava o arquivo como foi salvo. **Quebra de Linha** quebra linhas longas (`Alt+Z`). As duas escolhas são guardadas e estão nas Configurações. Texto acima de 5 MB não abre numa aba; um **`.log`** abre até 32 MB. |
+| Código, texto e dados: HTML, CSS, JavaScript, TypeScript, JSON, XML, YAML, TOML, INI, `.env`, shell, SQL, Dockerfile, e código em Python, C, C++, C#, Java, Kotlin, Scala, Go, Rust, Swift, Dart, PHP, Ruby, Perl, Lua, R, Groovy, Haskell, Julia, Clojure, Erlang, Pascal, PowerShell, CMake, Diff, Protocol Buffers, SCSS, Sass, Less, texto simples | Código com cores e números de linha. Um arquivo de texto **de uma pasta que você abriu é editado** (veja "Editar texto"); um texto de um ZIP ou de um snapshot, ou que não pode ser editado, é somente leitura, e um HTML, CSS, JavaScript, JSON ou XML minificado ou de uma linha só é então mostrado **organizado** (o botão **Formatar** o mostra como foi salvo; Salvar Como sempre grava o arquivo como foi salvo). **Quebra de Linha** quebra linhas longas (`Alt+Z`). As duas escolhas são guardadas e estão nas Configurações. Texto acima de 5 MB não abre numa aba; um **`.log`** abre até 32 MB. |
 | Um arquivo de um tipo que o aplicativo não conhece | Mostrado como texto quando o que há nele é texto; senão, como os bytes (hexadecimal). |
 | Markdown (`.md`) | Uma **página formatada** (títulos, listas, tabelas, código; um link da web abre no seu navegador; uma imagem não é carregada e o HTML escrito dentro aparece como texto), com os botões **Formatado / Texto**; **Largura Total** e **Quebrar Código**. |
 | CSV e TSV | Uma **tabela**: a primeira linha é o cabeçalho e fica à vista, as linhas são numeradas; o delimitador (vírgula, ponto e vírgula, tab, barra) é achado sozinho. Até 5.000 linhas e 200 colunas, dito quando corta. Os botões **Tabela / Texto** passam para o código. |
@@ -64,6 +64,17 @@ Isto vale para os arquivos e pastas de uma pasta que você abriu (ainda não den
 | Qualquer outra coisa (um arquivo grande demais) | Um cartão com o nome, o tipo e o tamanho, e **Salvar Como…**, **Abrir com…** e **Ver em hexadecimal**. |
 
 **Abrir com…** e **Ver em hexadecimal** estão na barra de ferramentas do documento, da tabela, dos bytes e de todo texto, e nos cartões.
+
+## Editar texto
+
+Um arquivo de texto de uma pasta que você abriu abre pronto para editar, com as cores da linguagem, desfazer e refazer (`Ctrl+Z`, `Ctrl+Shift+Z`), fechamento automático de colchetes, `Tab` para indentar e Quebra de Linha.
+
+- **Salvar** com `Ctrl+S` (`⌘S`), o botão **Salvar** da barra de ferramentas, ou **Arquivo ▸ Salvar**; **Salvar Tudo** (`Ctrl+Alt+S`, `⌘⌥S`) grava todas as abas com alterações. Uma aba com alterações mostra um **ponto** no lugar do × (o × volta quando o ponteiro está sobre a aba), e a barra de ferramentas diz **● Modificado**.
+- O arquivo é gravado **inteiro e com segurança**: num arquivo temporário ao lado, depois renomeado sobre ele, com as permissões mantidas, de modo que uma falha ou um disco cheio deixa o arquivo antigo. As **terminações de linha** (LF, CRLF ou CR, mostradas na barra de ferramentas) e a **marca de ordem de bytes** (UTF-8 com BOM) são mantidas, então um arquivo que você abre e salva sem mudar fica com os mesmos bytes. Um arquivo cujas linhas terminam em estilos misturados fica uniforme ao salvar.
+- Se o arquivo **mudou no disco** desde que você o abriu (outro programa o gravou), Salvar não grava: pergunta se **Sobrescrever** com o seu texto ou **Carregar do Disco** (as suas alterações se perdem). Cancelar deixa tudo como está.
+- **Fechar uma aba** com alterações pergunta **Salvar / Não Salvar / Cancelar**, também para Fechar Todas, Fechar Outras e fechar a pasta; **fechar a janela** também pergunta, para todas as abas com alterações. As alterações e o histórico de desfazer ficam com a aba enquanto você olha outra, e a acompanham se você renomear ou mover o arquivo.
+- **Formatar Documento** (HTML, CSS, JavaScript, JSON, XML) organiza o texto para leitura como uma edição que **pode ser desfeita**. **Salvar Como…** grava o texto da tela num arquivo que você escolhe. Uma página Markdown formatada ou uma tabela CSV do mesmo arquivo mostra o que você digitou, salvo ou não.
+- Só se edita **texto UTF-8 de até 5 MB**. Um arquivo em outra codificação, um binário, um arquivo maior e os arquivos dentro de um ZIP ou de um snapshot são mostrados, não editados, e a barra de ferramentas diz por quê.
 
 ## Arquivos ZIP
 
@@ -114,4 +125,4 @@ As **Configurações** (a engrenagem na barra de atividades, **Arquivo ▸ Prefe
 
 ## O que ainda não existe
 
-Editar e salvar um arquivo de texto, comparar dois arquivos de texto, e criar, renomear, mover e apagar **dentro de um ZIP** vêm nas próximas fases (veja [`../TODO.md`](../TODO.md)). Selecionar várias linhas de uma vez, arrastar para um lugar da barra lateral, e imprimir os bytes de um arquivo ou uma tabela como tabela também estão na lista.
+Comparar dois arquivos de texto, e criar, renomear, mover e apagar **dentro de um ZIP** vêm nas próximas fases (veja [`../TODO.md`](../TODO.md)). Selecionar várias linhas de uma vez, arrastar para um lugar da barra lateral, e imprimir os bytes de um arquivo ou uma tabela como tabela também estão na lista.

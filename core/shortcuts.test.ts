@@ -81,3 +81,18 @@ describe('commandFor: settings and zoom of the interface', () => {
     for (const key of ['+', '-', '=', '0']) expect(commandFor({ key }, false), key).toBeNull()
   })
 })
+
+describe('commandFor: saving', () => {
+  it('saves with Ctrl+S (Command+S on macOS), and saves all with Ctrl+Alt+S (Command+Option+S)', () => {
+    expect(commandFor({ key: 's', control: true }, false)).toBe('save')
+    expect(commandFor({ key: 'S', control: true }, false)).toBe('save')
+    expect(commandFor({ key: 's', meta: true }, true)).toBe('save')
+    expect(commandFor({ key: 's', control: true, alt: true }, false)).toBe('saveAll')
+    expect(commandFor({ key: 's', meta: true, alt: true }, true)).toBe('saveAll')
+  })
+  it('leaves a plain s, Command+S on Linux, and Ctrl+Shift+S to the page', () => {
+    expect(commandFor({ key: 's' }, false)).toBeNull()
+    expect(commandFor({ key: 's', meta: true }, false)).toBeNull()
+    expect(commandFor({ key: 's', control: true, shift: true }, false)).toBeNull()
+  })
+})

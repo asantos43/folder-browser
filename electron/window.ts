@@ -66,6 +66,22 @@ export function createMainWindow(host: SnapshotHost): BrowserWindow {
     void win.webContents.setVisualZoomLevelLimits(1, 1)
   })
   host.guardNavigation(win)
+  // A window with tabs that have unsaved changes is not closed until the interface has asked the user (its own dialog): it says how many there are, and when to go.
+  let unsaved = 0
+  let leaving = false
+  win.webContents.ipc.on('fb:unsaved', (event, count: unknown) => {
+    if (event.senderFrame === win.webContents.mainFrame && typeof count === 'number' && Number.isInteger(count) && count >= 0 && count < 10_000) unsaved = count
+  })
+  win.webContents.ipc.on('fb:leave', (event) => {
+    if (event.senderFrame !== win.webContents.mainFrame) return
+    leaving = true
+    win.close()
+  })
+  win.on('close', (event) => {
+    if (unsaved === 0 || leaving || win.webContents.isDestroyed()) return
+    event.preventDefault()
+    win.webContents.send('fb:close-requested')
+  })
   installShortcuts(win)
   win.once('ready-to-show', () => win.show())
   void win.loadURL(`${UI_ORIGIN}/index.html`)

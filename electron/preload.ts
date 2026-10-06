@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AppInfo, DocOpen, OpResult, ExtractResult, IntegrityEvent, OpenResult, ListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
+import type { AppInfo, DocOpen, EditOpen, EditSave, OpResult, ExtractResult, IntegrityEvent, OpenResult, ListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
 
 /** What the interface may ask of the main process: nothing else crosses the boundary (core/api.ts). */
 const on = <T>(channel: string, listener: (value: T) => void) => {
@@ -27,6 +27,14 @@ const api: FbApi = {
     copy: (id, path, toFolder) => ipcRenderer.invoke('fb:fs-copy', id, path, toFolder) as Promise<OpResult>,
     remove: (id, path, how) => ipcRenderer.invoke('fb:fs-remove', id, path, how) as Promise<OpResult>,
   },
+  edit: {
+    open: (id, path) => ipcRenderer.invoke('fb:edit-open', id, path) as Promise<EditOpen>,
+    save: (id, path, text, base, options) => ipcRenderer.invoke('fb:edit-save', id, path, text, base, options) as Promise<EditSave>,
+    saveAs: (name, text, options) => ipcRenderer.invoke('fb:edit-save-as', name, text, options),
+  },
+  setUnsaved: (count) => ipcRenderer.send('fb:unsaved', count),
+  leave: () => ipcRenderer.send('fb:leave'),
+  onCloseRequested: (listener) => on<undefined>('fb:close-requested', () => listener()),
   docs: {
     open: (id, path) => ipcRenderer.invoke('fb:doc-open', id, path) as Promise<DocOpen>,
     release: (token) => ipcRenderer.invoke('fb:doc-release', token) as Promise<void>,
