@@ -506,7 +506,7 @@ describe('ExplorerTree: changing the disk', () => {
     const over = createEvent.dragOver(row('b.txt'), data)
     fireEvent(row('b.txt'), over)
     expect(over.defaultPrevented).toBe(true)
-    expect((over as unknown as { dataTransfer: { dropEffect: string } }).dataTransfer.dropEffect).toBe('link')
+    expect((over as unknown as { dataTransfer: { dropEffect: string } }).dataTransfer.dropEffect).toBe('copy')
     fireEvent.drop(row('b.txt'), data)
     expect(drop).toHaveBeenCalledWith({ path: 'a.txt', size: 10 }, expect.objectContaining({ path: 'b.txt' }))
     expect(move).not.toHaveBeenCalled()

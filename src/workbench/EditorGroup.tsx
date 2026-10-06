@@ -188,7 +188,8 @@ function DropLayer({ group, split, dispatch, onDropFile }: { group: GroupId; spl
       setSide(at)
       if (!at) return
       e.preventDefault()
-      e.dataTransfer!.dropEffect = e.dataTransfer!.types.includes(TAB_DRAG) ? 'move' : 'link'
+      // (Never `link`: Wayland has no such drag action, and a drop with it is refused by the desktop: the highlight shows, and releasing does nothing.)
+      e.dataTransfer!.dropEffect = e.dataTransfer!.types.includes(TAB_DRAG) ? 'move' : 'copy'
     }
     const drop = (e: DragEvent) => {
       const at = zone(e)

@@ -636,7 +636,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
                 if (pinnable(entry) && group.length === 1) e.dataTransfer.setData(FOLDER_DRAG, JSON.stringify({ rootId, path: entry.path }))
                 if (move) e.dataTransfer.setData(ENTRY_DRAG, JSON.stringify({ rootId, path: entry.path, paths: group.map((g) => g.path) }))
                 dragging.current = move ? group.map((e) => e.path) : []
-                e.dataTransfer.effectAllowed = group.length === 1 && (entry.kind === 'file' || (move && pinnable(entry))) ? 'all' : move ? 'copyMove' : 'link'
+                e.dataTransfer.effectAllowed = group.length === 1 && (entry.kind === 'file' || (move && pinnable(entry))) ? 'all' : move ? 'copyMove' : 'copy'
               }}
               onDragEnd={() => {
                 dragging.current = []
@@ -649,7 +649,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
                 if (asCompare(entry) && !e.shiftKey && e.dataTransfer.types.includes(FILE_DRAG)) {
                   e.preventDefault()
                   e.stopPropagation()
-                  e.dataTransfer.dropEffect = 'link'
+                  e.dataTransfer.dropEffect = 'copy'
                   return setDropOver(entry.path)
                 }
                 folderDrop?.onDragOver(e)
