@@ -1,8 +1,9 @@
 # Releasing
 
-A release is up to four files (`.exe`, `.dmg`, `.deb`, `.rpm`), checked and built **on the maintainer's computer** by `scripts/release-local.mjs`, and published to GitHub as a release with their checksums and the
-notes from `CHANGELOG.md`. GitHub only hosts the files: no check or build runs on GitHub Actions (the `CI` and `Release` workflows are kept in `.github/workflows/` but disabled; they can be enabled again
-when the repository is public, where Actions is free). **Without a Mac there is no `.dmg`**: a release has the `.exe`, `.deb` and `.rpm` until the `.dmg` can be built on one (`--targets=mac`, on a Mac).
+A release is up to four files (`.exe`, `.dmg`, `.deb`, `.rpm`). The checks and the `.exe`, `.deb` and `.rpm` are made **on the maintainer's computer** by `scripts/release-local.mjs`, and published to GitHub as a
+release with their checksums and the notes from `CHANGELOG.md`. **Nothing runs on GitHub by itself**: to spare the free quota there is no CI on pull requests or on `main`, and the only workflow is
+`.github/workflows/release.yml`, started by hand, which builds the macOS `.dmg` (it needs a Mac), runs the unit tests and the packaging smoke test there, and adds the `.dmg` and its checksum to the release already
+published. (A Mac of your own can build it too: `--targets=mac`, on the Mac.)
 
 ## What the computer needs
 
@@ -27,7 +28,7 @@ computer without one), and `gh`, logged in (`gh auth login`), to publish. The `.
 
    This moves what is under **Unreleased** in `CHANGELOG.md` into a section for `0.1.0` with today's date (and leaves an empty **Unreleased**), and sets `0.1.0` in `package.json` and
    `package-lock.json`. It refuses a version that exists, and an empty **Unreleased**. Read the notes: they become the release's text. A pre-release is `0.1.0-beta.1`.
-2. **Open a pull request** and merge it. Nothing runs on GitHub; the checks are the next step, here.
+2. **Open a pull request** and merge it. Nothing runs on GitHub for it; the checks are the next step, here.
 3. **Build and check, from the merged `main`**:
 
    ```sh
@@ -48,7 +49,10 @@ computer without one), and `gh`, logged in (`gh auth login`), to publish. The `.
    With the same checks and build, then (it refuses unless the branch is `main`, as `origin/main`, with nothing uncommitted) it asks, and creates the GitHub Release `v0.1.0` **and its tag at that commit**
    with the files, `SHA256SUMS.txt` and the notes (a version with `-` in it is marked a pre-release). To skip the question: `--yes`. To build once and publish what was built, run it without
    `--publish` first, then with it (it builds again: the files are the ones of that run).
-6. **Check the release page**: the files are there, the notes read well, and a file's checksum matches (`sha256sum -c SHA256SUMS.txt`).
+6. **Add the macOS `.dmg`** (GitHub, by hand): in the repository's **Actions** tab choose **Release (macOS)** › **Run workflow**, give the tag (`v0.1.0`) and, if you want the end-to-end tests on the Mac too, tick
+   **e2e** (about ten minutes of the quota, ten times what a Linux minute costs; the unit tests and the packaging smoke test always run). Or from the terminal: `gh workflow run release.yml -f tag=v0.1.0` (add `-f e2e=true`).
+   It builds the `.dmg` from the tag, and uploads it and an updated `SHA256SUMS.txt` to the release. Run it again to replace the `.dmg`; it fails, saying so, if the release does not exist yet.
+7. **Check the release page**: the files are there, the notes read well, and a file's checksum matches (`sha256sum -c SHA256SUMS.txt`).
 
 If something fails half way nothing is published (the release is created last). To change the files or the notes of a release that exists, run it again with `--replace`. To withdraw a release:
 `gh release delete v0.1.0 --cleanup-tag`.
@@ -58,7 +62,7 @@ If something fails half way nothing is published (the release is created last). 
 | System | File | Target |
 | --- | --- | --- |
 | Windows | `folder-browser-<version>-win-x64.exe` | NSIS installer |
-| macOS | `folder-browser-<version>-mac-universal.dmg` | one universal disk image (Apple Silicon and Intel); **not built for now** (needs a Mac) |
+| macOS | `folder-browser-<version>-mac-universal.dmg` | one universal disk image (Apple Silicon and Intel); built on GitHub by the `Release (macOS)` workflow, started by hand |
 | Debian, Ubuntu | `folder-browser-<version>-linux-amd64.deb` | `deb` |
 | Fedora, Red Hat | `folder-browser-<version>-linux-x86_64.rpm` | `rpm` |
 
@@ -67,7 +71,7 @@ There is no AppImage. The installers register `.wsnp` (and on Linux a file type 
 ## Signing
 
 **The files are not signed yet**, so Windows SmartScreen and macOS Gatekeeper warn on the first launch (the README says how to get past it). To sign, the secrets below are set in the repository
-(**Settings › Secrets and variables › Actions**) for the workflows, or as environment variables of the shell that runs `release-local.mjs` (it passes them to electron-builder, which ignores them when they are empty).
+(**Settings › Secrets and variables › Actions**) for the macOS workflow, or as environment variables of the shell that runs `release-local.mjs` (it passes them to electron-builder, which ignores them when they are empty).
 
 | Secret | For |
 | --- | --- |
@@ -87,5 +91,5 @@ the pull requests (Electron on its own).
 - [ ] `CHANGELOG.md` read: every user-facing change is there, in words a user understands.
 - [ ] `docs/FORMAT.md` (and `docs/MANIFEST-SIGNING.md`) are the same in PageKeep (`npm run format-sync`).
 - [ ] `THIRD-PARTY-NOTICES.md` is up to date (`npm run notices:check`).
-- [ ] CI passes on the three systems, the packaging smoke test included.
-- [ ] The release page has the four files and `SHA256SUMS.txt`.
+- [ ] `node scripts/release-local.mjs --e2e` passed (Linux and Windows files, packaging smoke test) and the `Release (macOS)` workflow passed for the tag.
+- [ ] The release page has the four files and `SHA256SUMS.txt` (with the `.dmg` line).
