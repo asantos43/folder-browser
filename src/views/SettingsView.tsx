@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import { LANGUAGE_NAMES, type Language } from '@/i18n/index.ts'
 import { setLanguageSetting, useLanguageSetting, type LanguageSetting } from '@/state/language.ts'
-import { formatSource, reopenSession, showHidden, wordWrap } from '@/state/setting.ts'
+import { formatSource, hotExit, reopenSession, showHidden, wordWrap } from '@/state/setting.ts'
 import type { ThemeSetting } from '@/theme/theme.ts'
 
 function Setting({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
@@ -32,9 +32,10 @@ export function SettingsView({ theme, setTheme }: { theme: ThemeSetting; setThem
   const wrap = wordWrap.use()
   const format = formatSource.use()
   const reopen = reopenSession.use()
+  const keepChanges = hotExit.use()
   const hidden = showHidden.use()
   const files$ = matches(t('settings.files'), t('settings.showHidden'), t('settings.showHiddenHint'), 'hidden dotfiles dot files')
-  const startup$ = matches(t('settings.startup'), t('settings.reopen'), t('settings.reopenHint'), 'restore session reopen startup')
+  const startup$ = matches(t('settings.startup'), t('settings.reopen'), t('settings.reopenHint'), t('settings.hotExit'), t('settings.hotExitHint'), 'restore session reopen startup unsaved drafts hot exit')
   const editor$ = matches(t('settings.editor'), t('settings.wordWrap'), t('settings.wordWrapHint'), t('settings.formatSource'), t('settings.formatSourceHint'), 'wrap format pretty minified')
   const privacy$ = matches(t('settings.privacy'), t('settings.privacyText'), 'privacy network')
 
@@ -78,6 +79,12 @@ export function SettingsView({ theme, setTheme }: { theme: ThemeSetting; setThem
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={reopen} onChange={(e) => reopenSession.set(e.target.checked)} />
                 {t('settings.reopen')}
+              </label>
+            </Setting>
+            <Setting title={t('settings.hotExit')} hint={t('settings.hotExitHint')}>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={keepChanges} onChange={(e) => hotExit.set(e.target.checked)} />
+                {t('settings.hotExit')}
               </label>
             </Setting>
           </>

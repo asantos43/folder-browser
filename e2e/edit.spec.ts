@@ -192,8 +192,10 @@ test('renaming a file with changes not saved keeps the changes in its tab, and S
   await expect.poll(() => fs.readFileSync(onDisk('renamed.txt'), 'utf8')).toBe('first line\nsecond line\n unsaved')
 })
 
-test('closing the window with changes not saved asks first; Cancel keeps it open, Don’t Save closes it', async () => {
+test('with the setting that keeps changes off, closing the window with changes not saved asks first; Cancel keeps it open, Don’t Save closes it', async () => {
   const page = await launch(work)
+  await page.keyboard.press('ControlOrMeta+,')
+  await page.getByRole('checkbox', { name: 'Keep changes that are not saved' }).uncheck()
   await open(page, 'a.txt')
   await typeAtEnd(page, ' x')
   await app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
@@ -212,7 +214,7 @@ test('a middle click on a tab (to close it) does not paste the selection of the 
   const page = await launch(work)
   await open(page, 'b.txt')
   await open(page, 'a.txt')
-  await app!.evaluate(({ clipboard }) => clipboard.writeText('PASTED BY THE MIDDLE CLICK', 'selection'))
+  await app!.evaluate(({ clipboard }) => (clipboard as unknown as { writeText: (text: string, type?: string) => void }).writeText('PASTED BY THE MIDDLE CLICK', 'selection'))
   await tab(page, 'b.txt').click({ button: 'middle' })
   await expect(tab(page, 'b.txt')).toHaveCount(0)
   await expect(editor(page)).not.toContainText('PASTED')

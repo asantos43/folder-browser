@@ -58,7 +58,7 @@ describe('a file shown as its bytes', () => {
 describe('isEditable', () => {
   const folder = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
   const tabOf = (ws: Workspace, key: string) => ws.tabs.find((tab) => tab.key === key)!
-  it('is true for a file of a folder that was opened, and false for the bytes of it, an entry of a ZIP, a ZIP or the trash as the root, and a snapshot', () => {
+  it('is true for a file of a folder that was opened and for the tab of its bytes, and false for an entry of a ZIP, a ZIP or the trash as the root, and a snapshot', () => {
     const ws = run(
       { type: 'root-opened', root: folder },
       { type: 'root-opened', root: { id: 'r2', kind: 'zip', path: '/p.zip', name: 'p.zip' } },
@@ -72,7 +72,7 @@ describe('isEditable', () => {
       { type: 'open-metadata', snapshotId: 's1' },
     )
     expect(isEditable(ws, tabOf(ws, 'f:r1:a.txt'))).toBe(true)
-    expect(isEditable(ws, tabOf(ws, 'x:r1:a.txt'))).toBe(false)
+    expect(isEditable(ws, tabOf(ws, 'x:r1:a.txt'))).toBe(true)
     expect(isEditable(ws, tabOf(ws, 'f:r1:pack.zip!/in.txt'))).toBe(false)
     expect(isEditable(ws, tabOf(ws, 'f:r2:top.txt'))).toBe(false)
     expect(isEditable(ws, tabOf(ws, 'f:r3:old.txt'))).toBe(false)

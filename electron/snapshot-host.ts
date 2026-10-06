@@ -12,6 +12,7 @@ import { BINARY_LIMIT, DOCUMENT_LIMIT, effectiveType, mediaKind, viewKind } from
 import { DocFiles, documentFlavour } from '../core/docs.ts'
 import { imageDocument, textDocument } from '../core/printHtml.ts'
 import type { FavoriteFolders } from '../core/favorites.ts'
+import { DRAFT_LIMIT, type DraftStore } from '../core/drafts.ts'
 import { isPageKeepZip } from '../core/convert/pagekeep.ts'
 import type { RecentFiles } from '../core/recent.ts'
 import { MediaFiles, serveFile } from '../core/media.ts'
@@ -68,6 +69,7 @@ export class SnapshotHost {
   private readonly recent: RecentFiles
   private readonly recentFolders: RecentFiles
   private readonly favorites: FavoriteFolders
+  private readonly drafts: DraftStore
   private readonly signers: SignerStore
   private readonly openExternal: (url: string) => void
 
@@ -75,10 +77,11 @@ export class SnapshotHost {
   startup: Promise<unknown> = Promise.resolve()
   private readonly session: SessionStore
 
-  constructor(recent: RecentFiles, signers: SignerStore, session: SessionStore, places: { recentFolders: RecentFiles; favorites: FavoriteFolders }, openExternal: (url: string) => void = (url) => void shell.openExternal(url)) {
+  constructor(recent: RecentFiles, signers: SignerStore, session: SessionStore, places: { recentFolders: RecentFiles; favorites: FavoriteFolders; drafts: DraftStore }, openExternal: (url: string) => void = (url) => void shell.openExternal(url)) {
     this.recent = recent
     this.recentFolders = places.recentFolders
     this.favorites = places.favorites
+    this.drafts = places.drafts
     this.signers = signers
     this.session = session
     this.openExternal = openExternal
@@ -701,6 +704,23 @@ export class SnapshotHost {
       if (!short(id) || !short(name) || typeof text !== 'string' || text.length > SAVE_CHARS || !version(base) || !o || !ending(o.eol) || typeof o.bom !== 'boolean') return { ok: false, error: 'failed' } as const
       return this.roots.saveEdit(id, name, text, base, { eol: o.eol, bom: o.bom, overwrite: o.overwrite === true })
     })
+    handle('fb:edit-open-bytes', (_win, id: unknown, name: unknown) => (short(id) && short(name) ? this.roots.editBytes(id, name) : ({ ok: false, error: 'no-file' } as const)))
+    handle('fb:edit-save-bytes', (_win, id: unknown, name: unknown, bytes: unknown, base: unknown, options: unknown) => {
+      const o = options as { overwrite?: unknown } | null
+      if (!short(id) || !short(name) || !(bytes instanceof Uint8Array) || bytes.length > SAVE_CHARS || !version(base)) return { ok: false, error: 'failed' } as const
+      return this.roots.saveEditBytes(id, name, bytes, base, o?.overwrite === true)
+    })
+    handle('fb:edit-save-bytes-as', async (win, name: unknown, bytes: unknown): Promise<SaveResult> => {
+      if (!short(name) || !(bytes instanceof Uint8Array) || bytes.length > SAVE_CHARS) return { saved: false, reason: 'error' }
+      const picked = await dialog.showSaveDialog(win, { defaultPath: path.basename(name) })
+      if (picked.canceled || !picked.filePath) return { saved: false, reason: 'cancelled' }
+      try {
+        await fs.promises.writeFile(picked.filePath, bytes)
+        return { saved: true, path: picked.filePath }
+      } catch (err) {
+        return { saved: false, reason: 'error', message: (err as Error).message }
+      }
+    })
     handle('fb:edit-save-as', async (win, name: unknown, text: unknown, options: unknown): Promise<SaveResult> => {
       const o = options as { eol?: unknown; bom?: unknown } | null
       if (!short(name) || typeof text !== 'string' || text.length > SAVE_CHARS || !o || !ending(o.eol) || typeof o.bom !== 'boolean') return { saved: false, reason: 'error' }
@@ -714,6 +734,30 @@ export class SnapshotHost {
         return { saved: false, reason: 'error', message: (err as Error).message }
       }
     })
+    // Drafts: the changes of a file not yet saved, kept for the next start. The interface names a root; the folder that was opened (its path) is what keeps them apart.
+    const rootPathOf = (id: string): string | null => {
+      const root = this.roots.info(id)
+      return root && root.kind === 'folder' && !root.trash ? root.path : null
+    }
+    handle('fb:draft-put', (_win, id: unknown, name: unknown, draft: unknown): boolean => {
+      const d = draft as { kind?: unknown; text?: unknown; bytes?: unknown; base?: unknown; eol?: unknown; bom?: unknown } | null
+      const rootPath = short(id) ? rootPathOf(id) : null
+      if (!rootPath || !short(name) || !d || !version(d.base)) return false
+      const at = new Date().toISOString()
+      if (d.kind === 'text' && typeof d.text === 'string' && d.text.length <= DRAFT_LIMIT && ending(d.eol) && typeof d.bom === 'boolean') return this.drafts.put({ version: 1, rootPath, path: name, kind: 'text', text: d.text, base: d.base, eol: d.eol, bom: d.bom, at })
+      if (d.kind === 'bytes' && d.bytes instanceof Uint8Array && d.bytes.length <= DRAFT_LIMIT) return this.drafts.put({ version: 1, rootPath, path: name, kind: 'bytes', bytes: d.bytes, base: d.base, at })
+      return false
+    })
+    handle('fb:draft-get', (_win, id: unknown, name: unknown) => {
+      const rootPath = short(id) ? rootPathOf(id) : null
+      return rootPath && short(name) ? this.drafts.get(rootPath, name) : null
+    })
+    handle('fb:draft-delete', (_win, id: unknown, name: unknown): void => {
+      const rootPath = short(id) ? rootPathOf(id) : null
+      if (rootPath && short(name)) this.drafts.delete(rootPath, name)
+    })
+    handle('fb:draft-clear', (): void => this.drafts.clear())
+    handle('fb:draft-list', () => this.drafts.list().map(({ rootPath, path: name, kind, at }) => ({ rootPath, path: name, kind, at })))
     handle('fb:fs-copy', (_win, id: unknown, name: unknown, to: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(to) ? this.roots.copy(id, name, to) : { ok: false, error: 'not-found' }))
     handle('fb:fs-remove', (_win, id: unknown, name: unknown, how: unknown): Promise<OpResult> | OpResult =>
       short(id) && short(name) && (how === 'trash' || how === 'forever') ? this.roots.remove(id, name, how, (file) => shell.trashItem(file)) : { ok: false, error: 'not-found' })

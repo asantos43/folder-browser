@@ -34,6 +34,7 @@ function fakeApi(initial: OpenResult[] = []) {
     onIntegrity: (l: (e: IntegrityEvent) => void) => (listeners.integrity.add(l), () => void listeners.integrity.delete(l)),
     onOpenFile: (l: (t: { snapshotId: string; path: string }) => void) => (listeners.openFile.add(l), () => void listeners.openFile.delete(l)),
     onSaved: () => () => {},
+    drafts: { list: vi.fn(async () => []), clear: vi.fn(async () => {}), put: vi.fn(async () => true), get: vi.fn(async () => null), delete: vi.fn(async () => {}) },
     setUnsaved: vi.fn(),
     leave: vi.fn(),
     onCloseRequested: () => () => {},
