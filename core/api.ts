@@ -8,7 +8,7 @@ import type { IntegrityReport, Issue } from './validate/index.ts'
 
 /** What the main process offers the interface (through the preload). Plain data only: nothing here can read an archive. */
 export type OpenResult =
-  | { ok: true; snapshot: SnapshotInfo; /** The file was open already: show its tab. */ already: boolean }
+  | { ok: true; snapshot: SnapshotInfo; /** The file was open already: show its tab. */ already: boolean; /** The folder it is in, opened to browse with it: a snapshot is a file of a folder (not given when it was opened from the tree of that folder). */ folder?: RootInfo }
   /** A folder or a ZIP file opened to browse (`open`: the file the user named, when it was a file of a folder: its tab opens too). */
   | { ok: true; root: RootInfo; already: boolean; open?: { path: string; size: number } }
   | { ok: false; path: string; issues: Issue[]; omitted: number }

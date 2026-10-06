@@ -55,7 +55,7 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
 
   return (
     <main aria-label="Editor" className="flex h-full min-w-0 flex-col bg-editor text-editor-fg">
-      <TabStrip ws={ws} views={views} dispatch={dispatch} onReveal={onReveal} onCopy={onCopy} />
+      <TabStrip ws={ws} views={views} dispatch={dispatch} onReveal={onReveal} onCopy={onCopy} onOpenWith={onOpenWith} />
       {active ? <Breadcrumbs trail={trail} /> : null}
       <div ref={area} className="relative flex min-h-0 flex-1 flex-col">
         {active && isSnapshotTab(active) && !heldBack && ws.snapshots[active.snapshotId]?.converted ? <ConvertedBar info={ws.snapshots[active.snapshotId].converted!} onSave={() => onSaveConverted(active.snapshotId)} /> : null}

@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { writeViewerWsnp } from '../fixtures/build.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: a text file of a snapshot in a tab: laid out for reading, word wrap, the colours of the languages it knows.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -24,12 +25,9 @@ async function launch(): Promise<Page> {
   await page.getByRole('tab').first().waitFor()
   return page
 }
-async function openFile(page: Page, folder: string[], name: string) {
-  for (const f of folder) {
-    const item = page.getByRole('treeitem', { name: f, exact: true })
-    if ((await item.getAttribute('aria-expanded')) === 'false') await item.click()
-  }
-  await page.getByRole('treeitem', { name, exact: true }).dblclick()
+// (A snapshot has no tree of its files: a file opens by Go to File, as a link in its page would open it.)
+async function openFile(page: Page, _folder: string[], name: string) {
+  await goToFile(page, name)
 }
 const content = (page: Page) => page.locator('.cm-content')
 // The language of the file is named in the toolbar of the tab and in the status bar: the tab's is the one meant.

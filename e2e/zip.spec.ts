@@ -4,6 +4,7 @@ import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { INNER_ZIP, PNG_1X1, richFiles, writeWsnp } from '../fixtures/build.ts'
 import { renameInZip, zipBuffer, zipSync } from '../fixtures/zip.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: a ZIP inside a snapshot is listed in a tab; entries are selected, extracted, or viewed in tabs of their own.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -29,9 +30,7 @@ async function harbor(extra: { path: string; type: string; data: Buffer }[] = []
   return file
 }
 async function openZip(page: Page, name = 'bundle.zip') {
-  await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'files', exact: true }).click()
-  await page.getByRole('treeitem', { name, exact: true }).dblclick()
+  await goToFile(page, name)
   await page.getByRole('table', { name: /Files in the ZIP/ }).waitFor()
 }
 /** The dialogs cannot be driven: the main process answers for them. */
@@ -207,7 +206,7 @@ test('the language of a file can be changed from the status bar, and set back to
 
 test('the page of a snapshot opened from the tree is shown as highlighted source', async () => {
   const page = await launch(await harbor())
-  await page.getByRole('treeitem', { name: 'index.html', exact: true }).dblclick()
+  await goToFile(page, 'index.html')
   await expect(page.getByRole('tab', { selected: true })).toContainText('index.html')
   await expect(page.locator('.cm-content')).toContainText('<')
   await expect.poll(() => page.locator('.cm-line span').count()).toBeGreaterThan(1)
@@ -245,11 +244,9 @@ test('the keyboard walks the list: arrows select, Space ticks, Enter views', asy
 test('a ZIP that cannot be read says so, and can still be saved; an empty one says it is empty', async () => {
   const empty = Buffer.concat([Buffer.from([0x50, 0x4b, 0x05, 0x06]), Buffer.alloc(18)])
   const page = await launch(await harbor([{ path: 'assets/files/empty.zip', type: 'application/zip', data: empty }, { path: 'assets/files/broken.zip', type: 'application/zip', data: Buffer.from('PK\u0003\u0004 not really a zip at all') }]))
-  await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'files', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'empty.zip', exact: true }).dblclick()
+  await goToFile(page, 'empty.zip')
   await expect(page.getByText('This ZIP file is empty.')).toBeVisible()
-  await page.getByRole('treeitem', { name: 'broken.zip', exact: true }).dblclick()
+  await goToFile(page, 'broken.zip')
   await expect(page.getByRole('alert')).toHaveText('This file is not a valid ZIP file.')
   await expect(page.getByRole('button', { name: 'Save As…' })).toBeVisible()
 })

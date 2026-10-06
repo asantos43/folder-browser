@@ -5,6 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { wavBuffer } from '../fixtures/audio.ts'
 import { sampleFiles, writeWsnp } from '../fixtures/build.ts'
 import { zipSync } from '../fixtures/zip.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: videos and sounds of a folder or a ZIP, played in a tab (a sound the browser plays with no codec: a WAV).
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -139,9 +140,7 @@ test('a sound of a snapshot is played too, by the type its manifest declares, an
     { path: 'assets/media/clip.mp4', type: 'video/mp4', data: Buffer.alloc(512, 1) },
   ])
   const page = await launch(file)
-  await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'media', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'tune.wav' }).dblclick()
+  await goToFile(page, 'tune.wav')
   await expect(audio(page)).toBeVisible()
   await expect.poll(async () => (await state(page)).duration).toBeCloseTo(1, 0)
   expect((await state(page)).src).toMatch(/^fb-media:\/\/m[0-9a-f]{24}\/$/)
@@ -149,6 +148,6 @@ test('a sound of a snapshot is played too, by the type its manifest declares, an
   expect(copies()).toHaveLength(1)
   await page.keyboard.press('ControlOrMeta+w')
   await expect.poll(copies).toEqual([])
-  await page.getByRole('treeitem', { name: 'clip.mp4' }).dblclick()
+  await goToFile(page, 'clip.mp4')
   await expect(page.getByRole('alert')).toContainText('does not know its format')
 })

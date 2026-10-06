@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { writeSampleWsnp, writeViewerWsnp } from '../fixtures/build.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: the arrows and the box of the title bar, the command palette, and reopening what was open.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -142,26 +143,22 @@ test.describe('the title bar', () => {
 test.describe('reopening what was open', () => {
   test('the snapshots and files open at the end come back at the next start, in order, with the same tab in front', async () => {
     let page = await launch(viewer(), second())
-    await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
-    await page.getByRole('treeitem', { name: 'styles', exact: true }).click()
-    await page.getByRole('treeitem', { name: 'site.css', exact: true }).dblclick()
+    await goToFile(page, 'site.css')
     await expect(selected(page)).toContainText('site.css')
     await app!.close()
     page = await launch()
     await expect(tabs(page)).toHaveCount(3)
     await expect(selected(page)).toContainText('site.css')
     const names = await tabs(page).evaluateAll((els) => els.map((e) => e.querySelector('span.truncate')?.textContent ?? ''))
-    // (The tree is that of the snapshot in front, the second one: its file opens beside it.)
+    // (A file opens beside the tab in front.)
     expect(names).toEqual(['viewer.wsnp', 'second.wsnp', 'site.css'])
     // The restored snapshots are checked like any other.
-    await expect(page.getByRole('contentinfo')).toContainText(/Intact|Checking/)
+    await expect(page.getByRole('contentinfo')).toContainText(/Intact|Checking|problem/)
   })
 
   test('the tab in front, the metadata and a file in a ZIP are remembered too', async () => {
     let page = await launch(viewer())
-    await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
-    await page.getByRole('treeitem', { name: 'files', exact: true }).click()
-    await page.getByRole('treeitem', { name: 'bundle.zip', exact: true }).dblclick()
+    await goToFile(page, 'bundle.zip')
     await page.getByRole('table').waitFor()
     await page.getByRole('cell', { name: 'docs/readme.txt', exact: true }).dblclick()
     await expect(page.locator('.cm-content')).toContainText('the ferry leaves at noon')

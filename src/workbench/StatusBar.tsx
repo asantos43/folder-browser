@@ -5,6 +5,7 @@ import { LANGUAGE_NAMES, type MessageKey } from '@/i18n/index.ts'
 import { showHidden } from '@/state/setting.ts'
 import { TAB_LIMITS } from '@/state/tabZoom.ts'
 import { shownSource } from '@/state/fileLanguage.ts'
+import { activeSnapshotId } from './availability.ts'
 import { formatDate } from '@/lib/format.ts'
 import { describeSignature, type Signers } from './signature.ts'
 import { invalidProblems, type IntegrityState, type Workspace } from '@/state/workspace.ts'
@@ -44,8 +45,10 @@ function Integrity({ state, invalid, onClick }: { state: IntegrityState | undefi
 export function StatusBar({ zoom, showZoom, onResetZoom, onZoom, ws, signers, onOpenSettings, onShowMetadata, onOpenExternal, onShowIntegrity, onSelectLanguage }: { onSelectLanguage: () => void; onZoom: (direction: 1 | -1) => void; zoom: number; showZoom: boolean; onResetZoom: () => void; ws: Workspace; signers: Signers; onOpenSettings: () => void; onShowMetadata: () => void; onOpenExternal: (url: string) => void; onShowIntegrity: () => void }) {
   const { t, language } = useI18n()
   const source = shownSource.use()
-  const snapshot = ws.selected ? ws.snapshots[ws.selected] : undefined
-  const root = ws.selected ? ws.roots[ws.selected] : undefined
+  // What the tab on screen belongs to: a snapshot (its page, its metadata, a file of it), or else the folder the side bar is on.
+  const snapshotId = activeSnapshotId(ws)
+  const snapshot = snapshotId ? ws.snapshots[snapshotId] : undefined
+  const root = !snapshot && ws.selected ? ws.roots[ws.selected] : undefined
   const hidden = showHidden.use()
   const m = snapshot?.manifest
   let host = ''

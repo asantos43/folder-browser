@@ -17,7 +17,7 @@ describe('the title of a snapshot in the tabs', () => {
     expect(describeTabs(ws, t).get('s:a')?.label).toBe('harbor-2026-03-01.wsnp')
   })
   it('tells two files of the same page and the same address apart, by their names', () => {
-    const ws = run({ type: 'snapshot-opened', snapshot: same('a', '/home/me/news/harbor-2026-03-01.wsnp'), asFile: true }, { type: 'snapshot-opened', snapshot: same('b', '/home/me/news/harbor-2026-04-01.wsnp'), asFile: true })
+    const ws = run({ type: 'snapshot-opened', snapshot: same('a', '/home/me/news/harbor-2026-03-01.wsnp') }, { type: 'snapshot-opened', snapshot: same('b', '/home/me/news/harbor-2026-04-01.wsnp') })
     const views = describeTabs(ws, t)
     expect(views.get('s:a')?.label).toBe('harbor-2026-03-01.wsnp')
     expect(views.get('s:b')?.label).toBe('harbor-2026-04-01.wsnp')

@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { RICH_PDF, writeViewerWsnp } from '../fixtures/build.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: the context menu of the tree offers Open With…, which hands a read-only copy to the application the system lets the user choose.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -31,24 +32,28 @@ async function launch(extraEnv: Record<string, string> = {}, logHandOver = true)
   app = await electron.launch({ args: ['.', `--user-data-dir=${path.join(dir, 'profile')}`, ...noSandbox, file], env: { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp, ...(logHandOver ? { WSNP_OPEN_WITH_LOG: log() } : {}), ...extraEnv } as Record<string, string> })
   const page = await app.firstWindow()
   await page.getByRole('tab').first().waitFor()
-  await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'files', exact: true }).click()
   return page
 }
+/** A file of the snapshot opens in a tab (as a link in its page would open it), and the menu of that tab is asked for Open With…. */
+async function openWithOf(page: Page, name: string) {
+  await goToFile(page, name)
+  await page.getByRole('tab', { selected: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Open With…' }).click()
+}
 
-test('the context menu of a file has Open, Open With…, Save As… and Copy Path, in that order; a folder has no Open With…', async () => {
+test('the menu of the tab of a file offers Open With…; the tab of the page of the snapshot has none', async () => {
   const page = await launch()
-  await page.getByRole('treeitem', { name: 'report.pdf', exact: true }).click({ button: 'right' })
-  await expect(page.getByRole('menu').getByRole('menuitem')).toHaveText(['Open', 'Open With…', 'Save As…', 'Copy Path'])
+  await goToFile(page, 'report.pdf')
+  await page.getByRole('tab', { selected: true }).click({ button: 'right' })
+  await expect(page.getByRole('menu').getByRole('menuitem', { name: 'Open With…' })).toBeVisible()
   await page.keyboard.press('Escape')
-  await page.getByRole('treeitem', { name: 'files', exact: true }).click({ button: 'right' })
+  await page.getByRole('tab').first().click({ button: 'right' })
   await expect(page.getByRole('menu').getByRole('menuitem', { name: 'Open With…' })).toHaveCount(0)
 })
 
 test('Open With… hands over a read-only copy of the file, under its own name, and the copy is gone when the application quits', async () => {
   const page = await launch()
-  await page.getByRole('treeitem', { name: 'report.pdf', exact: true }).click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Open With…' }).click()
+  await openWithOf(page, 'report.pdf')
   await expect.poll(handedOver).toHaveLength(1)
   const [copy] = handedOver()
   expect(path.basename(copy)).toBe('report.pdf')
@@ -56,8 +61,8 @@ test('Open With… hands over a read-only copy of the file, under its own name, 
   expect(fs.realpathSync(path.dirname(path.dirname(copy)))).toBe(fs.realpathSync(path.join(dir, 'tmp')))
   expect(fs.readFileSync(copy).equals(RICH_PDF)).toBe(true)
   if (process.platform !== 'win32') expect(fs.statSync(copy).mode & 0o777).toBe(0o400)
-  // Nothing was opened in the viewer, and nothing is said.
-  await expect(page.getByRole('tab')).toHaveCount(1)
+  // Nothing more was opened in the viewer (the tab of the file is the one it was asked from), and nothing is said.
+  await expect(page.getByRole('tab')).toHaveCount(2)
   await expect(page.getByRole('alert')).toHaveCount(0)
   expect(staged()).toHaveLength(1)
   await app!.close()
@@ -67,8 +72,7 @@ test('Open With… hands over a read-only copy of the file, under its own name, 
 
 test('a file that could run as a program is not handed over: it is said, and nothing is written', async () => {
   const page = await launch()
-  await page.getByRole('treeitem', { name: 'setup.exe', exact: true }).click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Open With…' }).click()
+  await openWithOf(page, 'setup.exe')
   await expect(page.getByRole('status')).toContainText('setup.exe is a kind of file that can run as a program')
   expect(handedOver()).toEqual([])
   expect(staged()).toEqual([])
@@ -106,8 +110,7 @@ test.describe('the chooser of the viewer (Linux)', () => {
     return { XDG_DATA_HOME: path.join(dir, 'data'), XDG_DATA_DIRS: `${path.join(dir, 'share')}:/usr/share`, XDG_CONFIG_HOME: path.join(dir, 'config'), LANG: 'en_US.UTF-8', LC_ALL: '' }
   }
   async function ask(page: Page) {
-    await page.getByRole('treeitem', { name: 'report.pdf', exact: true }).click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Open With…' }).click()
+    await openWithOf(page, 'report.pdf')
     return page.getByRole('dialog', { name: 'Open With' })
   }
 
@@ -176,8 +179,7 @@ test.describe('the chooser of the viewer (Linux)', () => {
 
   test('a file that could run as a program never gets as far as the dialog', async () => {
     const page = await launch(fakeDesktop(), false)
-    await page.getByRole('treeitem', { name: 'setup.exe', exact: true }).click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Open With…' }).click()
+    await openWithOf(page, 'setup.exe')
     await expect(page.getByRole('status')).toContainText('setup.exe is a kind of file that can run as a program')
     await expect(page.getByRole('dialog')).toHaveCount(0)
     expect(staged()).toEqual([])

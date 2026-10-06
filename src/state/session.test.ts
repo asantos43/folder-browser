@@ -62,11 +62,4 @@ describe('session', () => {
     expect(isSession({ roots: [1], tabs: [], active: -1 })).toBe(false)
     expect(isSession({ roots: 'x', tabs: [], active: -1 })).toBe(false)
   })
-  it('remembers that the page of a .wsnp was viewed as a file of a folder, and not an open snapshot', () => {
-    const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
-    const ws = run({ type: 'root-opened', root }, { type: 'snapshot-opened', snapshot: a, asFile: true }, { type: 'snapshot-opened', snapshot: b })
-    const pages = sessionOf(ws).tabs.filter((t) => t.kind === 'page')
-    expect(pages.map((t) => [t.snapshot, t.asFile])).toEqual([['/home/me/a.wsnp', true], ['/home/me/b.wsnp', undefined]])
-    expect(isSession(sessionOf(ws))).toBe(true)
-  })
 })

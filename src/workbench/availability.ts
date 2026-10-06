@@ -8,6 +8,12 @@ import { kindOf } from './tabInfo.ts'
 
 export const activeTabOf = (ws: Workspace): Tab | undefined => ws.tabs.find((tab) => tab.key === ws.active)
 
+/** The snapshot the tab on screen belongs to (its page, its metadata, or one of its files), when it does. */
+export const activeSnapshotId = (ws: Workspace): string | undefined => {
+  const tab = activeTabOf(ws)
+  return tab && ws.snapshots[tab.snapshotId] ? tab.snapshotId : undefined
+}
+
 /** Everything that shows text can be searched: a page, source, a PDF, the metadata, a ZIP's list, Settings. A picture and a font sample have none. */
 export function canFind(ws: Workspace): boolean {
   const tab = activeTabOf(ws)

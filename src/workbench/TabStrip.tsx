@@ -8,7 +8,7 @@ import type { TabView } from './tabInfo.ts'
 const DRAG_TYPE = 'application/x-wsnp-tab'
 
 /** The tab strip: 35 px, as VS Code's, with preview (italic) and pinned tabs, drag to reorder, middle click and × to close, a context menu. */
-export function TabStrip({ ws, views, dispatch, onReveal, onCopy }: { ws: Workspace; views: Map<string, TabView>; dispatch: (a: Action) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void }) {
+export function TabStrip({ ws, views, dispatch, onReveal, onCopy, onOpenWith }: { ws: Workspace; views: Map<string, TabView>; dispatch: (a: Action) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; /** Opens the file of the tab in another application (a file of a snapshot has no other way to be handed to one). */ onOpenWith?: (snapshotId: string, path: string) => void }) {
   const { t } = useI18n()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [over, setOver] = useState<{ key: string; after: boolean } | null>(null)
@@ -49,6 +49,7 @@ export function TabStrip({ ws, views, dispatch, onReveal, onCopy }: { ws: Worksp
         { separator: true },
         ...(tab.view === 'settings' || ws.roots[tab.snapshotId] ? [] : [{ id: 'metadata', label: t('tabs.showMetadata'), run: () => dispatch({ type: 'open-metadata', snapshotId: tab.snapshotId }) }]),
         ...(tab.view ? [] : tab.path === undefined ? [{ id: 'source', label: t('tabs.copySource'), disabled: !source, run: () => source && onCopy(source) }] : [{ id: 'path', label: t('tabs.copyPath'), run: () => onCopy(tab.path!) }]),
+        ...(tab.path !== undefined && onOpenWith ? [{ id: 'openWith', label: t('tree.openWith'), run: () => onOpenWith(tab.snapshotId, tab.path!) }] : []),
         ...(tab.view === 'settings' ? [] : [{ id: 'reveal', label: t('tabs.reveal'), run: () => (ws.roots[tab.snapshotId] && tab.path !== undefined ? onReveal(tab.snapshotId, tab.path) : onReveal(tab.snapshotId)) }]),
       ],
     })

@@ -48,7 +48,7 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] Tests: Range server (206, 416, HEAD), tokens, `MediaView`, a synthetic `.wav` in e2e (plays, seeks, goes on in the background, from a ZIP, broken file)
 - [ ] Try a real mp4 (H.264), mp3, flac and an HEVC file by hand (the tests only have WAV and a broken file: no encoder here)
 - [x] A snapshot's own media plays too (by the type its manifest declares; a link to it in the page opens a tab); Previous/Next are not offered for it
-- [ ] Decide whether the open-snapshot mode (the list, the side bar with the files of a snapshot, Information and Integrity) should go too: it is still what File ▸ Open File, a drop and the command line give for a `.wsnp`
+- [x] The open-snapshot mode is gone (the list, the side bar with the files of a snapshot, Information and Integrity, `asFile`): a snapshot is a page in a tab; its inner files open from the links of the page, the metadata and Go to File; WSNP Viewer (Open With…) is for anything more
 - [ ] Previous/Next for the media of a snapshot (from its list of files)
 
 - [x] Order the files of a folder by name, date or size (button and View menu), with the size and the date on each row

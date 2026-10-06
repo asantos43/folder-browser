@@ -175,13 +175,14 @@ export class SnapshotHost {
    * Opens what is named and reports each outcome; what is open already is not opened again. A `.wsnp` (or a ZIP saved by PageKeep) is a snapshot; a folder, or any
    * other ZIP, is a root to browse; any other file opens its folder, and the file in it.
    */
-  async openPaths(paths: string[]): Promise<OpenResult[]> {
+  async openPaths(paths: string[], options: { withFolder?: boolean } = {}): Promise<OpenResult[]> {
     const results: OpenResult[] = []
-    for (const file of paths) results.push(await this.openOne(file))
+    for (const file of paths) results.push(await this.openOne(file, options.withFolder !== false))
     return results
   }
 
-  private async openOne(file: string): Promise<OpenResult> {
+  /** `withFolder`: a `.wsnp` (or a PageKeep ZIP) comes with the folder it is in, opened to browse: it is a file of that folder. (Not from the tree of that folder, which is open.) */
+  private async openOne(file: string, withFolder: boolean): Promise<OpenResult> {
     const stat = await fs.promises.stat(file).catch(() => undefined)
     const kind = !stat ? 'missing' : stat.isDirectory() ? 'folder' : /\.wsnp$/i.test(file) ? 'snapshot' : /\.zip$/i.test(file) ? ((await isPageKeepZip(file)) ? 'snapshot' : 'zip') : 'file'
     if (kind === 'folder' || kind === 'zip') return this.openRoot(file)
@@ -192,7 +193,8 @@ export class SnapshotHost {
     const outcome: OpenOutcome = await this.registry.openPath(file).catch((err: Error) => ({ ok: false as const, path: file, issues: [{ code: 'read-error' as const, path: path.basename(file), detail: err.message }], omitted: 0 }))
     if (outcome.ok) {
       this.recent.add(outcome.snapshot.path)
-      return { ok: true, snapshot: infoOf(outcome.snapshot), already: outcome.already }
+      const folder = withFolder ? await this.openRoot(path.dirname(file)) : undefined
+      return { ok: true, snapshot: infoOf(outcome.snapshot), already: outcome.already, ...(folder && 'root' in folder ? { folder: folder.root } : {}) }
     }
     return outcome
   }
@@ -535,7 +537,7 @@ export class SnapshotHost {
     handle('fb:open-in-root', async (_win, id: unknown, name: unknown): Promise<OpenResult[]> => {
       // Only a `.wsnp` of a folder, by its path in the root: the interface never names a path of the disk.
       const file = typeof id === 'string' && typeof name === 'string' && /\.wsnp$/i.test(name) ? await this.roots.diskFile(id, name) : null
-      return file ? this.openPaths([file]) : []
+      return file ? this.openPaths([file], { withFolder: false }) : []
     })
     handle('fb:list-dir', async (_win, id: unknown, dir: unknown): Promise<ListResult> => (typeof id === 'string' && typeof dir === 'string' && dir.length < 4096 ? this.roots.list(id, dir) : { error: 'no-root' }))
     handle('fb:open-paths', (_win, paths: unknown) => (isPaths(paths) ? this.openPaths(paths) : []))

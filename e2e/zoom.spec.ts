@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Frame, type Page } from '@playwright/test'
 import { writeRichWsnp, writeSampleWsnp, writeViewerWsnp } from '../fixtures/build.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: each tab has its own zoom (the page of a snapshot, a text), by the keys and by Control and the wheel, also over the page; nothing zooms the whole interface.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -123,13 +124,7 @@ test.describe('the page of a snapshot', () => {
 })
 
 test.describe('a text, a picture and an SVG', () => {
-  const open = async (page: Page, folder: string[], name: string) => {
-    for (const f of folder) {
-      const item = page.getByRole('treeitem', { name: f, exact: true })
-      if ((await item.getAttribute('aria-expanded')) === 'false') await item.click()
-    }
-    await page.getByRole('treeitem', { name, exact: true }).dblclick()
-  }
+  const open = async (page: Page, _folder: string[], name: string) => goToFile(page, name)
 
   test('a source file is zoomed on its own: the keys and the wheel change the size of its text, and the page of the snapshot is not touched', async () => {
     const page = await launch()

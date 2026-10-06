@@ -3,9 +3,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { networkProbeFiles, PNG_1X1, RICH_PDF, RICH_ZIP, richFiles, writeRichWsnp, writeSampleWsnp, writeWsnp } from '../fixtures/build.ts'
+import { networkProbeFiles, PNG_1X1, RICH_ZIP, richFiles, writeRichWsnp, writeSampleWsnp, writeWsnp } from '../fixtures/build.ts'
 import { writeApplication, writeManifestEdited, writeManifestSizeEdited, writeNewer, writeNotAZip, writeProtected, writeTampered } from '../fixtures/hostile.ts'
 import { startProbeServer } from './probe-server.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: opening files and working with them in the real app. Files are synthetic and made in a folder of each test.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -57,7 +58,9 @@ test('the files named on the command line open, each in a tab of its own, and th
   await expect(tabs(page)).toHaveCount(2)
   expect(await tabNames(page)).toEqual(['harbor.wsnp', 'second.wsnp'])
   await expect(activeTab(page)).toContainText('second.wsnp')
-  await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(2)
+  // Each is a page in a tab: no list of open snapshots, and the side bar is the folder they are in.
+  await expect(page.getByRole('listbox', { name: 'Open Snapshots' })).toHaveCount(0)
+  await expect(page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option')).toHaveCount(1)
   await expect(frameOf(page, 'second.wsnp').locator('h2')).toHaveText('Item 1')
   // (The page's own script has to have run before the button does anything.)
   await expect(frameOf(page, 'second.wsnp').locator('html')).toHaveAttribute('data-offline', 'ready')
@@ -73,82 +76,38 @@ test('the files named on the command line open, each in a tab of its own, and th
   await expect(page.getByRole('contentinfo')).toContainText('Intact')
 })
 
-test('the breadcrumbs and the information view say what the snapshot is', async () => {
+test('the breadcrumbs, the tab and the status bar say what the snapshot is', async () => {
   const page = await launch(await harbor())
   await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnp')
-  await page.getByRole('button', { name: 'Information' }).click()
-  const info = page.locator('aside dl')
-  await expect(info).toContainText('https://harbortimes.example/')
-  await expect(info).toContainText('folder-browser fixtures 0.0.0')
-  await expect(info).toContainText('1280 × 800')
-  await page.getByRole('button', { name: 'Integrity' }).click()
-  await expect(page.getByText('All 11 files are intact.')).toBeVisible()
+  await expect(activeTab(page)).toHaveAttribute('title', `${path.join(dir, 'harbor.wsnp')}\nhttps://harbortimes.example/`)
+  const status = page.getByRole('contentinfo')
+  await expect(status).toContainText('harbortimes.example')
+  await expect(status).toContainText('Intact')
+  await expect(status).toContainText('folder-browser fixtures 0.0.0')
 })
 
-test('a single click on a file opens a preview tab, the next click replaces it, a double click keeps it', async () => {
+test('source is coloured, and a picture is shown with its size', async () => {
   const page = await launch(await harbor())
-  await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'files', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'data.json' }).click()
-  await expect(tabs(page)).toHaveCount(2)
-  await expect(activeTab(page)).toContainText('data.json')
-  await expect(activeTab(page).locator('span.truncate').first()).toHaveClass(/italic/)
-  // A one-line JSON is shown laid out (the file itself is not changed).
-  await expect(page.locator('.cm-content')).toContainText('"items": [1, 2, 3]')
-  await page.getByRole('treeitem', { name: 'bundle.zip' }).click()
-  await expect(tabs(page)).toHaveCount(2)
-  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'bundle.zip'])
-  await page.getByRole('treeitem', { name: 'data.json' }).dblclick()
-  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'data.json'])
-  await expect(activeTab(page).locator('span.truncate').first()).not.toHaveClass(/italic/)
-  await page.getByRole('treeitem', { name: 'report.pdf' }).click()
-  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'data.json', 'report.pdf'])
-  await expect(activeTab(page)).toContainText('report.pdf')
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpassetsfilesreport.pdf')
-})
-
-test('source is coloured, a picture is shown with its size, and the arrows walk the tree', async () => {
-  const page = await launch(await harbor())
-  const tree = page.getByRole('tree')
-  await page.getByRole('treeitem', { name: 'index.html' }).focus()
-  await page.keyboard.press('Enter')
+  await goToFile(page, 'index.html')
   await expect(page.locator('.cm-content')).toContainText('<h2 id="item">Item 1</h2>')
   // A tag has the colour of a tag in the theme (a variable, not a fixed colour).
   const tagColour = await page.locator('.cm-content span').filter({ hasText: 'h2' }).first().evaluate((el) => getComputedStyle(el).color)
   expect(tagColour).not.toBe(await page.locator('.cm-content').evaluate((el) => getComputedStyle(el).color))
-  await page.getByRole('treeitem', { name: 'assets', exact: true }).focus()
-  await page.keyboard.press('ArrowRight')
-  await page.keyboard.press('ArrowDown')
-  await expect(tree.getByRole('treeitem', { name: 'files' })).toBeFocused()
-  await page.keyboard.press('End')
-  await expect(tree.getByRole('treeitem', { name: 'mimetype' })).toBeFocused()
-  await page.keyboard.type('mar')
-  await page.getByRole('treeitem', { name: 'images', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'logo.png' }).dblclick()
+  await goToFile(page, 'logo.png')
   await expect(page.getByRole('img', { name: 'logo.png' })).toBeVisible()
   await expect(page.getByText('1 × 1 pixels')).toBeVisible()
 })
 
-test('a file that cannot be shown is offered with Save As, from its tab and from the tree, and saved byte for byte', async () => {
+test('a file that cannot be shown is offered with Save As from its tab, and saved byte for byte', async () => {
   const page = await launch(await harbor())
   const clip = path.join(dir, 'saved-clip.mp4')
   await stubDialogs(clip)
-  await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'media', exact: true }).click()
-  await page.getByRole('treeitem', { name: 'clip.mp4' }).dblclick()
+  await goToFile(page, 'clip.mp4')
   // (A video is played; this one is not a video the player can decode, and says so, with Save As as the way out.)
   await expect(page.getByRole('alert')).toContainText('does not know its format')
   await page.getByRole('button', { name: 'Save As…' }).click()
   await expect(page.getByRole('status')).toContainText('Saved saved-clip.mp4.')
   expect(fs.readFileSync(clip).equals(Buffer.alloc(2048, 1))).toBe(true)
-  await page.getByRole('treeitem', { name: 'files', exact: true }).click()
-  // The tree's context menu has it for every file, a PDF (which a tab can show) included.
-  const pdf = path.join(dir, 'saved-report.pdf')
-  await stubDialogs(pdf)
-  await page.getByRole('treeitem', { name: 'report.pdf' }).click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Save As…' }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'Saved saved-report.pdf.' })).toBeVisible()
-  expect(fs.readFileSync(pdf).equals(RICH_PDF)).toBe(true)
 })
 
 test('a click on a link to a ZIP lists it in a tab, and it can be saved from there; to a PDF, a picture or text opens a tab; a #link stays in the page', async () => {
@@ -212,8 +171,8 @@ test('nothing reaches the network from a snapshot in a tab', async () => {
     await expect(frameOf(page, 'probe.wsnp').locator('html')).toHaveAttribute('data-probe', 'ran')
     await page.waitForTimeout(1000)
     expect(server.hits).toEqual([])
-    // The integrity pass reports what the page tried to bring in from the network.
-    await page.getByRole('button', { name: 'Integrity' }).click()
+    // The integrity pass reports what the page tried to bring in from the network (the status bar opens the metadata, which lists it).
+    await page.getByRole('contentinfo').getByTitle('Integrity').click()
     await expect(page.getByText(/refers to something on the internet/).first()).toBeVisible()
   } finally {
     await server.close()
@@ -245,12 +204,14 @@ test('a file that was changed after it was saved is not valid: its page is held 
   await expect(invalid).toContainText('assets/styles/site.css')
   await expect(page.getByRole('contentinfo')).toContainText('Invalid')
   await expect(page.locator('iframe[title^="Snapshot:"]')).toBeHidden()
-  // The user can see why, close it, or look at the page anyway.
-  await page.getByRole('button', { name: 'Integrity' }).click()
+  // The user can see why (the status bar opens the metadata, which lists it), close it, or look at the page anyway.
+  await page.getByRole('contentinfo').getByRole('button', { name: /Invalid/ }).click()
   await expect(page.getByRole('button', { name: 'assets/styles/site.css has changed since it was saved.' })).toBeVisible()
+  await page.getByRole('tab', { name: /tampered\.wsnp/ }).first().click()
   await invalid.getByRole('button', { name: 'Show Anyway' }).click()
   await expect(invalid).toBeHidden()
   await expect(frameOf(page, 'tampered.wsnp').locator('h2')).toHaveText('Item 1')
+  await page.getByRole('tab', { name: /Metadata/ }).click()
   await page.getByRole('button', { name: 'assets/styles/site.css has changed since it was saved.' }).click()
   await expect(activeTab(page)).toContainText('site.css')
   await expect(page.locator('.cm-content')).toContainText(/rgb\(0,\s*128,\s*127\)/)
@@ -288,7 +249,7 @@ test('the metadata of a snapshot is shown in a tab: what the manifest says, what
   // The tab of the snapshot is the page, and closing the metadata leaves it open.
   await page.getByRole('tab', { name: /Metadata/ }).getByRole('button', { name: 'Close' }).click()
   await expect(tabs(page)).toHaveCount(1)
-  // The same from the tab's menu and the Information view; the raw manifest opens as source.
+  // The raw manifest opens as source from the metadata.
   await tabs(page).first().click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Show Metadata' }).click()
   await page.getByRole('button', { name: 'Open manifest.json' }).click()
@@ -298,8 +259,8 @@ test('the metadata of a snapshot is shown in a tab: what the manifest says, what
 
 test('the metadata can be copied as JSON', async () => {
   const page = await launch(await harbor())
-  await page.getByRole('button', { name: 'Information' }).click()
-  await page.getByRole('button', { name: 'Show all metadata…' }).click()
+  await tabs(page).first().click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Show Metadata' }).click()
   await page.getByRole('button', { name: 'Copy as JSON' }).click()
   await expect.poll(() => app!.evaluate(async ({ clipboard }) => (await clipboard.readText()).length)).toBeGreaterThan(100)
   const copied = JSON.parse(await app!.evaluate(({ clipboard }) => clipboard.readText())) as { format: string; title: string; files: unknown[] }
@@ -338,11 +299,11 @@ test('closing tabs: Ctrl+W, the × button, the middle click, the context menu; t
   await tabs(page).nth(1).hover()
   await tabs(page).nth(1).getByRole('button', { name: 'Close' }).click()
   expect(await tabNames(page)).toEqual(['b.wsnp'])
-  await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
   await page.keyboard.press('ControlOrMeta+W')
   await expect(tabs(page)).toHaveCount(0)
   await expect(page.getByText('Open a folder to start')).toBeVisible()
-  await expect(page.getByRole('contentinfo')).toContainText('No folder open')
+  // (The folder the snapshot is in stays open: the status bar says it.)
+  await expect(page.getByRole('contentinfo')).toContainText('Folder:')
 })
 
 test('the tab context menu: pin, close others, close to the right, close all', async () => {

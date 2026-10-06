@@ -22,5 +22,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["core", "electron", "export", "e2e", "src", "*.config.ts"]
+  "include": ["core", "electron", "e2e", "src", "*.config.ts"]
 }

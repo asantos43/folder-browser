@@ -34,6 +34,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 - **Order and details of the files of a folder**: a button above the tree (and View ▸ Sort Files By) orders them by **name**, **date modified** or **size**, ascending or descending (folders stay first; the choice is kept; `compareEntries` in `core/fs/sort.ts`). Each row shows, small and to the right, the size of a file and the date it changed (the time for today, day and month for this year, the year too for an older one: `shortDate`); with little room the one the order is by, and with a wide side bar both; the tooltip has the path, the size and the full date.
 
+### Removed
+
+- **The open-snapshot mode**, which a `.wsnp` of a folder no longer used and File ▸ Open File, a drop and the command line still gave: the list **Open Snapshots**, the tree of the files inside a snapshot in the side bar, its **Information** and **Integrity** sections, the `asFile` flag of a tab, and the selection of a snapshot by the side bar. A snapshot is a page in a tab; every way of opening a `.wsnp` now shows its page (with the folder it is in opened beside, `OpenResult.folder`). The files inside it open in tabs from the links of its page, from its metadata, and from Go to File; **Open With…** is in the menu of the tab of any file (for the application that does more: WSNP Viewer). The status bar says what the check found for the snapshot of the tab on screen, and its Integrity item opens the metadata. About 1,000 lines of code and tests are gone (800 net), with the dead `export/` (the capture and PDF code of the phase 0 prototype) and 17 strings.
+
 ### Fixed
 
 - **A snapshot is called by the name of its file** in the tabs, the list of open snapshots, the breadcrumbs, the title of its frame and Go to File, instead of the title of its page or its address: two files of the same page and the same address (saved at two times) had the same name and were easily taken for one another, and a name in a folder is unique. The tooltip of its tab says where the file is and the address the page came from; two tabs of the same name (in two folders) say their folder.

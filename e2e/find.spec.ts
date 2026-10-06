@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Frame, type Page } from '@playwright/test'
 import { writeSampleWsnp, writeViewerWsnp } from '../fixtures/build.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: Find, Copy, Print and the two icons of the activity bar, in every kind of tab.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -26,12 +27,9 @@ async function launch(env: Record<string, string> = {}): Promise<Page> {
   await page.frameLocator('iframe').locator('#end').waitFor()
   return page
 }
-async function openFile(page: Page, folder: string[], name: string) {
-  for (const f of folder) {
-    const item = page.getByRole('treeitem', { name: f, exact: true })
-    if ((await item.getAttribute('aria-expanded')) === 'false') await item.click()
-  }
-  await page.getByRole('treeitem', { name, exact: true }).dblclick()
+// (A snapshot has no tree of its files: a file opens by Go to File, as a link in its page would open it.)
+async function openFile(page: Page, _folder: string[], name: string) {
+  await goToFile(page, name)
 }
 const pageFrame = (page: Page): Frame => page.frames().find((f) => f.url().startsWith('wsnp://'))!
 const selectionOfPage = (page: Page) => pageFrame(page).evaluate(() => String(getSelection()))

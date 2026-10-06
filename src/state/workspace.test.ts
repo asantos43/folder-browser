@@ -9,11 +9,11 @@ const file = (snapshotId: string, path: string, keep = false): Action => ({ type
 const keys = (ws: Workspace) => ws.tabs.map((t) => t.key)
 
 describe('opening snapshots', () => {
-  it('opens a tab for each snapshot, makes the last one active and selects it', () => {
+  it('opens a tab for each snapshot and makes the last one active (the side bar is not about snapshots)', () => {
     const ws = run(open('a', 'b'))
     expect(keys(ws)).toEqual(['s:a', 's:b'])
     expect(ws.active).toBe('s:b')
-    expect(ws.selected).toBe('b')
+    expect(ws.selected).toBeNull()
     expect(ws.recent).toEqual(['s:b', 's:a'])
   })
   it('shows the tab that is there when a snapshot is opened again', () => {
@@ -72,11 +72,10 @@ describe('closing', () => {
     expect(Object.keys(after.snapshots)).toEqual(['b'])
     expect(released(before, after)).toEqual(['a'])
   })
-  it('closing a file tab leaves the snapshot open and selected', () => {
+  it('closing a file tab leaves the snapshot open', () => {
     const ws = run([...open('a'), file('a', 'one.txt', true), { type: 'close', key: 'f:a:one.txt' }])
     expect(keys(ws)).toEqual(['s:a'])
     expect(ws.active).toBe('s:a')
-    expect(ws.selected).toBe('a')
   })
   it('closes the others, the ones to the right, and all, but never a pinned tab', () => {
     const base = run([...open('a', 'b', 'c', 'd'), { type: 'pin', key: 's:b', pinned: true }])
@@ -130,10 +129,12 @@ describe('moving between tabs', () => {
     ws = reduce(ws, { type: 'touch' })
     expect(ws.recent).toEqual(['s:a', 's:c', 's:b'])
   })
-  it('selecting a snapshot changes the tree, not the tabs', () => {
-    const ws = run([...open('a', 'b'), { type: 'select', snapshotId: 'a' }])
-    expect(ws.selected).toBe('a')
+  it('selecting something that is not an open folder does nothing, and selecting a folder changes the tree, not the tabs', () => {
+    const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+    const ws = run([...open('a', 'b'), { type: 'root-opened', root }, { type: 'select', snapshotId: 'r1' }])
+    expect(ws.selected).toBe('r1')
     expect(ws.active).toBe('s:b')
+    expect(reduce(ws, { type: 'select', snapshotId: 'a' })).toBe(ws)
     expect(reduce(ws, { type: 'select', snapshotId: 'zzz' })).toBe(ws)
   })
 })
@@ -211,11 +212,12 @@ describe('a signature that does not check', () => {
 })
 
 describe('the settings tab', () => {
-  it('opens once, beside the active tab, and does not change which snapshot is selected', () => {
-    let ws = run([...open('a', 'b'), { type: 'select', snapshotId: 'a' }, { type: 'open-settings' }])
+  it('opens once, beside the active tab, and does not change what the side bar is on', () => {
+    const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+    let ws = run([...open('a', 'b'), { type: 'root-opened', root }, { type: 'open-settings' }])
     expect(keys(ws)).toEqual(['s:a', 's:b', 'settings'])
     expect(ws.active).toBe('settings')
-    expect(ws.selected).toBe('a')
+    expect(ws.selected).toBe('r1')
     ws = reduce(ws, { type: 'open-settings' })
     expect(ws.tabs.filter((t) => t.key === 'settings')).toHaveLength(1)
     expect(ws.tabs.every((t) => t.key !== 'settings' || !isSnapshotTab(t))).toBe(true)
@@ -226,7 +228,6 @@ describe('the settings tab', () => {
     expect(ws.selected).toBeNull()
     ws = run([...open('a'), { type: 'open-settings' }, { type: 'close', key: 'settings' }])
     expect(keys(ws)).toEqual(['s:a'])
-    expect(ws.selected).toBe('a')
     expect(ws.active).toBe('s:a')
   })
 })
@@ -265,80 +266,63 @@ describe('roots (folders and ZIP files opened to browse)', () => {
   })
 })
 
-describe('the page of a .wsnp viewed as a file of a folder (a click or a double click in the tree)', () => {
+describe('a snapshot is a page in a tab, never what the side bar shows', () => {
   const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
   const base = (): Workspace => run([{ type: 'root-opened', root }])
-  const view = (id: string, keep = false): Action => ({ type: 'snapshot-opened', snapshot: snap(id), asFile: true, ...(keep ? {} : { preview: true }) })
+  const page = (id: string, keep = false): Action => ({ type: 'snapshot-opened', snapshot: snap(id), ...(keep ? {} : { preview: true }) })
 
   it('a click opens a tab in italics, and the side bar stays on the folder', () => {
-    const ws = run([view('a')], base())
-    expect(ws.tabs).toMatchObject([{ key: 's:a', snapshotId: 'a', preview: true, asFile: true }])
+    const ws = run([page('a')], base())
+    expect(ws.tabs).toMatchObject([{ key: 's:a', snapshotId: 'a', preview: true }])
     expect(ws.active).toBe('s:a')
     expect(ws.selected).toBe('r1')
     expect(Object.keys(ws.snapshots)).toEqual(['a'])
   })
   it('is replaced by the next preview, a file or another snapshot, and the snapshot it was is closed', () => {
-    let ws = reduce(run([view('a')], base()), file('r1', 'notes.txt'))
+    let ws = reduce(run([page('a')], base()), file('r1', 'notes.txt'))
     expect(ws.tabs.map((t) => t.key)).toEqual(['f:r1:notes.txt'])
     expect(Object.keys(ws.snapshots)).toEqual([])
-    expect(released(run([view('a')], base()), ws)).toEqual(['a'])
-    ws = run([view('a'), view('b')], base())
+    expect(released(run([page('a')], base()), ws)).toEqual(['a'])
+    ws = run([page('a'), page('b')], base())
     expect(ws.tabs.map((t) => t.key)).toEqual(['s:b'])
     expect(Object.keys(ws.snapshots)).toEqual(['b'])
     expect(ws.selected).toBe('r1')
   })
-  it('a double click keeps the tab (another tab, not a preview any more) and the side bar still stays on the folder', () => {
-    const ws = run([view('a'), view('a', true)], base())
-    expect(ws.tabs).toMatchObject([{ key: 's:a', preview: false, asFile: true }])
+  it('a double click keeps the tab (another tab, not a preview any more), and a preview never takes that back, whatever order the answers come in', () => {
+    const ws = run([page('a'), page('a', true)], base())
+    expect(ws.tabs).toMatchObject([{ key: 's:a', preview: false }])
     expect(ws.selected).toBe('r1')
-    // Whatever order the answers of the main process come in, a preview never takes it back.
-    const again = reduce(ws, view('a'))
-    expect(again.tabs).toMatchObject([{ key: 's:a', preview: false }])
-    expect(again.selected).toBe('r1')
-    expect(run([view('a', true), view('a')], base()).tabs).toMatchObject([{ key: 's:a', preview: false }])
+    expect(reduce(ws, page('a')).tabs).toMatchObject([{ key: 's:a', preview: false }])
+    expect(run([page('a', true), page('a')], base()).tabs).toMatchObject([{ key: 's:a', preview: false }])
   })
-  it('is listed nowhere and followed by no side bar, whatever is done with its tab', () => {
-    let ws = run([view('a', true), file('r1', 'x.txt', true)], base())
+  it('does not take the side bar, whatever is done with its tab, its metadata or its files', () => {
+    let ws = run([page('a', true), file('r1', 'x.txt', true)], base())
     ws = reduce(ws, { type: 'activate', key: 's:a' })
     expect(ws.selected).toBe('r1')
     ws = reduce(ws, { type: 'keep', key: 's:a' })
-    expect(ws.selected).toBe('r1')
+    ws = reduce(ws, { type: 'open-metadata', snapshotId: 'a' })
+    expect(ws.active).toBe('m:a')
+    ws = reduce(ws, { type: 'open-file', snapshotId: 'a', path: 'manifest.json', keep: true })
     ws = reduce(ws, { type: 'close', key: 'f:r1:x.txt' })
-    expect(ws.active).toBe('s:a')
     expect(ws.selected).toBe('r1')
+  })
+  it('stays out of the side bar even when nothing else is open: with no folder there is nothing to show', () => {
+    const ws = run([{ type: 'snapshot-opened', snapshot: snap('a') }])
+    expect(ws.selected).toBeNull()
+    expect(reduce(ws, { type: 'select', snapshotId: 'a' }).selected).toBeNull()
   })
   it('is closed with its snapshot by its own close button, and does not replace a kept tab', () => {
-    const closed = reduce(run([view('a')], base()), { type: 'close', key: 's:a' })
+    const closed = reduce(run([page('a')], base()), { type: 'close', key: 's:a' })
     expect(closed.tabs).toEqual([])
     expect(closed.snapshots).toEqual({})
-    const ws = run([file('r1', 'kept.txt', true), view('a')], base())
+    const ws = run([file('r1', 'kept.txt', true), page('a')], base())
     expect(ws.tabs.map((t) => [t.key, t.preview])).toEqual([['f:r1:kept.txt', false], ['s:a', true]])
   })
-  it('shows one that was opened for itself, when it is viewed in the folder, and leaves the side bar where it is', () => {
-    let ws = run([{ type: 'snapshot-opened', snapshot: snap('a') }, { type: 'snapshot-opened', snapshot: snap('b') }, { type: 'select', snapshotId: 'r1' }], base())
+  it('a folder is what the side bar is on: coming to the tab of one of its files takes it there', () => {
+    const second = { id: 'r2', kind: 'folder' as const, path: '/home/me/other', name: 'other' }
+    let ws = run([{ type: 'root-opened', root: second }, file('r2', 'a.txt', true), { type: 'select', snapshotId: 'r1' }], base())
     expect(ws.selected).toBe('r1')
-    ws = reduce(ws, view('a'))
-    expect(ws.active).toBe('s:a')
-    expect(ws.selected).toBe('r1')
-    expect(ws.tabs.find((t) => t.key === 's:a')).toMatchObject({ preview: false })
-    expect(ws.tabs.find((t) => t.key === 's:a')?.asFile).toBeUndefined()
-    expect(ws.tabs).toHaveLength(2)
-  })
-  it('becomes an open snapshot (listed, with the side bar on its files) when it is opened for itself', () => {
-    const ws = run([view('a', true), { type: 'select', snapshotId: 'r1' }, { type: 'snapshot-opened', snapshot: snap('a') }], base())
-    expect(ws.tabs[0].asFile).toBeUndefined()
-    expect(ws.selected).toBe('a')
-  })
-  it('an open snapshot is chosen in the list of them, and that is what takes the side bar to it', () => {
-    let ws = run([{ type: 'snapshot-opened', snapshot: snap('a') }, { type: 'select', snapshotId: 'r1' }], base())
-    ws = reduce(ws, { type: 'activate', key: 's:a' })
-    expect(ws.selected).toBe('a')
-  })
-  it('its metadata and its files do not take the side bar either', () => {
-    let ws = run([view('a', true), { type: 'open-metadata', snapshotId: 'a' }], base())
-    expect(ws.active).toBe('m:a')
-    expect(ws.selected).toBe('r1')
-    ws = reduce(ws, { type: 'open-file', snapshotId: 'a', path: 'manifest.json', keep: true })
-    expect(ws.selected).toBe('r1')
+    ws = reduce(ws, { type: 'activate', key: 'f:r2:a.txt' })
+    expect(ws.selected).toBe('r2')
   })
 })
