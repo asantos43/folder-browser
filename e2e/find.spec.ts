@@ -125,7 +125,7 @@ test.describe('Find', () => {
     await page.keyboard.press('ControlOrMeta+f')
     await findBox(page).fill('word wrap')
     await expect(counter(page, /^1 of \d+$/)).toBeVisible()
-    await page.getByRole('tab', { name: 'Harbor Times' }).click({ button: 'right' })
+    await page.getByRole('tab', { name: 'viewer.wsnp' }).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Show Metadata' }).click()
     await expect(page.getByRole('tab', { selected: true })).toContainText('Metadata')
     // Each tab has its own search: the bar closed when the tab changed.
@@ -216,7 +216,7 @@ test.describe('Print and the activity bar', () => {
       dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [file] })) as unknown as typeof dialog.showOpenDialog
     }, second)
     await page.keyboard.press('ControlOrMeta+o')
-    await expect(page.getByRole('tab', { selected: true })).toContainText('Second page')
+    await expect(page.getByRole('tab', { selected: true })).toContainText('second.wsnp')
     await page.keyboard.press('ControlOrMeta+w')
     await page.keyboard.press('ControlOrMeta+w')
     await expect(page.getByRole('tab')).toHaveCount(0)

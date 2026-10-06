@@ -55,19 +55,19 @@ test('the files named on the command line open, each in a tab of its own, and th
   await writeSampleWsnp(b, { title: 'Second page', url: 'https://second.example/' })
   const page = await launch(a, b)
   await expect(tabs(page)).toHaveCount(2)
-  expect(await tabNames(page)).toEqual(['Harbor Times', 'Second page'])
-  await expect(activeTab(page)).toContainText('Second page')
+  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'second.wsnp'])
+  await expect(activeTab(page)).toContainText('second.wsnp')
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(2)
-  await expect(frameOf(page, 'Second page').locator('h2')).toHaveText('Item 1')
+  await expect(frameOf(page, 'second.wsnp').locator('h2')).toHaveText('Item 1')
   // (The page's own script has to have run before the button does anything.)
-  await expect(frameOf(page, 'Second page').locator('html')).toHaveAttribute('data-offline', 'ready')
-  await frameOf(page, 'Second page').getByRole('button', { name: 'Next' }).click()
-  await expect(frameOf(page, 'Second page').locator('h2')).toHaveText('Item 2')
+  await expect(frameOf(page, 'second.wsnp').locator('html')).toHaveAttribute('data-offline', 'ready')
+  await frameOf(page, 'second.wsnp').getByRole('button', { name: 'Next' }).click()
+  await expect(frameOf(page, 'second.wsnp').locator('h2')).toHaveText('Item 2')
   // Another tab shows another snapshot; the first keeps its own state.
   await tabs(page).first().click()
-  await expect(frameOf(page, 'Harbor Times').locator('h2')).toHaveText('Item 1')
+  await expect(frameOf(page, 'harbor.wsnp').locator('h2')).toHaveText('Item 1')
   await tabs(page).nth(1).click()
-  await expect(frameOf(page, 'Second page').locator('h2')).toHaveText('Item 2')
+  await expect(frameOf(page, 'second.wsnp').locator('h2')).toHaveText('Item 2')
   // The status bar is about the selected snapshot, and its integrity is checked in the background.
   await expect(page.getByRole('contentinfo')).toContainText('second.example')
   await expect(page.getByRole('contentinfo')).toContainText('Intact')
@@ -75,7 +75,7 @@ test('the files named on the command line open, each in a tab of its own, and th
 
 test('the breadcrumbs and the information view say what the snapshot is', async () => {
   const page = await launch(await harbor())
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('Harbor Times')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnp')
   await page.getByRole('button', { name: 'Information' }).click()
   const info = page.locator('aside dl')
   await expect(info).toContainText('https://harbortimes.example/')
@@ -97,14 +97,14 @@ test('a single click on a file opens a preview tab, the next click replaces it, 
   await expect(page.locator('.cm-content')).toContainText('"items": [1, 2, 3]')
   await page.getByRole('treeitem', { name: 'bundle.zip' }).click()
   await expect(tabs(page)).toHaveCount(2)
-  expect(await tabNames(page)).toEqual(['Harbor Times', 'bundle.zip'])
+  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'bundle.zip'])
   await page.getByRole('treeitem', { name: 'data.json' }).dblclick()
-  expect(await tabNames(page)).toEqual(['Harbor Times', 'data.json'])
+  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'data.json'])
   await expect(activeTab(page).locator('span.truncate').first()).not.toHaveClass(/italic/)
   await page.getByRole('treeitem', { name: 'report.pdf' }).click()
-  expect(await tabNames(page)).toEqual(['Harbor Times', 'data.json', 'report.pdf'])
+  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'data.json', 'report.pdf'])
   await expect(activeTab(page)).toContainText('report.pdf')
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('Harbor Timesassetsfilesreport.pdf')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpassetsfilesreport.pdf')
 })
 
 test('source is coloured, a picture is shown with its size, and the arrows walk the tree', async () => {
@@ -155,7 +155,7 @@ test('a click on a link to a ZIP lists it in a tab, and it can be saved from the
   const page = await launch(await harbor())
   const target = path.join(dir, 'from-link.zip')
   await stubDialogs(target)
-  const frame = frameOf(page, 'Harbor Times')
+  const frame = frameOf(page, 'harbor.wsnp')
   await frame.locator('#zip').click()
   await expect(tabs(page)).toHaveCount(2)
   await expect(activeTab(page)).toContainText('bundle.zip')
@@ -176,31 +176,31 @@ test('a click on a link to a ZIP lists it in a tab, and it can be saved from the
   await tabs(page).first().click()
   await frame.locator('#hash').click()
   await expect(frame.locator('#end')).toBeVisible()
-  expect(await tabNames(page)).toEqual(['Harbor Times', 'mark.svg'])
+  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'mark.svg'])
   expect(await external()).toEqual([])
 })
 
 test('a link to a file with target=_blank or download opens its tab as a plain link does', async () => {
   const page = await launch(await harbor())
   await stubDialogs(path.join(dir, 'unused'))
-  const frame = frameOf(page, 'Harbor Times')
+  const frame = frameOf(page, 'harbor.wsnp')
   for (const id of ['#zipblank', '#zipdl']) {
     await frame.locator(id).click()
     await expect(tabs(page)).toHaveCount(2)
     await expect(activeTab(page)).toContainText('bundle.zip')
     await tabs(page).first().click()
   }
-  expect(await tabNames(page)).toEqual(['Harbor Times', 'bundle.zip'])
+  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'bundle.zip'])
   expect(await external()).toEqual([])
 })
 
 test('a click on a web link opens the default browser and nothing else; no tab, and the page stays', async () => {
   const page = await launch(await harbor())
   await stubDialogs(path.join(dir, 'unused'))
-  await frameOf(page, 'Harbor Times').locator('#ext').click()
+  await frameOf(page, 'harbor.wsnp').locator('#ext').click()
   await expect.poll(external).toEqual(['https://example.com/more'])
   await expect(tabs(page)).toHaveCount(1)
-  await expect(frameOf(page, 'Harbor Times').locator('h2')).toHaveText('Item 1')
+  await expect(frameOf(page, 'harbor.wsnp').locator('h2')).toHaveText('Item 1')
 })
 
 test('nothing reaches the network from a snapshot in a tab', async () => {
@@ -209,7 +209,7 @@ test('nothing reaches the network from a snapshot in a tab', async () => {
     const file = path.join(dir, 'probe.wsnp')
     await writeWsnp(file, networkProbeFiles(server.origin), { title: 'Probe' })
     const page = await launch(file)
-    await expect(frameOf(page, 'Probe').locator('html')).toHaveAttribute('data-probe', 'ran')
+    await expect(frameOf(page, 'probe.wsnp').locator('html')).toHaveAttribute('data-probe', 'ran')
     await page.waitForTimeout(1000)
     expect(server.hits).toEqual([])
     // The integrity pass reports what the page tried to bring in from the network.
@@ -250,7 +250,7 @@ test('a file that was changed after it was saved is not valid: its page is held 
   await expect(page.getByRole('button', { name: 'assets/styles/site.css has changed since it was saved.' })).toBeVisible()
   await invalid.getByRole('button', { name: 'Show Anyway' }).click()
   await expect(invalid).toBeHidden()
-  await expect(frameOf(page, 'Tampered page').locator('h2')).toHaveText('Item 1')
+  await expect(frameOf(page, 'tampered.wsnp').locator('h2')).toHaveText('Item 1')
   await page.getByRole('button', { name: 'assets/styles/site.css has changed since it was saved.' }).click()
   await expect(activeTab(page)).toContainText('site.css')
   await expect(page.locator('.cm-content')).toContainText(/rgb\(0,\s*128,\s*127\)/)
@@ -276,8 +276,8 @@ test('the metadata of a snapshot is shown in a tab: what the manifest says, what
   // The View menu is in the window on Windows and Linux only (macOS has a native one), so the test goes through the tab's own menu.
   await tabs(page).first().click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Show Metadata' }).click()
-  await expect(activeTab(page)).toContainText('Metadata: Harbor Times')
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('Harbor TimesMetadata')
+  await expect(activeTab(page)).toContainText('Metadata: harbor.wsnp')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpMetadata')
   const view = page.getByLabel('Metadata', { exact: true })
   await expect(view).toContainText('folder-browser fixtures 0.0.0')
   await expect(view).toContainText('https://harbortimes.example/')
@@ -316,12 +316,12 @@ test('a second launch hands its file to the running app, which shows it in a new
   const child = spawn(electronPath, ['.', `--user-data-dir=${profile()}`, ...noSandbox, second], { stdio: 'ignore' })
   const exited = new Promise<number | null>((resolve) => child.on('exit', resolve))
   await expect(tabs(page)).toHaveCount(2, { timeout: 20_000 })
-  await expect(activeTab(page)).toContainText('Two')
+  await expect(activeTab(page)).toContainText('two.wsnp')
   await exited
   // Opening the same file again shows its tab instead of opening it twice.
   const again = spawn(electronPath, ['.', `--user-data-dir=${profile()}`, ...noSandbox, first], { stdio: 'ignore' })
   await new Promise((resolve) => again.on('exit', resolve))
-  await expect(activeTab(page)).toContainText('One')
+  await expect(activeTab(page)).toContainText('one.wsnp')
   await expect(tabs(page)).toHaveCount(2)
 })
 
@@ -332,12 +332,12 @@ test('closing tabs: Ctrl+W, the × button, the middle click, the context menu; t
   const page = await launch(...files)
   await expect(tabs(page)).toHaveCount(4)
   await page.keyboard.press('ControlOrMeta+W')
-  expect(await tabNames(page)).toEqual(['A', 'B', 'C'])
+  expect(await tabNames(page)).toEqual(['a.wsnp', 'b.wsnp', 'c.wsnp'])
   await tabs(page).nth(0).click({ button: 'middle' })
-  expect(await tabNames(page)).toEqual(['B', 'C'])
+  expect(await tabNames(page)).toEqual(['b.wsnp', 'c.wsnp'])
   await tabs(page).nth(1).hover()
   await tabs(page).nth(1).getByRole('button', { name: 'Close' }).click()
-  expect(await tabNames(page)).toEqual(['B'])
+  expect(await tabNames(page)).toEqual(['b.wsnp'])
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
   await page.keyboard.press('ControlOrMeta+W')
   await expect(tabs(page)).toHaveCount(0)
@@ -351,17 +351,17 @@ test('the tab context menu: pin, close others, close to the right, close all', a
   const page = await launch(...files)
   await tabs(page).nth(2).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Pin' }).click()
-  expect(await tabNames(page)).toEqual(['C', 'A', 'B', 'D'])
+  expect(await tabNames(page)).toEqual(['c.wsnp', 'a.wsnp', 'b.wsnp', 'd.wsnp'])
   await tabs(page).nth(1).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Close to the Right' }).click()
-  expect(await tabNames(page)).toEqual(['C', 'A'])
+  expect(await tabNames(page)).toEqual(['c.wsnp', 'a.wsnp'])
   // A pinned tab stays when the others close, so there is nothing left for "Close Others" to close.
   await tabs(page).nth(1).click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Close Others' })).toBeDisabled()
   await page.keyboard.press('Escape')
   await tabs(page).nth(1).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Close All' }).click()
-  expect(await tabNames(page)).toEqual(['C'])
+  expect(await tabNames(page)).toEqual(['c.wsnp'])
 })
 
 test('Ctrl+Tab goes through the tabs in the order they were used, and Alt+1 goes to the first', async () => {
@@ -373,14 +373,14 @@ test('Ctrl+Tab goes through the tabs in the order they were used, and Alt+1 goes
   // Used last: C, then A, then B.
   await page.keyboard.down('Control')
   await page.keyboard.press('Tab')
-  await expect(activeTab(page)).toContainText('A')
+  await expect(activeTab(page)).toContainText('a.wsnp')
   await page.keyboard.up('Control')
   await page.keyboard.down('Control')
   await page.keyboard.press('Tab')
-  await expect(activeTab(page)).toContainText('C')
+  await expect(activeTab(page)).toContainText('c.wsnp')
   await page.keyboard.up('Control')
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+1' : 'Alt+1')
-  await expect(activeTab(page)).toContainText('A')
+  await expect(activeTab(page)).toContainText('a.wsnp')
 })
 
 test('tabs can be dragged to a new place', async () => {
@@ -389,8 +389,8 @@ test('tabs can be dragged to a new place', async () => {
   const page = await launch(...files)
   // A page keeps its state when its tab moves: moving an iframe in the document would reload it.
   await tabs(page).first().click()
-  await frameOf(page, 'A').getByRole('button', { name: 'Next' }).click()
-  await expect(frameOf(page, 'A').locator('h2')).toHaveText('Item 2')
+  await frameOf(page, 'a.wsnp').getByRole('button', { name: 'Next' }).click()
+  await expect(frameOf(page, 'a.wsnp').locator('h2')).toHaveText('Item 2')
   // The drag itself is the browser's; what is tested is what the tab strip does with the events it gets.
   await page.evaluate(() => {
     const strip = [...document.querySelectorAll('[role=tab]')]
@@ -401,9 +401,9 @@ test('tabs can be dragged to a new place', async () => {
     strip[2].dispatchEvent(new DragEvent('dragover', at))
     strip[2].dispatchEvent(new DragEvent('drop', at))
   })
-  expect(await tabNames(page)).toEqual(['B', 'C', 'A'])
+  expect(await tabNames(page)).toEqual(['b.wsnp', 'c.wsnp', 'a.wsnp'])
   await page.waitForTimeout(500)
-  await expect(frameOf(page, 'A').locator('h2')).toHaveText('Item 2')
+  await expect(frameOf(page, 'a.wsnp').locator('h2')).toHaveText('Item 2')
 })
 
 test('dragging a file over the window says it can be dropped, and the window never navigates to it', async () => {
@@ -433,7 +433,7 @@ test('Open Recent lists the files opened before, by name, and opens one', async 
   await again.getByRole('menuitem', { name: 'File' }).click()
   await again.getByRole('menuitem', { name: /Open Recent/ }).click()
   await again.getByRole('menuitem', { name: 'recent-one.wsnp' }).click()
-  await expect(activeTab(again)).toContainText('Recent One')
+  await expect(activeTab(again)).toContainText('recent-one.wsnp')
   await again.getByRole('menuitem', { name: 'File' }).click()
   await again.getByRole('menuitem', { name: /Open Recent/ }).click()
   await again.getByRole('menuitem', { name: 'Clear Recently Opened' }).click()
@@ -444,7 +444,7 @@ test('Open Recent lists the files opened before, by name, and opens one', async 
 
 test('the interface offers nothing more to a snapshot than its own files', async () => {
   const page = await launch(await harbor())
-  const frame = frameOf(page, 'Harbor Times')
+  const frame = frameOf(page, 'harbor.wsnp')
   await expect(frame.locator('html')).toHaveAttribute('data-offline', 'ready')
   // From inside the frame: the interface, its storage and the other files of the profile are out of reach.
   const seen = await frame.locator('html').evaluate(() => ({

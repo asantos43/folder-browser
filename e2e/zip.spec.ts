@@ -50,7 +50,7 @@ test('a ZIP in a snapshot opens as a list of its files, with sizes, and a summar
   await openZip(page)
   expect(await names(page)).toEqual(['docs/', 'docs/readme.txt', 'docs/data.json', 'img/', 'img/dot.png', 'top.txt', 'nested.zip'])
   await expect(row(page, 'docs/readme.txt').getByRole('cell').nth(2)).toHaveText('40 B')
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('Harbor Timesassetsfilesbundle.zip')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpassetsfilesbundle.zip')
   await expect(page.getByText(/7 items/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Save As…' })).toBeVisible()
 })
@@ -118,7 +118,7 @@ test('a double click views an entry in a tab of its own: text as source, a pictu
   await row(page, 'docs/data.json').dblclick()
   await expect(page.getByRole('tab', { selected: true })).toContainText('data.json')
   await expect(page.locator('.cm-content')).toContainText('"boats": 3')
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('Harbor Timesassetsfilesbundle.zipdocsdata.json')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpassetsfilesbundle.zipdocsdata.json')
   await page.getByRole('tab', { name: /bundle.zip/ }).click()
   await row(page, 'img/dot.png').dblclick()
   await expect(page.getByRole('img', { name: 'dot.png' })).toBeVisible()
@@ -128,7 +128,7 @@ test('a double click views an entry in a tab of its own: text as source, a pictu
   expect(await names(page)).toEqual(['deep.txt'])
   await row(page, 'deep.txt').dblclick()
   await expect(page.locator('.cm-content')).toContainText('a file in a ZIP in a ZIP')
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('Harbor Timesassetsfilesbundle.zipnested.zipdeep.txt')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpassetsfilesbundle.zipnested.zipdeep.txt')
 })
 
 test('a text entry of a kind the viewer does not know opens as text, a binary one is offered with Save As, and Markdown has a button for its text', async () => {

@@ -13,17 +13,19 @@ export interface TabView {
   tooltip: string
 }
 
+/**
+ * What a snapshot is called in the tabs, the list and the breadcrumbs: the name of its file. The title of its page and its address are the page's, and two files can say the
+ * same (the same address, saved at two times): a name in a folder is unique, so it is what a tab is told apart by.
+ */
 export const snapshotTitle = (ws: Workspace, id: string): string => {
   const snapshot = ws.snapshots[id]
-  if (!snapshot) return ''
-  const { manifest } = snapshot
-  let host = ''
-  try {
-    host = new URL(manifest.source.url).host
-  } catch {
-    // not an address: the file name will do
-  }
-  return manifest.title || host || basename(snapshot.path)
+  return snapshot ? basename(snapshot.path) : ''
+}
+
+/** Where the file of a snapshot is, for the second line of a tooltip and for telling two tabs of the same name apart: its folder. */
+const folderOfSnapshot = (ws: Workspace, id: string): string => {
+  const path = ws.snapshots[id]?.path ?? ''
+  return path.replace(/[\\/][^\\/]*$/, '')
 }
 
 /** The name of what a tab belongs to: a snapshot's title, or the name of the folder or ZIP file that was opened. */
@@ -36,8 +38,9 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
   const base = ws.tabs.map((tab): [Tab, string, string, string] => {
     const snapshot = ws.snapshots[tab.snapshotId]
     if (tab.view === 'settings') return [tab, t('settings.title'), 'settings-gear', t('settings.title')]
-    if (tab.view === 'metadata') return [tab, t('tabs.metadataOf', { name: snapshotTitle(ws, tab.snapshotId) }), 'info', snapshot?.manifest.source.url ?? '']
-    if (tab.path === undefined) return [tab, snapshotTitle(ws, tab.snapshotId), 'browser', snapshot?.manifest.source.url ?? '']
+    if (tab.view === 'metadata') return [tab, t('tabs.metadataOf', { name: snapshotTitle(ws, tab.snapshotId) }), 'info', snapshot?.path ?? '']
+    // (The tooltip of a page: where the file is, and the address the page was saved from.)
+    if (tab.path === undefined) return [tab, snapshotTitle(ws, tab.snapshotId), 'browser', [snapshot?.path, snapshot?.manifest.source.url].filter(Boolean).join('\n')]
     const file = snapshot?.files.find((f) => f.path === tab.path)
     return [tab, basename(tab.path), fileIcon(file?.mediaType, tab.path), `${sourceTitle(ws, tab.snapshotId)} › ${tab.path.replaceAll('!/', ' › ')}`]
   })
@@ -50,7 +53,7 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
         label,
         icon,
         tooltip: tooltip || label,
-        description: (counts.get(label) ?? 0) > 1 ? (tab.path === undefined ? (ws.snapshots[tab.snapshotId]?.manifest.source.url ?? '') : ws.roots[tab.snapshotId] ? [ws.roots[tab.snapshotId].name, parentOf(tab.path)].filter(Boolean).join('/') : snapshotTitle(ws, tab.snapshotId)) : '',
+        description: (counts.get(label) ?? 0) > 1 ? (tab.path === undefined || tab.view === 'metadata' ? folderOfSnapshot(ws, tab.snapshotId) : ws.roots[tab.snapshotId] ? [ws.roots[tab.snapshotId].name, parentOf(tab.path)].filter(Boolean).join('/') : snapshotTitle(ws, tab.snapshotId)) : '',
       },
     ]),
   )
