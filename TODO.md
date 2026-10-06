@@ -67,6 +67,15 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [ ] Try real files by hand (Word with headers and footnotes, a PowerPoint with charts and SmartArt, an `.xls`): the tests only have small hand-written ones
 - [ ] `.rtf`, `.pages`, `.numbers`, `.key`: not drawn (Open With… or hex)
 
+## Open points of phase 1 (to pick up between phases)
+- [ ] Decide whether the **Save as .wsnp…** bar of a converted PageKeep ZIP (`ConvertedBar`) stays: it is the only part of the viewer's conversion still in the app; the **Metadata** tab of a snapshot stays for now
+- [ ] Try the app on **Windows and macOS** (Trash, Open With…, the chooser, icons, packages): everything so far was tried on Linux only
+- [ ] Try real files by hand: an mp4 (H.264), mp3, flac, an HEVC file; a Word file with headers and footnotes, a PowerPoint with charts and SmartArt, an `.xls`, a big `.docx` (zoom, Find, Print)
+- [ ] Print the bytes of a file; print a CSV table as a table
+- [ ] The header panel of ELF, PE and Mach-O files in the hex view
+- [ ] Previous/Next for the media of a snapshot; rename a favourite; columns for size and date the user can choose
+- [ ] The pull requests: phases 1 to 1p are stacked branches on one line of history (`phase-1-browse` … `phase-1p-zoom-find-print`); none is merged into `main` yet
+
 ## Phase 2: change files on disk
 - [ ] Create file, create folder, **rename** (F2, inline), move (dialog and drag and drop), delete (to the trash, with confirmation)
 - [ ] Open tabs follow a renamed or moved item; the tree refreshes
