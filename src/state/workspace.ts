@@ -39,9 +39,11 @@ export interface Workspace {
   integrity: Record<string, IntegrityState>
   /** Snapshots found not valid that the user chose to see anyway. */
   shownAnyway: Record<string, true>
+  /** The tabs of a text file that has changes not saved (by key): the tab says so, closing it asks, and the window asks before it closes. */
+  dirty: Record<string, true>
 }
 
-export const empty: Workspace = { snapshots: {}, roots: {}, tabs: [], active: null, recent: [], selected: null, integrity: {}, shownAnyway: {} }
+export const empty: Workspace = { snapshots: {}, roots: {}, tabs: [], active: null, recent: [], selected: null, integrity: {}, shownAnyway: {}, dirty: {} }
 
 export const snapshotKey = (id: string) => `s:${id}`
 export const metadataKey = (id: string) => `m:${id}`
@@ -86,6 +88,8 @@ export type Action =
   | { type: 'path-changed'; rootId: string; from: string; to: string }
   /** An item of a folder was deleted: the tabs of it (and of what was in it) close. */
   | { type: 'path-removed'; rootId: string; path: string }
+  /** The text of a tab differs from what is saved (or is the same again). */
+  | { type: 'dirty'; key: string; dirty: boolean }
   | { type: 'open-metadata'; snapshotId: string }
   | { type: 'open-settings' }
   | { type: 'show-anyway'; snapshotId: string }
@@ -135,7 +139,8 @@ function without(ws: Workspace, keys: Set<string>): Workspace {
     // As VS Code does: the most recently used tab that is left.
     active = recent[0] ?? tabs.at(-1)?.key ?? null
   }
-  const next = { ...ws, tabs, snapshots, integrity, shownAnyway, recent }
+  const dirty = Object.fromEntries(Object.entries(ws.dirty).filter(([key]) => alive.has(key))) as Record<string, true>
+  const next = { ...ws, tabs, snapshots, integrity, shownAnyway, recent, dirty }
   const activeTab = active ? tabs.find((t) => t.key === active) : undefined
   const ofRoot = activeTab && ws.roots[activeTab.snapshotId] ? activeTab.snapshotId : undefined
   const exists = (id: string | null): id is string => id !== null && Boolean(ws.roots[id])
@@ -217,11 +222,19 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       })
       const rekey = (key: string | null) => (key !== null ? (keys.get(key) ?? key) : null)
       const alive = new Set(tabs.map((t) => t.key))
-      return { ...ws, tabs, active: rekey(ws.active), recent: [...new Set(ws.recent.map((k) => rekey(k)!))].filter((k) => alive.has(k)) }
+      const dirty = Object.fromEntries(Object.keys(ws.dirty).map((k) => [rekey(k)!, true as const])) as Record<string, true>
+      return { ...ws, tabs, active: rekey(ws.active), recent: [...new Set(ws.recent.map((k) => rekey(k)!))].filter((k) => alive.has(k)), dirty }
     }
     case 'path-removed': {
       const gone = ws.tabs.filter((t) => t.snapshotId === action.rootId && t.path !== undefined && isUnder(t.path, action.path))
       return gone.length ? without(ws, new Set(gone.map((t) => t.key))) : ws
+    }
+    case 'dirty': {
+      if (!ws.tabs.some((t) => t.key === action.key) || Boolean(ws.dirty[action.key]) === action.dirty) return ws
+      const dirty = { ...ws.dirty }
+      if (action.dirty) dirty[action.key] = true
+      else delete dirty[action.key]
+      return { ...ws, dirty }
     }
     case 'open-metadata': {
       const key = metadataKey(action.snapshotId)

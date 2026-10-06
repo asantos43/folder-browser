@@ -16,6 +16,9 @@ export function installMenu(send: (command: string) => void): void {
       submenu: [
         { label: 'Open File…', accelerator: 'Cmd+O', click: () => send('openFile') },
         { type: 'separator' },
+        { label: 'Save', accelerator: 'Cmd+S', click: () => send('save') },
+        { label: 'Save All', accelerator: 'Cmd+Alt+S', click: () => send('saveAll') },
+        { type: 'separator' },
         { label: 'Save as .wsnp…', click: () => send('saveAsWsnp') },
         { label: 'Save as PDF…', click: () => send('savePdf') },
         { type: 'separator' },

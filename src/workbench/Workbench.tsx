@@ -7,7 +7,9 @@ import { basename } from '@/lib/format.ts'
 import { readStored, writeStored } from '@/lib/storage.ts'
 import { refusalNotice } from '@/state/messages.ts'
 import { useNotifications } from '@/state/notifications.ts'
-import { empty, isHeldBack, isSnapshotTab, reduce, released } from '@/state/workspace.ts'
+import { empty, isHeldBack, isSnapshotTab, reduce, released, type Action } from '@/state/workspace.ts'
+import { editorBuffers, hasChanges, saveBuffer } from '@/state/editors.ts'
+import type { MessageKey } from '@/i18n/index.ts'
 import { emptyHistory, step, visit, type History } from '@/state/history.ts'
 import { isSession, keyOfEntry, sessionOf, type Session } from '@/state/session.ts'
 import { reopenSession, showHidden, sortDescending, sortKey, svgView } from '@/state/setting.ts'
@@ -15,7 +17,7 @@ import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx
 import { shownSource } from '@/state/fileLanguage.ts'
 import { LanguagePicker } from './LanguagePicker.tsx'
 import { QuickOpen } from './QuickOpen.tsx'
-import { forgetReads } from '@/views/FileView.tsx'
+import { forgetRead, forgetReads } from '@/views/FileView.tsx'
 import { useTheme } from '@/theme/theme.ts'
 import { readFrameMessage, wheelSteps } from '@core/frameScript.ts'
 import { pruneZooms, stepTabZoom, tabZoomOf } from '@/state/tabZoom.ts'
@@ -26,6 +28,7 @@ import { fileTarget } from '@/find/types.ts'
 import { shownText } from '@/state/shown.ts'
 import { AboutDialog } from '@/components/AboutDialog.tsx'
 import { OpenWithDialog } from '@/components/OpenWithDialog.tsx'
+import { ChoiceDialog } from '@/components/ChoiceDialog.tsx'
 import { ConfirmDialog } from '@/components/ConfirmDialog.tsx'
 import { MoveDialog } from '@/components/MoveDialog.tsx'
 import { PropertiesDialog } from '@/components/PropertiesDialog.tsx'
@@ -55,7 +58,24 @@ export function Workbench() {
   const sortBy = sortKey.use()
   const sortBackwards = sortDescending.use()
   const { notifications, notify, dismiss } = useNotifications()
-  const [ws, dispatch] = useReducer(reduce, empty)
+  const [ws, rawDispatch] = useReducer(reduce, empty)
+  const wsNow = useRef(ws)
+  wsNow.current = ws
+  // What is asked before something closes tabs that have changes not saved (the action waits for the answer), the file that changed on disk when it was saved, and the window closing.
+  const [unsavedAsk, setUnsavedAsk] = useState<{ keys: string[]; action: Action } | null>(null)
+  const [conflict, setConflict] = useState<string | null>(null)
+  const [quitAsk, setQuitAsk] = useState(false)
+  const [reloads, setReloads] = useState<Record<string, number>>({})
+  /** The actions that close tabs ask first when a tab has changes that are not saved; the others go through. */
+  const dispatch = useCallback((action: Action) => {
+    if (action.type === 'close' || action.type === 'close-others' || action.type === 'close-right' || action.type === 'close-all' || action.type === 'root-closed') {
+      const before = wsNow.current
+      const after = new Set(reduce(before, action).tabs.map((tab) => tab.key))
+      const keys = before.tabs.filter((tab) => !after.has(tab.key) && before.dirty[tab.key]).map((tab) => tab.key)
+      if (keys.length) return setUnsavedAsk({ keys, action })
+    }
+    rawDispatch(action)
+  }, [])
   const [sideBarVisible, setSideBarVisible] = useState(() => readStored('sideBarVisible', true, isBoolean))
   const [sideBarWidth, setSideBarWidth] = useState(() => readStored('sideBarWidth', SIDE_BAR_WIDTH, isNumber))
   const [view, setView] = useState<ViewId>('snapshots')
@@ -397,10 +417,81 @@ export function Workbench() {
     }
   }, [zoomTab, zoomWheel])
 
+  // ---- editing: saving a text to its file, what is asked when the file changed on disk or when tabs with changes close, and what the window does
+  const saveKey = useCallback(
+    async (key: string, overwrite = false): Promise<boolean> => {
+      const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
+      if (!api || !tab || tab.path === undefined) return false
+      const name = basename(tab.path)
+      const result = await saveBuffer(api, tab.snapshotId, tab.path, key, overwrite)
+      if (result.ok) {
+        // What was read of the file before is old now (a formatted page or a table of the same file).
+        forgetRead(tab.snapshotId, tab.path)
+        const buffer = editorBuffers.get(key)
+        rawDispatch({ type: 'dirty', key, dirty: buffer ? hasChanges(buffer) : false })
+        return true
+      }
+      // Someone else changed the file since it was read: the user chooses (overwrite, or load what is there).
+      if (result.error === 'changed') setConflict(key)
+      else notify({ level: 'error', text: t('edit.saveFailed', { name, reason: t(`edit.error.${result.error}` as MessageKey) }) })
+      return false
+    },
+    [api, notify, t],
+  )
+  const saveKeys = useCallback(
+    async (keys: string[]): Promise<boolean> => {
+      for (const key of keys) if (!(await saveKey(key))) return false
+      return true
+    },
+    [saveKey],
+  )
+  /** Throws away the changes of a tab and reads the file again. */
+  const reloadKey = useCallback((key: string) => {
+    const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
+    editorBuffers.delete(key)
+    if (tab?.path !== undefined) forgetRead(tab.snapshotId, tab.path)
+    rawDispatch({ type: 'dirty', key, dirty: false })
+    setReloads((all) => ({ ...all, [key]: (all[key] ?? 0) + 1 }))
+  }, [])
+  const saveBufferAs = useCallback(
+    (name: string, text: string, options: { eol: 'lf' | 'crlf' | 'cr'; bom: boolean }) => {
+      void api?.edit.saveAs(name, text, options).then((result) => {
+        if (result.saved) notify({ level: 'info', text: t('edit.saved', { name: basename(result.path) }) })
+        else if (result.reason === 'error') notify({ level: 'error', text: t('edit.saveFailed', { name, reason: result.message ?? t('edit.error.failed') }) })
+      })
+    },
+    [api, notify, t],
+  )
+  const dirtyKeys = Object.keys(ws.dirty)
+  // The tabs with changes are counted for the window, which asks before it closes; and the text of a tab that is gone is let go.
+  useEffect(() => {
+    api?.setUnsaved(dirtyKeys.length)
+  }, [api, dirtyKeys.length])
+  useEffect(() => api?.onCloseRequested(() => setQuitAsk(true)), [api])
+  useEffect(() => {
+    editorBuffers.keep(new Set(ws.tabs.map((tab) => tab.key)))
+  }, [ws.tabs])
+
+  // On Linux a click of the middle button pastes the selection of the system where the focus is: a middle click on a tab (to close it) or anywhere else must not paste into the
+  // editor that has the focus. Only a middle click in an editable place (the editor itself, a field) keeps its meaning.
+  useEffect(() => {
+    const onMiddle = (event: MouseEvent) => {
+      if (event.button !== 1) return
+      const editable = (node: EventTarget | null) => node instanceof Element && node.closest('input, textarea, [contenteditable="true"]') !== null
+      if (!editable(event.target)) event.preventDefault()
+    }
+    window.addEventListener('mousedown', onMiddle, true)
+    window.addEventListener('mouseup', onMiddle, true)
+    window.addEventListener('auxclick', onMiddle, true)
+    return () => {
+      window.removeEventListener('mousedown', onMiddle, true)
+      window.removeEventListener('mouseup', onMiddle, true)
+      window.removeEventListener('auxclick', onMiddle, true)
+    }
+  }, [])
+
   // ---- commands: from the menu, from the keyboard, and from the native menu of macOS
   const cycle = useRef<{ list: string[]; at: number } | null>(null)
-  const wsNow = useRef(ws)
-  wsNow.current = ws
   const run = useCallback(
     (command: CommandName | 'cycleEnd' | 'showAbout' | 'copy' | 'savePdf' | 'saveAsWsnp') => {
       const current = wsNow.current
@@ -420,6 +511,8 @@ export function Workbench() {
       if (command === 'goBack') return go(-1)
       if (command === 'goForward') return go(1)
       if (command === 'find') return canFind(current) ? setFind((f) => ({ open: true, token: f.token + 1 })) : undefined
+      if (command === 'save') return current.active && current.dirty[current.active] ? void saveKey(current.active) : undefined
+      if (command === 'saveAll') return Object.keys(current.dirty).length ? void saveKeys(Object.keys(current.dirty)) : undefined
       if (command === 'closeEditor') return current.active ? dispatch({ type: 'close', key: current.active }) : undefined
       if (command === 'nextEditor') return dispatch({ type: 'step', direction: 1 })
       if (command === 'previousEditor') return dispatch({ type: 'step', direction: -1 })
@@ -442,7 +535,7 @@ export function Workbench() {
         if (tab) dispatch({ type: 'activate', key: tab.key })
       }
     },
-    [api, handleResults, toggleSideBar, copySelection, printTab, savePdfTab, saveConverted, go, zoomTab],
+    [api, handleResults, toggleSideBar, copySelection, printTab, savePdfTab, saveConverted, go, zoomTab, saveKey, saveKeys],
   )
 
   useEffect(() => {
@@ -519,6 +612,10 @@ export function Workbench() {
       clearRecent: () => void api?.recent.clear().then(refreshRecent),
       closeEditor: () => run('closeEditor'),
       closeAll: () => dispatch({ type: 'close-all' }),
+      save: () => run('save'),
+      saveAll: () => run('saveAll'),
+      canSave: Boolean(ws.active && ws.dirty[ws.active]),
+      canSaveAll: Object.keys(ws.dirty).length > 0,
       nextEditor: () => run('nextEditor'),
       previousEditor: () => run('previousEditor'),
       openSettings: () => run('openSettings'),
@@ -550,6 +647,8 @@ export function Workbench() {
     const after = reduce(wsNow.current, action).tabs
     const keys = before.flatMap((tab, i) => (after[i] && after[i].key !== tab.key ? [[tab.key, after[i].key] as const] : []))
     dispatch(action)
+    // The text of a tab that is renamed goes with it (changes not saved, undo history).
+    for (const [old, now] of keys) editorBuffers.move(old, now)
     if (keys.length) {
       setZooms((all) => {
         const next = { ...all }
@@ -699,7 +798,7 @@ export function Workbench() {
               <SideBar ws={ws} dispatch={dispatch} actions={sideBarActions} places={placesData} treeVersion={treeVersion} />
             </Allotment.Pane>
             <Allotment.Pane minSize={200}>
-              <EditorGroup zooms={zooms} onZoom={(change) => ('wheel' in change ? zoomWheel(change.wheel) : zoomTab(change.direction === 'in' ? 1 : change.direction === 'out' ? -1 : 0))} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onOpenWith={openWith} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
+              <EditorGroup reloads={reloads} onSaveTab={(key) => void saveKey(key)} onSaveBufferAs={saveBufferAs} onChanged={(key, changed) => rawDispatch({ type: 'dirty', key, dirty: changed })} zooms={zooms} onZoom={(change) => ('wheel' in change ? zoomWheel(change.wheel) : zoomTab(change.direction === 'in' ? 1 : change.direction === 'out' ? -1 : 0))} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onOpenWith={openWith} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
             </Allotment.Pane>
           </Allotment>
         </div>
@@ -732,6 +831,81 @@ export function Workbench() {
               setTreeVersion((n) => n + 1)
             })
           }}
+        />
+      ) : null}
+      {unsavedAsk ? (
+        <ChoiceDialog
+          title={t('edit.unsavedTitle')}
+          message={unsavedAsk.keys.length === 1 ? t('edit.unsavedOne', { name: basename(ws.tabs.find((tab) => tab.key === unsavedAsk.keys[0])?.path ?? '') }) : t('edit.unsavedMany', { count: unsavedAsk.keys.length })}
+          onCancel={() => setUnsavedAsk(null)}
+          choices={[
+            {
+              label: t('edit.saveAndClose'),
+              primary: true,
+              run: () => {
+                const ask = unsavedAsk
+                setUnsavedAsk(null)
+                void saveKeys(ask.keys).then((all) => all && rawDispatch(ask.action))
+              },
+            },
+            {
+              label: t('edit.dontSave'),
+              run: () => {
+                const ask = unsavedAsk
+                setUnsavedAsk(null)
+                rawDispatch(ask.action)
+              },
+            },
+          ]}
+        />
+      ) : null}
+      {conflict ? (
+        <ChoiceDialog
+          title={t('edit.conflictTitle')}
+          message={t('edit.conflictMessage', { name: basename(ws.tabs.find((tab) => tab.key === conflict)?.path ?? '') })}
+          onCancel={() => setConflict(null)}
+          choices={[
+            {
+              label: t('edit.overwrite'),
+              run: () => {
+                const key = conflict
+                setConflict(null)
+                void saveKey(key, true)
+              },
+            },
+            {
+              label: t('edit.reload'),
+              run: () => {
+                const key = conflict
+                setConflict(null)
+                reloadKey(key)
+              },
+            },
+          ]}
+        />
+      ) : null}
+      {quitAsk ? (
+        <ChoiceDialog
+          title={t('edit.quitTitle')}
+          message={dirtyKeys.length === 1 ? t('edit.unsavedOne', { name: basename(ws.tabs.find((tab) => tab.key === dirtyKeys[0])?.path ?? '') }) : t('edit.unsavedMany', { count: dirtyKeys.length })}
+          onCancel={() => setQuitAsk(false)}
+          choices={[
+            {
+              label: t('edit.saveAll'),
+              primary: true,
+              run: () => {
+                setQuitAsk(false)
+                void saveKeys(Object.keys(wsNow.current.dirty)).then((all) => all && api?.leave())
+              },
+            },
+            {
+              label: t('edit.dontSave'),
+              run: () => {
+                setQuitAsk(false)
+                api?.leave()
+              },
+            },
+          ]}
         />
       ) : null}
       {deleting ? (

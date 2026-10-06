@@ -7,6 +7,7 @@ import type { ByteRange } from './archive/reader.ts'
 import { ZIP_LIMIT } from './filekind.ts'
 import { isHidden } from './fs/hidden.ts'
 import { resolveInside } from './fs/guard.ts'
+import { readForEdit, saveEdited, type EditOpen, type EditSave, type FileVersion, type LineEnding } from './fs/edit.ts'
 import { copyEntry, createEntry, moveEntry, removeEntry, renameEntry, type OpResult } from './fs/ops.ts'
 import { sortEntries } from './fs/sort.ts'
 import { INNER, MAX_DEPTH, partsOf } from './vpath.ts'
@@ -294,6 +295,18 @@ export class RootRegistry {
   move(id: string, name: string, toFolder: string): Promise<OpResult> {
     const root = this.writable(id)
     return root ? this.changed(id, moveEntry(root.real, name, toFolder)) : Promise.resolve({ ok: false, error: 'unsupported' })
+  }
+
+  /** A file of a folder root to be edited: its text and what it was like (not inside a ZIP, in a ZIP root, in the trash, nor a snapshot). */
+  edit(id: string, name: string): Promise<EditOpen> {
+    const root = this.writable(id)
+    return root ? readForEdit(root.real, name) : Promise.resolve({ ok: false, error: 'unsupported' })
+  }
+
+  /** The edited text of a file, written whole and atomically (and only if the disk still has what was read, unless `overwrite`). */
+  saveEdit(id: string, name: string, text: string, base: FileVersion, options: { eol: LineEnding; bom: boolean; overwrite?: boolean }): Promise<EditSave> {
+    const root = this.writable(id)
+    return root ? saveEdited(root.real, name, text, base, options) : Promise.resolve({ ok: false, error: 'unsupported' })
   }
 
   /** A copy in a folder of the root (numbered when the name is taken: nothing is replaced). */

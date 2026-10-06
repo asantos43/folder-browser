@@ -7,7 +7,7 @@ export interface KeyLike {
   alt?: boolean
 }
 
-export type CommandName = 'toggleSideBar' | 'openFile' | 'openFolder' | 'toggleHidden' | 'find' | 'print' | 'quickOpen' | 'commandPalette' | 'goBack' | 'goForward' | 'openSettings' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'closeEditor' | 'nextEditor' | 'previousEditor' | 'cycleRecent' | 'cycleRecentBack' | 'goToTab1' | 'goToTab2' | 'goToTab3' | 'goToTab4' | 'goToTab5' | 'goToTab6' | 'goToTab7' | 'goToTab8' | 'goToTab9'
+export type CommandName = 'toggleSideBar' | 'openFile' | 'openFolder' | 'toggleHidden' | 'find' | 'print' | 'quickOpen' | 'commandPalette' | 'goBack' | 'goForward' | 'openSettings' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'closeEditor' | 'save' | 'saveAll' | 'nextEditor' | 'previousEditor' | 'cycleRecent' | 'cycleRecentBack' | 'goToTab1' | 'goToTab2' | 'goToTab3' | 'goToTab4' | 'goToTab5' | 'goToTab6' | 'goToTab7' | 'goToTab8' | 'goToTab9'
 
 /**
  * VS Code's shortcuts for the commands the viewer has (docs/UI-DESIGN.md, "Behaviour taken from VS Code"): Ctrl on Windows
@@ -34,6 +34,7 @@ export function commandFor(e: KeyLike, mac: boolean): CommandName | null {
       // Show or hide the hidden files, as a file manager's Ctrl+H does.
       if (key === 'h') return 'toggleHidden'
       if (key === 'f') return 'find'
+      if (key === 's') return 'save'
       if (key === 'p') return 'print'
       if (key === 'w') return 'closeEditor'
       if (key === 'PageDown') return 'nextEditor'
@@ -41,6 +42,8 @@ export function commandFor(e: KeyLike, mac: boolean): CommandName | null {
       if (mac && /^[1-9]$/.test(key)) return `goToTab${key}` as CommandName
     }
   }
+  // Save All: Ctrl+Alt+S (in VS Code it is a chord, which the viewer has no way to wait for).
+  if (mod && e.alt && !e.shift && key === 's') return 'saveAll'
   // Ctrl+Tab goes through the tabs in the order they were used, on every system, Control (not Command) as in VS Code.
   if (e.control && !e.meta && !e.alt && key === 'Tab') return e.shift ? 'cycleRecentBack' : 'cycleRecent'
   if (!mac && e.alt && !e.control && !e.meta && !e.shift && /^[1-9]$/.test(key)) return `goToTab${key}` as CommandName

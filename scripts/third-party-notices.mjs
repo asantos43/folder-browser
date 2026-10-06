@@ -14,7 +14,7 @@ const OUT = path.join(root, 'THIRD-PARTY-NOTICES.md')
 // What the application imports (src/, electron/, core/); everything they need is found through their own dependencies.
 const ROOTS = [
   'react', 'react-dom', 'allotment', '@vscode/codicons', 'pdfjs-dist', 'yauzl', 'yazl', 'parse5',
-  '@codemirror/state', '@codemirror/view', '@codemirror/language', '@codemirror/lang-json', '@codemirror/lang-html',
+  '@codemirror/state', '@codemirror/view', '@codemirror/language', '@codemirror/commands', '@codemirror/autocomplete', '@codemirror/lang-json', '@codemirror/lang-html',
   '@codemirror/lang-css', '@codemirror/lang-javascript', '@codemirror/lang-xml', '@codemirror/lang-markdown', '@codemirror/lang-yaml', '@lezer/highlight', 'js-beautify',
   // The libraries that draw office documents (src/docs/): each is built into a script of its own.
   'docx-preview', '@aiden0z/pptx-renderer', '@opendocument/odr-core',

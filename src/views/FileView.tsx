@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import { basename } from '@/lib/format.ts'
 import { fileLanguage, shownSource } from '@/state/fileLanguage.ts'
+import { editorBuffers } from '@/state/editors.ts'
 import { csvView, markdownView, svgView } from '@/state/setting.ts'
 import { MarkdownToggle, MarkdownView } from './MarkdownView.tsx'
 import { SvgToggle } from './SvgToggle.tsx'
@@ -10,6 +11,7 @@ import { TextView } from './TextView.tsx'
 import { FontView } from './FontView.tsx'
 import { ImageView } from './ImageView.tsx'
 import { CsvToggle, CsvView } from './CsvView.tsx'
+import { EditView } from './EditView.tsx'
 import { OtherView } from './OtherView.tsx'
 import { HEX_WHOLE_LIMIT, HexView, RangeHexView } from './HexView.tsx'
 import { PdfView } from './PdfView.tsx'
@@ -37,6 +39,14 @@ function remember(key: string, bytes: Uint8Array): void {
     recentlyRead.delete(old)
     cached -= value.length
   }
+}
+/** A file was written: what was read of it is old. */
+export function forgetRead(snapshotId: string, path: string): void {
+  const key = `${snapshotId}:${path}`
+  const bytes = recentlyRead.get(key)
+  if (!bytes) return
+  recentlyRead.delete(key)
+  cached -= bytes.length
 }
 /** A snapshot was closed: what was read from it goes (its id is never used again, so this only frees the memory). */
 export function forgetReads(snapshotId?: string): void {
@@ -67,7 +77,7 @@ function useLate(ms: number): boolean {
 }
 
 /** The tab of one file of a snapshot: source, picture or font when it can be shown, and a way to save it when it cannot. */
-export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onHex, onOpenWith, findToken = 0, onViewEntry, onNotify, zoom = 1 }: { /** Hands the file to another application, by the chooser of this app. */ onOpenWith?: () => void; /** Counts up at each Find (`Ctrl+F`): a view with a search of its own (hexadecimal) takes the focus there. */ findToken?: number; /** Opens the file as its bytes (hexadecimal), in a tab of its own: offered on what is not shown. */ onHex: () => void; /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
+export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onHex, onOpenWith, edit, findToken = 0, onViewEntry, onNotify, zoom = 1 }: { /** The file is a text of a folder that was opened: it is edited (it is a text, and is not shown as a page or a table). */ edit?: { rootId: string; tabKey: string; dirty: boolean; onSave: () => void; onSaveAs: (text: string, options: { eol: 'lf' | 'crlf' | 'cr'; bom: boolean }) => void; onChanged: (key: string, changed: boolean) => void };  /** Hands the file to another application, by the chooser of this app. */ onOpenWith?: () => void; /** Counts up at each Find (`Ctrl+F`): a view with a search of its own (hexadecimal) takes the focus there. */ findToken?: number; /** Opens the file as its bytes (hexadecimal), in a tab of its own: offered on what is not shown. */ onHex: () => void; /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
   const { t } = useI18n()
   const key = `${snapshotId}:${path}`
   // A file of no known type (an entry of a ZIP with an extension the viewer has never heard of) is read and looked at: if it is text, it is shown as text.
@@ -122,7 +132,10 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
     else setSniffed(undefined)
   }, [probe, loaded])
 
-  const text = useMemo(() => (kind === 'text' && loaded.state === 'ready' ? new TextDecoder('utf-8').decode(loaded.bytes) : ''), [kind, loaded])
+  // What the editor has (changes not saved too) is what a formatted page or a table of the same file shows.
+  const buffer = edit ? editorBuffers.get(edit.tabKey) : undefined
+  const doc = buffer?.state.doc
+  const text = useMemo(() => (doc ? doc.toString() : kind === 'text' && loaded.state === 'ready' ? new TextDecoder('utf-8').decode(loaded.bytes) : ''), [kind, loaded, doc])
 
   // A ZIP is listed by the main process, which keeps it: nothing is read into the interface.
   if (kind === 'zip') return <ZipView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} onView={onViewEntry} onNotify={onNotify} />
@@ -138,7 +151,12 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   if (delimited && csvAs === 'table') return <CsvView text={text} name={name} tab={/\.tsv$/i.test(path)} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} />
   // A Markdown file is a page and its text: the toolbar of either has the switch to the other.
   if (kind === 'text' && language === 'markdown' && markdownAs === 'formatted') return <MarkdownView text={text} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} />
-  if (kind === 'text') return <TextView text={text} language={language} size={size} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} leading={svg ? <SvgToggle /> : language === 'markdown' ? <MarkdownToggle /> : delimited ? <CsvToggle /> : undefined} />
+  if (kind === 'text') {
+    const leading = svg ? <SvgToggle /> : language === 'markdown' ? <MarkdownToggle /> : delimited ? <CsvToggle /> : undefined
+    const readOnly = (notice?: string) => <TextView text={text} language={language} size={size} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} leading={leading} notice={notice} />
+    if (!edit) return readOnly()
+    return <EditView tabKey={edit.tabKey} rootId={edit.rootId} path={path} language={language} zoom={zoom} onSave={edit.onSave} onSaveAs={edit.onSaveAs} onOpenWith={onOpenWith} onHex={onHex} onChanged={edit.onChanged} dirty={edit.dirty} leading={leading} fallback={(reason) => readOnly(t(reason))} />
+  }
   if (kind === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType={effectiveType(mediaType, path)} name={name} onSave={onSave} />
   if (kind === 'pdf') return <PdfView id={`${snapshotId}:${path}`} bytes={loaded.bytes} name={name} onSave={onSave} />
   return <FontView bytes={loaded.bytes} />

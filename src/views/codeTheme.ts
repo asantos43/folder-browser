@@ -34,9 +34,11 @@ import { shell } from '@codemirror/legacy-modes/mode/shell'
 import { swift } from '@codemirror/legacy-modes/mode/swift'
 import { toml } from '@codemirror/legacy-modes/mode/toml'
 import { xml } from '@codemirror/lang-xml'
-import { bracketMatching, HighlightStyle, StreamLanguage, syntaxHighlighting } from '@codemirror/language'
+import { closeBrackets } from '@codemirror/autocomplete'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { bracketMatching, HighlightStyle, indentOnInput, StreamLanguage, syntaxHighlighting } from '@codemirror/language'
 import { Compartment, EditorState, type Extension } from '@codemirror/state'
-import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
+import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view'
 import { tags as t } from '@lezer/highlight'
 import type { Language } from '@core/filekind.ts'
 import { findExtension } from '@/find/code.ts'
@@ -135,6 +137,34 @@ const languages: Record<Language, () => Extension> = {
 
 /** Word wrap can be switched on and off without making the editor again (the scroll stays where it is). */
 export const wrapping = new Compartment()
+
+/** The language of an editor can change (the status bar's Select Language Mode) without making it again: the text, the undo history and the place stay. */
+export const languageSlot = new Compartment()
+/** Where an editor's listener of changes is put when the tab shows it (it is another one each time the tab is shown, so it is not part of the state that is kept). */
+export const listenerSlot = new Compartment()
+export const languageExtension = (language: Language): Extension => languages[language]()
+
+/** The extensions of an editor of a file in `language`: what the read-only view has, and a caret, a selection, undo, indenting and the usual keys. */
+export const editableExtensions = (language: Language, wrap: boolean): Extension[] => [
+  wrapping.of(wrap ? EditorView.lineWrapping : []),
+  EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
+  history(),
+  drawSelection(),
+  indentOnInput(),
+  closeBrackets(),
+  lineNumbers(),
+  highlightActiveLine(),
+  highlightActiveLineGutter(),
+  bracketMatching(),
+  syntaxHighlighting(highlight),
+  theme,
+  // The caret is drawn (the read-only view hides it), and the selection is the theme's.
+  EditorView.theme({ '.cm-content': { caretColor: 'var(--vscode-editorCursor-foreground, var(--vscode-editor-foreground))' }, '.cm-cursor': { borderLeftColor: 'var(--vscode-editorCursor-foreground, var(--vscode-editor-foreground))' } }),
+  keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+  findExtension,
+  languageSlot.of(languageExtension(language)),
+  listenerSlot.of([]),
+]
 
 /** The extensions of a read-only view of a file in `language`. */
 export const readOnlyExtensions = (language: Language, wrap: boolean): Extension[] => [

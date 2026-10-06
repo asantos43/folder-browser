@@ -16,7 +16,7 @@ import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './To
  * out for reading, which a saved page badly needs, as against as they were saved), **Word Wrap** (Alt+Z) and Save As, and the language and the
  * number of lines. Both switches are settings of the whole application, kept on this computer.
  */
-export function TextView({ text, language, size, onSave, onOpenWith, onHex, leading, zoom = 1 }: { text: string; language: Language; size: number; onSave: () => void; onOpenWith?: () => void; onHex?: () => void; /** Buttons at the start of the toolbar (the SVG's switch to the picture). */ leading?: ReactNode; /** The zoom of this tab: the text is drawn at that scale. */ zoom?: number }) {
+export function TextView({ text, language, size, onSave, onOpenWith, onHex, leading, notice, zoom = 1 }: { /** Why this file is shown and not edited (a file of a folder that cannot be edited). */ notice?: string; text: string; language: Language; size: number; onSave: () => void; onOpenWith?: () => void; onHex?: () => void; /** Buttons at the start of the toolbar (the SVG's switch to the picture). */ leading?: ReactNode; /** The zoom of this tab: the text is drawn at that scale. */ zoom?: number }) {
   const { t } = useI18n()
   const wrap = wordWrap.use()
   const formatOn = formatSetting.use()
@@ -79,6 +79,7 @@ export function TextView({ text, language, size, onSave, onOpenWith, onHex, lead
         <SaveButton label={t('file.saveAs')} onClick={onSave} />
         <FileActions onOpenWith={onOpenWith} onHex={onHex} />
         <span className="ml-auto flex items-center gap-3 pr-1 text-[12px] text-fg-muted">
+          {notice ? <span>{notice}</span> : null}
           {status ? <span aria-live="polite">{status}</span> : null}
           <span>{t('text.lines', { count: lines })}</span>
           <span>{t(`text.language.${language}` as MessageKey)}</span>

@@ -31,6 +31,12 @@ export interface Commands {
   clearRecent: () => void
   closeEditor: () => void
   closeAll: () => void
+  /** Saves the text file on screen, or all that have unsaved changes. */
+  save: () => void
+  saveAll: () => void
+  /** The tab on screen has unsaved changes; some tab has. */
+  canSave: boolean
+  canSaveAll: boolean
   nextEditor: () => void
   previousEditor: () => void
   showMetadata: () => void
@@ -94,6 +100,9 @@ export const MENUS: MenuDef[] = [
           { id: 'clear', label: t('menu.clearRecent'), disabled: !c.recent.length, run: c.clearRecent },
         ],
       },
+      { separator: true },
+      { id: 'save', label: t('menu.save'), shortcut: shortcut('Ctrl+S'), disabled: !c.canSave, run: c.save },
+      { id: 'saveAll', label: t('menu.saveAll'), shortcut: shortcut('Ctrl+Alt+S'), disabled: !c.canSaveAll, run: c.saveAll },
       { separator: true },
       { id: 'saveAsWsnp', label: t('menu.saveAsWsnp'), disabled: !c.canSaveWsnp, run: c.saveAsWsnp },
       { id: 'savePdf', label: t('menu.savePdf'), disabled: !c.canPrint, run: c.savePdf },
