@@ -124,7 +124,10 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [x] `@codemirror/merge` in `DiffView`: side by side and in one column, with the colours of each file's language and of the theme; changes counted, Previous / Next Change (`F7`, `Shift+F7`), Swap Sides, Collapse Unchanged; line endings are not compared (and the toolbar says when they differ); files that are not UTF-8 text, or over 5 MB, are refused with the reason
 - [x] **Drag to compare**: a text file of the tree dropped on another text file, or a tab dropped in the middle of another text tab, asks **Open Side by Side**, **Compare (Diff)** or Cancel (`ChoiceDialog`); a drop on a folder, a file that is not a text, or with Shift (a copy) is as before
 - [x] **Two editor groups** (`Tab.group`, `Workspace.focus` / `other`, `move-to-group`; `src/state/groups.ts`): a tab can be split to the right (tab menu **Split Right**, **Move to Left / Right Group**), or dragged, or a file of the tree dragged, to the right half of the editor (with two groups: to the one the pointer is over); each group has its own tabs, tab in front, Find, language and print; the second ends when it has no tab; the layout is kept for the next start
-- [ ] More than two groups, a split below, resizing and `Ctrl+1` / `Ctrl+2` to go to a group; dragging a tab to the tree or out of the window; the same file in two groups at once (a tab is one file today, so it moves)
+- [ ] More than two editor groups, and a split below (a grid of groups)
+- [ ] Resize the groups by dragging their edge and remember the sizes; `Ctrl+1` / `Ctrl+2` to go to a group, and a command to split from the keyboard
+- [ ] Drag a tab to the tree or out of the window; the same file in two groups at once (a tab is one file today, so it moves)
+- [ ] Some unit tests (`HexEditView`, `DiffView`, the About window of `Workbench.open`) fail at random when the whole suite runs under load, and pass alone: give them room (`waitFor` timeouts) or run the suite with fewer workers
 - [ ] Ctrl+click to select two rows of the tree (the tree has no multiple selection yet), and Compare from a tab's menu
 - [ ] Compare a text with the unsaved changes of its tab (today a side is the file as it is on disk), and a file of a snapshot as a side
 - [ ] Edit in the diff (accept or reject a change), and a diff of two folders
