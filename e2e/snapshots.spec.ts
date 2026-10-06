@@ -337,7 +337,7 @@ test('closing tabs: Ctrl+W, the × button, the middle click, the context menu; t
   await tabs(page).nth(1).hover()
   await tabs(page).nth(1).getByRole('button', { name: 'Close' }).click()
   expect(await tabNames(page)).toEqual(['B'])
-  await expect(page.getByRole('option')).toHaveCount(1)
+  await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
   await page.keyboard.press('ControlOrMeta+W')
   await expect(tabs(page)).toHaveCount(0)
   await expect(page.getByText('Open a folder, a ZIP or a .wsnp file to start')).toBeVisible()

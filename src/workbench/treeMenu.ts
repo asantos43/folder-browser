@@ -1,7 +1,7 @@
 import type { DirEntry, RootInfo } from '@core/api.ts'
 
 /** What a row of the tree can offer. The menu of each kind of row is a list of these (and separators); the tree gives each its label and what it does. */
-export type TreeAction = 'toggle' | 'refresh' | 'open' | 'openAsList' | 'openSnapshot' | 'openAsZip' | 'openWith' | 'openDefault' | 'save' | 'reveal' | 'copyPath' | 'copyName' | 'properties'
+export type TreeAction = 'restore' | 'addFavorite' | 'toggle' | 'refresh' | 'open' | 'openAsList' | 'openSnapshot' | 'openAsZip' | 'openWith' | 'openDefault' | 'save' | 'reveal' | 'copyPath' | 'copyName' | 'properties'
 export type TreeMenuItem = TreeAction | 'separator'
 
 /**
@@ -9,18 +9,19 @@ export type TreeMenuItem = TreeAction | 'separator'
  * every other file opens in a tab. Every file, whatever it is, can be opened in another application (**Open With…**, and the default one), saved, shown in its folder
  * and have its path copied; those are the last group of the menu. (Editing, comparing and playing join the lists as those phases land.)
  */
-export function treeMenuFor(entry: Pick<DirEntry, 'kind'>): TreeMenuItem[] {
+export function treeMenuFor(entry: Pick<DirEntry, 'kind'>, context: { /** The folder can be pinned to the favourites: a folder of the disk. */ canPin?: boolean; /** A top-level row of the trash: it can be put back. */ trashItem?: boolean } = {}): TreeMenuItem[] {
+  const restore: TreeMenuItem[] = context.trashItem ? ['restore', 'separator'] : []
   const where: TreeMenuItem[] = ['reveal', 'copyPath', 'copyName', 'separator', 'properties']
   const application: TreeMenuItem[] = ['openWith', 'openDefault', 'save', 'separator']
   switch (entry.kind) {
     case 'dir':
-      return ['toggle', 'refresh', 'separator', ...where]
+      return [...restore, 'toggle', 'refresh', ...(context.canPin ? (['addFavorite'] as const) : []), 'separator', ...where]
     case 'zip':
-      return ['toggle', 'openAsList', 'separator', ...application, ...where]
+      return [...restore, 'toggle', 'openAsList', 'separator', ...application, ...where]
     case 'wsnp':
-      return ['openSnapshot', 'openAsZip', 'separator', ...application, ...where]
+      return [...restore, 'openSnapshot', 'openAsZip', 'separator', ...application, ...where]
     default:
-      return ['open', 'separator', ...application, ...where]
+      return [...restore, 'open', 'separator', ...application, ...where]
   }
 }
 

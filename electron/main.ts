@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { app, BrowserWindow } from 'electron'
+import { FavoriteFolders } from '../core/favorites.ts'
 import { RecentFiles } from '../core/recent.ts'
 import { SessionStore } from '../core/session-store.ts'
 import { SignerStore } from '../core/signers.ts'
@@ -44,7 +45,7 @@ if (process.argv.includes('--app-version')) {
   })
 
   app.whenReady().then(async () => {
-    host = new SnapshotHost(new RecentFiles(path.join(app.getPath('userData'), 'recent-files.json')), new SignerStore(path.join(app.getPath('userData'), 'trusted-signers.json')), new SessionStore(path.join(app.getPath('userData'), 'session.json')))
+    host = new SnapshotHost(new RecentFiles(path.join(app.getPath('userData'), 'recent-files.json')), new SignerStore(path.join(app.getPath('userData'), 'trusted-signers.json')), new SessionStore(path.join(app.getPath('userData'), 'session.json')), { recentFolders: new RecentFiles(path.join(app.getPath('userData'), 'recent-folders.json')), favorites: new FavoriteFolders(path.join(app.getPath('userData'), 'favorites.json')) })
     host.registerIpc(() => win)
     void host.sweepOldCopies()
     win = createMainWindow(host)

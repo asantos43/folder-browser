@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AppInfo, ExtractResult, IntegrityEvent, OpenResult, ListResult, OpenWithResult, PrintResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
+import type { AppInfo, ExtractResult, IntegrityEvent, OpenResult, ListResult, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
 
 /** What the interface may ask of the main process: nothing else crosses the boundary (core/api.ts). */
 const on = <T>(channel: string, listener: (value: T) => void) => {
@@ -51,6 +51,18 @@ const api: FbApi = {
   copyText: (text) => ipcRenderer.invoke('fb:copy', text) as Promise<void>,
   reveal: (id, path) => ipcRenderer.invoke('fb:reveal', id, path) as Promise<void>,
   session: { load: () => ipcRenderer.invoke('fb:session-load') as Promise<unknown>, save: (value) => ipcRenderer.invoke('fb:session-save', value) as Promise<void> },
+  places: {
+    list: () => ipcRenderer.invoke('fb:places-list') as Promise<PlacesData>,
+    openTrash: () => ipcRenderer.invoke('fb:places-open-trash') as Promise<OpenResult[]>,
+    addFavorite: (rootId, path) => ipcRenderer.invoke('fb:favorites-add', rootId, path) as Promise<boolean>,
+    removeFavorite: (folder) => ipcRenderer.invoke('fb:favorites-remove', folder) as Promise<void>,
+    moveFavorite: (folder, to) => ipcRenderer.invoke('fb:favorites-move', folder, to) as Promise<void>,
+    clearRecentFolders: () => ipcRenderer.invoke('fb:recent-folders-clear') as Promise<void>,
+  },
+  trash: {
+    restore: (rootId, name) => ipcRenderer.invoke('fb:trash-restore', rootId, name) as Promise<RestoreResult>,
+    empty: (rootId) => ipcRenderer.invoke('fb:trash-empty', rootId) as Promise<number>,
+  },
   recent: { list: () => ipcRenderer.invoke('fb:recent-list') as Promise<string[]>, clear: () => ipcRenderer.invoke('fb:recent-clear') as Promise<void> },
 }
 

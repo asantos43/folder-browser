@@ -62,6 +62,7 @@ validated. New: `list-dir`, `stat`, `read-file`, `write-file`, `create-file`, `c
 
 ## Places and favourites
 
+*(Built in phase 1d: `core/places.ts`, `core/favorites.ts`, `core/trash.ts`, `electron/places-ipc.ts`, `src/workbench/PlacesView.tsx`.)* 
 The side bar starts with a **Places** section: Home, Desktop, Documents, Downloads, Music, Pictures, Videos, Trash, Computer, mounted volumes, **Recent Folders** and the folders the user pinned (**Favourites**). A click is the user's choice, so
 the folder becomes an authorised root; the app never authorises a folder on its own. Dragging files onto a place moves them there. Favourites and recent folders are kept in `favorites.json` and `recent-folders.json` in the app's folder (written whole, then renamed, like `session.json`).
 

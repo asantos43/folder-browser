@@ -10,6 +10,7 @@ import { extractSelection, type ExtractResult } from '../core/extract.ts'
 import { FRAME_SCRIPT } from '../core/frameScript.ts'
 import { BINARY_LIMIT, effectiveType, viewKind } from '../core/filekind.ts'
 import { imageDocument, textDocument } from '../core/printHtml.ts'
+import type { FavoriteFolders } from '../core/favorites.ts'
 import { isPageKeepZip } from '../core/convert/pagekeep.ts'
 import type { RecentFiles } from '../core/recent.ts'
 import { RootRegistry } from '../core/roots.ts'
@@ -22,6 +23,7 @@ import { launchWith, linuxChoices, makeDefault, openWithDefault, openWithSystem 
 import { pdfOf, printContents, usingHtml } from './print.ts'
 import { removeStaged, removeStagedSync, stageFile, sweepStaged } from '../core/stage.ts'
 import { SCHEME, SnapshotView } from './snapshot-view.ts'
+import { registerPlacesIpc } from './places-ipc.ts'
 import { UI_ORIGIN } from './ui-protocol.ts'
 
 const WEB_LINK = /^(https?|mailto):/i
@@ -51,6 +53,8 @@ export class SnapshotHost {
   private listening = false
 
   private readonly recent: RecentFiles
+  private readonly recentFolders: RecentFiles
+  private readonly favorites: FavoriteFolders
   private readonly signers: SignerStore
   private readonly openExternal: (url: string) => void
 
@@ -58,8 +62,10 @@ export class SnapshotHost {
   startup: Promise<unknown> = Promise.resolve()
   private readonly session: SessionStore
 
-  constructor(recent: RecentFiles, signers: SignerStore, session: SessionStore, openExternal: (url: string) => void = (url) => void shell.openExternal(url)) {
+  constructor(recent: RecentFiles, signers: SignerStore, session: SessionStore, places: { recentFolders: RecentFiles; favorites: FavoriteFolders }, openExternal: (url: string) => void = (url) => void shell.openExternal(url)) {
     this.recent = recent
+    this.recentFolders = places.recentFolders
+    this.favorites = places.favorites
     this.signers = signers
     this.session = session
     this.openExternal = openExternal
@@ -179,13 +185,14 @@ export class SnapshotHost {
     return outcome
   }
 
-  private async openRoot(target: string): Promise<OpenResult> {
-    const opened = await this.roots.openPath(target)
+  private async openRoot(target: string, options: { trash?: boolean } = {}): Promise<OpenResult> {
+    const opened = await this.roots.openPath(target, options)
     if ('error' in opened) {
       const why = { 'not-found': 'It is not there.', 'not-supported': 'It is neither a folder nor a ZIP file.', 'too-large': 'The ZIP is too large to browse here.', 'not-zip': 'It is not a ZIP file.', denied: 'It cannot be read: the permission is missing.' }[opened.error]
       return { ok: false, path: target, issues: [{ code: 'read-error', path: path.basename(target) || target, detail: why }], omitted: 0 }
     }
     this.recent.add(opened.root.path)
+    if (!options.trash) this.recentFolders.add(opened.root.path)
     return { ok: true, root: opened.root, already: opened.already }
   }
 
@@ -585,6 +592,7 @@ export class SnapshotHost {
     })
     handle('fb:session-load', () => this.session.load())
     handle('fb:session-save', (_win, value: unknown) => this.session.save(value))
+    registerPlacesIpc(handle, { roots: this.roots, favorites: this.favorites, recentFolders: this.recentFolders, openRoot: (target, options) => this.openRoot(target, options) })
     handle('fb:recent-list', () => this.recent.list())
     handle('fb:recent-clear', () => this.recent.clear())
   }

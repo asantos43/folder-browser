@@ -17,12 +17,12 @@ const disk: Record<string, ListResult> = {
   locked: { error: 'denied' },
 }
 
-function show({ showHidden = false, activePath, refreshToken = 0, lists = disk }: { showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult> } = {}) {
+function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false }: { showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean } = {}) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
-  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn() }
+  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn() }
   const tree = (props: { showHidden: boolean; activePath?: string; refreshToken: number }) => (
     <I18nProvider language="en">
-      <ExplorerTree actions={actions} {...props} />
+      <ExplorerTree rootId="r1" rootKind={kind} trash={trash} actions={actions} {...props} />
     </I18nProvider>
   )
   const view = render(tree({ showHidden, activePath, refreshToken }))
@@ -170,6 +170,42 @@ describe('ExplorerTree', () => {
     show()
     await waitFor(() => expect(names()).toHaveLength(4))
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'docs' }))
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Expand', 'Refresh', 'Reveal in File Manager', 'Copy Path', 'Copy Name', 'Properties'])
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Expand', 'Refresh', 'Add to Favorites', 'Reveal in File Manager', 'Copy Path', 'Copy Name', 'Properties'])
+  })
+  it('pins a folder from its menu, and a folder of a ZIP, or of a ZIP root, cannot be pinned', async () => {
+    const { pin } = show()
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'docs' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add to Favorites' }))
+    expect(pin).toHaveBeenCalledWith('docs')
+    fireEvent.click(screen.getByRole('treeitem', { name: 'pack.zip' }))
+    await waitFor(() => expect(names()).toContain('src'))
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'src' }))
+    expect(screen.queryByRole('menuitem', { name: 'Add to Favorites' })).toBeNull()
+    cleanup()
+    show({ kind: 'zip', lists: { '': { entries: [entry('inner', 'dir')], truncated: false } } })
+    await screen.findByRole('treeitem', { name: 'inner' })
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'inner' }))
+    expect(screen.queryByRole('menuitem', { name: 'Add to Favorites' })).toBeNull()
+  })
+  it('makes only the folders of the disk draggable to the favourites, with the root and the path', async () => {
+    show()
+    await waitFor(() => expect(names()).toHaveLength(4))
+    expect(screen.getByRole('treeitem', { name: 'docs' }).getAttribute('draggable')).toBe('true')
+    expect(screen.getByRole('treeitem', { name: 'a.txt' }).getAttribute('draggable')).toBe('false')
+    const set = vi.fn()
+    fireEvent.dragStart(screen.getByRole('treeitem', { name: 'docs' }), { dataTransfer: { setData: set } })
+    expect(set).toHaveBeenCalledWith('application/x-folder-browser-folder', JSON.stringify({ rootId: 'r1', path: 'docs' }))
+  })
+  it('offers Restore on the top-level rows of the trash and nowhere else', async () => {
+    const { restore } = show({ trash: true, lists: { '': { entries: [entry('old.txt', 'file'), entry('folder', 'dir')], truncated: false }, folder: { entries: [entry('in.txt', 'file', 'folder')], truncated: false } } })
+    await screen.findByRole('treeitem', { name: 'old.txt' })
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'old.txt' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Restore' }))
+    expect(restore).toHaveBeenCalledWith('old.txt')
+    fireEvent.click(screen.getByRole('treeitem', { name: 'folder' }))
+    await screen.findByRole('treeitem', { name: 'in.txt' })
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'in.txt' }))
+    expect(screen.queryByRole('menuitem', { name: 'Restore' })).toBeNull()
   })
 })

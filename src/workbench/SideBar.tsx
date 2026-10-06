@@ -1,4 +1,4 @@
-import type { DirEntry, ListResult, RootInfo } from '@core/api.ts'
+import type { DirEntry, ListResult, Place, PlacesData, RootInfo } from '@core/api.ts'
 import { useState, type ReactNode } from 'react'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
@@ -6,6 +6,7 @@ import { basename } from '@/lib/format.ts'
 import { showHidden } from '@/state/setting.ts'
 import { isSnapshotTab, snapshotKey, type Action, type Workspace } from '@/state/workspace.ts'
 import { ExplorerTree } from './ExplorerTree.tsx'
+import { PlacesView } from './PlacesView.tsx'
 import { FileTree } from './FileTree.tsx'
 import { InfoPanel } from './InfoPanel.tsx'
 import { IntegrityPanel } from './IntegrityPanel.tsx'
@@ -35,6 +36,13 @@ export interface SideBarActions {
   openRootFile: (rootId: string, entry: Pick<DirEntry, 'path' | 'size'>, keep: boolean) => void
   reveal: (rootId: string, path: string) => void
   closeRoot: (rootId: string) => void
+  openPlace: (place: Place) => void
+  removeFavorite: (folder: string) => void
+  moveFavorite: (folder: string, to: number) => void
+  clearRecentFolders: () => void
+  pinFolder: (rootId: string, path: string) => void
+  restoreTrash: (rootId: string, path: string) => void
+  emptyTrash: (rootId: string) => void
   openDefault: (rootId: string, path: string) => void
   properties: (root: RootInfo, entry: DirEntry) => void
   /** A `.wsnp` of a folder, as a snapshot. */
@@ -48,7 +56,7 @@ export interface SideBarActions {
 }
 
 /** The side bar of the Snapshots view: the open snapshots, the files of the selected one, what its manifest says and what its integrity check found. */
-export function SideBar({ ws, dispatch, actions, signers }: { ws: Workspace; dispatch: (a: Action) => void; actions: SideBarActions; signers: Signers }) {
+export function SideBar({ ws, dispatch, actions, signers, places, treeVersion }: { /** The places of the side bar, once the main process has listed them. */ places: PlacesData | null; /** Changes when something outside the tree changed what it lists (the trash was emptied). */ treeVersion: number; ws: Workspace; dispatch: (a: Action) => void; actions: SideBarActions; signers: Signers }) {
   const { t } = useI18n()
   const ids = ws.tabs.filter(isSnapshotTab).map((tab) => tab.snapshotId)
   const selected = ws.selected ? ws.snapshots[ws.selected] : undefined
@@ -65,6 +73,13 @@ export function SideBar({ ws, dispatch, actions, signers }: { ws: Workspace; dis
     <aside aria-label={t('sidebar.snapshots')} className="flex h-full flex-col overflow-hidden bg-sidebar text-sidebar-fg">
       <h2 className="m-0 flex h-[35px] shrink-0 items-center pl-5 text-[11px] font-normal uppercase text-sidebar-title">{t('sidebar.snapshots')}</h2>
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <Section title={t('places.title')}>
+          <PlacesView
+            data={places}
+            activePath={root?.path}
+            actions={{ open: actions.openPlace, removeFavorite: actions.removeFavorite, moveFavorite: actions.moveFavorite, clearRecent: actions.clearRecentFolders, pin: actions.pinFolder }}
+          />
+        </Section>
         <Section
           title={t('sidebar.openFolders')}
           actions={
@@ -168,6 +183,11 @@ export function SideBar({ ws, dispatch, actions, signers }: { ws: Workspace; dis
           actions={
             root ? (
               <>
+                {root.trash ? (
+                  <button type="button" title={t('tree.emptyTrash')} aria-label={t('tree.emptyTrash')} onClick={() => actions.emptyTrash(root.id)} className={iconButton}>
+                    <Icon name="trash" className="text-[16px]" />
+                  </button>
+                ) : null}
                 <button type="button" title={hidden ? t('tree.hideHidden') : t('menu.showHidden')} aria-label={hidden ? t('tree.hideHidden') : t('menu.showHidden')} aria-pressed={hidden} onClick={() => showHidden.set(!hidden)} className={iconButton}>
                   <Icon name={hidden ? 'eye' : 'eye-closed'} className="text-[16px]" />
                 </button>
@@ -181,9 +201,12 @@ export function SideBar({ ws, dispatch, actions, signers }: { ws: Workspace; dis
           {root ? (
             <ExplorerTree
               key={root.id}
+              rootId={root.id}
+              rootKind={root.kind}
+              trash={root.trash === true}
               activePath={activePath}
               showHidden={hidden}
-              refreshToken={refreshToken}
+              refreshToken={refreshToken + treeVersion}
               actions={{
                 listDir: (path) => actions.listDir(root.id, path),
                 open: (entry, keep) => actions.openRootFile(root.id, entry, keep),
@@ -191,6 +214,8 @@ export function SideBar({ ws, dispatch, actions, signers }: { ws: Workspace; dis
                 openWith: (path) => actions.openWith(root.id, path),
                 openDefault: (path) => actions.openDefault(root.id, path),
                 properties: (entry) => actions.properties(root, entry),
+                pin: (path) => actions.pinFolder(root.id, path),
+                restore: (path) => actions.restoreTrash(root.id, path),
                 save: (path) => actions.saveFile(root.id, path),
                 copy: actions.copy,
                 reveal: (path) => actions.reveal(root.id, path),

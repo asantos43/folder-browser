@@ -110,7 +110,7 @@ test('closing the folder takes its tabs with it', async () => {
   const page = await launch(work)
   await item(page, 'a.txt').dblclick()
   await expect(page.getByRole('tab')).toHaveCount(1)
-  await page.getByRole('option', { name: 'work' }).hover()
+  await page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option', { name: 'work' }).hover()
   await page.getByRole('button', { name: 'Close Folder' }).click()
   await expect(page.getByRole('tab')).toHaveCount(0)
   await expect(page.getByText('No folder is open.')).toBeVisible()
@@ -127,7 +127,7 @@ test('a .wsnp of the folder opens as a snapshot with a double click, as the view
   await expect(page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option')).toHaveCount(1)
   await expect(page.frameLocator('iframe[title="Snapshot: Harbor Times"]').locator('#ext')).toBeVisible()
   // Opened again, it is the same snapshot: its tab comes to the front, no second one.
-  await page.getByRole('option', { name: 'work' }).click()
+  await page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option', { name: 'work' }).click()
   await item(page, 'harbor.wsnp').dblclick()
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
 })

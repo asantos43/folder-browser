@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n/context.tsx'
 import type { MessageKey } from '@/i18n/index.ts'
 import { fileIcon } from '@/lib/icons.ts'
 import type { MenuEntry } from '@/components/Menu.tsx'
+import { FOLDER_DRAG } from './PlacesView.tsx'
 import { treeMenuFor, type TreeAction } from './treeMenu.ts'
 
 type Listing = { state: 'loading' } | { state: 'ready'; entries: DirEntry[]; truncated: boolean } | { state: 'error'; error: Extract<ListResult, { error: string }>['error'] }
@@ -34,6 +35,10 @@ export interface ExplorerActions {
   openDefault: (path: string) => void
   properties: (entry: DirEntry) => void
   save: (path: string) => void
+  /** Pins a folder to the favourites. */
+  pin: (path: string) => void
+  /** Puts a top-level row of the trash back. */
+  restore: (path: string) => void
   copy: (text: string) => void
   reveal: (path: string) => void
 }
@@ -43,7 +48,7 @@ export interface ExplorerActions {
  * not read until it is opened). A ZIP opens like a folder, also inside a ZIP. Clicks and keys are as in the tree of a snapshot: a click opens a preview tab, a double click (or
  * Enter) keeps it, arrows move, typing jumps to a name. Hidden files are listed but shown only when `showHidden` says so, so the switch needs no new request.
  */
-export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: { activePath?: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
+export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, refreshToken, actions }: { rootId: string; rootKind: 'folder' | 'zip'; /** The root is the trash: its top-level rows can be put back. */ trash: boolean; activePath?: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
   const { t } = useI18n()
   const [listings, setListings] = useState<Record<string, Listing>>({})
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
@@ -179,12 +184,16 @@ export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: 
     event.preventDefault()
   }
 
+  /** A folder of the disk (not one inside a ZIP, nor of a ZIP root) can be pinned. */
+  const pinnable = (entry: DirEntry) => entry.kind === 'dir' && rootKind === 'folder' && !entry.path.includes('!/')
   const contextMenu = (event: MouseEvent, entry: DirEntry) => {
     event.preventDefault()
     setFocused(entry.path)
     const expanded = open.has(entry.path)
     const item = (action: TreeAction): MenuEntry => {
       switch (action) {
+        case 'restore': return { id: action, label: t('tree.restore'), run: () => actions.restore(entry.path) }
+        case 'addFavorite': return { id: action, label: t('tree.addFavorite'), run: () => actions.pin(entry.path) }
         case 'toggle': return { id: action, label: expanded ? t('tree.collapse') : t('tree.expand'), run: () => toggle(entry.path) }
         case 'refresh': return { id: action, label: t('tree.refresh'), run: () => { asked.current.delete(entry.path); load(entry.path) } }
         case 'open': return { id: action, label: t('tree.open'), run: () => actions.open(entry, true) }
@@ -200,7 +209,7 @@ export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: 
         case 'properties': return { id: action, label: t('tree.properties'), run: () => actions.properties(entry) }
       }
     }
-    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
+    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), trashItem: trash && !entry.path.includes('/') }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
   }
 
   const current = focused ?? entries[0]?.entry.path
@@ -232,6 +241,12 @@ export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: 
               onFocus={() => setFocused(entry.path)}
               onClick={() => (expandable ? toggle(entry.path) : entry.kind === 'wsnp' ? setFocused(entry.path) : actions.open(entry, false))}
               onDoubleClick={() => (entry.kind === 'wsnp' ? actions.openSnapshot(entry) : !expandable && actions.open(entry, true))}
+              draggable={pinnable(entry)}
+              onDragStart={(e) => {
+                if (!pinnable(entry)) return
+                e.dataTransfer.setData(FOLDER_DRAG, JSON.stringify({ rootId, path: entry.path }))
+                e.dataTransfer.effectAllowed = 'link'
+              }}
               onContextMenu={(e) => contextMenu(e, entry)}
               title={entry.link ? `${entry.path} (${t('tree.linkOutside')})` : entry.path}
               style={{ paddingLeft: 8 + depth * 8 }}

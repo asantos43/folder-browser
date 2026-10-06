@@ -1,5 +1,7 @@
 import type { ExtractResult } from './extract.ts'
+import type { PlacesData } from './places.ts'
 import type { ListResult, RootInfo } from './roots.ts'
+import type { RestoreResult } from './trash.ts'
 import type { SnapshotInfo } from './snapshots.ts'
 import type { ZipEntryInfo } from './zip.ts'
 import type { IntegrityReport, Issue } from './validate/index.ts'
@@ -17,6 +19,8 @@ export type IntegrityEvent = { id: string; state: 'running'; done: number; total
 
 export type ZipList = { entries: ZipEntryInfo[]; truncated: boolean } | { error: 'no-snapshot' | 'no-file' | 'too-large' | 'not-zip' }
 export type { DirEntry, ListResult, RootInfo } from './roots.ts'
+export type { Place, PlacesData, PlaceKind } from './places.ts'
+export type { RestoreResult } from './trash.ts'
 export type { ExtractResult, ZipEntryInfo }
 /** What to print: the page of a snapshot, a picture of it, or a text (as the tab shows it). */
 export type PrintRequest = { kind: 'snapshot'; id: string } | { kind: 'image'; id: string; path: string } | { kind: 'html'; id: string; path: string } | { kind: 'text'; title: string; text: string; /** The name of the file, for the PDF's. */ name?: string }
@@ -129,6 +133,19 @@ export interface FbApi {
   /** Shows the snapshot's file, or a file of a root (the ZIP that holds it, for an entry of a ZIP), in the system's file manager. */
   reveal(id: string, path?: string): Promise<void>
   recent: { list(): Promise<string[]>; clear(): Promise<void> }
+  /** The side bar's places: the well-known folders, the volumes, the folders opened lately and the ones the user pinned. */
+  places: {
+    list(): Promise<PlacesData>
+    /** Opens the trash as a root (on Windows, the system's Recycle Bin opens instead and nothing is returned). */
+    openTrash(): Promise<OpenResult[]>
+    /** Pins a folder of a root (`path` is relative to it). False when it is not a folder of the disk, or the list is full. */
+    addFavorite(rootId: string, path: string): Promise<boolean>
+    removeFavorite(folder: string): Promise<void>
+    moveFavorite(folder: string, to: number): Promise<void>
+    clearRecentFolders(): Promise<void>
+  }
+  /** Of a root that is the trash: puts an item (a top-level row) back where it was, or deletes everything in it for good. */
+  trash: { restore(rootId: string, name: string): Promise<RestoreResult>; empty(rootId: string): Promise<number> }
   /** The tabs open at the end of the last session (names only), kept by the main process; `save(null)` forgets. */
   session: { load(): Promise<unknown>; save(value: unknown): Promise<void> }
 }

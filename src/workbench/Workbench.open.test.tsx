@@ -51,6 +51,8 @@ function fakeApi(initial: OpenResult[] = []) {
     appInfo: vi.fn(async () => ({ name: 'Folder Browser', version: '1.2.3', electron: '44.5.0', chrome: '152.0', node: '24.1.0', platform: 'linux', arch: 'x64', licence: 'MIT', notices: '# Third-party notices\n\nreact 19 MIT' })),
     reveal: vi.fn(async (_id: string) => {}),
     recent: { list: vi.fn(async () => ['/home/me/a.wsnp']), clear: vi.fn(async () => {}) },
+    places: { list: vi.fn(async () => ({ places: [], volumes: [], recent: [], favorites: [] })), openTrash: vi.fn(async () => []), addFavorite: vi.fn(async () => true), removeFavorite: vi.fn(async () => {}), moveFavorite: vi.fn(async () => {}), clearRecentFolders: vi.fn(async () => {}) },
+    trash: { restore: vi.fn(async () => ({ restored: '/x' })), empty: vi.fn(async () => 0) },
     session: { load: vi.fn(async () => storedSession), save: vi.fn(async (value: unknown) => void (storedSession = value)) },
     signers: { list: vi.fn(async (): Promise<Record<string, { name?: string }>> => ({})), trust: vi.fn(async (_fingerprint: string, _name?: string) => {}), forget: vi.fn(async (_fingerprint: string) => {}) },
   }

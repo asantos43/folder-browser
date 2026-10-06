@@ -1,4 +1,4 @@
-import type { Chooser, DirEntry, OpenResult, OpenWithResult, RootInfo, SaveResult } from '@core/api.ts'
+import type { Chooser, DirEntry, OpenResult, OpenWithResult, Place, PlacesData, RootInfo, SaveResult } from '@core/api.ts'
 import { commandFor, type CommandName } from '@core/shortcuts.ts'
 import { Allotment } from 'allotment'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
@@ -26,6 +26,7 @@ import { fileTarget } from '@/find/types.ts'
 import { shownText } from '@/state/shown.ts'
 import { AboutDialog } from '@/components/AboutDialog.tsx'
 import { OpenWithDialog } from '@/components/OpenWithDialog.tsx'
+import { ConfirmDialog } from '@/components/ConfirmDialog.tsx'
 import { PropertiesDialog } from '@/components/PropertiesDialog.tsx'
 import { locationOf } from './treeMenu.ts'
 import { LinkTooltip, type LinkHover } from '@/components/LinkTooltip.tsx'
@@ -68,6 +69,9 @@ export function Workbench() {
   const [zooms, setZooms] = useState<Record<string, number>>({})
   const [chooser, setChooser] = useState<Chooser | null>(null)
   const [properties, setProperties] = useState<{ entry: DirEntry; location: string } | null>(null)
+  const [placesData, setPlacesData] = useState<PlacesData | null>(null)
+  const [treeVersion, setTreeVersion] = useState(0)
+  const [emptying, setEmptying] = useState<string | null>(null)
   const [pageMenu, setPageMenu] = useState<ContextMenuState | null>(null)
   const [linkHover, setLinkHover] = useState<LinkHover | null>(null)
   // The session is written only once the last one has been read back.
@@ -95,6 +99,8 @@ export function Workbench() {
 
   // ---- opening files: the picker, the recent list, a drop, and what the system asks for
   const refreshRecent = useCallback(() => void api?.recent.list().then(setRecent), [api])
+  const refreshPlaces = useCallback(() => void api?.places.list().then(setPlacesData), [api])
+  useEffect(refreshPlaces, [refreshPlaces])
   const handleResults = useCallback(
     (results: OpenResult[]) => {
       for (const result of results) {
@@ -108,9 +114,12 @@ export function Workbench() {
           if (!result.already) void api?.verify(result.snapshot.id)
         }
       }
-      if (results.length) refreshRecent()
+      if (results.length) {
+        refreshRecent()
+        refreshPlaces()
+      }
     },
-    [api, notify, refreshRecent, t],
+    [api, notify, refreshRecent, refreshPlaces, t],
   )
   /** Opens again the snapshots of a session, and the tabs in them in the order they had; a file that is gone is said, the rest still opens. */
   const restore = useCallback(
@@ -526,6 +535,24 @@ export function Workbench() {
       closeRoot: (id: string) => dispatch({ type: 'root-closed', id }),
       openDefault: (id: string, path: string) => void api?.openDefault(id, path).then((result) => reportOpenWith(basename(path), result)),
       properties: (root: RootInfo, entry: DirEntry) => setProperties({ entry, location: locationOf(root, entry.path, platform() === 'win32' ? '\\' : '/') }),
+      openPlace: (place: Place) => void (place.kind === 'trash' ? api?.places.openTrash() : api?.openPaths([place.path]))?.then(handleResults),
+      removeFavorite: (folder: string) => void api?.places.removeFavorite(folder).then(refreshPlaces),
+      moveFavorite: (folder: string, to: number) => void api?.places.moveFavorite(folder, to).then(refreshPlaces),
+      clearRecentFolders: () => void api?.places.clearRecentFolders().then(refreshPlaces),
+      pinFolder: (id: string, path: string) =>
+        void api?.places.addFavorite(id, path).then((ok) => {
+          if (ok) refreshPlaces()
+          else notify({ level: 'info', text: t('places.pinFailed') })
+        }),
+      restoreTrash: (id: string, path: string) =>
+        void api?.trash.restore(id, path).then((result) => {
+          if ('restored' in result) notify({ level: 'info', text: t('trash.restored', { path: result.restored }) })
+          else if (result.error === 'exists') notify({ level: 'error', text: t('trash.errorExists', { name: path }) })
+          else if (result.error === 'unknown-origin') notify({ level: 'error', text: t('trash.errorOrigin', { name: path }) })
+          else notify({ level: 'error', text: t('trash.errorFailed', { name: path, message: result.message ?? result.error }) })
+          setTreeVersion((n) => n + 1)
+        }),
+      emptyTrash: (id: string) => setEmptying(id),
       openSnapshot: (id: string, path: string) => void api?.openInRoot(id, path).then(handleResults),
       openTreeFile: (snapshotId: string, path: string, keep: boolean) => dispatch({ type: 'open-file', snapshotId, path, keep }),
       saveFile,
@@ -534,7 +561,7 @@ export function Workbench() {
       openExternal,
       showMetadata: (snapshotId: string) => dispatch({ type: 'open-metadata', snapshotId }),
     }),
-    [run, api, saveFile, openWith, copy, openExternal, handleResults, reportOpenWith],
+    [run, api, saveFile, openWith, copy, openExternal, handleResults, reportOpenWith, refreshPlaces, notify, t],
   )
 
   return (
@@ -556,7 +583,7 @@ export function Workbench() {
         <div className="min-w-0 flex-1">
           <Allotment onChange={(sizes) => sizes[0] && sideBarVisible && (setSideBarWidth(sizes[0]), writeStored('sideBarWidth', Math.round(sizes[0])))}>
             <Allotment.Pane preferredSize={sideBarWidth} minSize={170} maxSize={640} visible={sideBarVisible} snap>
-              <SideBar ws={ws} dispatch={dispatch} actions={sideBarActions} signers={signers} />
+              <SideBar ws={ws} dispatch={dispatch} actions={sideBarActions} signers={signers} places={placesData} treeVersion={treeVersion} />
             </Allotment.Pane>
             <Allotment.Pane minSize={200}>
               <EditorGroup zooms={zooms} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
@@ -581,6 +608,23 @@ export function Workbench() {
           if (ws.selected) dispatch({ type: 'activate', key: ws.tabs.find((tab) => tab.snapshotId === ws.selected && isSnapshotTab(tab))?.key ?? snapshotKey(ws.selected) })
         }}
       />
+      {emptying ? (
+        <ConfirmDialog
+          title={t('trash.emptyTitle')}
+          message={t('trash.emptyMessage')}
+          confirmLabel={t('tree.emptyTrash')}
+          danger
+          onCancel={() => setEmptying(null)}
+          onConfirm={() => {
+            const id = emptying
+            setEmptying(null)
+            void api?.trash.empty(id).then((count) => {
+              notify({ level: 'info', text: t('trash.emptied', { count }) })
+              setTreeVersion((n) => n + 1)
+            })
+          }}
+        />
+      ) : null}
       {properties ? <PropertiesDialog entry={properties.entry} location={properties.location} onClose={() => setProperties(null)} /> : null}
       {about ? <AboutDialog info={about.info} onClose={() => setAbout(null)} onOpenExternal={openExternal} onCopy={copy} /> : null}
       {pickingLanguage && shownFile ? <LanguagePicker file={shownFile} onClose={() => setPickingLanguage(false)} /> : null}

@@ -155,6 +155,27 @@ describe('a .wsnp', () => {
   })
 })
 
+describe('what the side bar needs of a root', () => {
+  it('names a folder of the disk to pin, and not a file, a folder of a ZIP, a ZIP root or what leaves the root', async () => {
+    const { root } = (await roots.openPath(dir)) as { root: { id: string } }
+    const real = fs.realpathSync(dir)
+    expect(await roots.diskDir(root.id, '')).toBe(real)
+    expect(await roots.diskDir(root.id, 'docs/deep')).toBe(path.join(real, 'docs', 'deep'))
+    expect(await roots.diskDir(root.id, 'a.txt')).toBeNull()
+    expect(await roots.diskDir(root.id, 'pack.zip!/src')).toBeNull()
+    expect(await roots.diskDir(root.id, '../')).toBeNull()
+    const zip = (await roots.openPath(path.join(dir, 'pack.zip'))) as { root: { id: string } }
+    expect(await roots.diskDir(zip.root.id, '')).toBeNull()
+  })
+  it('keeps a root as the trash, also when it was opened before', async () => {
+    const first = (await roots.openPath(dir)) as { root: { id: string; trash?: boolean } }
+    expect(first.root.trash).toBeUndefined()
+    const again = (await roots.openPath(dir, { trash: true })) as { root: { trash?: boolean }; already: boolean }
+    expect(again).toMatchObject({ already: true, root: { trash: true } })
+    expect(roots.info(first.root.id)?.trash).toBe(true)
+  })
+})
+
 describe('closing', () => {
   it('forgets the root, so its id answers nothing', async () => {
     const { root } = (await roots.openPath(dir)) as { root: { id: string } }

@@ -33,11 +33,12 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] **Open With…** on every file, with the installed applications (`core/apps.ts`, `OpenWithDialog`); a read-only copy for entries in a ZIP; also **Open with Default Application**, Show in Folder, Copy Path, Copy Name and Properties
 
 ## Phase 1d: places and favourites
-- [ ] "Places" section above the tree: Home, Desktop, Documents, Downloads, Music, Pictures, Videos (`app.getPath`), Computer, mounted volumes (`core/places.ts`)
-- [ ] Recent Folders (last 10 folders and ZIPs, can be cleared) and Favourites (add from the folder's context menu or by dragging; rename, reorder, remove)
-- [ ] Trash (`core/trash.ts`): list, restore, empty on Linux and macOS; opens the system Recycle Bin on Windows
-- [ ] Dragging files onto a place moves them there; onto Trash deletes (with confirmation)
-- [ ] A click on a place authorises that folder as a root (`core/fs/guard.ts`)
+- [x] "Places" section above the tree: Home, Desktop, Documents, Downloads, Music, Pictures, Videos (`app.getPath`), Trash, Computer, mounted volumes (`core/places.ts`, `PlacesView`)
+- [x] Recent Folders (last 10 folders and ZIPs, can be cleared) and Favourites (add from the folder's context menu or by dragging a folder onto them; reorder and remove; `core/favorites.ts`)
+- [ ] Rename a favourite (today a favourite is shown by the name of its folder)
+- [x] Trash (`core/trash.ts`): browse, Restore (never over what is there), Empty Trash (asks first: `ConfirmDialog`) on Linux and macOS; opens the system Recycle Bin on Windows (not tried: no Windows machine here)
+- [ ] Dragging files onto a place moves them there; onto Trash deletes (with confirmation): needs the file operations of phase 2
+- [x] A click on a place opens that folder as a root (the interface names roots by id; the main process never opens one on its own)
 
 ## Phase 1e: media playback
 - [ ] `filekind` gets `video` and `audio`; `MediaView` with play/pause, seek, volume, speed, loop, full screen, Next/Previous in the folder, Media Session keys

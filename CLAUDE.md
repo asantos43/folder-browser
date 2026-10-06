@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 It was **started from `~/Dev/AI/projetos/github/wsnp-viewer` 0.1.0** (a copy, not a fork: the history is not shared). The plan is in `TODO.md`; the design in `docs/ARCHITECTURE.md`. Releases: `.exe`, universal `.dmg`, `.deb`, `.rpm` (electron-builder; no AppImage).
 
-**Status:** phase 0 (scaffold) is done and phase 1 (browse a folder or a ZIP, hidden files) is done on branch `phase-1-browse`; the `.wsnp` in the tree (1b), Places (1d), media (1e), the context menu by kind (1c), file operations, the editor, the diff and ZIP editing are not written yet. Read `TODO.md` for what is next.
+**Status:** phase 0 (scaffold), phase 1 (browse a folder or a ZIP, hidden files), 1b (`.wsnp` in the tree), 1c (right-click menu, Open With…) and 1d (Places, favourites, trash) are done, each on its own branch (`phase-1-browse`, `phase-1b-wsnp`, `phase-1c-context-menu`, `phase-1d-places`, stacked: each is made on the one before); media (1e), file operations, the editor, the diff and ZIP editing are not written yet. Read `TODO.md` for what is next.
 
 ## Workflow
 
@@ -40,7 +40,7 @@ Node 22+ (CI uses 24, `.nvmrc`). `npm ci` first.
 
 ## Code layout
 
-- `core/`: plain TypeScript, **no Electron imports**, tested next to the code: `archive/` (yauzl reader, yazl writer), `zip.ts`, `extract.ts` (`safeRelative`), `vpath.ts` (the path `zip!/entry`, nested `a.zip!/b.zip!/c`), `tree.ts`, `filekind.ts`, `snapshots.ts`, `validate/`, `convert/`, `apps.ts`, `stage.ts`, `api.ts` (what the preload offers). `roots.ts` (the folders and ZIP files opened to browse: ids, `list`, `read`, `stream`, `zipAt`), `sources.ts` (a snapshot's id or a root's, behind one set of calls), `fs/` (`guard`, `hidden`, `sort`). To come: `fs/` (ops, writeAtomic), `archive/edit.ts`, `diff.ts`, `places.ts`, `trash.ts`.
+- `core/`: plain TypeScript, **no Electron imports**, tested next to the code: `archive/` (yauzl reader, yazl writer), `zip.ts`, `extract.ts` (`safeRelative`), `vpath.ts` (the path `zip!/entry`, nested `a.zip!/b.zip!/c`), `tree.ts`, `filekind.ts`, `snapshots.ts`, `validate/`, `convert/`, `apps.ts`, `stage.ts`, `api.ts` (what the preload offers). `roots.ts` (the folders and ZIP files opened to browse: ids, `list`, `read`, `stream`, `zipAt`), `places.ts` / `favorites.ts` / `trash.ts` (the side bar's places, the pinned folders, the trash), `sources.ts` (a snapshot's id or a root's, behind one set of calls), `fs/` (`guard`, `hidden`, `sort`). To come: `fs/` (ops, writeAtomic), `archive/edit.ts`, `diff.ts`, `places.ts`, `trash.ts`.
 - `electron/`: main process: `main.ts`, `window.ts`, `ui-protocol.ts` (`fb-ui://`), `snapshot-host.ts` (IPC and the snapshots), `snapshot-view.ts` (`wsnp://`), `preload.ts` (`window.fb`), `open-with.ts`, `print.ts`, `menu.ts`.
 - `src/`: the interface (React 19, Tailwind 4; `theme/tokens.css` is the only place with colours; `i18n/` en and pt-BR; `state/` the pure reducer of tabs; `views/`, `workbench/`, `find/`, `components/`).
 - `export/` (capture, PDF), `fixtures/` (synthetic builders), `e2e/`, `scripts/`, `docs/`, `build/` (icons, the Linux MIME file).
@@ -57,6 +57,7 @@ The interface scheme is `fb-ui://`; the preload exposes `window.fb` (`FbApi` in 
 - Move and rename never overwrite without asking, and never put a folder inside itself.
 - A `.wsnp` is read-only inside (editing would break its manifest and signature); the whole file can be renamed, moved, deleted.
 - A click on a Places item is what authorises that folder; the app never adds a root on its own. Media is served by an id (`fb-media://`), never by a path in the URL.
+- Roots and the places are named by id and by a path relative to the root; `fb:favorites-add` takes a root and a path, never a path of the disk. The e2e specs that need a home (`e2e/places.spec.ts`) give the app a made-up one with `HOME`, `XDG_DATA_HOME` and `XDG_CONFIG_HOME/user-dirs.dirs`. Some pointer-and-focus specs (`zoom` tooltips) fail now and then on a busy desktop and pass when run again: do not "fix" them by moving the pointer differently (that made them worse).
 - Open With… hands an application a copy (entries of a ZIP) or the file; the command is run without a shell, with `Exec` parsed from the `.desktop` file; the names that could run as programs are refused (`core/stage.ts`).
 
 ## Gotchas inherited from wsnp-viewer

@@ -26,6 +26,21 @@ describe('treeMenuFor', () => {
   })
 })
 
+describe('treeMenuFor with a context', () => {
+  it('offers to pin a folder of the disk, and only a folder', () => {
+    expect(treeMenuFor({ kind: 'dir' }, { canPin: true })).toContain('addFavorite')
+    expect(treeMenuFor({ kind: 'dir' })).not.toContain('addFavorite')
+    expect(treeMenuFor({ kind: 'file' }, { canPin: true })).not.toContain('addFavorite')
+  })
+  it('puts Restore first, for any row of the trash', () => {
+    for (const kind of ['dir', 'file', 'zip', 'wsnp'] as const) {
+      const items = treeMenuFor({ kind }, { trashItem: true })
+      expect(items.slice(0, 2), kind).toEqual(['restore', 'separator'])
+    }
+    expect(treeMenuFor({ kind: 'file' })).not.toContain('restore')
+  })
+})
+
 describe('locationOf', () => {
   it('writes the path of a folder root, of a file in a ZIP, and of an entry of a ZIP root', () => {
     expect(locationOf({ kind: 'folder', path: '/home/me/work' }, 'docs/a.txt', '/')).toBe('/home/me/work/docs/a.txt')

@@ -19,6 +19,8 @@ export interface RootInfo {
   /** The folder, or the ZIP file, on this computer. */
   path: string
   name: string
+  /** The trash of the system, opened from the side bar: its items can be put back and it can be emptied. */
+  trash?: boolean
 }
 
 /** A `.wsnp` file of the disk is its own kind: it opens as a snapshot (and, as a ZIP, as a list). */
@@ -73,11 +75,11 @@ export class RootRegistry {
   }
   info(id: string): RootInfo | undefined {
     const root = this.open.get(id)
-    return root && { id: root.id, kind: root.kind, path: root.path, name: root.name }
+    return root && { id: root.id, kind: root.kind, path: root.path, name: root.name, ...(root.trash ? { trash: true } : {}) }
   }
 
   /** Opens a folder, or a ZIP file, as a root. One that is open already is not opened twice. */
-  async openPath(target: string): Promise<OpenRootResult> {
+  async openPath(target: string, options: { trash?: boolean } = {}): Promise<OpenRootResult> {
     let real: string
     let stat: fs.Stats
     try {
@@ -88,7 +90,11 @@ export class RootRegistry {
     }
     const kind = stat.isDirectory() ? 'folder' : stat.isFile() && ZIP_NAME.test(real) ? 'zip' : null
     if (!kind) return { error: 'not-supported' }
-    for (const root of this.open.values()) if (root.real === real) return { root: this.info(root.id)!, already: true }
+    for (const root of this.open.values()) {
+      if (root.real !== real) continue
+      if (options.trash) root.trash = true
+      return { root: this.info(root.id)!, already: true }
+    }
     if (kind === 'folder') {
       try {
         await fsp.access(real, fs.constants.R_OK | fs.constants.X_OK)
@@ -96,7 +102,7 @@ export class RootRegistry {
         return { error: 'denied' }
       }
     }
-    const root: OpenRoot = { id: `r${crypto.randomBytes(8).toString('hex')}`, kind, path: target, real, name: path.basename(target) || target }
+    const root: OpenRoot = { id: `r${crypto.randomBytes(8).toString('hex')}`, kind, path: target, real, name: path.basename(target) || target, ...(options.trash ? { trash: true } : {}) }
     this.open.set(root.id, root)
     if (kind === 'zip') {
       // A ZIP that cannot be read is refused here, not when the tree first opens.
@@ -215,6 +221,15 @@ export class RootRegistry {
     const file = await resolveInside(root.real, name)
     const stat = file ? await fsp.stat(file).catch(() => undefined) : undefined
     return file && stat?.isFile() ? file : null
+  }
+
+  /** The folder of the disk that `name` is (`''` is the root), for pinning it: only in a folder root, and not a folder of a ZIP. */
+  async diskDir(id: string, name: string): Promise<string | null> {
+    const root = this.open.get(id)
+    if (!root || root.kind !== 'folder' || name.includes(INNER)) return null
+    const dir = await resolveInside(root.real, name)
+    const stat = dir ? await fsp.stat(dir).catch(() => undefined) : undefined
+    return dir && stat?.isDirectory() ? dir : null
   }
 
   /** The file on the disk that holds `name`: the file itself, or the outermost ZIP it is in. For "show in the folder". */
