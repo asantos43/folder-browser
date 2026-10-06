@@ -42,6 +42,12 @@ Isto vale para os arquivos e pastas de uma pasta que você abriu, e para o que h
 - **Nada é substituído.** Um nome já usado é recusado, com palavras, e o campo fica para você digitar outro. Um nome que nenhum arquivo pode ter (vazio, `.` ou `..`, com `/` ou `\`, caracteres de controle, mais de 255 bytes; no Windows também `< > : " | ? *`, os nomes que o sistema reserva como `CON` ou `NUL`, e um nome terminado em espaço ou ponto) é recusado antes de perguntar qualquer coisa. Uma pasta nunca é movida para dentro dela mesma. Nada sai da pasta que você abriu: um link simbólico é renomeado, movido ou apagado como o link, nunca o que ele aponta.
 - As **abas acompanham**: a aba de um arquivo renomeado ou movido (ou de um arquivo de uma pasta renomeada) mantém o lugar, o zoom e a visualização, com o nome novo, e a aba de um item apagado fecha.
 
+## Várias linhas, Recortar, Copiar e Colar
+
+- **Marcar várias linhas** na árvore: **Ctrl+clique** (`⌘+clique` no macOS) marca ou desmarca uma linha, **Shift+clique** marca tudo desde a linha em que você clicou por último até esta, **Shift+↑ / ↓** (também `Shift+Home` / `End`) estende as marcas a partir de onde começaram, e **Ctrl+A** (`⌘A`) marca todas as linhas da tela. As linhas marcadas ficam destacadas. Um clique com Ctrl ou Shift só marca (nada abre). Um clique simples, uma seta simples ou **Esc** soltam as marcas, e uma marca some com a sua linha (quando ela é apagada ou a pasta dela é fechada).
+- **Uma ação sobre uma linha marcada vale para todas**, de uma vez: **Apagar** (uma pergunta para todas; `Shift+Delete` pede o apagar definitivo), **Mover para…** (um seletor de pastas), **arrastar** uma delas para uma pasta (vão juntas; com **Shift** apertado são copiadas) e, para exatamente dois arquivos de texto, **Comparar os Selecionados**. O menu de clique direito de uma linha marcada vale para todas as marcadas e diz quantas são. Se uma pasta e algo dentro dela estão marcados, só a pasta recebe a ação. Quando algo não pode ser feito com algumas delas, uma mensagem diz quantas e o que deu errado primeiro; o resto é feito. Isto vale também dentro de um ZIP.
+- **Recortar, Copiar e Colar** (`Ctrl+X`, `Ctrl+C`, `Ctrl+V`; `⌘X`, `⌘C`, `⌘V` no macOS; também **Recortar**, **Copiar** e **Colar** no menu de clique direito de um arquivo, de uma pasta, de linhas marcadas e da parte vazia da árvore) valem para os arquivos e pastas da árvore: para as linhas marcadas, ou para a linha que tem o foco. **Colar** põe na pasta (ou arquivo ZIP) que tem o foco, ao lado do arquivo que o tem, ou na pasta de cima. Uma **cópia** colada é numerada quando o nome já existe (`a (2).txt`), então Copiar e Colar na mesma pasta faz uma duplicata, e nada é substituído; um **recorte** colado move, uma vez só, e as linhas recortadas ficam esmaecidas até lá. A área de transferência é a do próprio aplicativo (não toca a do sistema), vale na pasta que foi aberta e dentro de um ZIP, e entre duas pastas abertas, ou entre uma pasta e um ZIP, diz que ainda não pode. Num campo de nome e no editor as teclas são as de sempre.
+
 ## O que uma aba pode mostrar
 
 | Arquivo | O que você vê |
@@ -142,6 +148,8 @@ O arquivo é verificado quando abre, e de novo em segundo plano: a **estrutura**
 | Abrir Pasta / Abrir Arquivo | `Ctrl+Shift+O` / `Ctrl+O` | `⇧⌘O` / `⌘O` |
 | Mostrar arquivos ocultos | `Ctrl+H` | `⌘H` |
 | Renomear / Apagar o item da árvore | `F2` / `Delete` | `F2` / `Delete` |
+| Marcar várias linhas na árvore | `Ctrl+clique`, `Shift+clique`, `Shift+↑↓`, `Ctrl+A` | `⌘+clique`, `Shift+clique`, `Shift+↑↓`, `⌘A` |
+| Recortar / Copiar / Colar arquivos e pastas na árvore | `Ctrl+X` / `Ctrl+C` / `Ctrl+V` | `⌘X` / `⌘C` / `⌘V` |
 | Fechar a aba | `Ctrl+W` | `⌘W` |
 | Aba seguinte / anterior | `Ctrl+PageDown` / `Ctrl+PageUp` | `⌘PageDown` / `⌘PageUp` |
 | Pelas abas, a mais recente primeiro | `Ctrl+Tab`, `Ctrl+Shift+Tab` | `⌃Tab`, `⌃⇧Tab` |

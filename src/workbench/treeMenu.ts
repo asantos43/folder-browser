@@ -1,7 +1,7 @@
 import type { DirEntry, RootInfo } from '@core/api.ts'
 
 /** What a row of the tree can offer. The menu of each kind of row is a list of these (and separators); the tree gives each its label and what it does. */
-export type TreeAction = 'newFile' | 'newFolder' | 'rename' | 'moveTo' | 'delete' | 'play' | 'restore' | 'addFavorite' | 'toggle' | 'refresh' | 'open' | 'openAsList' | 'openSnapshot' | 'openAsZip' | 'openAsHex' | 'selectForCompare' | 'compareWithSelected' | 'openWith' | 'openDefault' | 'save' | 'reveal' | 'copyPath' | 'copyName' | 'properties'
+export type TreeAction = 'cut' | 'copyItems' | 'paste' | 'newFile' | 'newFolder' | 'rename' | 'moveTo' | 'delete' | 'play' | 'restore' | 'addFavorite' | 'toggle' | 'refresh' | 'open' | 'openAsList' | 'openSnapshot' | 'openAsZip' | 'openAsHex' | 'selectForCompare' | 'compareWithSelected' | 'openWith' | 'openDefault' | 'save' | 'reveal' | 'copyPath' | 'copyName' | 'properties'
 export type TreeMenuItem = TreeAction | 'separator'
 
 /**
@@ -9,9 +9,9 @@ export type TreeMenuItem = TreeAction | 'separator'
  * every other file opens in a tab. Every file, whatever it is, can be opened in another application (**Open With…**, and the default one), saved, shown in its folder
  * and have its path copied; those are the last group of the menu. A text file can be chosen as one side of a comparison (**Select for Compare**) and, once one is chosen, be compared with it.
  */
-export function treeMenuFor(entry: Pick<DirEntry, 'kind'>, context: { /** The folder can be pinned to the favourites: a folder of the disk. */ canPin?: boolean; /** A top-level row of the trash: it can be put back. */ trashItem?: boolean; /** The file is a video or a sound: it is played. */ media?: boolean; /** The item is on the disk, in a folder that was opened: it can be renamed, moved and deleted, and a folder can have files and folders made in it. */ writable?: boolean; /** The file is a text of a size that can be compared: it can be chosen as one side. */ comparable?: boolean; /** Another file was chosen as one side: this one can be the other. */ compareWithSelected?: boolean } = {}): TreeMenuItem[] {
+export function treeMenuFor(entry: Pick<DirEntry, 'kind'>, context: { /** The folder can be pinned to the favourites: a folder of the disk. */ canPin?: boolean; /** A top-level row of the trash: it can be put back. */ trashItem?: boolean; /** The file is a video or a sound: it is played. */ media?: boolean; /** Something was cut or copied in this tree: it can be pasted into the folder (or next to the file). */ canPaste?: boolean; /** The item is on the disk, in a folder that was opened: it can be renamed, moved and deleted, and a folder can have files and folders made in it. */ writable?: boolean; /** The file is a text of a size that can be compared: it can be chosen as one side. */ comparable?: boolean; /** Another file was chosen as one side: this one can be the other. */ compareWithSelected?: boolean } = {}): TreeMenuItem[] {
   const restore: TreeMenuItem[] = context.trashItem ? ['restore', 'separator'] : []
-  const change: TreeMenuItem[] = context.writable ? ['rename', 'moveTo', 'delete', 'separator'] : []
+  const change: TreeMenuItem[] = context.writable ? ['cut', 'copyItems', ...(context.canPaste ? (['paste'] as const) : []), 'separator', 'rename', 'moveTo', 'delete', 'separator'] : []
   const compare: TreeMenuItem[] = context.comparable ? ['selectForCompare', ...(context.compareWithSelected ? (['compareWithSelected'] as const) : []), 'separator'] : []
   const where: TreeMenuItem[] = ['reveal', 'copyPath', 'copyName', 'separator', 'properties']
   const application: TreeMenuItem[] = ['openAsHex', 'openWith', 'openDefault', 'save', 'separator']

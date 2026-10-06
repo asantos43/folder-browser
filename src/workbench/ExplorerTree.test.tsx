@@ -4,9 +4,13 @@ import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from '@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
 import type { SortKey } from '@core/fs/sort.ts'
+import { fileClipboard } from './fileClipboard.ts'
 import { ENTRY_DRAG, ExplorerTree, HOVER_OPEN_MS, type ExplorerActions } from './ExplorerTree.tsx'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  fileClipboard.set(null)
+})
 
 const entry = (name: string, kind: DirEntry['kind'], dir = '', extra: Partial<DirEntry> = {}): DirEntry => ({ name, path: dir ? `${dir}/${name}` : name, kind, size: kind === 'dir' ? 0 : 10, modified: '2026-01-01T00:00:00.000Z', hidden: name.startsWith('.'), ...extra })
 const disk: Record<string, ListResult> = {
@@ -20,7 +24,7 @@ const disk: Record<string, ListResult> = {
 
 function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false, writable = false, sortKey = 'name', sortDescending = false, createRequest, compare }: { compare?: ExplorerActions['compare']; writable?: boolean; createRequest?: { kind: 'file' | 'dir'; token: number }; showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean; sortKey?: SortKey; sortDescending?: boolean } = {}) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
-  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), remove: vi.fn(), ...(compare ? { compare } : {}) }
+  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), paste: vi.fn(), remove: vi.fn(), ...(compare ? { compare } : {}) }
   type Props = { showHidden: boolean; activePath?: string; refreshToken: number; sortKey: SortKey; sortDescending: boolean }
   const tree = (props: Props) => (
     <I18nProvider language="en">
@@ -48,7 +52,7 @@ describe('ExplorerTree', () => {
     const again = (listDir2: typeof listDir) =>
       view.rerender(
         <I18nProvider language="en">
-          <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={false} showHidden={false} sortKey="name" sortDescending={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(), rename: vi.fn(), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), remove: vi.fn() }} />
+          <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={false} showHidden={false} sortKey="name" sortDescending={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(), rename: vi.fn(), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), paste: vi.fn(), remove: vi.fn() }} />
         </I18nProvider>,
       )
     const other = vi.fn(async () => ({ entries: [], truncated: false }) as ListResult)
@@ -146,7 +150,7 @@ describe('ExplorerTree', () => {
     const lists: Record<string, ListResult> = { '': { entries: [entry('docs', 'dir'), entry('a.txt', 'file'), entry('b.txt', 'file'), entry('pic.png', 'file'), entry('pack.zip', 'zip')], truncated: false } }
     const select = vi.fn()
     const compareWith = vi.fn()
-    show({ lists, compare: { selected: null, select, with: compareWith, drop: vi.fn() } })
+    show({ lists, compare: { selected: null, select, with: compareWith, pair: vi.fn(), drop: vi.fn() } })
     await waitFor(() => expect(names()).toHaveLength(5))
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'a.txt' }))
     expect(screen.queryByRole('menuitem', { name: 'Compare with Selected' })).toBeNull()
@@ -158,7 +162,7 @@ describe('ExplorerTree', () => {
       fireEvent.keyDown(document.body, { key: 'Escape' })
     }
     cleanup()
-    show({ lists, compare: { selected: { rootId: 'r1', path: 'a.txt' }, select, with: compareWith, drop: vi.fn() } })
+    show({ lists, compare: { selected: { rootId: 'r1', path: 'a.txt' }, select, with: compareWith, pair: vi.fn(), drop: vi.fn() } })
     await waitFor(() => expect(names()).toHaveLength(5))
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'a.txt' }))
     expect(screen.queryByRole('menuitem', { name: 'Compare with Selected' })).toBeNull()
@@ -175,7 +179,7 @@ describe('ExplorerTree', () => {
     expect(screen.queryByRole('menuitem', { name: 'Select for Compare' })).toBeNull()
     fireEvent.keyDown(document.body, { key: 'Escape' })
     cleanup()
-    show({ lists, compare: { selected: { rootId: 'r2', path: 'a.txt' }, select: vi.fn(), with: vi.fn(), drop: vi.fn() } })
+    show({ lists, compare: { selected: { rootId: 'r2', path: 'a.txt' }, select: vi.fn(), with: vi.fn(), pair: vi.fn(), drop: vi.fn() } })
     await waitFor(() => expect(names()).toHaveLength(1))
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'a.txt' }))
     expect(screen.getByRole('menuitem', { name: 'Compare with Selected' })).toBeTruthy()
@@ -406,17 +410,17 @@ describe('ExplorerTree: changing the disk', () => {
     await waitFor(() => expect(names()).toHaveLength(4))
     fireEvent.focus(row('a.txt'))
     fireEvent.keyDown(row('a.txt'), { key: 'Delete' })
-    expect(remove).toHaveBeenCalledWith(expect.objectContaining({ path: 'a.txt' }), false)
+    expect(remove).toHaveBeenCalledWith([expect.objectContaining({ path: 'a.txt' })], false)
     rightClick('a.txt')
     fireEvent.click(menuItem('Move to…'))
-    expect(moveTo).toHaveBeenCalledWith(expect.objectContaining({ path: 'a.txt' }))
+    expect(moveTo).toHaveBeenCalledWith([expect.objectContaining({ path: 'a.txt' })])
     rightClick('docs')
     fireEvent.click(screen.getByRole('menuitem', { name: /^Delete/ }))
-    expect(remove).toHaveBeenCalledWith(expect.objectContaining({ path: 'docs' }))
+    expect(remove).toHaveBeenCalledWith([expect.objectContaining({ path: 'docs' })])
     // Shift+Delete asks for the permanent delete.
     fireEvent.focus(row('a.txt'))
     fireEvent.keyDown(row('a.txt'), { key: 'Delete', shiftKey: true })
-    expect(remove).toHaveBeenLastCalledWith(expect.objectContaining({ path: 'a.txt' }), true)
+    expect(remove).toHaveBeenLastCalledWith([expect.objectContaining({ path: 'a.txt' })], true)
   })
   it('offers none of it where nothing can be changed: the trash, a root that is not writable', async () => {
     const { remove, rename } = show({ writable: false })
@@ -448,7 +452,7 @@ describe('ExplorerTree: changing the disk', () => {
     await waitFor(() => expect(rename).toHaveBeenCalledWith('pack.zip!/src/main.c', 'app.c'))
     fireEvent.focus(row('main.c'))
     fireEvent.keyDown(row('main.c'), { key: 'Delete' })
-    expect(remove).toHaveBeenCalledWith(expect.objectContaining({ path: 'pack.zip!/src/main.c' }), false)
+    expect(remove).toHaveBeenCalledWith([expect.objectContaining({ path: 'pack.zip!/src/main.c' })], false)
     // A new file: in a folder of the ZIP, and in the top of the ZIP (its row is a place to put things in).
     rightClick('src')
     fireEvent.click(menuItem('New File…'))
@@ -463,14 +467,14 @@ describe('ExplorerTree: changing the disk', () => {
     // Dropped on a folder of the ZIP it goes there; dropped on the folder it is already in, nothing is asked; Shift copies.
     const data = (payload: unknown) => ({ dataTransfer: { types: [ENTRY_DRAG], getData: (type: string) => (type === ENTRY_DRAG ? JSON.stringify(payload) : ''), dropEffect: '' } })
     fireEvent.drop(row('src'), data({ rootId: 'r1', path: 'pack.zip!/top.txt' }))
-    expect(move).toHaveBeenCalledWith('pack.zip!/top.txt', 'pack.zip!/src')
+    expect(move).toHaveBeenCalledWith(['pack.zip!/top.txt'], 'pack.zip!/src')
     move.mockClear()
     fireEvent.drop(row('src'), data({ rootId: 'r1', path: 'pack.zip!/src/main.c' }))
     expect(move).not.toHaveBeenCalled()
     const shifted = createEvent.drop(row('src'), data({ rootId: 'r1', path: 'pack.zip!/top.txt' }))
     Object.defineProperty(shifted, 'shiftKey', { value: true })
     fireEvent(row('src'), shifted)
-    expect(copyTo).toHaveBeenCalledWith('pack.zip!/top.txt', 'pack.zip!/src')
+    expect(copyTo).toHaveBeenCalledWith(['pack.zip!/top.txt'], 'pack.zip!/src')
   })
   it('moves what is dropped on a folder into it, and what is dropped on the empty part into the root; never from another root', async () => {
     const { move } = show({ writable: true })
@@ -478,23 +482,23 @@ describe('ExplorerTree: changing the disk', () => {
     const data = (payload: unknown) => ({ dataTransfer: { types: [ENTRY_DRAG], getData: (type: string) => (type === ENTRY_DRAG ? JSON.stringify(payload) : ''), dropEffect: '' } })
     fireEvent.dragOver(row('docs'), data({ rootId: 'r1', path: 'a.txt' }))
     fireEvent.drop(row('docs'), data({ rootId: 'r1', path: 'a.txt' }))
-    expect(move).toHaveBeenCalledWith('a.txt', 'docs')
+    expect(move).toHaveBeenCalledWith(['a.txt'], 'docs')
     fireEvent.drop(screen.getByRole('tree'), data({ rootId: 'r1', path: 'docs/readme.md' }))
-    expect(move).toHaveBeenCalledWith('docs/readme.md', '')
+    expect(move).toHaveBeenCalledWith(['docs/readme.md'], '')
     fireEvent.drop(row('docs'), data({ rootId: 'other', path: 'a.txt' }))
     fireEvent.drop(row('docs'), data({ rootId: 'r1', path: 'docs' }))
     expect(move).toHaveBeenCalledTimes(2)
     // A file is not a folder: what is dropped on it goes to the folder it is in (here the root); and what is in that folder already stays.
     fireEvent.drop(row('a.txt'), data({ rootId: 'r1', path: 'docs/readme.md' }))
     expect(move).toHaveBeenCalledTimes(3)
-    expect(move).toHaveBeenLastCalledWith('docs/readme.md', '')
+    expect(move).toHaveBeenLastCalledWith(['docs/readme.md'], '')
     fireEvent.drop(row('a.txt'), data({ rootId: 'r1', path: 'b.txt' }))
     expect(move).toHaveBeenCalledTimes(3)
   })
   it('asks what to do when a text file is dropped on another one, instead of moving it; a copy (Shift), a folder and a file that is not a text are as before', async () => {
     const lists: Record<string, ListResult> = { '': { entries: [entry('docs', 'dir'), entry('a.txt', 'file'), entry('b.txt', 'file'), entry('pic.png', 'file')], truncated: false }, docs: { entries: [], truncated: false } }
     const drop = vi.fn()
-    const { move, copyTo } = show({ writable: true, lists, compare: { selected: null, select: vi.fn(), with: vi.fn(), drop } })
+    const { move, copyTo } = show({ writable: true, lists, compare: { selected: null, select: vi.fn(), with: vi.fn(), pair: vi.fn(), drop } })
     await waitFor(() => expect(names()).toHaveLength(4))
     const payload = { rootId: 'r1', path: 'a.txt', name: 'a.txt', size: 10 }
     const data = { dataTransfer: { types: [ENTRY_DRAG, 'application/x-folder-browser-file'], getData: (type: string) => (type === ENTRY_DRAG || type === 'application/x-folder-browser-file' ? JSON.stringify(payload) : ''), setData: vi.fn(), dropEffect: '', effectAllowed: '' } }
@@ -512,12 +516,12 @@ describe('ExplorerTree: changing the disk', () => {
     fireEvent.drop(row('pic.png'), data)
     expect(drop).toHaveBeenCalledTimes(1)
     fireEvent.drop(row('docs'), data)
-    expect(move).toHaveBeenCalledWith('a.txt', 'docs')
+    expect(move).toHaveBeenCalledWith(['a.txt'], 'docs')
     // With Shift held it is a copy, as it was.
     const shifted = createEvent.drop(row('b.txt'), data)
     Object.defineProperty(shifted, 'shiftKey', { value: true })
     fireEvent(row('b.txt'), shifted)
-    expect(copyTo).toHaveBeenCalledWith('a.txt', '')
+    expect(copyTo).toHaveBeenCalledWith(['a.txt'], '')
     expect(drop).toHaveBeenCalledTimes(1)
   })
   it('has New File and New Folder in the menu of the empty part of the tree, and Refresh', async () => {
@@ -545,18 +549,18 @@ describe('ExplorerTree: dragging with Shift and over closed folders', () => {
     const { move, copyTo } = show({ writable: true })
     await waitFor(() => expect(names()).toHaveLength(4))
     withShift('drop', row('docs'), data({ rootId: 'r1', path: 'a.txt' }), true)
-    expect(copyTo).toHaveBeenCalledWith('a.txt', 'docs')
+    expect(copyTo).toHaveBeenCalledWith(['a.txt'], 'docs')
     expect(move).not.toHaveBeenCalled()
     // Onto a file of the same folder, with Shift: a duplicate in that folder.
     withShift('drop', row('a.txt'), data({ rootId: 'r1', path: 'a.txt' }), true)
-    expect(copyTo).toHaveBeenLastCalledWith('a.txt', '')
+    expect(copyTo).toHaveBeenLastCalledWith(['a.txt'], '')
     // The same without Shift is nothing.
     fireEvent.drop(row('a.txt'), data({ rootId: 'r1', path: 'a.txt' }))
     expect(move).not.toHaveBeenCalled()
     expect(copyTo).toHaveBeenCalledTimes(2)
     // Onto the empty part, with Shift.
     withShift('drop', screen.getByRole('tree'), data({ rootId: 'r1', path: 'docs/readme.md' }), true)
-    expect(copyTo).toHaveBeenLastCalledWith('docs/readme.md', '')
+    expect(copyTo).toHaveBeenLastCalledWith(['docs/readme.md'], '')
   })
   it('shows the pointer of a copy while Shift is held, and of a move without it', async () => {
     show({ writable: true })
@@ -609,5 +613,306 @@ describe('ExplorerTree: dragging with Shift and over closed folders', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('ExplorerTree: several rows', () => {
+  const many: Record<string, ListResult> = {
+    '': { entries: [entry('docs', 'dir'), entry('a.txt', 'file'), entry('b.txt', 'file'), entry('c.md', 'file'), entry('pic.png', 'file')], truncated: false },
+    docs: { entries: [entry('readme.md', 'file', 'docs'), entry('z.txt', 'file', 'docs')], truncated: false },
+  }
+  const row = (name: string) => screen.getByRole('treeitem', { name })
+  const marked = () => screen.queryAllByRole('treeitem').filter((r) => r.getAttribute('aria-selected') === 'true').map((r) => r.getAttribute('aria-label'))
+  const click = (name: string, init: { ctrlKey?: boolean; shiftKey?: boolean; metaKey?: boolean } = {}) => fireEvent.click(row(name), init)
+  const rightClick = (name: string) => fireEvent.contextMenu(row(name))
+  const menuItem = (name: string | RegExp) => screen.getByRole('menuitem', { name })
+  const ready = async (options: Parameters<typeof show>[0] = {}) => {
+    const shown = show({ lists: many, writable: true, ...options })
+    await waitFor(() => expect(names()).toHaveLength(5))
+    return shown
+  }
+  const compare = () => ({ selected: null, select: vi.fn(), with: vi.fn(), pair: vi.fn(), drop: vi.fn() })
+
+  it('marks rows with Ctrl+click and Shift+click without opening anything, and a plain click opens and clears the marks', async () => {
+    const { open } = await ready()
+    click('a.txt')
+    expect(open).toHaveBeenCalledTimes(1)
+    click('c.md', { ctrlKey: true })
+    expect(marked()).toEqual(['a.txt', 'c.md'])
+    click('pic.png', { metaKey: true })
+    expect(marked()).toEqual(['a.txt', 'c.md', 'pic.png'])
+    click('c.md', { ctrlKey: true })
+    expect(marked()).toEqual(['a.txt', 'pic.png'])
+    expect(open).toHaveBeenCalledTimes(1)
+    click('b.txt')
+    expect(open).toHaveBeenCalledTimes(2)
+    expect(marked()).toEqual([])
+  })
+
+  it('marks from the row clicked before to the one clicked with Shift, either way, in the order on screen', async () => {
+    await ready()
+    click('a.txt')
+    click('c.md', { shiftKey: true })
+    expect(marked()).toEqual(['a.txt', 'b.txt', 'c.md'])
+    click('docs', { shiftKey: true })
+    expect(marked()).toEqual(['docs', 'a.txt'])
+    expect(screen.getByRole('tree').getAttribute('aria-multiselectable')).toBe('true')
+  })
+
+  it('a Ctrl+click or Shift+click on a folder only marks it (it does not open or close)', async () => {
+    const { listDir } = await ready()
+    click('docs', { ctrlKey: true })
+    expect(row('docs').getAttribute('aria-expanded')).toBe('false')
+    expect(listDir).toHaveBeenCalledTimes(1)
+    expect(marked()).toEqual(['docs'])
+  })
+
+  it('Shift+arrows mark from where the range began, a plain arrow clears, Ctrl+A marks every row on screen and Esc clears', async () => {
+    await ready()
+    fireEvent.focus(row('a.txt'))
+    fireEvent.keyDown(row('a.txt'), { key: 'ArrowDown', shiftKey: true })
+    fireEvent.keyDown(row('b.txt'), { key: 'ArrowDown', shiftKey: true })
+    expect(marked()).toEqual(['a.txt', 'b.txt', 'c.md'])
+    fireEvent.keyDown(row('c.md'), { key: 'ArrowUp', shiftKey: true })
+    expect(marked()).toEqual(['a.txt', 'b.txt'])
+    fireEvent.keyDown(row('b.txt'), { key: 'ArrowDown' })
+    expect(marked()).toEqual([])
+    fireEvent.keyDown(row('c.md'), { key: 'a', ctrlKey: true })
+    expect(marked()).toEqual(['docs', 'a.txt', 'b.txt', 'c.md', 'pic.png'])
+    fireEvent.keyDown(row('c.md'), { key: 'Escape' })
+    expect(marked()).toEqual([])
+  })
+
+  it('Delete on marked rows asks for all of them, and Shift+Delete for the permanent delete; what is in a marked folder is left out', async () => {
+    const { remove } = await ready()
+    click('docs')
+    await waitFor(() => expect(screen.getByRole('treeitem', { name: 'readme.md' })).toBeTruthy())
+    click('a.txt')
+    click('b.txt', { ctrlKey: true })
+    click('readme.md', { ctrlKey: true })
+    fireEvent.keyDown(row('b.txt'), { key: 'Delete' })
+    expect(remove).toHaveBeenCalledWith([expect.objectContaining({ path: 'docs/readme.md' }), expect.objectContaining({ path: 'a.txt' }), expect.objectContaining({ path: 'b.txt' })], false)
+    click('docs', { ctrlKey: true })
+    fireEvent.keyDown(row('docs'), { key: 'Delete', shiftKey: true })
+    expect(remove).toHaveBeenLastCalledWith([expect.objectContaining({ path: 'docs' }), expect.objectContaining({ path: 'a.txt' }), expect.objectContaining({ path: 'b.txt' })], true)
+  })
+
+  it('F2 renames one row, not several', async () => {
+    await ready()
+    click('a.txt')
+    click('b.txt', { ctrlKey: true })
+    fireEvent.keyDown(row('b.txt'), { key: 'F2' })
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('the menu of a marked row is for all the marked rows: Move to… and Delete with the count, and Compare Selected for two text files', async () => {
+    const { moveTo, remove, compare: cmp } = await ready({ compare: compare() })
+    click('a.txt')
+    click('b.txt', { ctrlKey: true })
+    rightClick('b.txt')
+    expect(screen.queryByRole('menuitem', { name: /^Rename/ })).toBeNull()
+    fireEvent.click(menuItem('Move 2 Items to…'))
+    expect(moveTo).toHaveBeenCalledWith([expect.objectContaining({ path: 'a.txt' }), expect.objectContaining({ path: 'b.txt' })])
+    rightClick('a.txt')
+    fireEvent.click(menuItem(/^Delete 2 Items/))
+    expect(remove).toHaveBeenCalledWith([expect.objectContaining({ path: 'a.txt' }), expect.objectContaining({ path: 'b.txt' })])
+    rightClick('a.txt')
+    fireEvent.click(menuItem('Compare Selected'))
+    expect(cmp!.pair).toHaveBeenCalledWith(expect.objectContaining({ path: 'a.txt' }), expect.objectContaining({ path: 'b.txt' }))
+  })
+
+  it('offers no Compare Selected for three rows, or when one is not a text, and no change in a tree that cannot be changed', async () => {
+    await ready({ compare: compare() })
+    click('a.txt')
+    click('b.txt', { ctrlKey: true })
+    click('c.md', { ctrlKey: true })
+    rightClick('a.txt')
+    expect(screen.queryByRole('menuitem', { name: 'Compare Selected' })).toBeNull()
+    expect(menuItem(/^Delete 3 Items/)).toBeTruthy()
+    cleanup()
+    await ready({ compare: compare() })
+    click('a.txt')
+    click('pic.png', { ctrlKey: true })
+    rightClick('a.txt')
+    expect(screen.queryByRole('menuitem', { name: 'Compare Selected' })).toBeNull()
+    cleanup()
+    await ready({ compare: compare(), writable: false })
+    click('a.txt')
+    click('b.txt', { ctrlKey: true })
+    rightClick('a.txt')
+    expect(screen.queryByRole('menuitem', { name: /Delete/ })).toBeNull()
+    expect(menuItem('Compare Selected')).toBeTruthy()
+  })
+
+  it('a right click on a row that is not marked clears the marks and shows the menu of that row alone', async () => {
+    await ready()
+    click('a.txt')
+    click('b.txt', { ctrlKey: true })
+    rightClick('c.md')
+    expect(marked()).toEqual([])
+    expect(menuItem(/^Rename/)).toBeTruthy()
+  })
+
+  it('dragging a marked row takes all the marked rows: dropped on a folder they are moved (those already in it stay), with Shift copied', async () => {
+    const { move, copyTo } = await ready()
+    fireEvent.click(row('docs'))
+    await waitFor(() => expect(screen.getByRole('treeitem', { name: 'readme.md' })).toBeTruthy())
+    click('a.txt')
+    click('b.txt', { ctrlKey: true })
+    click('z.txt', { ctrlKey: true })
+    const store = new Map<string, string>()
+    fireEvent.dragStart(row('b.txt'), { dataTransfer: { setData: (type: string, value: string) => store.set(type, value), effectAllowed: '' } })
+    const payload = JSON.parse(store.get(ENTRY_DRAG)!)
+    expect(payload).toEqual({ rootId: 'r1', path: 'b.txt', paths: ['docs/z.txt', 'a.txt', 'b.txt'] })
+    // (A file dragged with others is not a file to drop on the editor.)
+    expect(store.has('application/x-folder-browser-file')).toBe(false)
+    const data = { dataTransfer: { types: [ENTRY_DRAG], getData: (type: string) => (type === ENTRY_DRAG ? store.get(ENTRY_DRAG)! : ''), dropEffect: '' } }
+    fireEvent.drop(row('docs'), data)
+    expect(move).toHaveBeenCalledWith(['a.txt', 'b.txt'], 'docs')
+    const shifted = createEvent.drop(row('docs'), data)
+    Object.defineProperty(shifted, 'shiftKey', { value: true })
+    fireEvent(row('docs'), shifted)
+    expect(copyTo).toHaveBeenCalledWith(['docs/z.txt', 'a.txt', 'b.txt'], 'docs')
+    // Dropped on the empty part (the root), only what is not in the root is moved.
+    move.mockClear()
+    fireEvent.drop(screen.getByRole('tree'), data)
+    expect(move).toHaveBeenCalledWith(['docs/z.txt'], '')
+  })
+
+  it('dragging a row that is not marked drags only that row and clears the marks', async () => {
+    await ready()
+    click('a.txt')
+    click('b.txt', { ctrlKey: true })
+    const store = new Map<string, string>()
+    fireEvent.dragStart(row('c.md'), { dataTransfer: { setData: (type: string, value: string) => store.set(type, value), effectAllowed: '' } })
+    expect(JSON.parse(store.get(ENTRY_DRAG)!).paths).toEqual(['c.md'])
+    expect(marked()).toEqual([])
+  })
+
+  it('a mark goes with its row: when its folder is closed, or the row is not listed any more', async () => {
+    await ready()
+    fireEvent.click(row('docs'))
+    await waitFor(() => expect(screen.getByRole('treeitem', { name: 'z.txt' })).toBeTruthy())
+    click('a.txt')
+    click('z.txt', { ctrlKey: true })
+    expect(marked()).toEqual(['z.txt', 'a.txt'])
+    fireEvent.focus(row('docs'))
+    fireEvent.keyDown(row('docs'), { key: 'ArrowLeft' })
+    await waitFor(() => expect(marked()).toEqual(['a.txt']))
+  })
+})
+
+describe('ExplorerTree: cut, copy and paste', () => {
+  const lists: Record<string, ListResult> = {
+    '': { entries: [entry('docs', 'dir'), entry('a.txt', 'file'), entry('b.txt', 'file'), entry('p.zip', 'zip')], truncated: false },
+    docs: { entries: [entry('readme.md', 'file', 'docs')], truncated: false },
+  }
+  const row = (name: string) => screen.getByRole('treeitem', { name })
+  const menuItem = (name: string | RegExp) => screen.getByRole('menuitem', { name })
+  const ready = async (options: Parameters<typeof show>[0] = {}) => {
+    const shown = show({ lists, writable: true, ...options })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    return shown
+  }
+  const key = (name: string, k: string, init: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean } = { ctrlKey: true }) => {
+    const event = createEvent.keyDown(row(name), { key: k, ...init })
+    fireEvent(row(name), event)
+    return event.defaultPrevented
+  }
+
+  it('Ctrl+C and Ctrl+X take the row that has the focus (⌘ on a Mac), and Ctrl+V pastes into the folder that has it, or next to the file', async () => {
+    const { paste } = await ready()
+    fireEvent.focus(row('a.txt'))
+    expect(key('a.txt', 'c')).toBe(true)
+    expect(fileClipboard.get()).toEqual({ rootId: 'r1', paths: ['a.txt'], mode: 'copy' })
+    fireEvent.focus(row('docs'))
+    expect(key('docs', 'v')).toBe(true)
+    expect(paste).toHaveBeenLastCalledWith('docs')
+    fireEvent.focus(row('b.txt'))
+    expect(key('b.txt', 'x', { metaKey: true })).toBe(true)
+    expect(fileClipboard.get()).toEqual({ rootId: 'r1', paths: ['b.txt'], mode: 'cut' })
+    expect(key('b.txt', 'v', { metaKey: true })).toBe(true)
+    expect(paste).toHaveBeenLastCalledWith('')
+    // A ZIP file is a place to paste into.
+    fireEvent.focus(row('p.zip'))
+    key('p.zip', 'v')
+    expect(paste).toHaveBeenLastCalledWith('p.zip')
+  })
+
+  it('takes all the marked rows, the ones in a marked folder left out, and dims the rows that were cut', async () => {
+    await ready()
+    fireEvent.click(row('docs'))
+    await waitFor(() => expect(screen.getByRole('treeitem', { name: 'readme.md' })).toBeTruthy())
+    fireEvent.click(row('a.txt'))
+    fireEvent.click(row('docs'), { ctrlKey: true })
+    fireEvent.click(row('readme.md'), { ctrlKey: true })
+    fireEvent.click(row('b.txt'), { ctrlKey: true })
+    key('b.txt', 'x')
+    expect(fileClipboard.get()).toEqual({ rootId: 'r1', paths: ['docs', 'a.txt', 'b.txt'], mode: 'cut' })
+    await waitFor(() => expect(row('b.txt').className).toContain('opacity-60'))
+    expect(row('readme.md').className).toContain('opacity-60')
+    expect(row('p.zip').className).not.toContain('opacity-60')
+  })
+
+  it('does nothing, and leaves the key to the browser, where nothing can be changed, where nothing is to be pasted, and in the name field', async () => {
+    await ready({ writable: false })
+    fireEvent.focus(row('a.txt'))
+    expect(key('a.txt', 'c')).toBe(false)
+    expect(key('a.txt', 'v')).toBe(false)
+    expect(fileClipboard.get()).toBeNull()
+    cleanup()
+    const { paste } = await ready()
+    fireEvent.focus(row('a.txt'))
+    expect(key('a.txt', 'v')).toBe(false)
+    expect(paste).not.toHaveBeenCalled()
+    // F2 puts a field in the row: Ctrl+C there is the field's own.
+    fireEvent.keyDown(row('a.txt'), { key: 'F2' })
+    const field = screen.getByRole('textbox', { name: 'Name' })
+    fireEvent.keyDown(field, { key: 'c', ctrlKey: true })
+    expect(fileClipboard.get()).toBeNull()
+  })
+
+  it('the menu of a file or folder has Cut, Copy and, once something is taken, Paste; a menu on marked rows too', async () => {
+    const { paste } = await ready()
+    fireEvent.contextMenu(row('a.txt'))
+    expect(screen.queryByRole('menuitem', { name: /^Paste/ })).toBeNull()
+    fireEvent.click(menuItem(/^Copy(?! Path| Name)/))
+    expect(fileClipboard.get()).toEqual({ rootId: 'r1', paths: ['a.txt'], mode: 'copy' })
+    fireEvent.contextMenu(row('docs'))
+    fireEvent.click(menuItem(/^Paste/))
+    expect(paste).toHaveBeenLastCalledWith('docs')
+    fireEvent.contextMenu(row('b.txt'))
+    fireEvent.click(menuItem(/^Paste/))
+    expect(paste).toHaveBeenLastCalledWith('')
+    fireEvent.contextMenu(row('b.txt'))
+    fireEvent.click(menuItem(/^Cut/))
+    expect(fileClipboard.get()).toEqual({ rootId: 'r1', paths: ['b.txt'], mode: 'cut' })
+    // Marked rows.
+    fireEvent.click(row('a.txt'))
+    fireEvent.click(row('b.txt'), { ctrlKey: true })
+    fireEvent.contextMenu(row('b.txt'))
+    fireEvent.click(menuItem(/^Copy(?! Path| Name)/))
+    expect(fileClipboard.get()).toEqual({ rootId: 'r1', paths: ['a.txt', 'b.txt'], mode: 'copy' })
+  })
+
+  it('the empty part of the tree pastes into the root, and has no Paste while nothing is taken', async () => {
+    const { paste } = await ready()
+    fireEvent.contextMenu(screen.getByRole('tree'))
+    expect(screen.queryByRole('menuitem', { name: /^Paste/ })).toBeNull()
+    cleanup()
+    fileClipboard.set({ rootId: 'r1', paths: ['a.txt'], mode: 'copy' })
+    const second = await ready()
+    fireEvent.contextMenu(screen.getByRole('tree'))
+    fireEvent.click(menuItem(/^Paste/))
+    expect(second.paste).toHaveBeenCalledWith('')
+    expect(paste).not.toHaveBeenCalled()
+  })
+
+  it('has no Cut, Copy or Paste in a tree that cannot be changed', async () => {
+    fileClipboard.set({ rootId: 'r1', paths: ['a.txt'], mode: 'copy' })
+    await ready({ writable: false })
+    fireEvent.contextMenu(row('a.txt'))
+    expect(screen.queryByRole('menuitem', { name: /^Cut/ })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /^Paste/ })).toBeNull()
   })
 })

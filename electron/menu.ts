@@ -27,7 +27,7 @@ export function installMenu(send: (command: string) => void): void {
         { label: 'Close Editor', accelerator: 'Cmd+W', click: () => send('closeEditor') },
       ],
     },
-    { label: 'Edit', submenu: [{ role: 'copy' }, { role: 'selectAll' }, { type: 'separator' }, { label: 'Find', accelerator: 'Cmd+F', click: () => send('find') }] },
+    { label: 'Edit', submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }, { type: 'separator' }, { label: 'Find', accelerator: 'Cmd+F', click: () => send('find') }] },
     {
       label: 'View',
       submenu: [

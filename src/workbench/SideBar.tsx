@@ -73,15 +73,17 @@ export interface SideBarActions {
   /** The files of a folder that was opened: made, renamed, moved, deleted (core/fs/ops.ts). */
   createEntry: (rootId: string, parent: string, name: string, kind: 'file' | 'dir') => Promise<OpResult>
   renameEntry: (rootId: string, path: string, name: string) => Promise<OpResult>
-  moveEntry: (rootId: string, path: string, toFolder: string) => void
-  /** A copy of an item in a folder (a drop with Shift held). */
-  copyEntry: (rootId: string, path: string, toFolder: string) => void
-  /** Asks where to move an item to. */
-  moveEntryTo: (rootId: string, entry: DirEntry) => void
-  /** Asks, and moves an item to the trash. */
-  removeEntry: (rootId: string, entry: DirEntry, forever?: boolean) => void
+  moveEntry: (rootId: string, paths: string[], toFolder: string) => void
+  /** Copies of items in a folder (a drop with Shift held). */
+  copyEntry: (rootId: string, paths: string[], toFolder: string) => void
+  /** Asks where to move items to. */
+  moveEntryTo: (rootId: string, entries: DirEntry[]) => void
+  /** Pastes what Cut or Copy took (`fileClipboard`) into a folder of the root. */
+  pasteEntries: (rootId: string, toFolder: string) => void
+  /** Asks, and moves items to the trash. */
+  removeEntry: (rootId: string, entries: DirEntry[], forever?: boolean) => void
   /** Comparing two text files: the one chosen as a side (of any folder that is open), choosing one, and comparing a file with it. */
-  compare: { selected: DiffSide | null; select: (rootId: string, entry: DirEntry) => void; with: (rootId: string, entry: DirEntry) => void; /** A file of the tree was dropped on another (both text): asks what to do with the two. */ drop: (rootId: string, dragged: { path: string; size: number }, entry: DirEntry) => void }
+  compare: { selected: DiffSide | null; select: (rootId: string, entry: DirEntry) => void; with: (rootId: string, entry: DirEntry) => void; /** Two files marked in the tree are compared (the first is the left side). */ pair: (rootId: string, left: DirEntry, right: DirEntry) => void; /** A file of the tree was dropped on another (both text): asks what to do with the two. */ drop: (rootId: string, dragged: { path: string; size: number }, entry: DirEntry) => void }
 }
 
 /** The side bar: the places, the folders (and ZIP files) that are open, and the files of the one chosen, as a tree. (A snapshot is a page in a tab, not something the side bar is about.) */
@@ -216,11 +218,12 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
                 reveal: (path) => actions.reveal(root.id, path),
                 create: (parent, name, kind) => actions.createEntry(root.id, parent, name, kind),
                 rename: (path, name) => actions.renameEntry(root.id, path, name),
-                move: (path, toFolder) => actions.moveEntry(root.id, path, toFolder),
-                copyTo: (path, toFolder) => actions.copyEntry(root.id, path, toFolder),
-                moveTo: (entry) => actions.moveEntryTo(root.id, entry),
-                remove: (entry, forever) => actions.removeEntry(root.id, entry, forever),
-                compare: { selected: actions.compare.selected, select: (entry) => actions.compare.select(root.id, entry), with: (entry) => actions.compare.with(root.id, entry), drop: (dragged, entry) => actions.compare.drop(root.id, dragged, entry) },
+                move: (paths, toFolder) => actions.moveEntry(root.id, paths, toFolder),
+                copyTo: (paths, toFolder) => actions.copyEntry(root.id, paths, toFolder),
+                moveTo: (entries) => actions.moveEntryTo(root.id, entries),
+                paste: (toFolder) => actions.pasteEntries(root.id, toFolder),
+                remove: (entries, forever) => actions.removeEntry(root.id, entries, forever),
+                compare: { selected: actions.compare.selected, select: (entry) => actions.compare.select(root.id, entry), with: (entry) => actions.compare.with(root.id, entry), pair: (left, right) => actions.compare.pair(root.id, left, right), drop: (dragged, entry) => actions.compare.drop(root.id, dragged, entry) },
               }}
             />
         </Section>

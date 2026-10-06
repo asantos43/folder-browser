@@ -42,6 +42,12 @@ These work on the files and folders of a folder you opened, and on what is insid
 - **Nothing is ever replaced.** A name that is taken is refused, in words, and the field stays so you can type another. A name that no file can have (empty, `.` or `..`, with `/` or `\`, control characters, over 255 bytes; on Windows also `< > : " | ? *`, the names the system keeps such as `CON` or `NUL`, and a name ending in a space or a dot) is refused before anything is asked. A folder is never moved into itself. Nothing leaves the folder you opened: a symbolic link is renamed, moved or deleted as the link, never what it points to.
 - The **tabs follow**: the tab of a renamed or moved file (or of a file in a renamed folder) keeps its place, its zoom and its preview, with the new name, and the tab of a deleted item closes.
 
+## Several rows, Cut, Copy and Paste
+
+- **Mark several rows** in the tree: **Ctrl+click** (`⌘+click` on macOS) marks or unmarks a row, **Shift+click** marks everything from the row you clicked last to this one, **Shift+↑ / ↓** (also `Shift+Home` / `End`) extends the marks from where they began, and **Ctrl+A** (`⌘A`) marks every row on screen. The marked rows are highlighted. A click with Ctrl or Shift only marks (nothing opens). A plain click, a plain arrow or **Esc** lets the marks go, and a mark goes with its row (when it is deleted or its folder is closed).
+- **An action on a marked row is on all of them**, once: **Delete** (one question for all; `Shift+Delete` asks for the permanent delete), **Move to…** (one folder picker), **dragging** one of them onto a folder (they go together; with **Shift** held they are copied), and, for exactly two text files, **Compare Selected**. The right-click menu of a marked row is for all the marked rows and says how many. If a folder and something in it are both marked, only the folder is acted on. When something cannot be done to some of them, one message says how many and what went wrong first; the rest is done. This works inside a ZIP too.
+- **Cut, Copy and Paste** (`Ctrl+X`, `Ctrl+C`, `Ctrl+V`; `⌘X`, `⌘C`, `⌘V` on macOS; also **Cut**, **Copy** and **Paste** in the right-click menu of a file, a folder, marked rows and the empty part of the tree) work on the files and folders of the tree: on the marked rows, or on the row that has the focus. **Paste** puts them in the folder (or ZIP file) that has the focus, next to the file that has it, or in the top folder. A pasted **copy** is numbered when the name is taken (`a (2).txt`), so Copy and Paste in the same folder makes a duplicate, and nothing is ever replaced; a pasted **cut** moves them, once, and the rows that were cut are dimmed until then. The clipboard is the application's own (it does not touch the system's), it works in the folder that was opened and inside one ZIP, and between two open folders, or between a folder and a ZIP, it says it cannot yet. In a name field and in the editor the keys are the usual ones.
+
 ## What a tab can show
 
 | File | What you get |
@@ -142,6 +148,8 @@ The file is checked when it opens, and again in the background: its **structure*
 | Open Folder / Open File | `Ctrl+Shift+O` / `Ctrl+O` | `⇧⌘O` / `⌘O` |
 | Show hidden files | `Ctrl+H` | `⌘H` |
 | Rename / Delete the item in the tree | `F2` / `Delete` | `F2` / `Delete` |
+| Mark several rows in the tree | `Ctrl+click`, `Shift+click`, `Shift+↑↓`, `Ctrl+A` | `⌘+click`, `Shift+click`, `Shift+↑↓`, `⌘A` |
+| Cut / Copy / Paste files and folders in the tree | `Ctrl+X` / `Ctrl+C` / `Ctrl+V` | `⌘X` / `⌘C` / `⌘V` |
 | Close the tab | `Ctrl+W` | `⌘W` |
 | Next / previous tab | `Ctrl+PageDown` / `Ctrl+PageUp` | `⌘PageDown` / `⌘PageUp` |
 | Through the tabs, most recently used first | `Ctrl+Tab`, `Ctrl+Shift+Tab` | `⌃Tab`, `⌃⇧Tab` |

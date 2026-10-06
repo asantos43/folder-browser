@@ -11,10 +11,13 @@ import { useI18n } from '@/i18n/context.tsx'
 import type { MessageKey } from '@/i18n/index.ts'
 import { formatBytes, formatDate, shortDate } from '@/lib/format.ts'
 import { fileIcon } from '@/lib/icons.ts'
-import { remapPath } from '@/state/workspace.ts'
+import { isUnder, remapPath } from '@/state/workspace.ts'
 import type { MenuEntry } from '@/components/Menu.tsx'
 import { dragging as dragStore, FILE_DRAG, type DraggedFile } from './dnd.ts'
 import { FOLDER_DRAG } from './PlacesView.tsx'
+import { shortcut } from './commands.ts'
+import { fileClipboard, useFileClip } from './fileClipboard.ts'
+import { rangeBetween, topmost } from './selection.ts'
 import { treeMenuFor, type TreeAction } from './treeMenu.ts'
 
 type Listing = { state: 'loading' } | { state: 'ready'; entries: DirEntry[]; truncated: boolean } | { state: 'error'; error: Extract<ListResult, { error: string }>['error'] }
@@ -60,16 +63,18 @@ export interface ExplorerActions {
   /** A new empty file or folder in `parent`, named by the user (the answer says if the name was taken or refused). */
   create: (parent: string, name: string, kind: 'file' | 'dir') => Promise<OpResult>
   rename: (path: string, name: string) => Promise<OpResult>
-  /** Moves an item into a folder (a drop on it). */
-  move: (path: string, toFolder: string) => void
-  /** Asks where to move an item to. */
-  moveTo: (entry: DirEntry) => void
-  /** A copy of an item in a folder (a drop with Shift held; into the folder it is in, a duplicate). */
-  copyTo: (path: string, toFolder: string) => void
-  /** Asks, and moves an item to the trash; `forever` (Shift held): asks to delete it permanently. */
-  remove: (entry: DirEntry, forever?: boolean) => void
+  /** Moves items into a folder (a drop on it). */
+  move: (paths: string[], toFolder: string) => void
+  /** Asks where to move items to. */
+  moveTo: (entries: DirEntry[]) => void
+  /** Copies of items in a folder (a drop with Shift held; into the folder they are in, duplicates). */
+  copyTo: (paths: string[], toFolder: string) => void
+  /** Pastes what was cut or copied (the application's file clipboard, `fileClipboard`) into a folder: a copy, or a move for a cut. */
+  paste: (toFolder: string) => void
+  /** Asks, and moves items to the trash; `forever` (Shift held): asks to delete them permanently. */
+  remove: (entries: DirEntry[], forever?: boolean) => void
   /** Comparing two text files: the file chosen as one side (of any root that is open), choosing one, and comparing with it. */
-  compare?: { selected: DiffSide | null; select: (entry: DirEntry) => void; with: (entry: DirEntry) => void; /** A text file was dropped on another text file: asks what to do with the two. */ drop: (dragged: { path: string; size: number }, entry: DirEntry) => void }
+  compare?: { selected: DiffSide | null; select: (entry: DirEntry) => void; with: (entry: DirEntry) => void; /** Two files marked in the tree: compared, the first as the left side. */ pair: (left: DirEntry, right: DirEntry) => void; /** A text file was dropped on another text file: asks what to do with the two. */ drop: (dragged: { path: string; size: number }, entry: DirEntry) => void }
 }
 
 /** A text field in a row of the tree, to name something: Enter says it, Esc (or leaving) does not. */
@@ -126,10 +131,15 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
   const [editing, setEditing] = useState<Editing | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [dropOver, setDropOver] = useState<string | null>(null)
+  // The rows marked with Ctrl+click, Shift+click and Shift+arrows (an action on a marked row is on all of them), and where a range starts.
+  const [marked, setMarked] = useState<ReadonlySet<string>>(new Set())
+  const anchor = useRef<string | null>(null)
+  // What Cut and Copy took (the rows cut are dimmed, and Paste is offered while there is something to paste).
+  const clip = useFileClip()
   // The path to take the focus when the listing that has it comes in (after a rename or a new file).
   const pendingFocus = useRef<string | null>(null)
   // The row being dragged, and the folder the pointer has rested on while dragging (it opens after a moment).
-  const dragging = useRef<string | null>(null)
+  const dragging = useRef<string[]>([])
   // The file being dragged (what a drag's data cannot say until the drop): a text file dropped on another asks what to do with the two.
   const draggedFile = useRef<DraggedFile | null>(null)
   const hover = useRef<{ path: string; timer: ReturnType<typeof setTimeout> } | null>(null)
@@ -227,6 +237,64 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
   /** An item of this root can be changed (a file or folder of the disk, an entry of a ZIP): not in the trash. */
   const canChange = writable && !trash
 
+  // ---- several rows: marked with Ctrl+click, Shift+click, Shift+arrows and Ctrl+A; an action on a marked row is on all of them
+  const visiblePaths = useMemo(() => entries.map((r) => r.entry.path), [entries])
+  // A mark goes when its row is no longer on screen (deleted, moved, or its folder closed).
+  useEffect(() => {
+    if (!marked.size) return
+    const shown = new Set(visiblePaths)
+    const kept = [...marked].filter((path) => shown.has(path))
+    if (kept.length !== marked.size) setMarked(new Set(kept))
+  })
+  const clearMarks = () => setMarked((now) => (now.size ? new Set() : now))
+  /** The rows an action on the marked ones is done to: in the order on screen, and not what is in a folder that is marked too. */
+  const markedEntries = (): DirEntry[] => {
+    const keep = new Set(topmost([...marked]))
+    return entries.map((r) => r.entry).filter((e) => keep.has(e.path))
+  }
+  /** A click with Ctrl (or ⌘) marks or unmarks the row, with Shift marks from where the last one was to it; either is only a mark, nothing opens. */
+  const markByClick = (event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }, entry: DirEntry): boolean => {
+    if (event.shiftKey) {
+      // (The row clicked has the focus already when the click comes: where the range starts is the anchor, the last row that was clicked or reached by the keys.)
+      setMarked(new Set(rangeBetween(visiblePaths, anchor.current, entry.path)))
+      if (anchor.current === null) anchor.current = entry.path
+      return true
+    }
+    if (event.ctrlKey || event.metaKey) {
+      const next = new Set(marked)
+      // The row clicked or reached last is the first one marked, so that Ctrl+click adds to it.
+      if (!next.size && anchor.current && anchor.current !== entry.path && visiblePaths.includes(anchor.current)) next.add(anchor.current)
+      if (next.has(entry.path)) next.delete(entry.path)
+      else next.add(entry.path)
+      setMarked(next)
+      anchor.current = entry.path
+      setFocused(entry.path)
+      return true
+    }
+    clearMarks()
+    anchor.current = entry.path
+    setFocused(entry.path)
+    return false
+  }
+
+  // ---- Cut, Copy and Paste of files and folders (Ctrl+X, Ctrl+C, Ctrl+V; ⌘ on macOS; the menus): the application's own clipboard, of this root
+  /** The rows Cut and Copy are for: the marked ones, or else the row that has the focus. */
+  const clipTargets = (): DirEntry[] => (marked.size > 1 ? markedEntries() : entries.filter((r) => r.entry.path === focused).map((r) => r.entry))
+  const takeToClip = (mode: 'copy' | 'cut', group: DirEntry[] = clipTargets()): boolean => {
+    if (!canChange || !group.length) return false
+    fileClipboard.set({ rootId, paths: group.map((e) => e.path), mode })
+    return true
+  }
+  /** Where Paste puts things: in the folder (or ZIP) that has the focus, else next to the file that has it, else in the root. */
+  const pasteFolderFor = (at: DirEntry | undefined): string => (!at ? '' : at.kind === 'dir' || at.kind === 'zip' ? at.path : parentPath(at.path))
+  const pasteInto = (folder: string): boolean => {
+    if (!canChange || !fileClipboard.get()) return false
+    actions.paste(folder)
+    return true
+  }
+  const inField = (target: EventTarget | null) => target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
+  const cutRow = (path: string): boolean => clip !== null && clip.mode === 'cut' && clip.rootId === rootId && clip.paths.some((p) => isUnder(path, p))
+
   /** Starts to name a new file or folder in `parent` (a folder of the disk; the folder opens to show the field). */
   const startNew = useCallback(
     (parent: string, kind: 'file' | 'dir') => {
@@ -286,7 +354,32 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
     const at = entries.findIndex((r) => r.entry.path === (focused ?? entries[0]?.entry.path))
     const row = entries[at]
     if (!row) return
-    const go = (i: number) => entries[i] && focusRow(entries[i].entry.path)
+    // The arrows, Home and End move the focus; with Shift they mark the rows from where the range began.
+    const go = (i: number) => {
+      const to = entries[i]
+      if (!to) return
+      if (event.shiftKey) {
+        const from = anchor.current ?? row.entry.path
+        anchor.current = from
+        setMarked(new Set(rangeBetween(visiblePaths, from, to.entry.path)))
+      } else {
+        clearMarks()
+        anchor.current = to.entry.path
+      }
+      focusRow(to.entry.path)
+    }
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'a') {
+      event.preventDefault()
+      setMarked(new Set(visiblePaths))
+      return
+    }
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && ['c', 'x', 'v'].includes(event.key.toLowerCase())) {
+      const key = event.key.toLowerCase()
+      const done = key === 'v' ? pasteInto(pasteFolderFor(row.entry)) : takeToClip(key === 'c' ? 'copy' : 'cut', marked.size > 1 ? markedEntries() : [row.entry])
+      // (Where nothing can be done, the key is left alone.)
+      if (done) event.preventDefault()
+      return
+    }
     const expandable = row.entry.kind === 'dir' || row.entry.kind === 'zip'
     const snapshot = row.entry.kind === 'wsnp'
     switch (event.key) {
@@ -304,15 +397,19 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         if (expandable && open.has(row.entry.path)) toggle(row.entry.path, false)
         else if (row.parent) focusRow(row.parent)
         break
+      case 'Escape':
+        if (!marked.size) return
+        clearMarks()
+        break
       case 'F2':
-        if (canChange) {
+        if (canChange && marked.size < 2) {
           setProblem(null)
           setEditing({ mode: 'rename', path: row.entry.path })
         }
         break
       case 'Delete':
         // Shift+Delete: the permanent delete, asked about first.
-        if (canChange) actions.remove(row.entry, event.shiftKey)
+        if (canChange) actions.remove(marked.size > 1 ? markedEntries() : [row.entry], event.shiftKey)
         break
       case 'Enter':
         if (expandable) toggle(row.entry.path)
@@ -343,15 +440,30 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
     event.preventDefault()
     event.stopPropagation()
     setFocused(entry.path)
+    // On a marked row (with others marked) the menu is for all the marked rows; on any other row the marks go.
+    if (marked.size > 1 && marked.has(entry.path)) {
+      const group = markedEntries()
+      const both = group.length === 2 && actions.compare !== undefined && group.every((e) => e.kind === 'file' && comparable(e.name, e.size))
+      const many: MenuEntry[] = [
+        ...(canChange ? [{ id: 'cut', label: t('tree.cut'), shortcut: shortcut('Ctrl+X'), run: () => takeToClip('cut', group) }, { id: 'copyItems', label: t('tree.copyItems'), shortcut: shortcut('Ctrl+C'), run: () => takeToClip('copy', group) }, { separator: true } as MenuEntry] : []),
+        ...(canChange && group.length > 1 ? [{ id: 'moveTo', label: t('tree.moveToMany', { count: group.length }), run: () => actions.moveTo(group) }, { id: 'delete', label: t('tree.deleteMany', { count: group.length }), shortcut: 'Delete', run: () => actions.remove(group) }] : []),
+        ...(both ? [{ id: 'compareSelected', label: t('tree.compareSelected'), run: () => actions.compare!.pair(group[0], group[1]) }] : []),
+      ]
+      if (many.length) return setMenu({ x: event.clientX, y: event.clientY, label: t('tree.selectedCount', { count: marked.size }), entries: many })
+    }
+    clearMarks()
     const expanded = open.has(entry.path)
     const selectedForCompare = actions.compare?.selected
     const item = (action: TreeAction): MenuEntry => {
       switch (action) {
+        case 'cut': return { id: action, label: t('tree.cut'), shortcut: shortcut('Ctrl+X'), run: () => takeToClip('cut', [entry]) }
+        case 'copyItems': return { id: action, label: t('tree.copyItems'), shortcut: shortcut('Ctrl+C'), run: () => takeToClip('copy', [entry]) }
+        case 'paste': return { id: action, label: t('tree.paste'), shortcut: shortcut('Ctrl+V'), run: () => pasteInto(pasteFolderFor(entry)) }
         case 'newFile': return { id: action, label: t('tree.newFile'), run: () => startNew(entry.path, 'file') }
         case 'newFolder': return { id: action, label: t('tree.newFolder'), run: () => startNew(entry.path, 'dir') }
         case 'rename': return { id: action, label: t('tree.rename'), shortcut: 'F2', run: () => { setProblem(null); setEditing({ mode: 'rename', path: entry.path }) } }
-        case 'moveTo': return { id: action, label: t('tree.moveTo'), run: () => actions.moveTo(entry) }
-        case 'delete': return { id: action, label: t('tree.delete'), shortcut: 'Delete', run: () => actions.remove(entry) }
+        case 'moveTo': return { id: action, label: t('tree.moveTo'), run: () => actions.moveTo([entry]) }
+        case 'delete': return { id: action, label: t('tree.delete'), shortcut: 'Delete', run: () => actions.remove([entry]) }
         case 'restore': return { id: action, label: t('tree.restore'), run: () => actions.restore(entry.path) }
         case 'addFavorite': return { id: action, label: t('tree.addFavorite'), run: () => actions.pin(entry.path) }
         case 'toggle': return { id: action, label: expanded ? t('tree.collapse') : t('tree.expand'), run: () => toggle(entry.path) }
@@ -373,7 +485,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         case 'properties': return { id: action, label: t('tree.properties'), run: () => actions.properties(entry) }
       }
     }
-    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), trashItem: trash && !entry.path.includes('/'), media: mediaKind(undefined, entry.name) !== null, writable: canChange, comparable: actions.compare !== undefined && entry.kind === 'file' && comparable(entry.name, entry.size), compareWithSelected: Boolean(selectedForCompare) && !(selectedForCompare!.rootId === rootId && selectedForCompare!.path === entry.path) }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
+    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), trashItem: trash && !entry.path.includes('/'), canPaste: canChange && clip !== null, media: mediaKind(undefined, entry.name) !== null, writable: canChange, comparable: actions.compare !== undefined && entry.kind === 'file' && comparable(entry.name, entry.size), compareWithSelected: Boolean(selectedForCompare) && !(selectedForCompare!.rootId === rootId && selectedForCompare!.path === entry.path) }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
   }
 
   // The item that was just named takes the focus once the listing that has it is in.
@@ -400,7 +512,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
       setDropOver(folder)
       // Held over a folder that is closed, it opens after a moment (and so on, down to the folder the item is to be dropped in); not the folder that is being dragged.
       if (hover.current?.path !== folder) clearHover()
-      if (expandable && !hover.current && !open.has(folder) && dragging.current !== folder) {
+      if (expandable && !hover.current && !open.has(folder) && !dragging.current.includes(folder)) {
         hover.current = { path: folder, timer: setTimeout(() => toggle(folder, true), HOVER_OPEN_MS) }
       }
     },
@@ -418,11 +530,19 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
       e.preventDefault()
       e.stopPropagation()
       try {
-        const dragged = JSON.parse(raw) as { rootId?: unknown; path?: unknown }
-        if (dragged.rootId !== rootId || typeof dragged.path !== 'string' || dragged.path === folder) return
+        const dragged = JSON.parse(raw) as { rootId?: unknown; path?: unknown; paths?: unknown }
+        if (dragged.rootId !== rootId || typeof dragged.path !== 'string') return
+        // (Several rows dragged together name all of them in `paths`.)
+        const all = Array.isArray(dragged.paths) && dragged.paths.every((p) => typeof p === 'string') && dragged.paths.length ? (dragged.paths as string[]) : [dragged.path]
+        // A folder dropped on itself is nothing.
+        const paths = all.filter((path) => path !== folder)
+        if (!paths.length) return
         // With Shift: a copy (into the folder it is in too: a duplicate). Without: a move, which into the folder it is in is nothing.
-        if (e.shiftKey) actions.copyTo(dragged.path, folder)
-        else if (parentPath(dragged.path) !== folder) actions.move(dragged.path, folder)
+        if (e.shiftKey) actions.copyTo(paths, folder)
+        else {
+          const moving = paths.filter((path) => parentPath(path) !== folder)
+          if (moving.length) actions.move(moving, folder)
+        }
       } catch {
         // not ours
       }
@@ -438,6 +558,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
       label: t('sidebar.files'),
       entries: [
         ...(writable ? [{ id: 'newFile', label: t('tree.newFile'), run: () => startNew('', 'file') }, { id: 'newFolder', label: t('tree.newFolder'), run: () => startNew('', 'dir') }, { separator: true } as MenuEntry] : []),
+        ...(canChange && clip ? [{ id: 'paste', label: t('tree.paste'), shortcut: shortcut('Ctrl+V'), run: () => pasteInto('') }] : []),
         { id: 'refresh', label: t('tree.refresh'), run: () => { asked.current.delete(''); load('') } },
       ],
     })
@@ -451,7 +572,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
   const current = focused ?? entries[0]?.entry.path
   return (
     <>
-      <div ref={box} role="tree" aria-label={t('sidebar.rootTreeLabel')} onKeyDown={onKeyDown} onContextMenu={backgroundMenu} {...dropOn('')} className={`@container min-h-full py-0.5 text-[13px] select-none ${dropOver === '' ? 'outline-1 -outline-offset-1 outline-focus' : ''}`}>
+      <div ref={box} role="tree" aria-multiselectable="true" onCopy={(e) => { if (!inField(e.target) && takeToClip('copy')) e.preventDefault() }} onCut={(e) => { if (!inField(e.target) && takeToClip('cut')) e.preventDefault() }} onPaste={(e) => { if (!inField(e.target) && pasteInto(pasteFolderFor(entries.find((r) => r.entry.path === focused)?.entry))) e.preventDefault() }} aria-label={t('sidebar.rootTreeLabel')} onKeyDown={onKeyDown} onContextMenu={backgroundMenu} {...dropOn('')} className={`@container min-h-full py-0.5 text-[13px] select-none ${dropOver === '' ? 'outline-1 -outline-offset-1 outline-focus' : ''}`}>
         {rows.map((row) => {
           if (row.type === 'note') {
             return (
@@ -484,27 +605,41 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
               aria-label={entry.name}
               aria-level={depth + 1}
               aria-expanded={expandable ? expanded : undefined}
-              aria-selected={selected}
+              aria-selected={selected || marked.has(entry.path)}
+              data-marked={marked.has(entry.path) ? 'true' : undefined}
               tabIndex={entry.path === current ? 0 : -1}
               onFocus={() => setFocused(entry.path)}
-              onClick={() => (expandable ? toggle(entry.path) : entry.kind === 'wsnp' ? actions.openSnapshot(entry, false) : actions.open(entry, false))}
-              onDoubleClick={() => (entry.kind === 'wsnp' ? actions.openSnapshot(entry, true) : !expandable && actions.open(entry, true))}
+              onClick={(e) => {
+                if (markByClick(e, entry)) return
+                if (expandable) toggle(entry.path)
+                else if (entry.kind === 'wsnp') actions.openSnapshot(entry, false)
+                else actions.open(entry, false)
+              }}
+              onDoubleClick={(e) => {
+                if (e.ctrlKey || e.metaKey || e.shiftKey) return
+                if (entry.kind === 'wsnp') actions.openSnapshot(entry, true)
+                else if (!expandable) actions.open(entry, true)
+              }}
               draggable={(pinnable(entry) || canChange || entry.kind === 'file') && !renaming}
               onDragStart={(e) => {
                 const move = canChange
+                // A marked row drags all the marked rows; any other row drags itself and the marks go.
+                const together = marked.size > 1 && marked.has(entry.path)
+                if (!together) clearMarks()
+                const group = together ? markedEntries() : [entry]
                 // Any file can be dragged to the editor (to open it there) or onto another text file.
-                if (entry.kind === 'file') {
+                if (entry.kind === 'file' && group.length === 1) {
                   draggedFile.current = { rootId, path: entry.path, name: entry.name, size: entry.size }
                   e.dataTransfer.setData(FILE_DRAG, JSON.stringify(draggedFile.current))
                   dragStore.start('file')
                 }
-                if (pinnable(entry)) e.dataTransfer.setData(FOLDER_DRAG, JSON.stringify({ rootId, path: entry.path }))
-                if (move) e.dataTransfer.setData(ENTRY_DRAG, JSON.stringify({ rootId, path: entry.path }))
-                dragging.current = move ? entry.path : null
-                e.dataTransfer.effectAllowed = entry.kind === 'file' || (move && pinnable(entry)) ? 'all' : move ? 'copyMove' : 'link'
+                if (pinnable(entry) && group.length === 1) e.dataTransfer.setData(FOLDER_DRAG, JSON.stringify({ rootId, path: entry.path }))
+                if (move) e.dataTransfer.setData(ENTRY_DRAG, JSON.stringify({ rootId, path: entry.path, paths: group.map((g) => g.path) }))
+                dragging.current = move ? group.map((e) => e.path) : []
+                e.dataTransfer.effectAllowed = group.length === 1 && (entry.kind === 'file' || (move && pinnable(entry))) ? 'all' : move ? 'copyMove' : 'link'
               }}
               onDragEnd={() => {
-                dragging.current = null
+                dragging.current = []
                 draggedFile.current = null
                 dragStore.end()
                 clearHover()
@@ -539,7 +674,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
               onContextMenu={(e) => contextMenu(e, entry)}
               title={[entry.link ? `${entry.path} (${t('tree.linkOutside')})` : entry.path, ...(expandable && entry.kind === 'dir' ? [] : [formatBytes(entry.size)]), formatDate(entry.modified, language)].join('\n')}
               style={{ paddingLeft: 8 + depth * 8 }}
-              className={`flex h-[22px] cursor-pointer items-center gap-1 pr-2 outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus ${entry.hidden ? 'opacity-60' : ''} ${dropOver === entry.path ? 'bg-list-active text-list-active-fg' : selected ? 'bg-list-inactive focus-within:bg-list-active focus-within:text-list-active-fg' : 'hover:bg-list-hover'}`}
+              className={`flex h-[22px] cursor-pointer items-center gap-1 pr-2 outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus ${entry.hidden || cutRow(entry.path) ? 'opacity-60' : ''} ${dropOver === entry.path || marked.has(entry.path) ? 'bg-list-active text-list-active-fg' : selected ? 'bg-list-inactive focus-within:bg-list-active focus-within:text-list-active-fg' : 'hover:bg-list-hover'}`}
             >
               <span className="flex w-4 shrink-0 justify-center">{expandable ? <Icon name={expanded ? 'chevron-down' : 'chevron-right'} className="text-[16px]" /> : null}</span>
               <Icon name={entry.kind === 'dir' ? (expanded ? 'folder-opened' : 'folder') : entry.kind === 'zip' ? 'file-zip' : fileIcon(undefined, entry.name)} className="shrink-0 text-[16px]" />

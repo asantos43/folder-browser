@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { useI18n } from '@/i18n/context.tsx'
 import { basename } from '@/lib/format.ts'
 import { readStored, writeStored } from '@/lib/storage.ts'
+import { fileClipboard } from './fileClipboard.ts'
+import { topmost } from './selection.ts'
 import { refusalNotice } from '@/state/messages.ts'
 import { useNotifications } from '@/state/notifications.ts'
 import { focusedGroup } from '@/state/groups.ts'
@@ -27,7 +29,7 @@ import { pruneZooms, stepTabZoom, tabZoomOf } from '@/state/tabZoom.ts'
 import { viewZoom } from '@/state/viewZoom.ts'
 import type { AppInfo } from '@core/api.ts'
 import type { DiffSide } from '@core/diff.ts'
-import { innerPath, isInner } from '@core/vpath.ts'
+import { innerPath, isInner, parentPath } from '@core/vpath.ts'
 import { fileTarget } from '@/find/types.ts'
 import { shownText } from '@/state/shown.ts'
 import { AboutDialog } from '@/components/AboutDialog.tsx'
@@ -101,10 +103,10 @@ export function Workbench() {
   const [emptying, setEmptying] = useState<string | null>(null)
   // An item of a folder to delete (asked about, to the trash first; for good only when the trash cannot take it), or to move (asked where to).
   // `forever`: permanent from the start (Shift held when it was asked for); `refused`: the trash could not take it, and the user is asked again.
-  const [deleting, setDeleting] = useState<{ rootId: string; entry: DirEntry; forever: boolean; refused: boolean } | null>(null)
+  const [deleting, setDeleting] = useState<{ rootId: string; entries: DirEntry[]; forever: boolean; refused: boolean } | null>(null)
   // Shift held while the question is on screen turns it into the permanent delete, as the key at the start does.
   const [shiftHeld, setShiftHeld] = useState(false)
-  const [moving, setMoving] = useState<{ rootId: string; entry: DirEntry } | null>(null)
+  const [moving, setMoving] = useState<{ rootId: string; entries: DirEntry[] } | null>(null)
   const [pageMenu, setPageMenu] = useState<ContextMenuState | null>(null)
   const [linkHover, setLinkHover] = useState<LinkHover | null>(null)
   // The session is written only once the last one has been read back.
@@ -715,15 +717,28 @@ export function Workbench() {
       })
     }
   }, [])
+  /** What a batch of changes says in one notice: one item is told as it always was, several as a count (and the first thing that went wrong). */
   const doMove = useCallback(
-    (rootId: string, path: string, toFolder: string) => {
-      const name = basename(path)
-      void api?.fs.move(rootId, path, toFolder).then((result) => {
-        if (!result.ok) return notify({ level: 'error', text: t('fs.failedMove', { name, reason: t(`fs.error.${result.error}`) }) })
-        setTreeVersion((n) => n + 1)
+    async (rootId: string, paths: string[], toFolder: string) => {
+      // (An item already in the folder is not moved: that is not a failure.)
+      const items = topmost(paths).filter((path) => parentPath(path) !== toFolder)
+      if (!items.length || !api) return
+      const folder = toFolder === '' ? t('fs.movedToTop', { name: wsNow.current.roots[rootId]?.name ?? '' }) : basename(toFolder)
+      const failed: { name: string; reason: string }[] = []
+      let moved = 0
+      for (const path of items) {
+        const result = await api.fs.move(rootId, path, toFolder)
+        if (!result.ok) {
+          failed.push({ name: basename(path), reason: t(`fs.error.${result.error}`) })
+          continue
+        }
+        moved++
         pathChanged(rootId, path, result.path)
-        notify({ level: 'info', text: t('fs.moved', { name, folder: toFolder === '' ? t('fs.movedToTop', { name: wsNow.current.roots[rootId]?.name ?? '' }) : basename(toFolder) }) })
-      })
+      }
+      if (moved) setTreeVersion((n) => n + 1)
+      if (items.length === 1) notify(failed.length ? { level: 'error', text: t('fs.failedMove', failed[0]) } : { level: 'info', text: t('fs.moved', { name: basename(items[0]), folder }) })
+      else if (failed.length) notify({ level: 'error', text: t('fs.failedMoveMany', { failed: failed.length, count: items.length, ...failed[0] }) })
+      else notify({ level: 'info', text: t('fs.movedMany', { count: moved, folder }) })
     },
     [api, notify, t, pathChanged],
   )
@@ -745,34 +760,60 @@ export function Workbench() {
       window.removeEventListener('blur', release)
     }
   }, [])
-  /** A copy of an item (a drop with Shift held): the copy is numbered when the name is taken, and the tree shows it. */
+  /** Copies (a drop with Shift held): a copy is numbered when the name is taken, and the tree shows it. */
   const doCopy = useCallback(
-    (rootId: string, path: string, toFolder: string) => {
-      const name = basename(path)
-      void api?.fs.copy(rootId, path, toFolder).then((result) => {
-        if (!result.ok) return notify({ level: 'error', text: t('fs.failedCopy', { name, reason: t(`fs.error.${result.error}`) }) })
-        setTreeVersion((n) => n + 1)
-        const folder = toFolder === '' ? t('fs.movedToTop', { name: wsNow.current.roots[rootId]?.name ?? '' }) : basename(toFolder)
-        const made = basename(result.path)
-        notify({ level: 'info', text: made === name ? t('fs.copied', { name, folder }) : t('fs.copiedAs', { name, folder, as: made }) })
-      })
+    async (rootId: string, paths: string[], toFolder: string) => {
+      const items = topmost(paths)
+      if (!items.length || !api) return
+      const folder = toFolder === '' ? t('fs.movedToTop', { name: wsNow.current.roots[rootId]?.name ?? '' }) : basename(toFolder)
+      const failed: { name: string; reason: string }[] = []
+      let made = ''
+      let copied = 0
+      for (const path of items) {
+        const result = await api.fs.copy(rootId, path, toFolder)
+        if (!result.ok) {
+          failed.push({ name: basename(path), reason: t(`fs.error.${result.error}`) })
+          continue
+        }
+        copied++
+        made = basename(result.path)
+      }
+      if (copied) setTreeVersion((n) => n + 1)
+      if (items.length === 1) {
+        const name = basename(items[0])
+        if (failed.length) notify({ level: 'error', text: t('fs.failedCopy', failed[0]) })
+        else notify({ level: 'info', text: made === name ? t('fs.copied', { name, folder }) : t('fs.copiedAs', { name, folder, as: made }) })
+      } else if (failed.length) notify({ level: 'error', text: t('fs.failedCopyMany', { failed: failed.length, count: items.length, ...failed[0] }) })
+      else notify({ level: 'info', text: t('fs.copiedMany', { count: copied, folder }) })
     },
     [api, notify, t],
   )
-  /** The user said yes to deleting an item: to the trash, or (when the trash refused and the user said yes again) for good. */
+  /** The user said yes to deleting items: to the trash, or (the ones the trash could not take, when the user said yes again) for good. */
   const doDelete = useCallback(
-    (item: { rootId: string; entry: DirEntry; forever: boolean; refused: boolean }) => {
-      const { rootId, entry, forever } = item
-      void api?.fs.remove(rootId, entry.path, forever ? 'forever' : 'trash').then((result) => {
+    async (item: { rootId: string; entries: DirEntry[]; forever: boolean; refused: boolean }) => {
+      const { rootId, forever } = item
+      const keep = new Set(topmost(item.entries.map((e) => e.path)))
+      const entries = item.entries.filter((e) => keep.has(e.path))
+      if (!entries.length || !api) return
+      const failed: { name: string; reason: string }[] = []
+      const refused: DirEntry[] = []
+      let done = 0
+      for (const entry of entries) {
+        const result = await api.fs.remove(rootId, entry.path, forever ? 'forever' : 'trash')
         if (result.ok) {
-          setTreeVersion((n) => n + 1)
+          done++
           dispatch({ type: 'path-removed', rootId, path: entry.path })
-          return notify({ level: 'info', text: t(forever ? 'fs.deletedForever' : 'fs.deleted', { name: entry.name }) })
-        }
-        // The trash could not take it (a file system with no trash): the user is asked again, for good this time.
-        if (result.error === 'trash-failed' && !forever) return setDeleting({ rootId, entry, forever: true, refused: true })
-        notify({ level: 'error', text: t('fs.failedDelete', { name: entry.name, reason: t(`fs.error.${result.error}`) }) })
-      })
+        } else if (result.error === 'trash-failed' && !forever) refused.push(entry)
+        else failed.push({ name: entry.name, reason: t(`fs.error.${result.error}`) })
+      }
+      if (done) setTreeVersion((n) => n + 1)
+      if (entries.length === 1) {
+        if (failed.length) notify({ level: 'error', text: t('fs.failedDelete', failed[0]) })
+        else if (done) notify({ level: 'info', text: t(forever ? 'fs.deletedForever' : 'fs.deleted', { name: entries[0].name }) })
+      } else if (failed.length) notify({ level: 'error', text: t('fs.failedDeleteMany', { failed: failed.length, count: entries.length, ...failed[0] }) })
+      else if (done) notify({ level: 'info', text: t(forever ? 'fs.deletedForeverMany' : 'fs.deletedMany', { count: done }) })
+      // The trash could not take them (a file system with no trash): the user is asked again, for good this time.
+      if (refused.length) setDeleting({ rootId, entries: refused, forever: true, refused: true })
     },
     [api, notify, t],
   )
@@ -821,11 +862,21 @@ export function Workbench() {
         }
         return result
       },
-      moveEntryTo: (id: string, entry: DirEntry) => setMoving({ rootId: id, entry }),
-      moveEntry: (id: string, path: string, toFolder: string) => doMove(id, path, toFolder),
-      copyEntry: (id: string, path: string, toFolder: string) => doCopy(id, path, toFolder),
+      moveEntryTo: (id: string, entries: DirEntry[]) => setMoving({ rootId: id, entries }),
+      moveEntry: (id: string, paths: string[], toFolder: string) => void doMove(id, paths, toFolder),
+      copyEntry: (id: string, paths: string[], toFolder: string) => void doCopy(id, paths, toFolder),
+      // A paste is a copy, or a move for what was cut (and what was cut is pasted once). What was taken in another root is not pasted here (yet).
+      pasteEntries: (id: string, toFolder: string) => {
+        const clip = fileClipboard.get()
+        if (!clip) return
+        if (clip.rootId !== id) return notify({ level: 'error', text: t('fs.pasteOtherRoot') })
+        if (clip.mode === 'cut') {
+          fileClipboard.set(null)
+          void doMove(id, clip.paths, toFolder)
+        } else void doCopy(id, clip.paths, toFolder)
+      },
       // (An entry of a ZIP has no trash: it is deleted for good, and the question says so at once.)
-      removeEntry: (id: string, entry: DirEntry, forever = false) => setDeleting({ rootId: id, entry, forever: forever || wsNow.current.roots[id]?.kind === 'zip' || isInner(entry.path), refused: false }),
+      removeEntry: (id: string, entries: DirEntry[], forever = false) => setDeleting({ rootId: id, entries, forever: forever || wsNow.current.roots[id]?.kind === 'zip' || entries.some((e) => isInner(e.path)), refused: false }),
       // A `.wsnp` of a folder is a file like the others: a click shows its page in a preview tab, as a picture is, and a double click keeps it in a tab of its own.
       openSnapshot: (id: string, path: string, keep: boolean) => void api?.openInRoot(id, path).then((results) => handleResults(results, { preview: !keep })),
       // The file chosen with Select for Compare is the left side; the one the menu is on is the right (as VS Code does). The choice stays, to compare more files with it.
@@ -835,6 +886,8 @@ export function Workbench() {
           setCompareChosen({ rootId: id, path: entry.path })
           notify({ level: 'info', text: t('diff.selected', { name: entry.name }) })
         },
+        // Two files marked in the tree: the first of them (in the order of the rows) is the left side.
+        pair: (id: string, left: DirEntry, right: DirEntry) => dispatch({ type: 'open-diff', left: { rootId: id, path: left.path }, right: { rootId: id, path: right.path } }),
         with: (id: string, entry: DirEntry) => compareSource && dispatch({ type: 'open-diff', left: compareSource, right: { rootId: id, path: entry.path } }),
         // A file of the tree dropped on another: the same question as for two tabs.
         drop: (id: string, dragged: { path: string; size: number }, entry: DirEntry) => setPair({ left: { rootId: id, ...dragged }, right: { rootId: id, path: entry.path, size: entry.size } }),
@@ -1008,11 +1061,13 @@ export function Workbench() {
         <ConfirmDialog
           title={t(deleting.forever || shiftHeld ? 'fs.foreverTitle' : 'fs.deleteTitle')}
           message={
-            deleting.refused
-              ? t('fs.foreverMessage', { name: deleting.entry.name })
-              : deleting.forever || shiftHeld
-                ? t(deleting.entry.kind === 'dir' ? 'fs.foreverChosenFolder' : 'fs.foreverChosenFile', { name: deleting.entry.name })
-                : t(deleting.entry.kind === 'dir' ? 'fs.deleteFolder' : 'fs.deleteFile', { name: deleting.entry.name })
+            deleting.entries.length > 1
+              ? t(deleting.refused ? 'fs.foreverMessageMany' : deleting.forever || shiftHeld ? 'fs.foreverChosenMany' : 'fs.deleteMany', { count: deleting.entries.length })
+              : deleting.refused
+                ? t('fs.foreverMessage', { name: deleting.entries[0].name })
+                : deleting.forever || shiftHeld
+                  ? t(deleting.entries[0].kind === 'dir' ? 'fs.foreverChosenFolder' : 'fs.foreverChosenFile', { name: deleting.entries[0].name })
+                  : t(deleting.entries[0].kind === 'dir' ? 'fs.deleteFolder' : 'fs.deleteFile', { name: deleting.entries[0].name })
           }
           hint={deleting.forever || shiftHeld ? undefined : t('fs.shiftHint')}
           confirmLabel={t(deleting.forever || shiftHeld ? 'fs.foreverConfirm' : 'fs.deleteConfirm')}
@@ -1021,7 +1076,7 @@ export function Workbench() {
           onConfirm={() => {
             const item = deleting
             setDeleting(null)
-            doDelete({ ...item, forever: item.forever || shiftHeld })
+            void doDelete({ ...item, forever: item.forever || shiftHeld })
           }}
         />
       ) : null}
@@ -1054,13 +1109,13 @@ export function Workbench() {
       {moving ? (
         <MoveDialog
           rootName={ws.roots[moving.rootId]?.name ?? ''}
-          entry={moving.entry}
+          entries={moving.entries}
           listDir={(path) => api!.listDir(moving.rootId, path)}
           onCancel={() => setMoving(null)}
           onMove={(toFolder) => {
             const item = moving
             setMoving(null)
-            doMove(item.rootId, item.entry.path, toFolder)
+            void doMove(item.rootId, item.entries.map((e) => e.path), toFolder)
           }}
         />
       ) : null}
