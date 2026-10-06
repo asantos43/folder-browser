@@ -79,6 +79,7 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Changed
 
+
 - **GitHub Actions is manual.** The `CI` workflow (tests and packaging on every pull request and push, on three systems) is removed, to spare the free quota; the checks run on the developer's computer. The `Release` workflow no longer starts on a tag: it is started by hand for a release that already exists, builds only the macOS `.dmg` (unit tests, packaging smoke test, optional end-to-end tests) and adds it and its checksum to the release. The `.exe`, `.deb` and `.rpm` are made locally by `scripts/release-local.mjs` (`docs/RELEASING.md`).
 - **Folders first** (interface adjustments): a `.wsnp` in the tree is a file like the others: no icon of its own; a **click only previews** it (an italic tab with the page, as for a picture: the side bar stays on the folder, and the next preview closes it), and a **double click** (or Enter, or Open in its menu) opens it as a snapshot for good (a kept tab, listed under Open Snapshots, the side bar goes to its files); **Open as ZIP** stays in its menu. The activity bar has no Open File icon (Open Folder is there; File ▸ Open File… and `Ctrl+O` remain). The **Open Snapshots** section appears only while a snapshot is open, and has no Open File button; with nothing open the status bar says "No folder open" and the empty editor says "Open a folder to start".
 - A ZIP that is not a PageKeep ZIP opens to be browsed, instead of being refused as a `.wsnp`. The side bar is called **Explorer**.
