@@ -22,6 +22,8 @@ export interface Tab {
   view?: 'metadata' | 'settings' | 'diff'
   /** The two files of a comparison: files of the folders and ZIP files that were opened, read-only. */
   diff?: { left: DiffSide; right: DiffSide }
+  /** The editor group the tab is in: absent for the first (left) one, 1 for the second (right) one, which exists only while it has tabs. */
+  group?: 1
   /** Shown in italics and replaced by the next single click, until it is kept (double click, or a tab of the snapshot itself). */
   preview: boolean
   pinned: boolean
@@ -29,12 +31,21 @@ export interface Tab {
 
 export type IntegrityState = { state: 'running'; done: number; total: number } | { state: 'done'; report: IntegrityReport }
 
+/** The editor groups: the left one, and the right one that a tab is dragged or split into. */
+export type GroupId = 0 | 1
+export const groupOf = (tab: Tab): GroupId => (tab.group === 1 ? 1 : 0)
+
 export interface Workspace {
   snapshots: Record<string, SnapshotInfo>
   /** The folders and ZIP files opened to browse. A tab of one of their files has the root's id in `snapshotId`. */
   roots: Record<string, RootInfo>
   tabs: Tab[]
+  /** The tab in front in the group that has the focus: what the menus, the keys, Find and Save act on. */
   active: string | null
+  /** The group that has the focus. */
+  focus: GroupId
+  /** The tab in front in the group that has not the focus (null: there is no other group). */
+  other: string | null
   /** Keys of the tabs, the one used last first. */
   recent: string[]
   /** The snapshot or root whose files the side bar shows. */
@@ -46,11 +57,17 @@ export interface Workspace {
   dirty: Record<string, true>
 }
 
-export const empty: Workspace = { snapshots: {}, roots: {}, tabs: [], active: null, recent: [], selected: null, integrity: {}, shownAnyway: {}, dirty: {} }
+export const empty: Workspace = { snapshots: {}, roots: {}, tabs: [], active: null, focus: 0, other: null, recent: [], selected: null, integrity: {}, shownAnyway: {}, dirty: {} }
 
 export const snapshotKey = (id: string) => `s:${id}`
 export const metadataKey = (id: string) => `m:${id}`
 export const SETTINGS_KEY = 'settings'
+/** The tab in front in a group. */
+export const shownIn = (ws: Workspace, group: GroupId): string | null => (group === ws.focus ? ws.active : ws.other)
+/** The workspace as one group sees it: its tabs, and the one in front of it as the active one. */
+export const groupView = (ws: Workspace, group: GroupId): Workspace => ({ ...ws, tabs: ws.tabs.filter((t) => groupOf(t) === group), active: shownIn(ws, group) })
+/** Whether there are two groups. */
+export const isSplit = (ws: Workspace): boolean => ws.tabs.some((t) => t.group === 1)
 /** The tab of a snapshot itself (its page), as against one of its files or of its metadata. */
 export const isSnapshotTab = (tab: Tab): boolean => tab.path === undefined && tab.view === undefined
 
@@ -94,7 +111,9 @@ export type Action =
   | { type: 'root-closed'; id: string }
   /** Two files compared, in a tab of their own (kept, beside the active tab). */
   | { type: 'open-diff'; left: DiffSide; right: DiffSide }
-  | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number; /** Show the bytes (hexadecimal) instead of what the kind of the file gets. */ as?: 'hex' }
+  | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number; /** Show the bytes (hexadecimal) instead of what the kind of the file gets. */ as?: 'hex'; /** The group to open it in (a tab of the file that is in the other group goes there); else the one that has the focus. */ group?: GroupId }
+  /** A tab goes to a group (the second one is made if it was not there), next to the tab `at` when that one is in the group (before it, or `after` it), else after the one in front of the group; it comes to the front and the group has the focus. */
+  | { type: 'move-to-group'; key: string; group: GroupId; at?: { key: string; after: boolean } }
   /** An item of a folder was renamed or moved: the tabs of it (and of what is in it) follow it, keeping their place, their preview and their pin. */
   | { type: 'path-changed'; rootId: string; from: string; to: string }
   /** An item of a folder was deleted: the tabs of it (and of what was in it) close. */
@@ -126,7 +145,55 @@ function withActive(ws: Workspace, key: string | null, touch = true): Workspace 
   if (key === null) return { ...ws, active: null }
   const tab = ws.tabs.find((t) => t.key === key)
   const follows = tab !== undefined && ws.roots[tab.snapshotId] !== undefined
-  return { ...ws, active: key, selected: follows ? tab.snapshotId : ws.selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
+  // A tab of the other group takes the focus to its group; the tab that was in front there stays in front of the group that lost it.
+  const toOther = tab !== undefined && groupOf(tab) !== ws.focus
+  const groups = toOther ? { focus: groupOf(tab), other: ws.active } : {}
+  return { ...ws, ...groups, active: key, selected: follows ? tab.snapshotId : ws.selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
+}
+
+/**
+ * Makes the groups true after tabs went or moved: each group has a tab in front (the most recently used one that is left when its own is gone), the second group ends when it
+ * has no tab (and the focus goes to the first), and a first group with no tab leaves the second as the only one.
+ */
+function normalize(ws: Workspace): Workspace {
+  const mine = (group: GroupId) => ws.tabs.filter((t) => groupOf(t) === group)
+  const pick = (group: GroupId, current: string | null): string | null => {
+    const tabs = mine(group)
+    if (current !== null && tabs.some((t) => t.key === current)) return current
+    // As VS Code does: the most recently used tab that is left.
+    return ws.recent.find((k) => tabs.some((t) => t.key === k)) ?? tabs.at(-1)?.key ?? null
+  }
+  let first = pick(0, shownIn(ws, 0))
+  let second = pick(1, shownIn(ws, 1))
+  let { tabs, focus } = ws
+  if (!mine(1).length) {
+    focus = 0
+    second = null
+  } else if (!mine(0).length) {
+    tabs = tabs.map((t) => {
+      const { group: _gone, ...rest } = t
+      return rest
+    })
+    first = second
+    second = null
+    focus = 0
+  }
+  return { ...ws, tabs, focus, active: focus === 0 ? first : second, other: focus === 0 ? second : first }
+}
+
+/** A tab goes to a group (see `move-to-group`). */
+function moveToGroup(ws: Workspace, key: string, group: GroupId, place?: { key: string; after: boolean }): Workspace {
+  const tab = ws.tabs.find((t) => t.key === key)
+  if (!tab) return ws
+  const { group: _was, ...plain } = tab
+  const moved: Tab = group === 1 ? { ...plain, group: 1 } : plain
+  const rest = ws.tabs.filter((t) => t.key !== key)
+  const near = place ? rest.findIndex((t) => t.key === place.key && groupOf(t) === group) : -1
+  // Next to the tab it was dropped on; else after the one in front of the group, or at the end.
+  const front = near >= 0 ? -1 : rest.findIndex((t) => t.key === shownIn(ws, group) && groupOf(t) === group)
+  const at = near >= 0 ? near + (place!.after ? 1 : 0) : front >= 0 ? front + 1 : rest.length
+  const tabs = arranged([...rest.slice(0, at), moved, ...rest.slice(at)])
+  return normalize(withActive({ ...ws, tabs }, key))
 }
 
 /** Removes the tabs of the given keys, and the snapshots that are left without a tab of their own. */
@@ -145,17 +212,13 @@ function without(ws: Workspace, keys: Set<string>): Workspace {
   }
   const alive = new Set(tabs.map((t) => t.key))
   const recent = ws.recent.filter((k) => alive.has(k))
-  let active = ws.active
-  if (active === null || !alive.has(active)) {
-    // As VS Code does: the most recently used tab that is left.
-    active = recent[0] ?? tabs.at(-1)?.key ?? null
-  }
   const dirty = Object.fromEntries(Object.entries(ws.dirty).filter(([key]) => alive.has(key))) as Record<string, true>
-  const next = { ...ws, tabs, snapshots, integrity, shownAnyway, recent, dirty }
-  const activeTab = active ? tabs.find((t) => t.key === active) : undefined
+  const next = normalize({ ...ws, tabs, snapshots, integrity, shownAnyway, recent, dirty })
+  const active = next.active
+  const activeTab = active ? next.tabs.find((t) => t.key === active) : undefined
   const ofRoot = activeTab && ws.roots[activeTab.snapshotId] ? activeTab.snapshotId : undefined
   const exists = (id: string | null): id is string => id !== null && Boolean(ws.roots[id])
-  return { ...next, active, selected: ofRoot ?? (exists(ws.selected) ? ws.selected : (Object.keys(ws.roots)[0] ?? null)) }
+  return { ...next, selected: ofRoot ?? (exists(ws.selected) ? ws.selected : (Object.keys(ws.roots)[0] ?? null)) }
 }
 
 export function reduce(ws: Workspace, action: Action): Workspace {
@@ -173,7 +236,7 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const tab: Tab = { key, snapshotId: id, preview: action.preview === true, pinned: false }
       if (!tab.preview) return withActive({ ...ws, snapshots, tabs: arranged([...ws.tabs, tab]) }, key)
       // A preview takes the place of the one before it, and that one (a snapshot too, perhaps) is closed.
-      const old = ws.tabs.findIndex((t) => t.preview && !t.pinned)
+      const old = ws.tabs.findIndex((t) => t.preview && !t.pinned && groupOf(t) === 0)
       if (old < 0) return withActive({ ...ws, snapshots, tabs: arranged([...ws.tabs, tab]) }, key)
       const base = without({ ...ws, snapshots }, new Set([ws.tabs[old].key]))
       return withActive({ ...base, tabs: arranged([...base.tabs.slice(0, old), tab, ...base.tabs.slice(old)]) }, key)
@@ -192,26 +255,28 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const key = action.as === 'hex' ? hexKey(action.snapshotId, action.path) : fileKey(action.snapshotId, action.path)
       const existing = ws.tabs.find((t) => t.key === key)
       if (existing) {
-        const tabs = existing.preview && action.keep ? ws.tabs.map((t) => (t.key === key ? { ...t, preview: false } : t)) : ws.tabs
-        return withActive({ ...ws, tabs }, key)
+        const there = action.group !== undefined && groupOf(existing) !== action.group ? moveToGroup(ws, key, action.group) : ws
+        const tabs = existing.preview && action.keep ? there.tabs.map((t) => (t.key === key ? { ...t, preview: false } : t)) : there.tabs
+        return normalize(withActive({ ...there, tabs }, key))
       }
-      const tab: Tab = { key, snapshotId: action.snapshotId, path: action.path, ...(action.size === undefined ? {} : { size: action.size }), ...(action.as ? { as: action.as } : {}), preview: !action.keep, pinned: false }
-      // A new preview takes the place of the old one; a kept tab opens beside the active one, as VS Code does.
-      const old = tab.preview ? ws.tabs.findIndex((t) => t.preview && !t.pinned) : -1
+      const group = action.group ?? ws.focus
+      const tab: Tab = { key, snapshotId: action.snapshotId, path: action.path, ...(action.size === undefined ? {} : { size: action.size }), ...(action.as ? { as: action.as } : {}), ...(group === 1 ? { group: 1 as const } : {}), preview: !action.keep, pinned: false }
+      // A new preview takes the place of the old one (of its group); a kept tab opens beside the one in front of its group, as VS Code does.
+      const old = tab.preview ? ws.tabs.findIndex((t) => t.preview && !t.pinned && groupOf(t) === group) : -1
       // (A snapshot that was only previewed goes with its preview: the snapshot is closed, not left open with no tab.)
       if (old >= 0 && isSnapshotTab(ws.tabs[old])) {
         const base = without(ws, new Set([ws.tabs[old].key]))
-        return withActive({ ...base, tabs: arranged([...base.tabs.slice(0, old), tab, ...base.tabs.slice(old)]) }, key)
+        return normalize(withActive({ ...base, tabs: arranged([...base.tabs.slice(0, old), tab, ...base.tabs.slice(old)]) }, key))
       }
       let tabs: Tab[]
       if (old >= 0) tabs = ws.tabs.map((t, i) => (i === old ? tab : t))
       else {
-        const at = ws.tabs.findIndex((t) => t.key === ws.active)
+        const at = ws.tabs.findIndex((t) => t.key === shownIn(ws, group))
         tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]
         tabs = arranged(tabs)
       }
       const replaced = old >= 0 ? ws.tabs[old].key : null
-      return withActive({ ...ws, tabs, recent: ws.recent.filter((k) => k !== replaced) }, key)
+      return normalize(withActive({ ...ws, tabs, recent: ws.recent.filter((k) => k !== replaced) }, key))
     }
     case 'path-changed': {
       const moved = (t: Tab) => touches(t, action.rootId, action.from)
@@ -235,7 +300,7 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const rekey = (key: string | null) => (key !== null ? (keys.get(key) ?? key) : null)
       const alive = new Set(tabs.map((t) => t.key))
       const dirty = Object.fromEntries(Object.keys(ws.dirty).map((k) => [rekey(k)!, true as const])) as Record<string, true>
-      return { ...ws, tabs, active: rekey(ws.active), recent: [...new Set(ws.recent.map((k) => rekey(k)!))].filter((k) => alive.has(k)), dirty }
+      return { ...ws, tabs, active: rekey(ws.active), other: rekey(ws.other), recent: [...new Set(ws.recent.map((k) => rekey(k)!))].filter((k) => alive.has(k)), dirty }
     }
     case 'path-removed': {
       const gone = ws.tabs.filter((t) => touches(t, action.rootId, action.path))
@@ -252,7 +317,7 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const key = diffKey(action.left, action.right)
       if (!ws.roots[action.left.rootId] || !ws.roots[action.right.rootId]) return ws
       if (ws.tabs.some((t) => t.key === key)) return withActive(ws, key)
-      const tab: Tab = { key, snapshotId: action.left.rootId, view: 'diff', diff: { left: action.left, right: action.right }, preview: false, pinned: false }
+      const tab: Tab = { key, snapshotId: action.left.rootId, view: 'diff', diff: { left: action.left, right: action.right }, ...(ws.focus === 1 ? { group: 1 as const } : {}), preview: false, pinned: false }
       const at = ws.tabs.findIndex((t) => t.key === ws.active)
       const tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]
       return withActive({ ...ws, tabs: arranged(tabs) }, key)
@@ -283,11 +348,16 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       return ws.active ? withActive(ws, ws.active) : ws
     case 'close':
       return ws.tabs.some((t) => t.key === action.key) ? without(ws, new Set([action.key])) : ws
-    case 'close-others':
-      return without(ws, new Set(ws.tabs.filter((t) => t.key !== action.key && !t.pinned).map((t) => t.key)))
+    case 'close-others': {
+      const tab = ws.tabs.find((t) => t.key === action.key)
+      if (!tab) return ws
+      return without(ws, new Set(ws.tabs.filter((t) => t.key !== action.key && !t.pinned && groupOf(t) === groupOf(tab)).map((t) => t.key)))
+    }
     case 'close-right': {
       const at = ws.tabs.findIndex((t) => t.key === action.key)
-      return at < 0 ? ws : without(ws, new Set(ws.tabs.slice(at + 1).filter((t) => !t.pinned).map((t) => t.key)))
+      if (at < 0) return ws
+      const group = groupOf(ws.tabs[at])
+      return without(ws, new Set(ws.tabs.slice(at + 1).filter((t) => !t.pinned && groupOf(t) === group).map((t) => t.key)))
     }
     case 'close-all':
       return without(ws, new Set(ws.tabs.filter((t) => !t.pinned).map((t) => t.key)))
@@ -306,11 +376,15 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       return { ...ws, tabs: [...rest.slice(0, to), tab, ...rest.slice(to)] }
     }
     case 'step': {
-      if (!ws.tabs.length) return ws
-      const at = ws.tabs.findIndex((t) => t.key === ws.active)
-      const next = ws.tabs[(at + action.direction + ws.tabs.length) % ws.tabs.length]
+      // Through the tabs of the group that has the focus.
+      const mine = ws.tabs.filter((t) => groupOf(t) === ws.focus)
+      if (!mine.length) return ws
+      const at = mine.findIndex((t) => t.key === ws.active)
+      const next = mine[(at + action.direction + mine.length) % mine.length]
       return withActive(ws, next.key)
     }
+    case 'move-to-group':
+      return moveToGroup(ws, action.key, action.group, action.at)
     case 'select':
       return ws.roots[action.snapshotId] ? { ...ws, selected: action.snapshotId } : ws
     case 'integrity': {

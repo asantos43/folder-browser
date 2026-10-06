@@ -15,6 +15,7 @@ import { shortcut } from '@/workbench/commands.ts'
 import { languageExtension, languageSlot, listenerSlot, wrapping } from './codeTheme.ts'
 import { canFormat, formatSource } from './format.ts'
 import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
+import { useGroup } from '@/state/groups.ts'
 
 type Load = { state: 'loading' } | { state: 'ready'; buffer: EditorBuffer } | { state: 'refused'; error: EditError }
 
@@ -28,6 +29,7 @@ const EOL_LABEL: Record<LineEnding, string> = { lf: 'LF', crlf: 'CRLF', cr: 'CR'
  */
 export function EditView({ tabKey, rootId, path, language, zoom = 1, onSave, onSaveAs, onOpenWith, onHex, onChanged, onRestored, dirty, leading, fallback }: { /** Changes that were not saved came back from the draft kept for the next start. */ onRestored?: (name: string) => void;  /** What the workbench says of the tab: when it changes (a save made the text clean), the toolbar looks at the buffer again. */ dirty?: boolean; tabKey: string; rootId: string; path: string; language: Language; zoom?: number; /** The Save button (the workbench saves, and says what went wrong). */ onSave: () => void; onSaveAs: (text: string, options: { eol: LineEnding; bom: boolean }) => void; onOpenWith?: () => void; onHex?: () => void; /** The text now has changes that are not saved, or no longer has. */ onChanged: (key: string, changed: boolean) => void; leading?: ReactNode; fallback: (reason: MessageKey) => ReactNode }) {
   const { t } = useI18n()
+  const group = useGroup()
   const wrap = wordWrap.use()
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
@@ -95,8 +97,8 @@ export function EditView({ tabKey, rootId, path, language, zoom = 1, onSave, onS
     const now = hasChanges(buffer)
     setChanged(now)
     changedNow.current(keyNow.current, now)
-    const unregister = fileTarget.set(createCodeFindTarget(() => view.current))
-    const unshow = shownText.set(() => editor.state.doc.toString())
+    const unregister = fileTarget.set(createCodeFindTarget(() => view.current), group)
+    const unshow = shownText.set(() => editor.state.doc.toString(), group)
     editor.focus()
     return () => {
       unregister()
@@ -105,7 +107,7 @@ export function EditView({ tabKey, rootId, path, language, zoom = 1, onSave, onS
       editor.destroy()
       view.current = null
     }
-  }, [buffer])
+  }, [buffer, group])
 
   // A save (the workbench's) made the text clean without a change of the text.
   useEffect(() => {

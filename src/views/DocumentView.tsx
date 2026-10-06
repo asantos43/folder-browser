@@ -5,6 +5,7 @@ import { fileTarget } from '@/find/types.ts'
 import { useI18n } from '@/i18n/context.tsx'
 import { OtherView } from './OtherView.tsx'
 import { FileActions, SaveButton, Toolbar } from './Toolbar.tsx'
+import { useGroup } from '@/state/groups.ts'
 
 /** The longest a document may take to be drawn before it is given up on. */
 const PATIENCE_MS = 45_000
@@ -18,6 +19,7 @@ type Load = { state: 'opening' } | { state: 'drawing'; url: string; token: strin
  */
 export function DocumentView({ snapshotId, path, name, mediaType, size, active = true, zoom = 1, onZoom, onSave, onOpenWith, onHex }: { snapshotId: string; path: string; name: string; mediaType: string | undefined; size: number; /** The tab is in front: only then does Find act on this document, and only then is its wheel heard. */ active?: boolean; /** The zoom of the tab: the frame is laid out at 1/zoom of the room and scaled up (or down) to fill it, as a browser's zoom lays a page out. */ zoom?: number; /** The wheel turned, or a zoom key pressed, with Control held over the document (a zoom of the tab). */ onZoom?: (change: { wheel: number } | { direction: 'in' | 'out' | 'reset' }) => void; onSave: () => void; onOpenWith?: () => void; onHex: () => void }) {
   const { t } = useI18n()
+  const group = useGroup()
   const [load, setLoad] = useState<Load>({ state: 'opening' })
   const frame = useRef<HTMLIFrameElement>(null)
   const url = 'url' in load ? load.url : undefined
@@ -70,7 +72,7 @@ export function DocumentView({ snapshotId, path, name, mediaType, size, active =
   // Find (Ctrl+F) acts on this document while its tab is in front and it is drawn: the main process runs the browser's own find in its frame.
   const token = load.state === 'drawn' ? load.token : undefined
   const target = useMemo(() => (token && window.fb ? createFrameFindTarget(window.fb, token) : null), [token])
-  useEffect(() => (active && target ? fileTarget.set(target) : undefined), [active, target])
+  useEffect(() => (active && target ? fileTarget.set(target, group) : undefined), [active, target, group])
 
   if (load.state === 'failed') return <OtherView name={name} mediaType={mediaType} size={size} reason={load.reason} detail={load.detail} onSave={onSave} onHex={onHex} onOpenWith={onOpenWith} />
   return (

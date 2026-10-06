@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { Language } from '@core/filekind.ts'
+import { createGroupSlot } from './groups.ts'
 
 /**
  * The language a user picked for a file whose language the viewer got wrong (the status bar's "Select Language Mode"), by `snapshotId:path`. It lasts as
@@ -31,18 +32,9 @@ export interface ShownSource {
   language: Language
   detected: Language
 }
-let shown: ShownSource | null = null
+const slot = createGroupSlot<ShownSource>()
 export const shownSource = {
-  set(next: ShownSource): () => void {
-    shown = next
-    tell()
-    return () => {
-      if (shown === next) {
-        shown = null
-        tell()
-      }
-    }
-  },
-  get: () => shown,
-  use: (): ShownSource | null => useSyncExternalStore(subscribe, () => shown),
+  set: (next: ShownSource, group?: 0 | 1): (() => void) => slot.set(next, group),
+  get: (): ShownSource | null => slot.get(),
+  use: (): ShownSource | null => slot.use(),
 }

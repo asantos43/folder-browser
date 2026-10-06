@@ -8,6 +8,7 @@ import { SaveButton, Separator, Toolbar, ToolbarButton, ZoomControls } from './T
 import { keepState, keptState, useSize } from './useViewport.ts'
 import { PDF_LIMITS, resolveScale, stepZoom, wheelZoom, type Size, type ZoomMode } from './zoom.ts'
 import './pdf.css'
+import { useGroup } from '@/state/groups.ts'
 
 type Pdfjs = typeof import('pdfjs-dist')
 
@@ -97,6 +98,7 @@ function PdfPage({ pdfjs, doc, number, size, scale, root }: { pdfjs: Pdfjs; doc:
  */
 export function PdfView({ id, bytes, name, onSave }: { id: string; bytes: Uint8Array; name: string; onSave: () => void }) {
   const { t } = useI18n()
+  const group = useGroup()
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [sizes, setSizes] = useState<Size[]>([])
   const [mode, setMode] = useState<ZoomMode>(() => keptState(`zoom:${id}`, 'auto'))
@@ -180,8 +182,8 @@ export function PdfView({ id, bytes, name, onSave }: { id: string; bytes: Uint8A
   currentNow.current = current
   useEffect(() => {
     if (load.state !== 'ready') return
-    return fileTarget.set(createPdfFindTarget(load.doc, () => scroller.current, goTo, () => currentNow.current))
-  }, [load, goTo])
+    return fileTarget.set(createPdfFindTarget(load.doc, () => scroller.current, goTo, () => currentNow.current), group)
+  }, [load, goTo, group])
 
   // The current page is the one across the top third of the window.
   const pending = useRef(0)

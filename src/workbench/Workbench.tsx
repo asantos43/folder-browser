@@ -7,7 +7,9 @@ import { basename } from '@/lib/format.ts'
 import { readStored, writeStored } from '@/lib/storage.ts'
 import { refusalNotice } from '@/state/messages.ts'
 import { useNotifications } from '@/state/notifications.ts'
-import { empty, isHeldBack, isSnapshotTab, reduce, released, type Action } from '@/state/workspace.ts'
+import { focusedGroup } from '@/state/groups.ts'
+import { empty, isHeldBack, isSnapshotTab, isSplit, reduce, released, type Action, type GroupId } from '@/state/workspace.ts'
+import type { DraggedFile } from './dnd.ts'
 import { bufferChanged, dropBuffer, keepBuffers, moveBuffer, saveAnyBuffer } from '@/state/buffers.ts'
 import { flushDrafts, setDraftsEnabled, syncDrafts, touchDraft } from '@/state/drafts.ts'
 import type { MessageKey } from '@/i18n/index.ts'
@@ -182,7 +184,7 @@ export function Workbench() {
         if (!opened) return
         const id = 'root' in opened ? opened.root.id : opened.snapshot.id
         show(entry.snapshot, opened)
-        if (entry.kind === 'file') dispatch({ type: 'open-file', snapshotId: id, path: entry.file!, keep: true, ...(entry.size === undefined ? {} : { size: entry.size }), ...(entry.as ? { as: entry.as } : {}) })
+        if (entry.kind === 'file') dispatch({ type: 'open-file', snapshotId: id, path: entry.file!, keep: true, ...(entry.size === undefined ? {} : { size: entry.size }), ...(entry.as ? { as: entry.as } : {}), ...(entry.group === 1 ? { group: 1 as const } : {}) })
         else if (entry.kind === 'metadata') dispatch({ type: 'open-metadata', snapshotId: id })
         if (i === session.active) activeKey = keyOfEntry(entry, id)
       })
@@ -833,12 +835,33 @@ export function Workbench() {
           notify({ level: 'info', text: t('diff.selected', { name: entry.name }) })
         },
         with: (id: string, entry: DirEntry) => compareSource && dispatch({ type: 'open-diff', left: compareSource, right: { rootId: id, path: entry.path } }),
+        // A file of the tree dropped on another: the same question as for two tabs.
+        drop: (id: string, dragged: { path: string; size: number }, entry: DirEntry) => setPair({ left: { rootId: id, ...dragged }, right: { rootId: id, path: entry.path, size: entry.size } }),
       },
       saveFile,
       openWith,
       copy,
     }),
     [run, api, saveFile, openWith, copy, handleResults, reportOpenWith, refreshPlaces, notify, t, pathChanged, doMove, doCopy, compareSource],
+  )
+
+  const split = isSplit(ws)
+  // What Find, Copy, Print and the status bar act on is what the group that has the focus shows.
+  useEffect(() => focusedGroup.set(ws.focus), [ws.focus])
+  // Two files that were dragged together (a tab on a tab, a file of the tree on another file): the user is asked what to do with them.
+  const [pair, setPair] = useState<{ left: { rootId: string; path: string; size: number }; right: { rootId: string; path: string; size: number } } | null>(null)
+  const dropOnTab = (dragged: string, target: string) => {
+    const [a, b] = [dragged, target].map((key) => wsNow.current.tabs.find((tab) => tab.key === key))
+    if (a?.path !== undefined && b?.path !== undefined) setPair({ left: { rootId: a.snapshotId, path: a.path, size: a.size ?? 0 }, right: { rootId: b.snapshotId, path: b.path, size: b.size ?? 0 } })
+  }
+  const dropFile = (file: DraggedFile, group: GroupId) => dispatch({ type: 'open-file', snapshotId: file.rootId, path: file.path, keep: true, size: file.size, group })
+  /** One of the editor groups; both get the same props and each shows its own tabs. */
+  const renderGroup = (group: GroupId) => (
+    <EditorGroup group={group} onDropOnTab={dropOnTab} onDropFile={dropFile} reloads={reloads} onSaveTab={(key) => void saveKey(key)} onSaveBufferAs={saveBufferAs} onSaveBytesAs={saveBytesAs} onChanged={(key, changed) => {
+        rawDispatch({ type: 'dirty', key, dirty: changed })
+        const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
+        if (changed && api && tab?.path !== undefined) touchDraft(api, key, tab.snapshotId, tab.path)
+      }} onRestored={(name) => notify({ level: 'info', text: t('edit.restored', { name }) })} zooms={zooms} onZoom={(change) => ('wheel' in change ? zoomWheel(change.wheel) : zoomTab(change.direction === 'in' ? 1 : change.direction === 'out' ? -1 : 0))} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onOpenWith={openWith} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
   )
 
   return (
@@ -862,11 +885,15 @@ export function Workbench() {
               <SideBar ws={ws} dispatch={dispatch} actions={sideBarActions} places={placesData} treeVersion={treeVersion} />
             </Allotment.Pane>
             <Allotment.Pane minSize={200}>
-              <EditorGroup reloads={reloads} onSaveTab={(key) => void saveKey(key)} onSaveBufferAs={saveBufferAs} onSaveBytesAs={saveBytesAs} onChanged={(key, changed) => {
-            rawDispatch({ type: 'dirty', key, dirty: changed })
-            const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
-            if (changed && api && tab?.path !== undefined) touchDraft(api, key, tab.snapshotId, tab.path)
-          }} onRestored={(name) => notify({ level: 'info', text: t('edit.restored', { name }) })} zooms={zooms} onZoom={(change) => ('wheel' in change ? zoomWheel(change.wheel) : zoomTab(change.direction === 'in' ? 1 : change.direction === 'out' ? -1 : 0))} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onOpenWith={openWith} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
+              {/* The groups (a second one on the right while it has tabs): the same props for both, each shows its own tabs. */}
+              <Allotment>
+                <Allotment.Pane minSize={200}>
+                  {renderGroup(0)}
+                </Allotment.Pane>
+                <Allotment.Pane minSize={200} visible={split}>
+                  {split ? renderGroup(1) : null}
+                </Allotment.Pane>
+              </Allotment>
             </Allotment.Pane>
           </Allotment>
         </div>
@@ -995,6 +1022,32 @@ export function Workbench() {
             setDeleting(null)
             doDelete({ ...item, forever: item.forever || shiftHeld })
           }}
+        />
+      ) : null}
+      {pair ? (
+        <ChoiceDialog
+          title={t('drop.title')}
+          message={t('drop.message', { left: basename(pair.left.path), right: basename(pair.right.path) })}
+          choices={[
+            {
+              label: t('drop.sideBySide'),
+              primary: true,
+              run: () => {
+                // The first in the left group, the second in the right one (which has the focus).
+                dispatch({ type: 'open-file', snapshotId: pair.left.rootId, path: pair.left.path, keep: true, size: pair.left.size, group: 0 })
+                dispatch({ type: 'open-file', snapshotId: pair.right.rootId, path: pair.right.path, keep: true, size: pair.right.size, group: 1 })
+                setPair(null)
+              },
+            },
+            {
+              label: t('drop.compare'),
+              run: () => {
+                dispatch({ type: 'open-diff', left: { rootId: pair.left.rootId, path: pair.left.path }, right: { rootId: pair.right.rootId, path: pair.right.path } })
+                setPair(null)
+              },
+            },
+          ]}
+          onCancel={() => setPair(null)}
         />
       ) : null}
       {moving ? (

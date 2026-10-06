@@ -13,6 +13,7 @@ import { formatBytes, formatDate, shortDate } from '@/lib/format.ts'
 import { fileIcon } from '@/lib/icons.ts'
 import { remapPath } from '@/state/workspace.ts'
 import type { MenuEntry } from '@/components/Menu.tsx'
+import { dragging as dragStore, FILE_DRAG, type DraggedFile } from './dnd.ts'
 import { FOLDER_DRAG } from './PlacesView.tsx'
 import { treeMenuFor, type TreeAction } from './treeMenu.ts'
 
@@ -68,7 +69,7 @@ export interface ExplorerActions {
   /** Asks, and moves an item to the trash; `forever` (Shift held): asks to delete it permanently. */
   remove: (entry: DirEntry, forever?: boolean) => void
   /** Comparing two text files: the file chosen as one side (of any root that is open), choosing one, and comparing with it. */
-  compare?: { selected: DiffSide | null; select: (entry: DirEntry) => void; with: (entry: DirEntry) => void }
+  compare?: { selected: DiffSide | null; select: (entry: DirEntry) => void; with: (entry: DirEntry) => void; /** A text file was dropped on another text file: asks what to do with the two. */ drop: (dragged: { path: string; size: number }, entry: DirEntry) => void }
 }
 
 /** A text field in a row of the tree, to name something: Enter says it, Esc (or leaving) does not. */
@@ -129,6 +130,8 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
   const pendingFocus = useRef<string | null>(null)
   // The row being dragged, and the folder the pointer has rested on while dragging (it opens after a moment).
   const dragging = useRef<string | null>(null)
+  // The file being dragged (what a drag's data cannot say until the drop): a text file dropped on another asks what to do with the two.
+  const draggedFile = useRef<DraggedFile | null>(null)
   const hover = useRef<{ path: string; timer: ReturnType<typeof setTimeout> } | null>(null)
   useEffect(
     () => () => {
@@ -440,6 +443,11 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
     })
   }
 
+  /** The file being dragged and this one are both texts that can be compared: dropped on it, the user is asked what to do with the two (and nothing is moved). */
+  const asCompare = (entry: DirEntry): boolean => {
+    const from = draggedFile.current
+    return actions.compare !== undefined && entry.kind === 'file' && comparable(entry.name, entry.size) && from !== null && from.path !== entry.path && comparable(from.name, from.size)
+  }
   const current = focused ?? entries[0]?.entry.path
   return (
     <>
@@ -466,6 +474,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
           const expandable = entry.kind === 'dir' || entry.kind === 'zip'
           const expanded = expandable && open.has(entry.path)
           const selected = !expandable && entry.path === activePath
+          const folderDrop = changeable(entry) ? dropOn(entry.kind === 'dir' ? entry.path : row.parent, entry.kind === 'dir') : undefined
           return (
             <div
               key={entry.path}
@@ -480,20 +489,53 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
               onFocus={() => setFocused(entry.path)}
               onClick={() => (expandable ? toggle(entry.path) : entry.kind === 'wsnp' ? actions.openSnapshot(entry, false) : actions.open(entry, false))}
               onDoubleClick={() => (entry.kind === 'wsnp' ? actions.openSnapshot(entry, true) : !expandable && actions.open(entry, true))}
-              draggable={(pinnable(entry) || changeable(entry)) && !renaming}
+              draggable={(pinnable(entry) || changeable(entry) || entry.kind === 'file') && !renaming}
               onDragStart={(e) => {
                 const move = changeable(entry)
+                // Any file can be dragged to the editor (to open it there) or onto another text file.
+                if (entry.kind === 'file') {
+                  draggedFile.current = { rootId, path: entry.path, name: entry.name, size: entry.size }
+                  e.dataTransfer.setData(FILE_DRAG, JSON.stringify(draggedFile.current))
+                  dragStore.start('file')
+                }
                 if (pinnable(entry)) e.dataTransfer.setData(FOLDER_DRAG, JSON.stringify({ rootId, path: entry.path }))
                 if (move) e.dataTransfer.setData(ENTRY_DRAG, JSON.stringify({ rootId, path: entry.path }))
                 dragging.current = move ? entry.path : null
-                e.dataTransfer.effectAllowed = move && pinnable(entry) ? 'all' : move ? 'copyMove' : 'link'
+                e.dataTransfer.effectAllowed = entry.kind === 'file' || (move && pinnable(entry)) ? 'all' : move ? 'copyMove' : 'link'
               }}
               onDragEnd={() => {
                 dragging.current = null
+                draggedFile.current = null
+                dragStore.end()
                 clearHover()
                 setDropOver(null)
               }}
-              {...(changeable(entry) ? dropOn(entry.kind === 'dir' ? entry.path : row.parent, entry.kind === 'dir') : {})}
+              onDragOver={(e) => {
+                if (asCompare(entry) && !e.shiftKey && e.dataTransfer.types.includes(FILE_DRAG)) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  e.dataTransfer.dropEffect = 'link'
+                  return setDropOver(entry.path)
+                }
+                folderDrop?.onDragOver(e)
+              }}
+              onDragLeave={(e) => {
+                if (asCompare(entry) && !e.shiftKey) {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropOver((now) => (now === entry.path ? null : now))
+                  return
+                }
+                folderDrop?.onDragLeave(e)
+              }}
+              onDrop={(e) => {
+                const from = draggedFile.current
+                if (asCompare(entry) && !e.shiftKey && from) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setDropOver(null)
+                  return actions.compare!.drop({ path: from.path, size: from.size }, entry)
+                }
+                folderDrop?.onDrop(e)
+              }}
               onContextMenu={(e) => contextMenu(e, entry)}
               title={[entry.link ? `${entry.path} (${t('tree.linkOutside')})` : entry.path, ...(expandable && entry.kind === 'dir' ? [] : [formatBytes(entry.size)]), formatDate(entry.modified, language)].join('\n')}
               style={{ paddingLeft: 8 + depth * 8 }}

@@ -29,6 +29,15 @@ describe('session', () => {
     expect(JSON.stringify(session)).not.toContain('contents')
   })
 
+  it('remembers which files were in the second editor group, and refuses a group that is not one', () => {
+    const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+    const ws = run({ type: 'root-opened', root }, { type: 'open-file', snapshotId: 'r1', path: 'a.txt', keep: true }, { type: 'open-file', snapshotId: 'r1', path: 'b.txt', keep: true, group: 1 })
+    const session = sessionOf(ws)
+    expect(session.tabs.map((t) => t.group)).toEqual([undefined, 1])
+    expect(isSession(session)).toBe(true)
+    expect(isSession({ ...session, tabs: [{ snapshot: 's', kind: 'file', file: 'f', group: 2 }] })).toBe(false)
+  })
+
   it('remembers that a file was shown as its bytes, and brings it back as that tab', () => {
     const ws = run({ type: 'snapshot-opened', snapshot: a }, { type: 'open-file', snapshotId: 'a', path: 'assets/files/x.bin', keep: true, size: 5, as: 'hex' })
     const session = sessionOf(ws)

@@ -2,22 +2,29 @@ import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 're
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
-import type { Action, Tab, Workspace } from '@/state/workspace.ts'
+import { comparable } from '@core/diff.ts'
+import { basename } from '@/lib/format.ts'
+import { groupOf, isSplit, shownIn, type Action, type GroupId, type Tab, type Workspace } from '@/state/workspace.ts'
+import { dragging, TAB_DRAG } from './dnd.ts'
 import type { TabView } from './tabInfo.ts'
 
-const DRAG_TYPE = 'application/x-wsnp-tab'
+/** Whether a tab shows a text file that can be one side of a comparison, or of two files side by side. */
+export const isTextTab = (tab: Tab | undefined): boolean => tab !== undefined && tab.path !== undefined && tab.view === undefined && tab.as === undefined && comparable(basename(tab.path), tab.size ?? 0)
 
 /** The tab strip: 35 px, as VS Code's, with preview (italic) and pinned tabs, drag to reorder, middle click and × to close, a context menu. */
-export function TabStrip({ ws, views, dispatch, onReveal, onCopy, onOpenWith }: { ws: Workspace; views: Map<string, TabView>; dispatch: (a: Action) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; /** Opens the file of the tab in another application (a file of a snapshot has no other way to be handed to one). */ onOpenWith?: (snapshotId: string, path: string) => void }) {
+export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenWith, onDropOnTab }: { ws: Workspace; /** The group whose tabs this strip shows. */ group: GroupId; /** A tab was dropped in the middle of another one (two text files): asks what to do with the two. */ onDropOnTab?: (dragged: string, target: string) => void; views: Map<string, TabView>; dispatch: (a: Action) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; /** Opens the file of the tab in another application (a file of a snapshot has no other way to be handed to one). */ onOpenWith?: (snapshotId: string, path: string) => void }) {
   const { t } = useI18n()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
-  const [over, setOver] = useState<{ key: string; after: boolean } | null>(null)
+  const [over, setOver] = useState<{ key: string; after: boolean; middle: boolean } | null>(null)
   const strip = useRef<HTMLDivElement>(null)
+  const tabs = ws.tabs.filter((tab) => groupOf(tab) === group)
+  const shown = shownIn(ws, group)
+  const split = isSplit(ws)
 
   // The active tab is always in view, and the wheel scrolls the strip sideways.
   useEffect(() => {
     strip.current?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
-  }, [ws.active, ws.tabs.length])
+  }, [shown, tabs.length])
   useEffect(() => {
     const el = strip.current
     if (!el) return
@@ -41,11 +48,13 @@ export function TabStrip({ ws, views, dispatch, onReveal, onCopy, onOpenWith }: 
       label: t('tabs.label'),
       entries: [
         { id: 'close', label: t('tabs.close'), run: () => dispatch({ type: 'close', key: tab.key }) },
-        { id: 'others', label: t('tabs.closeOthers'), disabled: ws.tabs.filter((x) => x.key !== tab.key && !x.pinned).length === 0, run: () => dispatch({ type: 'close-others', key: tab.key }) },
-        { id: 'right', label: t('tabs.closeRight'), disabled: ws.tabs.slice(ws.tabs.findIndex((x) => x.key === tab.key) + 1).filter((x) => !x.pinned).length === 0, run: () => dispatch({ type: 'close-right', key: tab.key }) },
+        { id: 'others', label: t('tabs.closeOthers'), disabled: tabs.filter((x) => x.key !== tab.key && !x.pinned).length === 0, run: () => dispatch({ type: 'close-others', key: tab.key }) },
+        { id: 'right', label: t('tabs.closeRight'), disabled: tabs.slice(tabs.findIndex((x) => x.key === tab.key) + 1).filter((x) => !x.pinned).length === 0, run: () => dispatch({ type: 'close-right', key: tab.key }) },
         { id: 'all', label: t('tabs.closeAll'), run: () => dispatch({ type: 'close-all' }) },
         { separator: true },
         { id: 'pin', label: tab.pinned ? t('tabs.unpin') : t('tabs.pin'), run: () => dispatch({ type: 'pin', key: tab.key, pinned: !tab.pinned }) },
+        // As VS Code's Split Right: the tab goes to a second group on the right (a tab is one file, so it moves and is not shown twice).
+        { id: 'split', label: !split ? t('tabs.splitRight') : group === 0 ? t('tabs.moveToRight') : t('tabs.moveToLeft'), disabled: !split && tabs.length < 2, run: () => dispatch({ type: 'move-to-group', key: tab.key, group: group === 0 ? 1 : 0 }) },
         { separator: true },
         ...(tab.view === 'settings' || ws.roots[tab.snapshotId] ? [] : [{ id: 'metadata', label: t('tabs.showMetadata'), run: () => dispatch({ type: 'open-metadata', snapshotId: tab.snapshotId }) }]),
         ...(tab.view ? [] : tab.path === undefined ? [{ id: 'source', label: t('tabs.copySource'), disabled: !source, run: () => source && onCopy(source) }] : [{ id: 'path', label: t('tabs.copyPath'), run: () => onCopy(tab.path!) }]),
@@ -55,13 +64,23 @@ export function TabStrip({ ws, views, dispatch, onReveal, onCopy, onOpenWith }: 
     })
   }
 
+  /** Where on a tab the pointer is: the middle of it (two text files then ask what to do), and the half it is in (the side of the tab the dragged one lands on). */
+  const place = (event: DragEvent, target: Tab, dragged: Tab | undefined) => {
+    const box = event.currentTarget.getBoundingClientRect()
+    const x = (event.clientX - box.left) / box.width
+    return { after: x > 0.5, middle: x > 0.3 && x < 0.7 && isTextTab(dragged) && isTextTab(target) && dragged!.key !== target.key }
+  }
   const drop = (event: DragEvent, target: Tab) => {
-    const key = event.dataTransfer.getData(DRAG_TYPE)
+    const key = event.dataTransfer.getData(TAB_DRAG)
     setOver(null)
     if (!key || key === target.key) return
     event.preventDefault()
-    const box = event.currentTarget.getBoundingClientRect()
-    const after = event.clientX > box.left + box.width / 2
+    const dragged = ws.tabs.find((x) => x.key === key)
+    if (!dragged) return
+    const { after, middle } = place(event, target, dragged)
+    if (middle && onDropOnTab) return onDropOnTab(key, target.key)
+    // From the other group: it goes into this one, next to the tab it was dropped on. In the group: it is moved.
+    if (groupOf(dragged) !== group) return dispatch({ type: 'move-to-group', key, group, at: { key: target.key, after } })
     const others = ws.tabs.filter((x) => x.key !== key)
     dispatch({ type: 'move', key, to: others.findIndex((x) => x.key === target.key) + (after ? 1 : 0) })
   }
@@ -69,10 +88,10 @@ export function TabStrip({ ws, views, dispatch, onReveal, onCopy, onOpenWith }: 
   return (
     <>
       <div ref={strip} role="tablist" aria-label={t('tabs.label')} className="no-scrollbar flex h-[35px] shrink-0 overflow-x-auto bg-tabs">
-        {ws.tabs.map((tab) => {
+        {tabs.map((tab) => {
           const view = views.get(tab.key)!
-          const active = ws.active === tab.key
-          const indicator = over?.key === tab.key ? (over.after ? 'shadow-[inset_-2px_0_0_var(--vscode-focusBorder)]' : 'shadow-[inset_2px_0_0_var(--vscode-focusBorder)]') : ''
+          const active = shown === tab.key
+          const indicator = over?.key === tab.key ? over.middle ? 'outline outline-1 -outline-offset-2 outline-focus' : (over.after ? 'shadow-[inset_-2px_0_0_var(--vscode-focusBorder)]' : 'shadow-[inset_2px_0_0_var(--vscode-focusBorder)]') : ''
           return (
             <div
               key={tab.key}
@@ -83,14 +102,15 @@ export function TabStrip({ ws, views, dispatch, onReveal, onCopy, onOpenWith }: 
               title={view.tooltip}
               draggable
               onDragStart={(e) => {
-                e.dataTransfer.setData(DRAG_TYPE, tab.key)
+                e.dataTransfer.setData(TAB_DRAG, tab.key)
                 e.dataTransfer.effectAllowed = 'move'
+                dragging.start('tab', tab.key)
               }}
+              onDragEnd={() => dragging.end()}
               onDragOver={(e) => {
-                if (!e.dataTransfer.types.includes(DRAG_TYPE)) return
+                if (!e.dataTransfer.types.includes(TAB_DRAG)) return
                 e.preventDefault()
-                const box = e.currentTarget.getBoundingClientRect()
-                setOver({ key: tab.key, after: e.clientX > box.left + box.width / 2 })
+                setOver({ key: tab.key, ...place(e, tab, ws.tabs.find((x) => x.key === dragging.tab())) })
               }}
               onDragLeave={() => setOver(null)}
               onDrop={(e) => drop(e, tab)}

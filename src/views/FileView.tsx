@@ -21,6 +21,7 @@ import { PdfView } from './PdfView.tsx'
 import { ZipView } from './ZipView.tsx'
 import type { ZipEntryInfo } from '@core/api.ts'
 import type { Notice } from '@/state/messages.ts'
+import { useGroup } from '@/state/groups.ts'
 
 type Loaded = { state: 'loading' } | { state: 'ready'; bytes: Uint8Array } | { state: 'failed'; error: string }
 
@@ -82,6 +83,7 @@ function useLate(ms: number): boolean {
 /** The tab of one file of a snapshot: source, picture or font when it can be shown, and a way to save it when it cannot. */
 export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onHex, onOpenWith, edit, findToken = 0, onViewEntry, onNotify, zoom = 1 }: { /** The file is a text of a folder that was opened: it is edited (it is a text, and is not shown as a page or a table). */ edit?: { rootId: string; tabKey: string; dirty: boolean; onRestored?: (name: string) => void; onSave: () => void; onSaveAs: (text: string, options: { eol: 'lf' | 'crlf' | 'cr'; bom: boolean }) => void; onSaveBytesAs: (name: string, bytes: Uint8Array) => void; onChanged: (key: string, changed: boolean) => void };  /** Hands the file to another application, by the chooser of this app. */ onOpenWith?: () => void; /** Counts up at each Find (`Ctrl+F`): a view with a search of its own (hexadecimal) takes the focus there. */ findToken?: number; /** Opens the file as its bytes (hexadecimal), in a tab of its own: offered on what is not shown. */ onHex: () => void; /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
   const { t } = useI18n()
+  const group = useGroup()
   const key = `${snapshotId}:${path}`
   // A file of no known type (an entry of a ZIP with an extension the viewer has never heard of) is read and looked at: if it is text, it is shown as text.
   const probe = canProbe(mediaType, path, size)
@@ -107,8 +109,8 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   const language = fileLanguage.use(key) ?? detected
   const sourceShown = kind === 'text' && loaded.state === 'ready' && !(svg && svgAs === 'image')
   useEffect(() => {
-    if (sourceShown) return shownSource.set({ key, language, detected })
-  }, [sourceShown, key, language, detected])
+    if (sourceShown) return shownSource.set({ key, language, detected }, group)
+  }, [sourceShown, key, language, detected, group])
 
   useEffect(() => {
     if ((kind === 'other' && !probe) || kind === 'zip' || windowed) return

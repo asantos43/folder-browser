@@ -99,7 +99,16 @@ Right-click a text file in the tree and choose **Select for Compare**, then righ
 - The toolbar says how many changes there are. **Previous Change** and **Next Change** (`Shift+F7`, `F7`) go from one to the next; **Swap Sides** turns the two round.
 - **Collapse Unchanged** folds the long stretches of lines that are the same (three lines stay around each change); the button turns it off, and the choice is kept.
 - A file saved with another line ending (`LF` and `CRLF`) is not different on every line: the endings are not compared, and the toolbar says when they differ.
+- You can also drag one file onto another to compare them: see [Two editor groups](#two-editor-groups).
 - A comparison only looks: nothing is written, and both files are read from the disk (or the ZIP) as they are saved, not with the changes you have not saved in their tabs. The tab follows a side that is renamed or moved, closes when a side is deleted or its folder is closed, zooms like a text (`Ctrl+=`, `Ctrl+-`), and is not kept for the next start. **Find** (`Ctrl+F`) searches the lines in view.
+
+## Two editor groups
+
+The editor can show **two groups of tabs side by side**, as VS Code does. There are three ways to make the second one: **Split Right** in the menu of a tab (the tab goes to a new group on its right), dragging a tab to the **right half of the editor**, and dragging a **file of the tree** to the right half (it opens there). While one of these is being dragged the half that will take it is lit; with two groups, the whole group under the pointer takes it. A tab can be moved back with **Move to Left Group** or by dragging it to the other group (onto a tab of it, it lands next to that tab).
+
+- Each group has its own tabs and its own tab in front. The group you clicked last has the focus: **Find**, **Copy**, **Print**, **Save**, the language in the status bar, the zoom keys and the next and previous tab (`Ctrl+PageDown`, `Ctrl+PageUp`) act on it. A tab is one file, so it is in one group at a time: opening a file that is in the other group brings it over.
+- The second group ends when its last tab is closed or moved away; closing every tab of the first leaves the second as the only group. The layout is remembered for the next start.
+- **Dropping one file on another** asks what to do when both are texts: **Open Side by Side** (the one you dragged on the left, the other on the right), **Compare (Diff)** or Cancel. This is a **text file of the tree on another text file** (nothing is moved, and with `Shift` held it is still a copy), or a **tab in the middle of another text tab** (dropped at the edge of a tab, it is only reordered). A picture or any other kind of file is never asked about.
 
 ## ZIP files
 
@@ -151,4 +160,4 @@ The shortcuts work wherever the focus is, also inside a page or a document.
 
 ## What is not here yet
 
-Making, renaming, moving and deleting **inside a ZIP** come in the next phase (see [`../TODO.md`](../TODO.md)). Selecting several rows at once (so a comparison is chosen from the menu, not with `Ctrl+click`), comparing a file with the changes not yet saved in its tab, dragging onto a place of the side bar, and printing the bytes of a file or a table as a table are on the list too.
+Making, renaming, moving and deleting **inside a ZIP** come in the next phase (see [`../TODO.md`](../TODO.md)). Selecting several rows at once (so a comparison is chosen from the menu, not with `Ctrl+click`), comparing a file with the changes not yet saved in its tab, more than two editor groups, dragging onto a place of the side bar, and printing the bytes of a file or a table as a table are on the list too.

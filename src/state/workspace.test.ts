@@ -1,6 +1,6 @@
 import type { SnapshotInfo } from '@core/snapshots.ts'
 import { describe, expect, it } from 'vitest'
-import { diffKey, empty, fileKey, invalidProblems, isHeldBack, isSnapshotTab, isUnder, metadataKey, reduce, released, remapPath, snapshotKey, type Action, type Workspace } from './workspace.ts'
+import { diffKey, empty, isSplit, shownIn, fileKey, invalidProblems, isHeldBack, isSnapshotTab, isUnder, metadataKey, reduce, released, remapPath, snapshotKey, type Action, type Workspace } from './workspace.ts'
 
 const snap = (id: string, signature: SnapshotInfo['signature'] = { state: 'unsigned' }): SnapshotInfo => ({ id, path: `/${id}.wsnp`, manifest: { title: id } as SnapshotInfo['manifest'], files: [], signature })
 const run = (actions: Action[], from: Workspace = empty): Workspace => actions.reduce(reduce, from)
@@ -461,5 +461,114 @@ describe('two files compared', () => {
   it('closes when either root is closed', () => {
     expect(keys(reduce(opened(), { type: 'root-closed', id: 'r2' }))).toEqual(['f:r1:a.txt'])
     expect(keys(reduce(opened(), { type: 'root-closed', id: 'r1' }))).toEqual([])
+  })
+})
+
+describe('two editor groups', () => {
+  const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const open = (path: string, group?: 0 | 1, keep = true): Action => ({ type: 'open-file', snapshotId: 'r1', path, keep, ...(group === undefined ? {} : { group }) })
+  const run = (...actions: Action[]) => actions.reduce(reduce, empty)
+  const base = () => run({ type: 'root-opened', root }, open('a.txt'), open('b.txt'), open('c.txt'))
+  const groupsOf = (ws: Workspace) => ({ left: ws.tabs.filter((t) => !t.group).map((t) => t.key), right: ws.tabs.filter((t) => t.group === 1).map((t) => t.key) })
+
+  it('has one group until a tab is sent to the second, which takes the focus and leaves the first with its own tab in front', () => {
+    let ws = base()
+    expect(isSplit(ws)).toBe(false)
+    expect(ws).toMatchObject({ focus: 0, other: null, active: 'f:r1:c.txt' })
+    ws = reduce(ws, { type: 'move-to-group', key: 'f:r1:c.txt', group: 1 })
+    expect(isSplit(ws)).toBe(true)
+    expect(groupsOf(ws)).toEqual({ left: ['f:r1:a.txt', 'f:r1:b.txt'], right: ['f:r1:c.txt'] })
+    expect(ws).toMatchObject({ focus: 1, active: 'f:r1:c.txt', other: 'f:r1:b.txt' })
+    expect(shownIn(ws, 0)).toBe('f:r1:b.txt')
+    expect(shownIn(ws, 1)).toBe('f:r1:c.txt')
+  })
+  it('opens a file in the group asked for, and a file opened without one goes to the group that has the focus', () => {
+    let ws = reduce(base(), open('d.txt', 1))
+    expect(groupsOf(ws).right).toEqual(['f:r1:d.txt'])
+    expect(ws.focus).toBe(1)
+    ws = reduce(ws, open('e.txt'))
+    expect(groupsOf(ws).right).toEqual(['f:r1:d.txt', 'f:r1:e.txt'])
+    ws = reduce(ws, { type: 'activate', key: 'f:r1:a.txt' })
+    expect(ws).toMatchObject({ focus: 0, active: 'f:r1:a.txt', other: 'f:r1:e.txt' })
+    ws = reduce(ws, open('f.txt'))
+    expect(groupsOf(ws).left).toContain('f:r1:f.txt')
+  })
+  it('moves a file that is open in the other group when it is opened there, and keeps one tab per file', () => {
+    let ws = reduce(base(), open('d.txt', 1))
+    ws = reduce(ws, open('a.txt', 1))
+    expect(ws.tabs.filter((t) => t.key === 'f:r1:a.txt')).toHaveLength(1)
+    expect(groupsOf(ws).right).toEqual(['f:r1:d.txt', 'f:r1:a.txt'])
+    expect(ws.active).toBe('f:r1:a.txt')
+  })
+  it('places a tab after the one it is dropped after, in the group', () => {
+    let ws = reduce(base(), open('d.txt', 1))
+    ws = reduce(ws, open('e.txt', 1))
+    ws = reduce(ws, { type: 'move-to-group', key: 'f:r1:a.txt', group: 1, at: { key: 'f:r1:d.txt', after: true } })
+    expect(groupsOf(ws).right).toEqual(['f:r1:d.txt', 'f:r1:a.txt', 'f:r1:e.txt'])
+    ws = reduce(ws, { type: 'move-to-group', key: 'f:r1:b.txt', group: 1, at: { key: 'f:r1:d.txt', after: false } })
+    expect(groupsOf(ws).right).toEqual(['f:r1:b.txt', 'f:r1:d.txt', 'f:r1:a.txt', 'f:r1:e.txt'])
+  })
+  it('the second group ends when its last tab goes (closed or moved back), and the focus goes to the first', () => {
+    const split = reduce(base(), { type: 'move-to-group', key: 'f:r1:c.txt', group: 1 })
+    const closed = reduce(split, { type: 'close', key: 'f:r1:c.txt' })
+    expect(isSplit(closed)).toBe(false)
+    expect(closed).toMatchObject({ focus: 0, other: null, active: 'f:r1:b.txt' })
+    const back = reduce(split, { type: 'move-to-group', key: 'f:r1:c.txt', group: 0 })
+    expect(isSplit(back)).toBe(false)
+    expect(back).toMatchObject({ focus: 0, other: null, active: 'f:r1:c.txt' })
+  })
+  it('the first group ending leaves the second as the only one', () => {
+    let ws = reduce(base(), { type: 'move-to-group', key: 'f:r1:c.txt', group: 1 })
+    ws = reduce(reduce(ws, { type: 'close', key: 'f:r1:a.txt' }), { type: 'close', key: 'f:r1:b.txt' })
+    expect(isSplit(ws)).toBe(false)
+    expect(ws.tabs.map((t) => t.key)).toEqual(['f:r1:c.txt'])
+    expect(ws).toMatchObject({ focus: 0, other: null, active: 'f:r1:c.txt' })
+    // Moving the only tab of the first group away does the same.
+    const two = run({ type: 'root-opened', root }, open('a.txt'), open('b.txt'))
+    const moved = reduce(two, { type: 'move-to-group', key: 'f:r1:a.txt', group: 1 })
+    const all = reduce(moved, { type: 'move-to-group', key: 'f:r1:b.txt', group: 1 })
+    expect(isSplit(all)).toBe(false)
+    expect(all.tabs.every((t) => t.group === undefined)).toBe(true)
+  })
+  it('closing the tab in front of a group brings forward the most recently used one of that group, not of the other', () => {
+    let ws = reduce(base(), { type: 'move-to-group', key: 'f:r1:c.txt', group: 1 })
+    ws = reduce(ws, open('d.txt'))
+    ws = reduce(ws, { type: 'activate', key: 'f:r1:a.txt' })
+    ws = reduce(ws, { type: 'activate', key: 'f:r1:d.txt' })
+    ws = reduce(ws, { type: 'close', key: 'f:r1:d.txt' })
+    expect(ws).toMatchObject({ focus: 1, active: 'f:r1:c.txt', other: 'f:r1:a.txt' })
+  })
+  it('a preview replaces the preview of its own group only', () => {
+    let ws = run({ type: 'root-opened', root }, open('a.txt', 0, false), open('b.txt', 1, false))
+    expect(ws.tabs.map((t) => t.key)).toEqual(['f:r1:a.txt', 'f:r1:b.txt'])
+    ws = reduce(ws, open('c.txt', 1, false))
+    expect(ws.tabs.map((t) => t.key)).toEqual(['f:r1:a.txt', 'f:r1:c.txt'])
+  })
+  it('steps through the tabs of the group that has the focus, and closes the others of that group only', () => {
+    let ws = reduce(base(), { type: 'move-to-group', key: 'f:r1:c.txt', group: 1 })
+    ws = reduce(ws, open('d.txt'))
+    expect(reduce(ws, { type: 'step', direction: 1 }).active).toBe('f:r1:c.txt')
+    expect(reduce(ws, { type: 'step', direction: -1 }).active).toBe('f:r1:c.txt')
+    const others = reduce(ws, { type: 'close-others', key: 'f:r1:d.txt' })
+    expect(others.tabs.map((t) => t.key)).toEqual(['f:r1:a.txt', 'f:r1:b.txt', 'f:r1:d.txt'])
+    const right = reduce(ws, { type: 'close-right', key: 'f:r1:a.txt' })
+    expect(right.tabs.map((t) => t.key)).toEqual(['f:r1:a.txt', 'f:r1:c.txt', 'f:r1:d.txt'])
+  })
+  it('follows a renamed file in either group, also the one that is not in front of the focused group', () => {
+    let ws = reduce(base(), { type: 'move-to-group', key: 'f:r1:c.txt', group: 1 })
+    ws = reduce(ws, { type: 'path-changed', rootId: 'r1', from: 'b.txt', to: 'z.txt' })
+    expect(ws.other).toBe('f:r1:z.txt')
+    expect(groupsOf(ws).left).toEqual(['f:r1:a.txt', 'f:r1:z.txt'])
+  })
+  it('a comparison opens in the group that has the focus', () => {
+    const two = { type: 'root-opened' as const, root: { id: 'r2', kind: 'folder' as const, path: '/b', name: 'b' } }
+    let ws = reduce(reduce(base(), two), { type: 'move-to-group', key: 'f:r1:c.txt', group: 1 })
+    ws = reduce(ws, { type: 'open-diff', left: { rootId: 'r1', path: 'a.txt' }, right: { rootId: 'r2', path: 'a.txt' } })
+    expect(ws.tabs.find((t) => t.view === 'diff')?.group).toBe(1)
+  })
+  it('closing a root closes its tabs in both groups', () => {
+    let ws = reduce(base(), { type: 'move-to-group', key: 'f:r1:c.txt', group: 1 })
+    ws = reduce(ws, { type: 'root-closed', id: 'r1' })
+    expect(ws).toMatchObject({ tabs: [], active: null, other: null, focus: 0 })
   })
 })

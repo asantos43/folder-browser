@@ -99,7 +99,16 @@ Clique com o botão direito num arquivo de texto da árvore e escolha **Selecion
 - A barra de ferramentas diz quantas alterações há. **Alteração anterior** e **Próxima alteração** (`Shift+F7`, `F7`) vão de uma à outra; **Trocar os lados** inverte os dois.
 - **Recolher o que não mudou** dobra os trechos longos de linhas iguais (três linhas ficam em volta de cada alteração); o botão desliga, e a escolha é lembrada.
 - Um arquivo salvo com outra quebra de linha (`LF` e `CRLF`) não é diferente em todas as linhas: as quebras não entram na comparação, e a barra de ferramentas avisa quando diferem.
+- Você também pode arrastar um arquivo sobre outro para compará-los: veja [Dois grupos de editor](#dois-grupos-de-editor).
 - Uma comparação só olha: nada é gravado, e os dois arquivos são lidos do disco (ou do ZIP) como estão salvos, não com as alterações ainda não salvas nas abas deles. A aba acompanha um lado que é renomeado ou movido, fecha quando um lado é apagado ou a pasta dele é fechada, tem zoom como um texto (`Ctrl+=`, `Ctrl+-`) e não é lembrada no próximo início. **Buscar** (`Ctrl+F`) procura nas linhas à vista.
+
+## Dois grupos de editor
+
+O editor pode mostrar **dois grupos de abas lado a lado**, como o VS Code. Há três jeitos de fazer o segundo: **Dividir à direita** no menu de uma aba (a aba vai para um grupo novo à direita dela), arrastar uma aba para a **metade direita do editor**, e arrastar um **arquivo da árvore** para a metade direita (ele abre ali). Enquanto um desses é arrastado, a metade que vai recebê-lo fica destacada; com dois grupos, o grupo inteiro sob o ponteiro o recebe. Uma aba volta com **Mover para o grupo da esquerda** ou arrastando-a para o outro grupo (sobre uma aba dele, ela fica ao lado dessa aba).
+
+- Cada grupo tem as suas abas e a sua aba da frente. O grupo em que você clicou por último tem o foco: **Buscar**, **Copiar**, **Imprimir**, **Salvar**, o idioma na barra de status, as teclas de zoom e a aba seguinte e anterior (`Ctrl+PageDown`, `Ctrl+PageUp`) agem nele. Uma aba é um arquivo, então ela está em um grupo de cada vez: abrir um arquivo que está no outro grupo o traz para cá.
+- O segundo grupo termina quando a última aba dele é fechada ou levada embora; fechar todas as abas do primeiro deixa o segundo como único grupo. A disposição é lembrada no próximo início.
+- **Soltar um arquivo sobre outro** pergunta o que fazer quando os dois são textos: **Abrir lado a lado** (o que você arrastou à esquerda, o outro à direita), **Comparar (Diff)** ou Cancelar. Vale para um **arquivo de texto da árvore solto sobre outro de texto** (nada é movido, e com `Shift` apertado continua sendo uma cópia), ou uma **aba solta no meio de outra aba de texto** (solta na borda da aba, ela só é reordenada). Uma imagem ou outro tipo de arquivo nunca é perguntado.
 
 ## Arquivos ZIP
 
@@ -151,4 +160,4 @@ As **Configurações** (a engrenagem na barra de atividades, **Arquivo ▸ Prefe
 
 ## O que ainda não existe
 
-Criar, renomear, mover e apagar **dentro de um ZIP** vêm na próxima fase (veja [`../TODO.md`](../TODO.md)). Selecionar várias linhas de uma vez (por isso a comparação se escolhe no menu, não com `Ctrl+clique`), comparar um arquivo com as alterações ainda não salvas na aba dele, arrastar para um lugar da barra lateral, e imprimir os bytes de um arquivo ou uma tabela como tabela também estão na lista.
+Criar, renomear, mover e apagar **dentro de um ZIP** vêm na próxima fase (veja [`../TODO.md`](../TODO.md)). Selecionar várias linhas de uma vez (por isso a comparação se escolhe no menu, não com `Ctrl+clique`), comparar um arquivo com as alterações ainda não salvas na aba dele, mais de dois grupos de editor, arrastar para um lugar da barra lateral, e imprimir os bytes de um arquivo ou uma tabela como tabela também estão na lista.

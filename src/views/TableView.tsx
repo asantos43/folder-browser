@@ -15,6 +15,7 @@ import { ColumnFilter } from './ColumnFilter.tsx'
 import { CsvToggle } from './CsvToggle.tsx'
 import { QueryBar } from './QueryBar.tsx'
 import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
+import { useGroup } from '@/state/groups.ts'
 
 /** What the table needs to change the text it is drawn from (the buffer of the text editor): one call is one change that can be undone. Absent: the table is only looked at. */
 export interface TableEditing {
@@ -60,6 +61,7 @@ interface Selected {
  */
 export function TableView({ text, name, tab, tableKey, onSave, onOpenWith, onHex, zoom = 1, edit }: { text: string; name: string; tab: boolean; tableKey?: string; onSave: () => void; onOpenWith?: () => void; onHex?: () => void; zoom?: number; edit?: TableEditing }) {
   const { t } = useI18n()
+  const group = useGroup()
   const key = tableKey ?? name
   const [opts, setOptsState] = useState<TableOptions>(() => tableOptions.get(key))
   const setOpts = (change: Partial<TableOptions>) => {
@@ -176,7 +178,7 @@ export function TableView({ text, name, tab, tableKey, onSave, onOpenWith, onHex
       },
     }
   }, [])
-  useEffect(() => fileTarget.set(target), [target])
+  useEffect(() => fileTarget.set(target, group), [target, group])
   // A change of the rows shown (an edit, a filter) finds the text again where it is now.
   useEffect(() => {
     const { query, caseSensitive } = finding.current
