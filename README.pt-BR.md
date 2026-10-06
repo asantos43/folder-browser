@@ -74,7 +74,7 @@ o que é apagado para a lixeira e grava por um arquivo temporário; como arquivo
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Como o aplicativo é feito e suas regras de segurança |
 | [`docs/USER-GUIDE.pt-BR.md`](docs/USER-GUIDE.pt-BR.md) ([en](docs/USER-GUIDE.md)) | Como usar (por ora, a parte WSNP; o resto é escrito conforme chega) |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/RELEASING.md`](docs/RELEASING.md) | Preparar o ambiente, testar, fazer uma versão |
-| [`docs/FORMAT.md`](docs/FORMAT.md), [`docs/MANIFEST-SIGNING.md`](docs/MANIFEST-SIGNING.md), [`docs/PAGEKEEP-ZIP.md`](docs/PAGEKEEP-ZIP.md), [`docs/VIEWER-GUIDELINES.md`](docs/VIEWER-GUIDELINES.md) | O formato WSNP e o que um visualizador deve fazer (copiados do WSNP Viewer) |
+| [`wsnp-format/FORMAT.md`](https://github.com/asantos43/wsnp-format/blob/main/FORMAT.md), [`wsnp-format/MANIFEST-SIGNING.md`](https://github.com/asantos43/wsnp-format/blob/main/MANIFEST-SIGNING.md), [`docs/PAGEKEEP-ZIP.md`](docs/PAGEKEEP-ZIP.md), [`docs/VIEWER-GUIDELINES.md`](docs/VIEWER-GUIDELINES.md) | O formato WSNP e o que um visualizador deve fazer (copiados do WSNP Viewer) |
 | [`docs/UI-DESIGN.md`](docs/UI-DESIGN.md) | A interface no estilo do VS Code |
 | [`docs/WSNP-VIEWER-ARCHITECTURE.md`](docs/WSNP-VIEWER-ARCHITECTURE.md), [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP-VIEWER-HISTORY.md) | O que foi herdado do WSNP Viewer 0.1.0 |
 | [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) | As bibliotecas dentro do aplicativo e suas licenças |

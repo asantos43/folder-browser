@@ -110,6 +110,8 @@ Everything that was built, phase by phase, follows.
 
 ### Changed
 
+- **The description of the WSNP format is not copied here any more**: `FORMAT.md` and `MANIFEST-SIGNING.md` live in [`wsnp-format`](https://github.com/asantos43/wsnp-format), shared with PageKeep and WSNP Viewer (which moved them too). The exact copies, `docs/FORMAT.sha256` and the `format-sync` check (`scripts/format-sync.mjs`, `npm run format-sync`, a step of `release-local.mjs`) are removed; the docs, the comments of the code and the READMEs link to the new repository.
+
 - **The licence is the Mozilla Public License 2.0** (it was MIT), as WSNP Viewer's, which this project started from: `LICENSE`, `package.json`, the About window, the READMEs and `THIRD-PARTY-NOTICES.md`. The repository is public.
 
 - **GitHub Actions is manual.** The `CI` workflow (tests and packaging on every pull request and push, on three systems) is removed, to spare the free quota; the checks run on the developer's computer. The `Release` workflow no longer starts on a tag: it is started by hand for a release that already exists, builds only the macOS `.dmg` (unit tests, packaging smoke test, optional end-to-end tests) and adds it and its checksum to the release. The `.exe`, `.deb` and `.rpm` are made locally by `scripts/release-local.mjs` (`docs/RELEASING.md`).

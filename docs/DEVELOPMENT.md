@@ -37,7 +37,6 @@ docs/         the specification, guidelines, architecture and this guide
 | `npm test` | Unit and component tests (vitest): `core/`, `electron/`, `src/`, `scripts/` |
 | `npm run test:e2e` | Builds, then runs the Playwright tests against the real Electron app (each launch has its own `--user-data-dir`) |
 | `npm run notices` / `npm run notices:check` | Writes `THIRD-PARTY-NOTICES.md` (the licences of the libraries bundled into the application, with their texts, and what Electron ships) / fails when it is out of date; CI runs the check. Run `npm run notices` after changing a dependency that the application imports (the list is `ROOTS` in `scripts/third-party-notices.mjs`). The installers carry the file and the About window shows it |
-| `npm run format-sync` | Checks that `docs/FORMAT.md` and `docs/MANIFEST-SIGNING.md` match the hashes recorded in `docs/FORMAT.sha256` and, when wsnp-viewer is found beside this repository (or given with `-- --sibling=PATH`), that its copies are identical. The docs are copied from wsnp-viewer, never edited here |
 | `npm run lint` | oxlint |
 | `npm run typecheck` | `tsc` with no output |
 | `npm run package:smoke` | Opens what `release/` holds with the tool of the system (`dpkg-deb`, `rpm`) and checks the menu entry, the `.wsnp` file type (by name and by the first entry of the ZIP), the icon and the install script; starts the unpacked application with `--app-version` and compares the version. Run by CI after the packages are built |

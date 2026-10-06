@@ -1,4 +1,4 @@
-/** `manifest.json` of a .wsnp (docs/FORMAT.md section 6). Fields a reader does not know are ignored, so they are not listed. */
+/** `manifest.json` of a .wsnp (wsnp-format/FORMAT.md section 6). Fields a reader does not know are ignored, so they are not listed. */
 export interface ManifestFile {
   path: string
   original_url?: string

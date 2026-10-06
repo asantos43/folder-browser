@@ -163,7 +163,7 @@ export interface FbApi {
   onSaved(listener: (saved: { name: string; result: SaveResult }) => void): () => void
   /** Opens a web address in the default browser (http, https and mailto only). */
   openExternal(url: string): Promise<void>
-  /** The signers the user trusts, by the fingerprint of their key (docs/MANIFEST-SIGNING.md). */
+  /** The signers the user trusts, by the fingerprint of their key (wsnp-format/MANIFEST-SIGNING.md). */
   signers: { list(): Promise<Record<string, { name?: string }>>; trust(fingerprint: string, name?: string): Promise<void>; forget(fingerprint: string): Promise<void> }
   /** The version, what it runs on, its licence and the notices of the libraries inside it, for the About window. */
   appInfo(): Promise<AppInfo>

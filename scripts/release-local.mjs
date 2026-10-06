@@ -83,7 +83,7 @@ function preflight() {
 function checks() {
   if (flag('skip-checks')) return console.log('\n(checks skipped)')
   say('Checks')
-  for (const script of ['lint', 'typecheck', 'test', 'notices:check', 'format-sync']) run('npm', ['run', script])
+  for (const script of ['lint', 'typecheck', 'test', 'notices:check']) run('npm', ['run', script])
   if (flag('e2e')) run('npm', ['run', 'test:e2e'])
 }
 

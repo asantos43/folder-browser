@@ -12,9 +12,9 @@
      [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), "Tests", says), passing on the developer's computer (nothing runs on GitHub for a pull request: the free quota is spared, see [`docs/RELEASING.md`](docs/RELEASING.md));
   2. its lines in **`CHANGELOG.md`**, under **Unreleased**;
   3. the **documentation** it affects (the README in both languages, the user guides, `TODO.md`, and
-     `ARCHITECTURE.md` if behaviour changed). `docs/FORMAT.md` and `docs/MANIFEST-SIGNING.md` are copies of
-     wsnp-viewer's (the source of truth): never edit them here; a change to the format is made in wsnp-viewer and
-     copied, with `docs/FORMAT.sha256`, then `npm run format-sync` checks it.
+     `ARCHITECTURE.md` if behaviour changed). The WSNP format (`FORMAT.md`, `MANIFEST-SIGNING.md`) is not in this
+     repository: it lives in [`wsnp-format`](https://github.com/asantos43/wsnp-format), shared with PageKeep and WSNP Viewer;
+     a change to the format is made there first.
 
 ## Before you push
 
