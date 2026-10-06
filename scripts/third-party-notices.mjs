@@ -18,6 +18,8 @@ const ROOTS = [
   '@codemirror/lang-css', '@codemirror/lang-javascript', '@codemirror/lang-xml', '@codemirror/lang-markdown', '@codemirror/lang-yaml', '@lezer/highlight', 'js-beautify',
   // The libraries that draw office documents (src/docs/): each is built into a script of its own.
   'docx-preview', '@aiden0z/pptx-renderer', '@opendocument/odr-core',
+  // SQLite compiled to WebAssembly, run in a worker for the query box of a table (src/workers/sql.worker.ts).
+  'sql.js',
 ]
 // Only one file of these is bundled, so what their package.json lists for their command-line tools is not inside the application.
 const NO_DEPENDENCIES = new Set(['js-beautify'])

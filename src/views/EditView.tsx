@@ -1,4 +1,3 @@
-import { EditorState, Text } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { FORMATTABLE, type Language } from '@core/filekind.ts'
 import type { EditError, LineEnding } from '@core/api.ts'
@@ -8,11 +7,12 @@ import { createCodeFindTarget } from '@/find/code.ts'
 import { fileTarget } from '@/find/types.ts'
 import { useI18n } from '@/i18n/context.tsx'
 import type { MessageKey } from '@/i18n/index.ts'
+import { loadEditorBuffer } from '@/state/editLoad.ts'
 import { editorBuffers, hasChanges, type EditorBuffer } from '@/state/editors.ts'
 import { wordWrap } from '@/state/setting.ts'
 import { shownText } from '@/state/shown.ts'
 import { shortcut } from '@/workbench/commands.ts'
-import { editableExtensions, languageExtension, languageSlot, listenerSlot, wrapping } from './codeTheme.ts'
+import { languageExtension, languageSlot, listenerSlot, wrapping } from './codeTheme.ts'
 import { canFormat, formatSource } from './format.ts'
 import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
 
@@ -56,31 +56,12 @@ export function EditView({ tabKey, rootId, path, language, zoom = 1, onSave, onS
   useEffect(() => {
     if (load.state !== 'loading') return
     let alive = true
-    void (async () => {
-      // Changes of an earlier session that were not saved (a draft) come first: the tab shows them, with the file as it is on disk as what is saved.
-      const draft = await window.fb?.drafts.get(rootId, path).catch(() => null)
-      const result = await window.fb?.edit.open(rootId, path)
+    void loadEditorBuffer(rootId, path, tabKey, languageNow.current, wrapNow.current).then((result) => {
       if (!alive || !result) return
-      const extensions = editableExtensions(languageNow.current, wrapNow.current)
-      if (draft && draft.kind === 'text' && (result.ok || result.error === 'no-file')) {
-        const onDisk = result.ok ? result.text : ''
-        const same = result.ok && draft.text === result.text && draft.base.mtimeMs === result.version.mtimeMs && draft.base.size === result.version.size
-        if (!same) {
-          const state = EditorState.create({ doc: draft.text, extensions })
-          // The version is the one the changes began from: if the file changed on disk since, Save notices.
-          const buffer: EditorBuffer = { state, saved: Text.of(onDisk.split('\n')), version: draft.base, eol: draft.eol ?? 'lf', bom: draft.bom ?? false }
-          editorBuffers.set(tabKey, buffer)
-          onRestoredNow.current?.(path.split(/[!/]+/).pop() ?? path)
-          return setLoad({ state: 'ready', buffer })
-        }
-        void window.fb?.drafts.delete(rootId, path)
-      }
-      if (!result.ok) return setLoad({ state: 'refused', error: result.error })
-      const state = EditorState.create({ doc: result.text, extensions })
-      const buffer: EditorBuffer = { state, saved: state.doc, version: result.version, eol: result.eol, bom: result.bom }
-      editorBuffers.set(tabKey, buffer)
-      setLoad({ state: 'ready', buffer })
-    })()
+      if (result.state === 'refused') return setLoad({ state: 'refused', error: result.error })
+      if (result.restored) onRestoredNow.current?.(path.split(/[!/]+/).pop() ?? path)
+      setLoad({ state: 'ready', buffer: result.buffer })
+    })
     return () => {
       alive = false
     }

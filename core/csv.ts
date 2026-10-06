@@ -6,10 +6,14 @@ export interface Table {
   columns: number
   /** Rows (or cells of a row) were left out because of the limits. */
   truncated: boolean
+  /** Where each cell is in the text, when asked for (`limits.spans`): per row, `[from, to, from, to…]` with the quotes inside the span. */
+  spans?: number[][]
+  /** Where each row is in the text, when asked for: `from` is its first character, `to` the end of its content, `next` where the following row starts (after the line break). */
+  rowAt?: { from: number; to: number; next: number }[]
 }
 
-export const MAX_ROWS = 5000
-export const MAX_COLUMNS = 200
+export const MAX_ROWS = 500_000
+export const MAX_COLUMNS = 500
 
 const CANDIDATES = [',', ';', '\t', '|']
 
@@ -31,7 +35,7 @@ export function detectDelimiter(text: string, tab = false): string {
 }
 
 /** Parses RFC 4180 text (quotes, doubled quotes, line breaks inside a quoted cell, CRLF or LF), up to the limits. */
-export function parseDelimited(text: string, delimiter: string, limits: { rows?: number; columns?: number } = {}): Table {
+export function parseDelimited(text: string, delimiter: string, limits: { rows?: number; columns?: number; spans?: boolean } = {}): Table {
   const maxRows = limits.rows ?? MAX_ROWS
   const maxColumns = limits.columns ?? MAX_COLUMNS
   const rows: string[][] = []
@@ -40,18 +44,33 @@ export function parseDelimited(text: string, delimiter: string, limits: { rows?:
   let quoted = false
   let widest = 0
   let truncated = false
-  const endCell = () => {
-    if (row.length < maxColumns) row.push(cell)
-    else truncated = true
+  const spans: number[][] | undefined = limits.spans ? [] : undefined
+  const rowAt: { from: number; to: number; next: number }[] | undefined = limits.spans ? [] : undefined
+  let cellFrom = text.charCodeAt(0) === 0xfeff ? 1 : 0
+  let rowSpan: number[] = []
+  let rowFrom = cellFrom
+  /** `end` is where the cell stops in the text; `after` where the next one (or row) starts. */
+  const endCell = (end: number, after: number) => {
+    if (row.length < maxColumns) {
+      row.push(cell)
+      if (spans) rowSpan.push(cellFrom, end)
+    } else truncated = true
     cell = ''
+    cellFrom = after
   }
-  const endRow = () => {
-    endCell()
+  const endRow = (end: number, after: number) => {
+    endCell(end, after)
     widest = Math.max(widest, row.length)
     rows.push(row)
+    if (spans && rowAt) {
+      spans.push(rowSpan)
+      rowAt.push({ from: rowFrom, to: end, next: after })
+    }
     row = []
+    rowSpan = []
+    rowFrom = after
   }
-  let i = text.charCodeAt(0) === 0xfeff ? 1 : 0
+  let i = cellFrom
   for (; i < text.length; i++) {
     if (rows.length >= maxRows) {
       truncated = true
@@ -66,14 +85,15 @@ export function parseDelimited(text: string, delimiter: string, limits: { rows?:
         } else quoted = false
       } else cell += c
     } else if (c === '"' && cell === '') quoted = true
-    else if (c === delimiter) endCell()
-    else if (c === '\n') endRow()
+    else if (c === delimiter) endCell(i, i + 1)
+    else if (c === '\n') endRow(i, i + 1)
     else if (c === '\r') {
+      const end = i
       if (text[i + 1] === '\n') i++
-      endRow()
+      endRow(end, i + 1)
     } else cell += c
   }
   // The last line has no break after it (and an empty one after the final break is not a row).
-  if (rows.length < maxRows && (cell !== '' || row.length > 0)) endRow()
-  return { rows, columns: widest, truncated }
+  if (rows.length < maxRows && (cell !== '' || row.length > 0 || (text.length > cellFrom && text.length > rowFrom))) endRow(text.length, text.length)
+  return { rows, columns: widest, truncated, ...(spans ? { spans, rowAt } : {}) }
 }

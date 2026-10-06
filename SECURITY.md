@@ -40,6 +40,8 @@ The rules are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), "Safety rules f
 
 **Built (phase 3a):** the bytes of a file can be edited and saved with the same atomic write and version check as text (`fb:edit-save-bytes`: root id, relative path, at most 64 MiB, `unknown` until validated, folder roots only). **Drafts** (`fb:draft-*`) name a root and a path, never a disk path; the main process finds the file's place, and a draft is stored under a hash in the application's own folder, never next to the file.
 
+**Built (phase 3b):** the query box of a table runs SQLite (sql.js, WebAssembly) in a worker of the interface's own origin: it has no `window.fb`, no network and no file; the table is made in its memory from the cells on screen. Only one `SELECT`/`WITH` is let through (`checkQuery`), the database is shut against writing (`PRAGMA query_only = ON`), the rows sent back are capped, a query over ten seconds ends the worker, and the interface's policy still has no `'unsafe-eval'` (sql.js needs none). A cell edited in the table goes through the same save as any text (`saveEdited`).
+
 **Not covered:** a computer that is already compromised; a signer who signs a page they faked before capturing it (a signature says which key signed, not who, nor that the page was true); a
 vulnerability in Chromium or Electron (see below).
 
