@@ -9,7 +9,7 @@
 - Commit messages start with a short summary line in the imperative ("Add …", "Fix …"), then explain why.
 - A pull request is complete only with:
   1. **tests** for what it adds (unit, component, end-to-end, security, performance or packaging, as
-     [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), "Tests", says), passing on the three systems;
+     [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), "Tests", says), passing on the developer's computer (nothing runs on GitHub for a pull request: the free quota is spared, see [`docs/RELEASING.md`](docs/RELEASING.md));
   2. its lines in **`CHANGELOG.md`**, under **Unreleased**;
   3. the **documentation** it affects (the README in both languages, the user guides, `TODO.md`, and
      `ARCHITECTURE.md` if behaviour changed). `docs/FORMAT.md` and `docs/MANIFEST-SIGNING.md` are copies of

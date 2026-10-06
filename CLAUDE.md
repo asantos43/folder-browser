@@ -29,14 +29,14 @@ It was **started from `~/Dev/AI/projetos/github/wsnp-viewer` 0.1.0** (a copy, no
 
 ## Commands
 
-Node 22+ (CI uses 24, `.nvmrc`). `npm ci` first.
+Node 22+ (the macOS release workflow uses 24, `.nvmrc`). `npm ci` first. **GitHub Actions never runs by itself** (to spare the free quota): the checks are run locally, and the only workflow is `.github/workflows/release.yml` (macOS `.dmg`, started by hand; `docs/RELEASING.md`).
 
 - `npm run app` builds and starts the app. `npm run build` builds the interface (`dist/`, Vite) and the main process and preload (`dist-electron/`).
 - `npm run lint` (oxlint), `npm run typecheck` (tsc), `npm test` (vitest: `core/`, `electron/`, `src/`, `scripts/`; component tests use `// @vitest-environment happy-dom`).
 - One test file or case: `npx vitest run core/zip.test.ts`, `npx vitest run -t "byte range"`.
 - `npm run test:e2e`: builds, then Playwright drives the real Electron app. One spec: `npm run build && npx playwright test e2e/workbench.spec.ts`. The specs open windows: leave the computer alone while they run. A spec that fails once may pass alone (a click on a link, when the window lacks focus).
 - `npm run format-sync`: the copies of `docs/FORMAT.md` and `docs/MANIFEST-SIGNING.md` must be identical to wsnp-viewer's (the source of truth): **never edit them here**; copy them (and `docs/FORMAT.sha256`) from `../wsnp-viewer`.
-- `npm run notices` rewrites `THIRD-PARTY-NOTICES.md` after a change in what the app bundles (`ROOTS` in `scripts/third-party-notices.mjs`); CI runs `notices:check`.
+- `npm run notices` rewrites `THIRD-PARTY-NOTICES.md` after a change in what the app bundles (`ROOTS` in `scripts/third-party-notices.mjs`); `release-local.mjs` runs `notices:check`.
 - `npm run package:linux|win|mac`: unsigned release files into `release/` (needs `rpm` for `.rpm`; Fedora also `libxcrypt-compat`). `node scripts/release-local.mjs` builds them in a container (`docs/RELEASING.md`).
 - On a Linux CI or container, run Electron under `xvfb-run` with `--no-sandbox`.
 

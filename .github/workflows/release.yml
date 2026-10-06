@@ -1,146 +1,78 @@
-name: Release
+name: Release (macOS)
 
-# A release is made by pushing a tag `vX.Y.Z` (or `vX.Y.Z-beta.1`) on main, after the pull request made by `node scripts/release.mjs prepare X.Y.Z`
-# has been merged (docs/RELEASING.md). The four release files are built on their own systems, checked, and published with their checksums.
+# The only thing that runs on GitHub, to spare the free quota: the macOS `.dmg`, which needs a Mac. Everything else (the checks, the `.exe`, `.deb` and `.rpm`, and the GitHub Release
+# with its tag) is made on the maintainer's computer by `node scripts/release-local.mjs --publish` (docs/RELEASING.md). Nothing here starts by itself: run it by hand, from the
+# Actions tab, for a release that exists. It builds the `.dmg` from that tag, runs the unit tests and the packaging smoke test on the Mac, and adds the file and its checksum to the release.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: 'The tag to build and publish again (vX.Y.Z); it must exist'
+        description: 'The release to add the .dmg to (vX.Y.Z); it must exist, published from the maintainer''s computer'
         required: true
+      e2e:
+        description: 'Also run the end-to-end tests on the Mac (about 10 minutes of the quota; the unit tests always run)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-mac
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  check:
-    name: Check the tag
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.tag.outputs.tag }}
-      version: ${{ steps.tag.outputs.version }}
-      prerelease: ${{ steps.tag.outputs.prerelease }}
+  mac:
+    name: Build the .dmg on macOS
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      TAG: ${{ github.event.inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - id: tag
+      - name: The tag is a release that exists
         shell: bash
-        env:
-          TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          tag="$TAG"
           # Only a tag of the form vX.Y.Z or vX.Y.Z-pre goes on: the name is used in commands below.
-          echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' || { echo "not a release tag: $tag"; exit 1; }
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
-          case "$tag" in *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT";; *) echo "prerelease=false" >> "$GITHUB_OUTPUT";; esac
+          echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' || { echo "not a release tag: $TAG"; exit 1; }
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null || { echo "There is no release $TAG: publish it first with 'node scripts/release-local.mjs --publish'"; exit 1; }
       - uses: actions/checkout@v7
         with:
-          ref: ${{ steps.tag.outputs.tag }}
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-      - name: The version of the tag is the version of the code, and the changelog has its notes
-        run: |
-          test "$(node -p "require('./package.json').version")" = "${{ steps.tag.outputs.version }}"
-          node scripts/release.mjs notes "${{ steps.tag.outputs.version }}" > /dev/null
-
-  build:
-    name: Build on ${{ matrix.os }}
-    needs: check
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - os: ubuntu-latest
-            script: package:linux
-          - os: windows-latest
-            script: package:win
-          - os: macos-latest
-            script: package:mac
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.check.outputs.tag }}
+          ref: ${{ github.event.inputs.tag }}
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-      - name: Tools for .rpm and a virtual display (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y rpm xvfb
+      - name: The version of the tag is the version of the code
+        run: test "$(node -p "require('./package.json').version")" = "${TAG#v}"
       - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
       - run: npm test
-      - run: npm run notices:check
-      - run: npm run ${{ matrix.script }}
+      - name: End-to-end tests
+        if: github.event.inputs.e2e == 'true'
+        run: npm run build && npx playwright test
+      - run: npm run package:mac
         env:
-          # Signing, when the secrets are set (docs/RELEASING.md): Windows code signing, and macOS Developer ID with notarisation.
+          # Signing, when the secrets are set (docs/RELEASING.md): the macOS Developer ID certificate, and notarisation.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      - name: Packaging smoke test (Linux)
-        if: runner.os == 'Linux'
-        run: xvfb-run -a node scripts/package-smoke.mjs --no-sandbox
       - name: Packaging smoke test
-        if: runner.os != 'Linux'
         run: node scripts/package-smoke.mjs
-      - uses: actions/upload-artifact@v7
-        with:
-          name: release-${{ matrix.os }}
-          path: |
-            release/*.deb
-            release/*.rpm
-            release/*.exe
-            release/*.dmg
-          if-no-files-found: error
-          retention-days: 7
-
-  publish:
-    name: Publish the release
-    needs: [check, build]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.check.outputs.tag }}
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-      - uses: actions/download-artifact@v8
-        with:
-          path: files
-          pattern: release-*
-          merge-multiple: true
-      - name: Checksums and notes
+      - name: Add the .dmg and its checksum to the release
+        shell: bash
         run: |
-          cd files && sha256sum * > SHA256SUMS.txt && cd ..
-          node scripts/release.mjs notes "${{ needs.check.outputs.version }}" > notes.md
-          {
-            echo
-            echo '## Files'
-            echo
-            echo 'The files are not signed yet: Windows and macOS warn on the first launch (see the README). Check a download against these SHA-256 sums:'
-            echo
-            echo '```text'
-            cat files/SHA256SUMS.txt
-            echo '```'
-          } >> notes.md
-      - name: Create the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          flags=""
-          if [ "${{ needs.check.outputs.prerelease }}" = "true" ]; then flags="--prerelease"; fi
-          if gh release view "${{ needs.check.outputs.tag }}" > /dev/null 2>&1; then
-            gh release upload "${{ needs.check.outputs.tag }}" files/* --clobber
-            gh release edit "${{ needs.check.outputs.tag }}" --notes-file notes.md $flags
-          else
-            gh release create "${{ needs.check.outputs.tag }}" files/* --title "Folder Browser ${{ needs.check.outputs.version }}" --notes-file notes.md $flags --verify-tag
-          fi
+          set -e
+          dmg=$(ls release/*.dmg | head -n 1)
+          name=$(basename "$dmg")
+          mkdir sums && cd sums
+          # The checksums of the release (made on the maintainer's computer) get the line of the .dmg, replacing an older one.
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS.txt || : > SHA256SUMS.txt
+          grep -v " ${name}\$" SHA256SUMS.txt > kept.txt || true
+          (cd ../release && shasum -a 256 "$name") >> kept.txt
+          mv kept.txt SHA256SUMS.txt
+          cd ..
+          gh release upload "$TAG" "$dmg" sums/SHA256SUMS.txt --clobber --repo "$GITHUB_REPOSITORY"
+          echo "### $name added to $TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(du -m "$dmg" | cut -f1) MB (unsigned unless the signing secrets are set)" >> "$GITHUB_STEP_SUMMARY"
