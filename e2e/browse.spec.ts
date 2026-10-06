@@ -259,10 +259,14 @@ test('Open ZIP File… (the side bar, the File menu) asks for a ZIP file and ope
   // (The system's file dialog cannot be driven: it answers with the file chosen.)
   const choose = (file: string) => app!.evaluate(({ dialog }, picked) => void (dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [picked] })) as unknown as typeof dialog.showOpenDialog), file)
   await choose(path.join(work, 'pack.zip'))
-  await page.getByRole('button', { name: 'Open ZIP File', exact: true }).click()
+  await page.locator('button', { hasText: 'Open ZIP File' }).click()
   await expect(item(page, 'src')).toBeVisible()
   await expect(item(page, 'top.txt')).toBeVisible()
   await expect(page.getByRole('listbox', { name: 'Open Folders' }).getByText('pack.zip')).toBeVisible()
+  // The activity bar has it too, and its Open Folder next to it.
+  await choose(path.join(work, 'pack.zip'))
+  await page.getByRole('navigation', { name: 'Activity Bar' }).getByRole('button', { name: 'Open ZIP File' }).click()
+  await expect(page.getByRole('listbox', { name: 'Open Folders' }).getByText('pack.zip')).toHaveCount(1)
   // The File menu has it too.
   await page.getByRole('menuitem', { name: 'File', exact: true }).click()
   await expect(page.getByRole('menuitem', { name: 'Open ZIP File…' })).toBeVisible()

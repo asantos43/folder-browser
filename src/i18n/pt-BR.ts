@@ -11,6 +11,7 @@ export const ptBR: Record<MessageKey, string> = {
   'menu.openFile': 'Abrir Arquivo…',
   'menu.openFolder': 'Abrir Pasta…',
   'menu.showHidden': 'Mostrar Arquivos Ocultos',
+  'activity.openZip': 'Abrir Arquivo ZIP',
   'activity.openFolder': 'Abrir Pasta',
   'menu.openZip': 'Abrir Arquivo ZIP…',
   'sidebar.openZip': 'Abrir Arquivo ZIP',

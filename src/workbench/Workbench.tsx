@@ -938,6 +938,7 @@ export function Workbench() {
           setTheme={setSetting}
           onOpenSettings={() => run('openSettings')}
           onOpenFolder={() => run('openFolder')}
+          onOpenZip={() => run('openZip')}
           onPrint={() => run('print')}
           canPrint={canPrint(ws)}
         />

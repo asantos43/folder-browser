@@ -9,6 +9,7 @@ export const en = {
   'menu.openFile': 'Open File…',
   'menu.openFolder': 'Open Folder…',
   'menu.showHidden': 'Show Hidden Files',
+  'activity.openZip': 'Open ZIP File',
   'activity.openFolder': 'Open Folder',
   'menu.openZip': 'Open ZIP File…',
   'sidebar.openZip': 'Open ZIP File',
