@@ -1,4 +1,4 @@
-import type { DirEntry, ListResult, RootInfo } from '@core/api.ts'
+import type { DirEntry, ListResult } from '@core/api.ts'
 import { listingsAbove } from '@core/vpath.ts'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
@@ -36,7 +36,7 @@ export interface ExplorerActions {
  * not read until it is opened). A ZIP opens like a folder, also inside a ZIP. Clicks and keys are as in the tree of a snapshot: a click opens a preview tab, a double click (or
  * Enter) keeps it, arrows move, typing jumps to a name. Hidden files are listed but shown only when `showHidden` says so, so the switch needs no new request.
  */
-export function ExplorerTree({ root, activePath, showHidden, refreshToken, actions }: { root: RootInfo; activePath: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
+export function ExplorerTree({ activePath, showHidden, refreshToken, actions }: { activePath?: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
   const { t } = useI18n()
   const [listings, setListings] = useState<Record<string, Listing>>({})
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())

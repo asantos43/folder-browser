@@ -10,7 +10,7 @@ import { useNotifications } from '@/state/notifications.ts'
 import { empty, isHeldBack, isSnapshotTab, reduce, released, snapshotKey } from '@/state/workspace.ts'
 import { emptyHistory, step, visit, type History } from '@/state/history.ts'
 import { isSession, keyOfEntry, sessionOf, type Session } from '@/state/session.ts'
-import { reopenSession, svgView } from '@/state/setting.ts'
+import { reopenSession, showHidden, svgView } from '@/state/setting.ts'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { shownSource } from '@/state/fileLanguage.ts'
 import { LanguagePicker } from './LanguagePicker.tsx'
@@ -47,6 +47,7 @@ export function Workbench() {
   const { t } = useI18n()
   const { setting, setSetting } = useTheme()
   svgView.use()
+  const hiddenShown = showHidden.use()
   const { notifications, notify, dismiss } = useNotifications()
   const [ws, dispatch] = useReducer(reduce, empty)
   const [sideBarVisible, setSideBarVisible] = useState(() => readStored('sideBarVisible', true, isBoolean))
@@ -94,10 +95,15 @@ export function Workbench() {
   const handleResults = useCallback(
     (results: OpenResult[]) => {
       for (const result of results) {
-        if (result.ok) {
+        if (!result.ok) notify(refusalNotice(t, result))
+        else if ('root' in result) {
+          // A folder or a ZIP to browse; a file named on its own opens its folder, and the file in a tab.
+          dispatch({ type: 'root-opened', root: result.root })
+          if (result.open) dispatch({ type: 'open-file', snapshotId: result.root.id, path: result.open.path, keep: true, size: result.open.size })
+        } else {
           dispatch({ type: 'snapshot-opened', snapshot: result.snapshot })
           if (!result.already) void api?.verify(result.snapshot.id)
-        } else notify(refusalNotice(t, result))
+        }
       }
       if (results.length) refreshRecent()
     },
@@ -106,22 +112,31 @@ export function Workbench() {
   /** Opens again the snapshots of a session, and the tabs in them in the order they had; a file that is gone is said, the rest still opens. */
   const restore = useCallback(
     async (session: Session | null) => {
-      if (!api || !session?.tabs.length) return
-      const paths = [...new Set(session.tabs.map((tab) => tab.snapshot))]
+      if (!api || !session || (!session.tabs.length && !session.roots?.length)) return
+      const paths = [...new Set([...(session.roots ?? []), ...session.tabs.map((tab) => tab.snapshot)])]
       const results = await api.openPaths(paths)
       const byPath = new Map<string, Extract<OpenResult, { ok: true }>>()
       results.forEach((result, i) => (result.ok ? byPath.set(paths[i], result) : notify(refusalNotice(t, result))))
       const shown = new Set<string>()
+      const show = (path: string, opened: Extract<OpenResult, { ok: true }>) => {
+        if (shown.has(path)) return
+        shown.add(path)
+        if ('root' in opened) dispatch({ type: 'root-opened', root: opened.root })
+        else {
+          dispatch({ type: 'snapshot-opened', snapshot: opened.snapshot })
+          if (!opened.already) void api.verify(opened.snapshot.id)
+        }
+      }
+      for (const path of session.roots ?? []) {
+        const opened = byPath.get(path)
+        if (opened) show(path, opened)
+      }
       let activeKey: string | undefined
       session.tabs.forEach((entry, i) => {
         const opened = byPath.get(entry.snapshot)
         if (!opened) return
-        const id = opened.snapshot.id
-        if (!shown.has(entry.snapshot)) {
-          shown.add(entry.snapshot)
-          dispatch({ type: 'snapshot-opened', snapshot: opened.snapshot })
-          if (!opened.already) void api.verify(id)
-        }
+        const id = 'root' in opened ? opened.root.id : opened.snapshot.id
+        show(entry.snapshot, opened)
         if (entry.kind === 'file') dispatch({ type: 'open-file', snapshotId: id, path: entry.file!, keep: true, ...(entry.size === undefined ? {} : { size: entry.size }) })
         else if (entry.kind === 'metadata') dispatch({ type: 'open-metadata', snapshotId: id })
         if (i === session.active) activeKey = keyOfEntry(entry, id)
@@ -371,6 +386,8 @@ export function Workbench() {
       if (command === 'showAbout') return void (api?.appInfo().then((info) => setAbout({ info })) ?? setAbout({ info: null }))
       if (command === 'zoomIn' || command === 'zoomOut' || command === 'zoomReset') return zoomTab(command === 'zoomIn' ? 1 : command === 'zoomOut' ? -1 : 0)
       if (command === 'openFile') return void api?.openDialog().then(handleResults)
+      if (command === 'openFolder') return void api?.openFolderDialog().then(handleResults)
+      if (command === 'toggleHidden') return showHidden.set(!showHidden.get())
       if (command === 'copy') return void copySelection()
       if (command === 'print') return void printTab()
       if (command === 'savePdf') return void savePdfTab()
@@ -459,6 +476,9 @@ export function Workbench() {
       toggleSideBar,
       setTheme: setSetting,
       openFile: () => run('openFile'),
+      openFolder: () => run('openFolder'),
+      toggleHidden: () => run('toggleHidden'),
+      showHidden: hiddenShown,
       print: () => run('print'),
       savePdf: () => run('savePdf'),
       saveAsWsnp: () => run('saveAsWsnp'),
@@ -490,12 +510,17 @@ export function Workbench() {
       canGoForward: step(history, 1, new Set(ws.tabs.map((tab) => tab.key)), ws.active) !== null,
       recent,
     }),
-    [toggleSideBar, setSetting, run, api, handleResults, refreshRecent, ws, recent, savePdfTab, saveConverted, go, history],
+    [toggleSideBar, setSetting, run, api, handleResults, refreshRecent, ws, recent, savePdfTab, saveConverted, go, history, hiddenShown],
   )
 
   const sideBarActions = useMemo(
     () => ({
       openFile: () => run('openFile'),
+      openFolder: () => run('openFolder'),
+      listDir: (id: string, path: string) => api!.listDir(id, path),
+      openRootFile: (id: string, entry: { path: string; size: number }, keep: boolean) => dispatch({ type: 'open-file', snapshotId: id, path: entry.path, keep, size: entry.size }),
+      reveal: (id: string, path: string) => void api?.reveal(id, path),
+      closeRoot: (id: string) => dispatch({ type: 'root-closed', id }),
       openTreeFile: (snapshotId: string, path: string, keep: boolean) => dispatch({ type: 'open-file', snapshotId, path, keep }),
       saveFile,
       openWith,
@@ -503,7 +528,7 @@ export function Workbench() {
       openExternal,
       showMetadata: (snapshotId: string) => dispatch({ type: 'open-metadata', snapshotId }),
     }),
-    [run, saveFile, openWith, copy, openExternal],
+    [run, api, saveFile, openWith, copy, openExternal],
   )
 
   return (
@@ -518,6 +543,7 @@ export function Workbench() {
           setTheme={setSetting}
           onOpenSettings={() => run('openSettings')}
           onOpenFile={() => run('openFile')}
+          onOpenFolder={() => run('openFolder')}
           onPrint={() => run('print')}
           canPrint={canPrint(ws)}
         />
@@ -527,7 +553,7 @@ export function Workbench() {
               <SideBar ws={ws} dispatch={dispatch} actions={sideBarActions} signers={signers} />
             </Allotment.Pane>
             <Allotment.Pane minSize={200}>
-              <EditorGroup zooms={zooms} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onReveal={(id) => void api?.reveal(id)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
+              <EditorGroup zooms={zooms} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
             </Allotment.Pane>
           </Allotment>
         </div>

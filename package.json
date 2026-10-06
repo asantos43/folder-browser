@@ -113,7 +113,9 @@
       "maintainer": "Folder Browser <noreply@github.com>",
       "synopsis": "Folder and ZIP browser and editor, with a WSNP viewer",
       "mimeTypes": [
-        "application/vnd.wsnp+zip"
+        "application/vnd.wsnp+zip",
+        "application/zip",
+        "inode/directory"
       ],
       "executableName": "folder-browser",
       "syncDesktopName": true

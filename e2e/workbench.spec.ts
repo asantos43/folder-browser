@@ -34,7 +34,7 @@ test('the window is the workbench: title bar, menu, activity bar, side bar, edit
   await expect(page).toHaveTitle('Folder Browser')
   if (htmlMenu) await expect(page.getByRole('menubar').getByRole('menuitem')).toHaveText(['File', 'Edit', 'View', 'Go', 'Help'])
   await expect(page.getByRole('navigation', { name: 'Activity Bar' })).toBeVisible()
-  await expect(page.getByRole('complementary', { name: 'Snapshots' })).toBeVisible()
+  await expect(page.getByRole('complementary', { name: 'Explorer' })).toBeVisible()
   await expect(page.getByRole('main')).toBeVisible()
   await expect(page.getByRole('contentinfo')).toContainText('No snapshot open')
   const bar = await page.getByTestId('titlebar').boundingBox()
@@ -45,7 +45,7 @@ test('the window is the workbench: title bar, menu, activity bar, side bar, edit
 
 test('Ctrl+B (and the View menu) hide and show the side bar', async () => {
   const page = await launch()
-  const side = page.getByRole('complementary', { name: 'Snapshots' })
+  const side = page.getByRole('complementary', { name: 'Explorer' })
   await page.keyboard.press('ControlOrMeta+B')
   await expect(side).toBeHidden()
   if (htmlMenu) {
@@ -92,7 +92,7 @@ test('the interface reaches nothing outside itself', async () => {
   expect(attempts).toEqual(['refused', 'refused', 'refused'])
   // The window has no Node and offers only what the preload exposes.
   expect(await page.evaluate(() => typeof (globalThis as { require?: unknown }).require)).toBe('undefined')
-  expect(await page.evaluate(() => Object.keys((window as unknown as { fb: object }).fb).sort())).toEqual(['appInfo', 'clearFindInPage', 'close', 'copyFromPage', 'copyText', 'findInPage', 'onCommand', 'onIntegrity', 'onOpenFile', 'onOpened', 'onPageContext', 'onSaved', 'openDialog', 'openExternal', 'openPaths', 'openWith', 'openWithApp', 'openWithCancel', 'pathForFile', 'platform', 'print', 'readFile', 'ready', 'recent', 'reveal', 'saveConverted', 'saveFileAs', 'savePdf', 'selectAllInPage', 'session', 'setTitleBar', 'signers', 'verify', 'zipExtract', 'zipList'])
+  expect(await page.evaluate(() => Object.keys((window as unknown as { fb: object }).fb).sort())).toEqual(['appInfo', 'clearFindInPage', 'close', 'copyFromPage', 'copyText', 'findInPage', 'listDir', 'onCommand', 'onIntegrity', 'onOpenFile', 'onOpened', 'onPageContext', 'onSaved', 'openDialog', 'openExternal', 'openFolderDialog', 'openPaths', 'openWith', 'openWithApp', 'openWithCancel', 'pathForFile', 'platform', 'print', 'readFile', 'ready', 'recent', 'reveal', 'saveConverted', 'saveFileAs', 'savePdf', 'selectAllInPage', 'session', 'setTitleBar', 'signers', 'verify', 'zipExtract', 'zipList'])
 })
 
 test('Settings opens in a tab (Ctrl+, or the gear), changes the language at once and remembers it', async () => {

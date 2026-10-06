@@ -7,6 +7,10 @@ export interface Commands {
   toggleSideBar: () => void
   setTheme: (theme: 'auto' | 'dark' | 'light') => void
   openFile: () => void
+  openFolder: () => void
+  toggleHidden: () => void
+  /** The hidden files are shown in the tree. */
+  showHidden: boolean
   print: () => void
   savePdf: () => void
   saveAsWsnp: () => void
@@ -72,6 +76,7 @@ export const MENUS: MenuDef[] = [
     id: 'file',
     label: 'menu.file',
     entries: (t, c) => [
+      { id: 'openFolder', label: t('menu.openFolder'), shortcut: shortcut('Ctrl+Shift+O'), run: c.openFolder },
       { id: 'open', label: t('menu.openFile'), shortcut: shortcut('Ctrl+O'), run: c.openFile },
       {
         id: 'recent',
@@ -109,6 +114,8 @@ export const MENUS: MenuDef[] = [
     label: 'menu.view',
     entries: (t, c) => [
       { id: 'palette', label: t('menu.commandPalette'), shortcut: shortcut('Ctrl+Shift+P'), run: c.commandPalette },
+      { separator: true },
+      { id: 'hidden', label: t('menu.showHidden'), shortcut: shortcut('Ctrl+H'), checked: c.showHidden, run: c.toggleHidden },
       { separator: true },
       { id: 'metadata', label: t('menu.showMetadata'), disabled: !c.hasEditor, run: c.showMetadata },
       { separator: true },

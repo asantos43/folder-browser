@@ -13,11 +13,13 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [ ] `npm run notices` (`THIRD-PARTY-NOTICES.md`) after the new dependencies come in
 
 ## Phase 1: browse
-- [ ] Open a folder or a `.zip` (dialog, drag and drop, command line); authorised roots in the main process (`core/fs/guard.ts`)
-- [ ] Lazy tree of a folder (`core/fs/listDir`), a ZIP expands as a folder (also nested, `a.zip!/b.zip!/c`)
-- [ ] Switch to show hidden files (`Ctrl+H`, kept in settings), for disk and ZIP entries (`core/fs/hidden.ts`)
-- [ ] Read-only views of text, picture, PDF, Markdown, fonts; extract from a ZIP
-- [ ] The desktop file also takes `inode/directory` and `application/zip`
+- [x] Open a folder or a `.zip` (dialog, drag and drop, command line, a file's folder); the interface names a root by an id and a relative path, and `core/fs/guard.ts` refuses `..` and links that leave it
+- [x] Lazy tree of a folder (`core/roots.ts`, `ExplorerTree`), a ZIP expands as a folder (also nested, `a.zip!/b.zip!/c`)
+- [x] Switch to show hidden files (`Ctrl+H`, the side bar, the status bar and Settings; kept), for disk and ZIP entries (`core/fs/hidden.ts`)
+- [x] Read-only views of text, picture, PDF, Markdown, fonts of a folder or a ZIP; a ZIP also as a list with Extract (context menu: Open as List)
+- [ ] Names of the first-level roots in the title bar's "Go to File" (the tree is lazy, so it has no list of every file yet)
+- [ ] Open Recent as "Recent Folders" (phase 1d)
+- [x] The desktop file also takes `inode/directory` and `application/zip`
 
 ## Phase 1b: `.wsnp`
 - [ ] A `.wsnp` in the tree opens as a snapshot (double click); "Open as ZIP" shows its entries

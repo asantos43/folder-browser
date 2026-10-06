@@ -13,5 +13,13 @@ export function pathsToOpen(argv: readonly string[], cwd: string, exists: (file:
     .filter((file) => /\.(wsnp|zip)$/i.test(file) || exists(file))
 }
 
-/** The arguments of the user: a packaged app is `app files…`, an unpackaged one (`electron . files…`) has the app's own folder first. */
-export const userArgs = (argv: readonly string[], packaged: boolean): string[] => argv.slice(packaged ? 1 : 2)
+/**
+ * The arguments of the user: those after the program's own. An unpackaged app (`electron . files…`, or a test driver that puts its own flags before) is also given
+ * its own folder, which is not something to open: the first argument that is that folder is dropped.
+ */
+export function userArgs(argv: readonly string[], packaged: boolean, appPath: string, cwd: string): string[] {
+  const rest = argv.slice(1)
+  if (packaged) return rest
+  const own = rest.findIndex((arg) => !arg.startsWith('-') && path.resolve(cwd, arg) === path.resolve(appPath))
+  return own < 0 ? rest : rest.filter((_, i) => i !== own)
+}

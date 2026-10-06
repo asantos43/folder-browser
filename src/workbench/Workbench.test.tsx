@@ -17,7 +17,7 @@ describe('the workbench', () => {
     shown()
     expect(screen.getByTestId('titlebar')).toBeTruthy()
     expect(screen.getByRole('navigation', { name: 'Activity Bar' })).toBeTruthy()
-    expect(screen.getByRole('complementary', { name: 'Snapshots' })).toBeTruthy()
+    expect(screen.getByRole('complementary', { name: 'Explorer' })).toBeTruthy()
     expect(screen.getByRole('main')).toBeTruthy()
     expect(screen.getByRole('contentinfo')).toBeTruthy()
     expect(screen.getByText('No snapshot is open.')).toBeTruthy()

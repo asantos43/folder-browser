@@ -230,3 +230,37 @@ describe('the settings tab', () => {
     expect(ws.active).toBe('s:a')
   })
 })
+
+describe('roots (folders and ZIP files opened to browse)', () => {
+  const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const zip = { id: 'r2', kind: 'zip' as const, path: '/home/me/p.zip', name: 'p.zip' }
+  const run = (...actions: Action[]) => actions.reduce(reduce, empty)
+
+  it('opening one selects it and opens no tab', () => {
+    const ws = run({ type: 'root-opened', root })
+    expect(ws.roots).toEqual({ r1: root })
+    expect(ws.selected).toBe('r1')
+    expect(ws.tabs).toEqual([])
+  })
+  it('a file of a root gets a tab that names the root; closing the last tab keeps the root open', () => {
+    let ws = run({ type: 'root-opened', root }, { type: 'open-file', snapshotId: 'r1', path: 'docs/a.txt', keep: true, size: 3 })
+    expect(ws.tabs).toMatchObject([{ key: 'f:r1:docs/a.txt', snapshotId: 'r1', path: 'docs/a.txt', size: 3 }])
+    ws = reduce(ws, { type: 'close', key: 'f:r1:docs/a.txt' })
+    expect(ws.tabs).toEqual([])
+    expect(ws.roots.r1).toEqual(root)
+    expect(ws.selected).toBe('r1')
+  })
+  it('closing a root closes its tabs, and the side bar goes to what is left', () => {
+    let ws = run({ type: 'root-opened', root }, { type: 'root-opened', root: zip }, { type: 'open-file', snapshotId: 'r1', path: 'a.txt', keep: true }, { type: 'open-file', snapshotId: 'r2', path: 'b.txt', keep: true })
+    ws = reduce(ws, { type: 'root-closed', id: 'r1' })
+    expect(Object.keys(ws.roots)).toEqual(['r2'])
+    expect(ws.tabs.map((t) => t.key)).toEqual(['f:r2:b.txt'])
+    expect(ws.selected).toBe('r2')
+    expect(reduce(ws, { type: 'root-closed', id: 'nope' })).toBe(ws)
+  })
+  it('selecting takes a root, and says which ids to release when they are gone', () => {
+    const open = run({ type: 'root-opened', root }, { type: 'root-opened', root: zip })
+    expect(reduce(open, { type: 'select', snapshotId: 'r1' }).selected).toBe('r1')
+    expect(released(open, reduce(open, { type: 'root-closed', id: 'r2' }))).toEqual(['r2'])
+  })
+})

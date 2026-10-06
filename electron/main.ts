@@ -22,7 +22,7 @@ if (process.argv.includes('--app-version')) {
 } else {
   let win: BrowserWindow | undefined
   let host: SnapshotHost | undefined
-  const early: string[] = pathsToOpen(userArgs(process.argv, app.isPackaged), process.cwd())
+  const early: string[] = pathsToOpen(userArgs(process.argv, app.isPackaged, app.getAppPath(), process.cwd()), process.cwd())
 
   // macOS gives files through this event, also before the app is ready.
   app.on('open-file', (event, file) => {
@@ -31,7 +31,7 @@ if (process.argv.includes('--app-version')) {
     else early.push(file)
   })
   app.on('second-instance', (_event, argv, cwd) => {
-    void host?.openFromSystem(win, pathsToOpen(userArgs(argv, app.isPackaged), cwd))
+    void host?.openFromSystem(win, pathsToOpen(userArgs(argv, app.isPackaged, app.getAppPath(), cwd), cwd))
     if (win?.isMinimized()) win.restore()
     win?.focus()
   })

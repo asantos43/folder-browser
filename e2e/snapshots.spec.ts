@@ -340,7 +340,7 @@ test('closing tabs: Ctrl+W, the × button, the middle click, the context menu; t
   await expect(page.getByRole('option')).toHaveCount(1)
   await page.keyboard.press('ControlOrMeta+W')
   await expect(tabs(page)).toHaveCount(0)
-  await expect(page.getByText('Open a .wsnp file to read it here')).toBeVisible()
+  await expect(page.getByText('Open a folder, a ZIP or a .wsnp file to start')).toBeVisible()
   await expect(page.getByRole('contentinfo')).toContainText('No snapshot open')
 })
 

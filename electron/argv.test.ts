@@ -16,8 +16,12 @@ describe('pathsToOpen', () => {
 })
 
 describe('userArgs', () => {
+  const app = path.resolve('/work/app')
   it('skips the program, and the app\'s folder when the app is not packaged', () => {
-    expect(userArgs(['/usr/bin/folder-browser', '/home/me/docs'], true)).toEqual(['/home/me/docs'])
-    expect(userArgs(['electron', '.', '/home/me/docs'], false)).toEqual(['/home/me/docs'])
+    expect(userArgs(['/usr/bin/folder-browser', '/home/me/docs'], true, app, '/')).toEqual(['/home/me/docs'])
+    expect(userArgs(['electron', '.', '/home/me/docs'], false, app, app)).toEqual(['/home/me/docs'])
+  })
+  it('does not count on where the app\'s folder is among the flags, and drops it only once', () => {
+    expect(userArgs(['electron', '--inspect=0', app, '--user-data-dir=/p', app, 'x.txt'], false, app, '/')).toEqual(['--inspect=0', '--user-data-dir=/p', app, 'x.txt'])
   })
 })

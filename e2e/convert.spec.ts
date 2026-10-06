@@ -135,15 +135,15 @@ test('the temporary file of a conversion exists while the snapshot is open and g
   await expect.poll(temporary).toEqual([])
 })
 
-test('a ZIP that is not PageKeep’s and one whose snapshot.json is unusable are refused in plain words', async () => {
+test('a ZIP that is not PageKeep’s is browsed as a folder, and one whose snapshot.json is unusable is refused in plain words', async () => {
   const plain = path.join(dir, 'plain.zip')
   await writeZip(plain, [{ name: 'a.txt', data: 'a' }])
   const nosource = path.join(dir, 'no-source.zip')
   await writeZip(nosource, [{ name: 'index.html', data: '<p>hi</p>' }, { name: 'snapshot.json', data: '{"title":"x"}' }])
   const page = await launch(plain, nosource)
-  await expect(page.getByRole('alert')).toHaveCount(2)
-  await expect(page.getByRole('alert').first()).toContainText('plain.zip')
-  await expect(page.getByRole('alert').nth(1)).toContainText('its snapshot.json does not say which page it is')
+  await expect(page.getByRole('alert')).toHaveCount(1)
+  await expect(page.getByRole('alert')).toContainText('its snapshot.json does not say which page it is')
+  await expect(page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option')).toHaveText(['plain.zip'])
   await expect(page.getByRole('tab')).toHaveCount(0)
   expect(temporary()).toEqual([])
 })
