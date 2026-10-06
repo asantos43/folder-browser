@@ -28,6 +28,8 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 - `core/fs/guard.ts` (`resolveInside`): a path that leaves a root by `..`, an absolute path, a drive, a backslash, a NUL or a symbolic link is refused; the interface never sends an absolute path (`docs/ARCHITECTURE.md`, "Safety rules").
 - The desktop file of the Linux packages also lists `application/zip` and `inode/directory`.
 
+- **Hexadecimal view** for programs, libraries and any file of bytes (phase 1m): `.exe`, `.dll`, `.so`, `.o`, `.class`, `.wasm`, `.bin`, `.dat`, `.iso`, `.sqlite`… and any file of a type the app does not know that is not text, open in a page of their own: offset, 16 bytes in hex (eight and eight) and the same bytes as text, drawn only for the rows in view, so a file of any size is as quick (a file of a folder over 16 MiB is read a window at a time by `fb:read-range`; `core/roots.ts` `range`). Click and Shift-click or the arrows select bytes, `Ctrl+C` copies them as hex (the toolbar also copies as text), **Go to offset** takes hex, `0x…` or `#decimal`, and **Find** looks for bytes or text, forwards and backwards, through the whole file (`core/hex.ts`). The toolbar says what the header is (`ELF 64-bit LSB shared object, x86-64`, `PE32+ DLL, x86-64, GUI`, Mach-O, Java class, ZIP, PDF, PNG, SQLite…) by reading it, never running the file. Any file that is not shown (a text file over 5 MB, an audio or video the app cannot play…) offers **View as hex**.
+
 ### Fixed
 
 - Five end-to-end specs inherited from WSNP Viewer that had gone stale (the language of a file is named twice on screen, and Markdown opens formatted); the same fix is in wsnp-viewer (branch `fix-stale-e2e-specs`). No change to the application.

@@ -21,6 +21,18 @@ describe('viewKind: which files a tab can show', () => {
       expect(viewKind(type, name, 100), name).toBe('other')
     }
   })
+  it('shows programs, libraries and the like in hexadecimal, by their extension, whatever the size', () => {
+    for (const name of ['setup.exe', 'lib.DLL', 'libc.so', 'a.out.o', 'Main.class', 'disk.iso', 'x.bin', 'data.dat', 'app.wasm', 'a.sqlite']) {
+      expect(viewKind('application/octet-stream', name, 100), name).toBe('hex')
+      expect(viewKind(undefined, name, 10 * 2 ** 30), name).toBe('hex')
+    }
+  })
+  it('does not take a file for a binary because of a name alone: only after a dot (a script called `bin`, a file called `a`)', () => {
+    for (const name of ['bin', 'a', 'o', 'lib', 'dat', 'db']) {
+      expect(viewKind(undefined, name, 100), name).toBe('other')
+      expect(canProbe(undefined, name, 100), name).toBe(true)
+    }
+  })
   it('lists a ZIP in a tab, by its type or its extension, unless it is too big to hold in memory', () => {
     expect(viewKind('application/zip', 'a.zip', 100)).toBe('zip')
     expect(viewKind('application/x-zip-compressed', 'a.zip', 100)).toBe('zip')

@@ -26,6 +26,7 @@ const api: FbApi = {
   onOpened: (listener) => on<OpenResult[]>('fb:opened', listener),
   close: (id) => ipcRenderer.invoke('fb:close', id) as Promise<void>,
   readFile: (id, path) => ipcRenderer.invoke('fb:read-file', id, path),
+  readRange: (id, path, offset, length) => ipcRenderer.invoke('fb:read-range', id, path, offset, length),
   saveFileAs: (id, path) => ipcRenderer.invoke('fb:save-as', id, path),
   verify: (id) => ipcRenderer.invoke('fb:verify', id) as Promise<void>,
   onIntegrity: (listener) => on<IntegrityEvent>('fb:integrity', listener),

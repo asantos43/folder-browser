@@ -130,7 +130,7 @@ test('a double click views an entry in a tab of its own: text as source, a pictu
   await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpassetsfilesbundle.zipnested.zipdeep.txt')
 })
 
-test('a text entry of a kind the viewer does not know opens as text, a binary one is offered with Save As, and Markdown has a button for its text', async () => {
+test('a text entry of a kind the viewer does not know opens as text, a binary one is shown in hexadecimal, and Markdown has a button for its text', async () => {
   const mixed = zipSync([
     { name: 'tool.py', data: 'print("ferry")\n' },
     { name: 'notes.xyz', data: 'Notes of no known kind.\nSecond line.\n' },
@@ -146,7 +146,7 @@ test('a text entry of a kind the viewer does not know opens as text, a binary on
   await expect(page.locator('.cm-content')).toContainText('Second line.')
   await page.getByRole('tab', { name: /mixed.zip/ }).click()
   await row(page, 'blob.xyz').dblclick()
-  await expect(page.getByText('This kind of file is not shown here.')).toBeVisible()
+  await expect(page.getByRole('grid', { name: 'Hexadecimal view of blob.xyz' }).getByRole('row')).toContainText('01020003fffe')
   await page.getByRole('tab', { name: /mixed.zip/ }).click()
   await row(page, 'GUIDE.md').dblclick()
   await expect(page.getByRole('heading', { name: 'Harbor guide' })).toBeVisible()

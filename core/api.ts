@@ -14,6 +14,8 @@ export type OpenResult =
   | { ok: false; path: string; issues: Issue[]; omitted: number }
 
 export type ReadResult = { bytes: Uint8Array } | { error: 'no-snapshot' | 'no-file' | 'too-large' }
+/** A window of a file's bytes, and the whole file's size. */
+export type RangeResult = { bytes: Uint8Array; size: number } | { error: 'no-snapshot' | 'no-file' | 'too-large' }
 export type SaveResult = { saved: true; path: string } | { saved: false; reason: 'cancelled' | 'error'; message?: string }
 export type IntegrityEvent = { id: string; state: 'running'; done: number; total: number } | { id: string; state: 'done'; report: IntegrityReport }
 
@@ -91,6 +93,8 @@ export interface FbApi {
   close(id: string): Promise<void>
   /** A whole file of a snapshot, for a tab. */
   readFile(id: string, path: string): Promise<ReadResult>
+  /** `length` bytes (at most 1 MiB) of a file of a folder from `offset`, with the file's size: the hex view reads a big file by pages. */
+  readRange(id: string, path: string, offset: number, length: number): Promise<RangeResult>
   /** Asks where to save a file of a snapshot and writes it there, streamed. */
   saveFileAs(id: string, path: string): Promise<SaveResult>
   /** Starts the integrity pass (SHA-256 of every file); progress and the result arrive through `onIntegrity`. */

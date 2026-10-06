@@ -10,6 +10,7 @@ import { TextView } from './TextView.tsx'
 import { FontView } from './FontView.tsx'
 import { ImageView } from './ImageView.tsx'
 import { OtherView } from './OtherView.tsx'
+import { HEX_WHOLE_LIMIT, HexView, RangeHexView } from './HexView.tsx'
 import { PdfView } from './PdfView.tsx'
 import { ZipView } from './ZipView.tsx'
 import type { ZipEntryInfo } from '@core/api.ts'
@@ -72,8 +73,13 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   const probe = canProbe(mediaType, path, size)
   const [sniffed, setSniffed] = useState<'text' | 'binary' | undefined>(undefined)
   const kind: ViewKind = probe && sniffed === 'text' ? 'text' : declaredKind
+  // A program, a library or any file of bytes is shown in hexadecimal; so is a file of an unknown type that is not text, and any other file when the user asks.
+  const [hexed, setHexed] = useState(false)
+  const hex = kind === 'hex' || hexed || (probe && sniffed === 'binary')
+  // Over the limit it is read a window at a time instead (a file of a folder only).
+  const windowed = hex && size > HEX_WHOLE_LIMIT
   const [loaded, setLoaded] = useState<Loaded>(() => {
-    const bytes = (kind === 'other' && !probe) || kind === 'zip' ? undefined : recall(key)
+    const bytes = (kind === 'other' && !probe) || kind === 'zip' || (kind === 'hex' && size > HEX_WHOLE_LIMIT) ? undefined : recall(key)
     return bytes ? { state: 'ready', bytes } : { state: 'loading' }
   })
   const late = useLate(150)
@@ -90,7 +96,7 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   }, [sourceShown, key, language, detected])
 
   useEffect(() => {
-    if ((kind === 'other' && !probe) || kind === 'zip') return
+    if ((kind === 'other' && !probe && !hexed) || kind === 'zip' || windowed) return
     let alive = true
     const again = recall(key)
     if (again) {
@@ -106,7 +112,7 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
     return () => {
       alive = false
     }
-  }, [snapshotId, path, kind, key, probe])
+  }, [snapshotId, path, kind, key, probe, hexed, windowed])
 
   useEffect(() => {
     if (!probe) return
@@ -118,11 +124,12 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
 
   // A ZIP is listed by the main process, which keeps it: nothing is read into the interface.
   if (kind === 'zip') return <ZipView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} onView={onViewEntry} onNotify={onNotify} />
-  if (kind === 'other' && !probe) return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} />
+  if (windowed) return <RangeHexView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} fallback={() => <OtherView name={name} mediaType={mediaType} size={size} reason="tooLarge" onSave={onSave} />} />
+  if (kind === 'other' && !probe && !hexed) return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} onHex={() => setHexed(true)} />
   // A moment of nothing, not of a message that flashes: "Loading…" appears only when the file is slow.
-  if (probe && sniffed === 'binary') return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} />
   if (loaded.state === 'loading' || (probe && loaded.state === 'ready' && sniffed === undefined)) return late ? <p className="m-0 p-6 text-fg-muted">{t('file.loading')}</p> : <div className="min-h-0 flex-1 bg-editor" />
   if (loaded.state === 'failed') return <OtherView name={name} mediaType={mediaType} size={size} reason={loaded.error === 'too-large' ? 'tooLarge' : 'readError'} onSave={onSave} />
+  if (hex) return <HexBytes name={name} bytes={loaded.bytes} onSave={onSave} />
   // An SVG is a picture and its source: the toolbar of either has the switch to the other.
   if (svg && svgAs === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType="image/svg+xml" name={name} onSave={onSave} leading={<SvgToggle />} />
   // A Markdown file is a page and its text: the toolbar of either has the switch to the other.
@@ -131,4 +138,10 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   if (kind === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType={effectiveType(mediaType, path)} name={name} onSave={onSave} />
   if (kind === 'pdf') return <PdfView id={`${snapshotId}:${path}`} bytes={loaded.bytes} name={name} onSave={onSave} />
   return <FontView bytes={loaded.bytes} />
+}
+
+/** The bytes of a file that was read whole, in hexadecimal. */
+function HexBytes({ name, bytes, onSave }: { name: string; bytes: Uint8Array; onSave: () => void }) {
+  const source = useMemo(() => ({ bytes }), [bytes])
+  return <HexView name={name} source={source} onSave={onSave} />
 }

@@ -5,7 +5,7 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, webFrameMain, type IpcMainInvokeEvent, type Session, type WebContents, type WebFrameMain } from 'electron'
-import type { AppInfo, IntegrityEvent, ListResult, MediaOpen, OpenResult, OpenWithResult, PrintRequest, PrintResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
+import type { AppInfo, IntegrityEvent, ListResult, MediaOpen, OpenResult, OpenWithResult, PrintRequest, PrintResult, RangeResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
 import { extractSelection, type ExtractResult } from '../core/extract.ts'
 import { FRAME_SCRIPT } from '../core/frameScript.ts'
 import { BINARY_LIMIT, effectiveType, mediaKind, viewKind } from '../core/filekind.ts'
@@ -30,6 +30,8 @@ import { UI_ORIGIN } from './ui-protocol.ts'
 const WEB_LINK = /^(https?|mailto):/i
 /** The most text the interface may put on the clipboard at once. */
 const MAX_COPY = 16 * 2 ** 20
+/** The most bytes the hex view asks for at once. */
+const MAX_RANGE = 2 ** 20
 
 /**
  * The snapshot host of the interface: every open snapshot is an `<iframe sandbox>` of the window, loading `wsnp://<id>/`
@@ -551,6 +553,11 @@ export class SnapshotHost {
       if (typeof id !== 'string' || typeof name !== 'string') return { error: 'no-file' }
       const read = await this.sources.read(id, name, BINARY_LIMIT)
       return 'bytes' in read ? { bytes: new Uint8Array(read.bytes) } : read
+    })
+    handle('fb:read-range', async (_win, id: unknown, name: unknown, offset: unknown, length: unknown): Promise<RangeResult> => {
+      if (typeof id !== 'string' || typeof name !== 'string' || !Number.isSafeInteger(offset) || !Number.isSafeInteger(length) || (offset as number) < 0 || (length as number) < 0) return { error: 'no-file' }
+      const read = await this.sources.roots.range(id, name, offset as number, Math.min(length as number, MAX_RANGE))
+      return 'bytes' in read ? { bytes: new Uint8Array(read.bytes), size: read.size } : read
     })
     handle('fb:save-as', (win, id: unknown, name: unknown): Promise<SaveResult> | SaveResult =>
       typeof id === 'string' && typeof name === 'string' ? this.save(win, id, name) : { saved: false, reason: 'error' })

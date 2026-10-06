@@ -4,7 +4,7 @@ import { formatBytes } from '@/lib/format.ts'
 import { fileIcon } from '@/lib/icons.ts'
 
 /** A file that cannot be shown here (a PDF, a ZIP, a document, a file too large): it can be saved to disk. */
-export function OtherView({ name, mediaType, size, reason, onSave }: { name: string; mediaType: string | undefined; size: number; reason?: 'tooLarge' | 'readError'; onSave: () => void }) {
+export function OtherView({ name, mediaType, size, reason, onSave, onHex }: { name: string; mediaType: string | undefined; size: number; reason?: 'tooLarge' | 'readError'; onSave: () => void; /** Offered when the bytes of the file can be shown in hexadecimal. */ onHex?: () => void }) {
   const { t } = useI18n()
   const notice = reason === 'tooLarge' ? t('file.tooLarge') : reason === 'readError' ? t('file.readError') : t('file.other')
   return (
@@ -18,10 +18,18 @@ export function OtherView({ name, mediaType, size, reason, onSave }: { name: str
         <dd className="m-0">{formatBytes(size)}</dd>
       </dl>
       <p className="m-0 text-fg-muted">{notice}</p>
-      <button type="button" onClick={onSave} className="flex h-[26px] items-center gap-1.5 rounded-sm bg-button px-4 text-[13px] text-button-fg hover:bg-button-hover">
-        <Icon name="save-as" />
-        {t('file.saveAs')}
-      </button>
+      <div className="flex gap-2">
+        <button type="button" onClick={onSave} className="flex h-[26px] items-center gap-1.5 rounded-sm bg-button px-4 text-[13px] text-button-fg hover:bg-button-hover">
+          <Icon name="save-as" />
+          {t('file.saveAs')}
+        </button>
+        {onHex ? (
+          <button type="button" title={t('hex.viewTitle')} onClick={onHex} className="flex h-[26px] items-center gap-1.5 rounded-sm px-4 text-[13px] hover:bg-toolbar-hover">
+            <Icon name="file-binary" />
+            {t('hex.view')}
+          </button>
+        ) : null}
+      </div>
     </div>
   )
 }

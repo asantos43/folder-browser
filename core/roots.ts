@@ -184,6 +184,27 @@ export class RootRegistry {
     return root ? this.bytes(root, name, limit) : { error: 'no-snapshot' }
   }
 
+  /** `length` bytes of a file of the disk from `offset` (and the file's size), for a view that reads a big file a page at a time. Not for an entry of a ZIP: those are read whole. */
+  async range(id: string, name: string, offset: number, length: number): Promise<{ bytes: Buffer; size: number } | Fail> {
+    const root = this.open.get(id)
+    if (!root) return { error: 'no-snapshot' }
+    const file = await this.diskFile(id, name)
+    if (!file) return { error: root.kind === 'zip' || name.includes(INNER) ? 'too-large' : 'no-file' }
+    let handle: fsp.FileHandle | undefined
+    try {
+      handle = await fsp.open(file, 'r')
+      const { size } = await handle.stat()
+      const want = Math.max(0, Math.min(length, size - offset))
+      const bytes = Buffer.alloc(want)
+      const { bytesRead } = want ? await handle.read(bytes, 0, want, offset) : { bytesRead: 0 }
+      return { bytes: bytes.subarray(0, bytesRead), size }
+    } catch {
+      return { error: 'no-file' }
+    } finally {
+      await handle?.close()
+    }
+  }
+
   /** A file as a stream (to save it, or to hand a copy to another application), whatever its size. */
   async stream(id: string, name: string, range?: ByteRange): Promise<Readable | undefined> {
     const root = this.open.get(id)

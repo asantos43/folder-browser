@@ -54,6 +54,13 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] Order the files of a folder by name, date or size (button and View menu), with the size and the date on each row
 - [ ] Columns for size and date that the user can turn on or off, and drag to resize (today: the one the order is by, both when the side bar is wide)
 
+## Phase 1m: hexadecimal view and spreadsheets
+- [x] `core/hex.ts` (rows, search patterns, header identification, search through a file by blocks, scroll metrics for files of any length), `HexView` (virtual rows, selection, copy, Go to offset, Find), `fb:read-range` for big files of a folder, `viewKind` `hex` for programs and the like, "View as hex" on every file that is not shown
+- [ ] "Open as Hex" in the right-click menu of any file (needs a tab that says how it is shown: today only the button of the card, and the files that are hex by kind)
+- [ ] Header panel for ELF, PE and Mach-O (sections, imports): read-only, no execution
+- [ ] Spreadsheets: xlsx, ods, xls, csv, tsv as a table (a ready-made reader: SheetJS 0.20.3 from its own CDN tarball, Apache-2.0, read all four formats in a trial; TabularJS, MIT, was too young and did not load as a module), with a Table/Text switch for CSV
+- [ ] `.docx` as a page (docx-preview, Apache-2.0) in a sandboxed frame, if the user wants it
+
 ## Phase 2: change files on disk
 - [ ] Create file, create folder, **rename** (F2, inline), move (dialog and drag and drop), delete (to the trash, with confirmation)
 - [ ] Open tabs follow a renamed or moved item; the tree refreshes

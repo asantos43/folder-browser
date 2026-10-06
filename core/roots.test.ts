@@ -110,6 +110,17 @@ describe('a ZIP in a folder', () => {
     expect(await read(await roots.stream(root.id, 'pack.zip!/top.txt'))).toBe('top')
     expect(await roots.stream(root.id, '../outside.txt')).toBeUndefined()
   })
+  it('reads a window of a file of the disk, with the size of the file, and refuses what is not one', async () => {
+    const { root } = (await roots.openPath(dir)) as { root: { id: string } }
+    const got = await roots.range(root.id, 'a.txt', 1, 3)
+    expect('bytes' in got && [got.bytes.toString('utf8'), got.size]).toEqual(['ell', 5])
+    const past = await roots.range(root.id, 'a.txt', 4, 100)
+    expect('bytes' in past && past.bytes.toString('utf8')).toBe('o')
+    expect(await roots.range(root.id, 'a.txt', 99, 10)).toMatchObject({ size: 5 })
+    expect(await roots.range(root.id, '../outside.txt', 0, 10)).toEqual({ error: 'no-file' })
+    expect(await roots.range(root.id, 'pack.zip!/top.txt', 0, 10)).toEqual({ error: 'too-large' })
+    expect(await roots.range('nope', 'a.txt', 0, 10)).toEqual({ error: 'no-snapshot' })
+  })
   it('hands the ZIP itself for a listing and an extraction', async () => {
     const { root } = (await roots.openPath(dir)) as { root: { id: string } }
     const zip = await roots.zipAt(root.id, 'pack.zip')

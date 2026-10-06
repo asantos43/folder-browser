@@ -1,5 +1,5 @@
 /** How a file of a snapshot is shown in a tab (docs/VIEWER-GUIDELINES.md, "Files inside a snapshot"). */
-export type ViewKind = 'text' | 'image' | 'pdf' | 'font' | 'zip' | 'media' | 'other'
+export type ViewKind = 'text' | 'image' | 'pdf' | 'font' | 'zip' | 'media' | 'hex' | 'other'
 
 /** Source in the viewer's colours, for these languages; anything else is plain text. */
 export type Language =
@@ -81,6 +81,12 @@ const BY_EXTENSION: Record<string, string> = {
   mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mkv: 'video/x-matroska', mov: 'video/quicktime', avi: 'video/x-msvideo',
   mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/opus', wav: 'audio/wav', flac: 'audio/flac', weba: 'audio/webm',
   woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
+  // Programs, libraries and other files that are only bytes: shown in hexadecimal.
+  exe: 'application/vnd.microsoft.portable-executable', dll: 'application/vnd.microsoft.portable-executable', sys: 'application/vnd.microsoft.portable-executable', ocx: 'application/vnd.microsoft.portable-executable',
+  scr: 'application/vnd.microsoft.portable-executable', msi: 'application/x-msi', so: 'application/x-sharedlib', ko: 'application/x-sharedlib', dylib: 'application/x-mach-binary', elf: 'application/x-executable',
+  o: 'application/x-object', a: 'application/x-archive', obj: 'application/x-object', lib: 'application/x-archive', class: 'application/java-vm', pyc: 'application/x-python-code', wasm: 'application/wasm',
+  bin: 'application/x-binary', dat: 'application/x-binary', img: 'application/x-binary', rom: 'application/x-binary', dump: 'application/x-binary', iso: 'application/x-iso9660-image', dmg: 'application/x-apple-diskimage',
+  deb: 'application/vnd.debian.binary-package', rpm: 'application/x-rpm', appimage: 'application/x-executable', sqlite: 'application/vnd.sqlite3', sqlite3: 'application/vnd.sqlite3', db: 'application/vnd.sqlite3',
 }
 
 /** Source and configuration files with no colours of their own: plain text, read as such. */
@@ -107,7 +113,9 @@ function extensionKey(name: string): string {
 export function effectiveType(mediaType: string | undefined, name: string): string {
   const declared = (mediaType ?? '').split(';')[0].trim().toLowerCase()
   const key = extensionKey(name)
-  const byName = Object.hasOwn(BY_EXTENSION, key) ? BY_EXTENSION[key] : undefined
+  let byName = Object.hasOwn(BY_EXTENSION, key) ? BY_EXTENSION[key] : undefined
+  // A file called `bin` or `a` is not a binary because of its name: the extensions of binaries mean something only after a dot.
+  if (byName && BINARY.test(byName) && !/\.[a-z0-9]+$/i.test(name)) byName = undefined
   const weak = declared === '' || declared === 'application/octet-stream' || declared === 'text/plain'
   if (weak && byName) return byName
   return declared || 'application/octet-stream'
@@ -116,6 +124,8 @@ export function effectiveType(mediaType: string | undefined, name: string): stri
 const IMAGE = /^image\/(png|jpe?g|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon)$/
 const TEXT = /^(text\/.+|application\/(json|javascript|ecmascript|xml|xhtml\+xml|x-javascript|ld\+json|manifest\+json|sql|toml|x-toml|x-sh|x-shellscript|x-bash|x-httpd-php|x-php|php|x-perl|x-ruby|x-python|yaml|x-yaml)|.+\+(json|xml)|image\/svg\+xml)$/
 const ZIP = /^application\/(zip|x-zip|x-zip-compressed)$/
+/** Types of files that are bytes and nothing a viewer can draw: they are shown in hexadecimal (and may be of any size, a window of the file at a time). */
+const BINARY = /^application\/(vnd\.microsoft\.portable-executable|x-msi|x-sharedlib|x-mach-binary|x-executable|x-object|x-archive|java-vm|x-python-code|wasm|x-binary|x-iso9660-image|x-apple-diskimage|vnd\.debian\.binary-package|x-rpm|vnd\.sqlite3|x-msdownload|x-dosexec|x-elf)$/
 const FONT = /^(font\/.+|application\/(font-woff2?|x-font-.+|vnd\.ms-fontobject))$/
 
 /**
@@ -127,7 +137,7 @@ export function mediaKind(mediaType: string | undefined, name: string): 'video' 
   return /^video\/[a-z0-9.+-]+$/.test(type) ? 'video' : /^audio\/[a-z0-9.+-]+$/.test(type) ? 'audio' : null
 }
 
-/** What tab a file gets. office documents, audio, video and unknown types are `other`: they are saved, not shown. */
+/** What tab a file gets. Programs and the like are `hex`; office documents and unknown types are `other`: they are saved, not shown (an unknown one is looked at: text, or hex when it is not). */
 export function viewKind(mediaType: string | undefined, name: string, size: number): ViewKind {
   const type = effectiveType(mediaType, name)
   if (TEXT.test(type)) return size <= TEXT_LIMIT ? 'text' : 'other'
@@ -135,6 +145,7 @@ export function viewKind(mediaType: string | undefined, name: string, size: numb
   if (type === 'application/pdf') return size <= BINARY_LIMIT ? 'pdf' : 'other'
   if (FONT.test(type)) return size <= BINARY_LIMIT ? 'font' : 'other'
   if (ZIP.test(type)) return size <= ZIP_LIMIT ? 'zip' : 'other'
+  if (BINARY.test(type)) return 'hex'
   return 'other'
 }
 

@@ -196,10 +196,11 @@ describe('FileView: a file of no known type', () => {
     await waitFor(() => expect(document.querySelector('.cm-content')?.textContent).toContain('first line'))
     expect(screen.queryByText('This kind of file is not shown here.')).toBeNull()
   })
-  it('is offered with Save As when it is binary', async () => {
+  it('is shown in hexadecimal when it is binary', async () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new Uint8Array([1, 2, 0, 3, 4]) })) } as unknown as FbApi
     other('blob.xyz', 5)
-    await waitFor(() => expect(screen.getByText('This kind of file is not shown here.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of blob.xyz' })).toBeTruthy())
+    expect(screen.getByRole('row').textContent).toContain('0102000304')
     expect(document.querySelector('.cm-content')).toBeNull()
   })
   it('is not read at all when its type is known and not shown (a video)', async () => {
@@ -207,6 +208,40 @@ describe('FileView: a file of no known type', () => {
     window.fb = { readFile } as unknown as FbApi
     other('clip.mp4', 5, 'video/mp4')
     expect(screen.getByText('This kind of file is not shown here.')).toBeTruthy()
+    expect(readFile).not.toHaveBeenCalled()
+  })
+})
+
+describe('FileView: hexadecimal', () => {
+  it('shows a program in hexadecimal at once, by its type', async () => {
+    window.fb = { readFile: vi.fn(async () => ({ bytes: new Uint8Array([0x4d, 0x5a, 0, 0, 0]) })) } as unknown as FbApi
+    render(
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path="setup.exe" kind="hex" mediaType={undefined} size={5} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of setup.exe' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('MS-DOS executable')).toBeTruthy())
+  })
+  it('offers "View as hex" on a file that is not shown (a document), and shows its bytes when asked', async () => {
+    const readFile = vi.fn(async () => ({ bytes: new Uint8Array([0x50, 0x4b, 3, 4]) }))
+    window.fb = { readFile } as unknown as FbApi
+    other('report.docx', 4, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    expect(readFile).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'View as hex' }))
+    await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of report.docx' })).toBeTruthy())
+    expect(readFile).toHaveBeenCalledOnce()
+  })
+  it('reads a big file a window at a time, not whole', async () => {
+    const readFile = vi.fn()
+    const readRange = vi.fn(async () => ({ bytes: new Uint8Array(65536).fill(65), size: 40 * 2 ** 20 }))
+    window.fb = { readFile, readRange } as unknown as FbApi
+    render(
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path="disk.iso" kind="hex" mediaType={undefined} size={40 * 2 ** 20} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of disk.iso' })).toBeTruthy())
     expect(readFile).not.toHaveBeenCalled()
   })
 })
