@@ -12,6 +12,8 @@ export interface Commands {
   openFolder: () => void
   /** Asks for a ZIP file to browse (the folder picker of Linux and Windows cannot choose a file). */
   openZip: () => void
+  /** Opens the user guide in a tab. */
+  openGuide: () => void
   toggleHidden: () => void
   /** The hidden files are shown in the tree. */
   showHidden: boolean
@@ -155,5 +157,5 @@ export const MENUS: MenuDef[] = [
       { id: 'previous', label: t('menu.previousEditor'), shortcut: shortcut('Ctrl+PageUp'), disabled: !c.hasEditor, run: c.previousEditor },
     ],
   },
-  { id: 'help', label: 'menu.help', entries: (t, c) => [{ id: 'about', label: t('menu.about'), run: c.showAbout }] },
+  { id: 'help', label: 'menu.help', entries: (t, c) => [{ id: 'guide', label: t('menu.userGuide'), shortcut: 'F1', run: c.openGuide }, { separator: true }, { id: 'about', label: t('menu.about'), run: c.showAbout }] },
 ]

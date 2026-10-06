@@ -38,9 +38,12 @@ describe('HexEditView', () => {
   it('reads the bytes through the main process, with the version of the file, and the tab is not modified', async () => {
     const { openBytes, handlers } = setup(open(1, 2, 3))
     await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of a.bin' })).toBeTruthy())
-    expect(openBytes).toHaveBeenCalledWith('r1', 'a.bin')
-    expect(hexBuffers.get('x:r1:a.bin')?.version).toEqual({ mtimeMs: 1, size: 3 })
-    expect(handlers.onChanged).toHaveBeenLastCalledWith('x:r1:a.bin', false)
+    // (The buffer is made, and the tab told, just after the grid shows: under load that is not at the same moment.)
+    await waitFor(() => {
+      expect(openBytes).toHaveBeenCalledWith('r1', 'a.bin')
+      expect(hexBuffers.get('x:r1:a.bin')?.version).toEqual({ mtimeMs: 1, size: 3 })
+      expect(handlers.onChanged).toHaveBeenLastCalledWith('x:r1:a.bin', false)
+    })
   })
   it('says the tab has changes after an edit, and keeps the bytes of a tab that is left and shown again', async () => {
     const { openBytes, handlers, unmount, element } = setup(open(0x11, 0x22))

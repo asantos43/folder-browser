@@ -167,3 +167,28 @@ test('Help > About shows the version, the licence and the notices of the librari
   await expect(dialog).toBeHidden()
 })
 
+
+test('Help > User Guide (and F1) opens the guide, in the language of the interface, with its pictures, from inside the application', async () => {
+  const page = await launch()
+  await page.getByRole('menuitem', { name: 'Help' }).click()
+  await page.getByRole('menuitem', { name: /^User Guide/ }).click()
+  await expect(page.getByRole('tab', { name: /^User Guide/ })).toBeVisible()
+  const guide = page.getByRole('article', { name: 'User Guide' })
+  await expect(guide.getByRole('heading', { name: 'User guide', level: 1 })).toBeVisible()
+  // A picture of the guide is loaded (it is in the build: no network).
+  const picture = guide.getByRole('img').first()
+  await expect.poll(() => picture.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+  // A link inside the guide scrolls to its heading.
+  await guide.getByRole('link', { name: 'Two editor groups' }).first().click()
+  await expect(guide.getByRole('heading', { name: 'Two editor groups' })).toBeInViewport()
+  // F1 asks for it again: still one tab.
+  await page.keyboard.press('F1')
+  await expect(page.getByRole('tab', { name: /^User Guide/ })).toHaveCount(1)
+})
+
+test('the guide is in Portuguese when the interface is', async () => {
+  const page = await launch('--lang=pt-BR')
+  await page.keyboard.press('F1')
+  await expect(page.getByRole('tab', { name: /^Guia do Usuário/ })).toBeVisible()
+  await expect(page.getByRole('article', { name: 'Guia do Usuário' }).getByRole('heading', { name: 'Guia do usuário', level: 1 })).toBeVisible()
+})

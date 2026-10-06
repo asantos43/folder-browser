@@ -12,7 +12,7 @@ Brazilian Portuguese, following the system language. [Português do Brasil](READ
 
 ![Folder Browser: the folder tree on the left, a file in a tab on the right](docs/images/workbench.png)
 
-The [user guide](docs/USER-GUIDE.md) shows each feature, with pictures, and how to use it.
+The [user guide](docs/USER-GUIDE.md) shows each feature, with pictures, and how to use it; it is also inside the application: **Help ▸ User Guide** (`F1`), in English or Portuguese, with no network.
 
 > **Status: first release (0.1.0).** Browsing folders and ZIP files, the tree with several rows marked, Cut/Copy/Paste, editing text (also inside a ZIP), tables, diff, two editor groups,
 > media, office documents, the hex view and `.wsnp` snapshots work; what is left is in [`TODO.md`](TODO.md).

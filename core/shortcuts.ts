@@ -7,7 +7,7 @@ export interface KeyLike {
   alt?: boolean
 }
 
-export type CommandName = 'toggleSideBar' | 'openFile' | 'openFolder' | 'openZip' | 'toggleHidden' | 'find' | 'print' | 'quickOpen' | 'commandPalette' | 'goBack' | 'goForward' | 'openSettings' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'closeEditor' | 'save' | 'saveAll' | 'nextEditor' | 'previousEditor' | 'cycleRecent' | 'cycleRecentBack' | 'goToTab1' | 'goToTab2' | 'goToTab3' | 'goToTab4' | 'goToTab5' | 'goToTab6' | 'goToTab7' | 'goToTab8' | 'goToTab9'
+export type CommandName = 'toggleSideBar' | 'openFile' | 'openFolder' | 'openZip' | 'openGuide' | 'toggleHidden' | 'find' | 'print' | 'quickOpen' | 'commandPalette' | 'goBack' | 'goForward' | 'openSettings' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'closeEditor' | 'save' | 'saveAll' | 'nextEditor' | 'previousEditor' | 'cycleRecent' | 'cycleRecentBack' | 'goToTab1' | 'goToTab2' | 'goToTab3' | 'goToTab4' | 'goToTab5' | 'goToTab6' | 'goToTab7' | 'goToTab8' | 'goToTab9'
 
 /**
  * VS Code's shortcuts for the commands the viewer has (docs/UI-DESIGN.md, "Behaviour taken from VS Code"): Ctrl on Windows
@@ -42,6 +42,8 @@ export function commandFor(e: KeyLike, mac: boolean): CommandName | null {
       if (mac && /^[1-9]$/.test(key)) return `goToTab${key}` as CommandName
     }
   }
+  // The user guide: F1 (in VS Code it is the command palette, which has Ctrl+Shift+P here).
+  if (key === 'F1' && !e.control && !e.meta && !e.alt && !e.shift) return 'openGuide'
   // Save All: Ctrl+Alt+S (in VS Code it is a chord, which the viewer has no way to wait for).
   if (mod && e.alt && !e.shift && key === 's') return 'saveAll'
   // Ctrl+Tab goes through the tabs in the order they were used, on every system, Control (not Command) as in VS Code.

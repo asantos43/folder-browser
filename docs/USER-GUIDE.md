@@ -190,6 +190,7 @@ The file is checked when it opens, and again in the background: its **structure*
 | Go to tab 1…9 | `Alt+1…9` | `⌘1…9` |
 | Hide / show the side bar | `Ctrl+B` | `⌘B` |
 | Settings | `Ctrl+,` | `⌘,` |
+| Open the user guide | `F1` | `F1` |
 | Zoom the tab in / out / reset | `Ctrl+=` / `Ctrl+-` / `Ctrl+0`, or `Ctrl` + wheel | `⌘=` / `⌘-` / `⌘0`, or `⌘` + wheel |
 | Word Wrap in a source tab | `Alt+Z` | `⌥Z` |
 | Next / previous change in a comparison | `F7` / `Shift+F7` | `F7` / `Shift+F7` |
@@ -208,7 +209,7 @@ The shortcuts work wherever the focus is, also inside a page or a document.
 
 **Settings** (the gear in the activity bar, **File ▸ Preferences ▸ Settings**, or `Ctrl+,`) opens in a tab with a box that filters them: **Color Theme** (Dark+, Light+ or Auto), **Display Language** (English, Brazilian Portuguese or automatic), whether to **reopen what was open**, **Show hidden files**, and for source files **Word Wrap** and **Format source files**. The other choices (Markdown, SVG, CSV, the sort order) are made where they are used, and are kept too. Settings are kept on your computer, in the application's own folder, and nowhere else: see [`../PRIVACY.md`](../PRIVACY.md).
 
-**Help ▸ About Folder Browser** shows the version, what it runs on, the licence and the notices of the libraries inside it, and copies the version information for a bug report. Report a problem at <https://github.com/asantos43/folder-browser/issues>, **without attaching a private file**; a vulnerability goes the way [`../SECURITY.md`](../SECURITY.md) says.
+**Help ▸ User Guide** (or `F1`) opens this guide in a tab, inside the application, with its pictures and no network: it is in the language of the interface, its links to other parts scroll, and `Ctrl+F` searches it. **Help ▸ About Folder Browser** shows the version, what it runs on, the licence and the notices of the libraries inside it, and copies the version information for a bug report. Report a problem at <https://github.com/asantos43/folder-browser/issues>, **without attaching a private file**; a vulnerability goes the way [`../SECURITY.md`](../SECURITY.md) says.
 
 ## What is not here yet
 

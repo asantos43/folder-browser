@@ -155,7 +155,9 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [ ] A ZIP that is written again while a tab shows one of its entries read-only (media, document, picture) keeps showing the old bytes until the tab is opened again
 
 ## Phase 6: finish
-- [ ] README, CHANGELOG, user guides (en and pt-BR), docs complete; screenshots
+- [x] README, CHANGELOG, user guides (en and pt-BR) with pictures, the guide inside the application (Help ▸ User Guide, `F1`)
+- [ ] Pictures of the application on Windows and macOS for the guide (today only Linux)
+- [x] The About window's **User guide** link opens the bundled guide in a tab
 - [ ] Packages: deb, rpm, NSIS, dmg; `npm run package:smoke`; try the `.rpm` on Fedora
 - [ ] First release
 
