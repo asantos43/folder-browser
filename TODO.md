@@ -68,13 +68,18 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [ ] Try real files by hand (Word with headers and footnotes, a PowerPoint with charts and SmartArt, an `.xls`): the tests only have small hand-written ones
 - [ ] `.rtf`, `.pages`, `.numbers`, `.key`: not drawn (Open With… or hex)
 
-## Tables (CSV and TSV): feasibility checked on 2026-10-06 (developer's request), to build as phase 3b
-What was tried: `sql.js` 1.14 (SQLite compiled to WebAssembly, MIT; 46 KB of script and a 658 KB `.wasm`) ran `WHERE`, `ORDER BY`, `LIKE`, arithmetic, `COUNT`/`SUM`/`AVG` on a table made of CSV rows, and a query over 200,000 rows took 37 ms in Node. Rejected: **AlaSQL** (MIT) compiles every query with `new Function`, which the interface's policy forbids (`'unsafe-eval'` is never allowed), and has had prototype-pollution reports; **DuckDB-Wasm** is 149 MB unpacked; a SQL-like parser of our own is the fallback if sql.js is not wanted.
-- [ ] **Search** the table (all cells or one column), matches marked, next/previous; **sort** by a column (text, number or date, found from the values; up or down; the file is not changed); **filter** by column and value (contains, equals, not empty, comparisons, a list of the distinct values to tick). No dependency. Needs a virtualized table (rows of a fixed height) because the table today draws at most 5,000 rows and 200 columns, and a 5 MB file has about 100,000.
-- [ ] A **header row** switch (the first row is the header, or not) and **types** found from the values (number, date, text), shown in the column header.
-- [ ] A **query box**: `SELECT … FROM t WHERE … ORDER BY … LIMIT …` run by sql.js in a Worker (`worker-src 'self'`, `wasm-unsafe-eval` is already allowed): one statement only, `PRAGMA query_only = ON`, a time limit (the worker is ended), the table named `t` with the columns named by the header; the rows of the result replace the rows shown (with "Show all rows" to go back), and **Export result** saves them as a CSV. Nothing in the file is written by a query.
-- [ ] **Edit cells in the table** (double click or `F2` on a cell, `Enter` and `Esc`, Tab to the next cell), add and delete rows and columns, with undo and redo: the edits are **transactions on the text of the editor's buffer** (`EditorBuffer`), at the span of each cell (the parser records `from`/`to` of every cell), so the dot on the tab, Save, the check against the disk, the line endings and the byte order mark are the ones of the text editor, and everything the user did not touch stays byte for byte as it was (quoting included). A cell that needs quotes gets them. Rows with several lines in a cell are edited in a field that has several lines.
-- [ ] Large files: edit and query up to the editor's 5 MB; a bigger CSV stays a read-only table (up to the log limit) with search, sort and filter in memory.
+## Phase 3b: tables (CSV and TSV)
+Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (SQLite compiled to WebAssembly, MIT; 46 KB of script and a 658 KB `.wasm`) ran `WHERE`, `ORDER BY`, `LIKE`, arithmetic, `COUNT`/`SUM`/`AVG` on a table made of CSV rows, and a query over 200,000 rows took 37 ms in Node. Rejected: **AlaSQL** (MIT) compiles every query with `new Function`, which the interface's policy forbids (`'unsafe-eval'` is never allowed), and has had prototype-pollution reports; **DuckDB-Wasm** is 149 MB unpacked.
+- [x] **Search** the table (`Ctrl+F`: cells marked, next/previous), **sort** by a column (number, ISO date or text, found from the values; up, down, file order; the file is not changed) and **filter** by column (contains, equals, starts/ends with, empty, comparisons, or the distinct values to tick). No dependency; a virtualized table of fixed-height rows (`TableView`: 100,000 rows scroll; up to 500,000 rows and 500 columns; `core/table.ts`)
+- [x] A **header row** switch and the **types** found from the values (`inferTypes`: number, date, text)
+- [x] A **query box** (`core/sqlTable.ts`, `src/workers/sql.worker.ts`, `SqlSession`): one `SELECT`/`WITH` on the table `t` run by sql.js in a worker, `PRAGMA query_only = ON`, 100,000 rows back at most, 10-second limit (the worker is ended); the result replaces the rows shown (Show All Rows) and **Export Result** saves it as a CSV
+- [x] **Edit cells in the table** (`core/csvEdit.ts`, `TableEditView`): in place with Enter, F2, typing or a double click; add and delete rows and columns (toolbar and right-click menu); undo and redo; every edit is a transaction on the editor's buffer at the span of the cell, so the dot, Save, the disk check, line endings, the byte order mark, drafts and the Text view are the editor's, and the rest of the file stays byte for byte
+- [ ] Select a range of cells (copy and paste a block, fill down, delete a range); paste from a spreadsheet
+- [ ] Resize and reorder columns; freeze columns; show or hide a column
+- [ ] Dates in other formats (`dd/mm/yyyy`) in sort, filter and the query; a column type chosen by hand
+- [ ] More than one filter on a column; a "case sensitive" and a "whole word" box in the filter; search in one column
+- [ ] A saved query (per file) and a history of the queries; `JOIN` with another CSV of the folder
+- [ ] A bigger CSV than 5 MB can be edited (today it is looked at, with sorting, filters and the query); an `.xlsx` sheet as a table
 
 ## Open points of phase 1 (to pick up between phases)
 - [ ] Decide whether the **Save as .wsnp…** bar of a converted PageKeep ZIP (`ConvertedBar`) stays: it is the only part of the viewer's conversion still in the app; the **Metadata** tab of a snapshot stays for now
@@ -106,7 +111,7 @@ What was tried: `sql.js` 1.14 (SQLite compiled to WebAssembly, MIT; 46 KB of scr
 - [ ] Find and Replace (`Ctrl+H` is Show Hidden Files here: a replace bar of its own), go to line, multiple cursors
 - [ ] Deleting a file whose tab has changes asks first (today the changes go with the tab)
 - [ ] Other encodings (Latin-1, UTF-16) with a choice in the status bar; mixed line endings flagged
-- [ ] Edit the CSV and TSV **table** (cells), with sorting, filtering by column and value, search and a SQL-like query: see "Tables" below
+- [x] Edit the CSV and TSV **table** (cells), with sorting, filtering by column and value, search and a SQL query: see "Phase 3b" below
 
 ## Phase 3a: unsaved changes kept, and editing bytes
 - [x] Drafts (`core/drafts.ts`, `fb:draft-*`, `src/state/drafts.ts`): the changes of a text or hex tab are kept in the app's folder a moment after typing, restored at the next start as modified tabs, removed on save, reload or close; the window closes without asking; Settings ▸ Keep changes that are not saved

@@ -10,7 +10,9 @@ import { SvgToggle } from './SvgToggle.tsx'
 import { TextView } from './TextView.tsx'
 import { FontView } from './FontView.tsx'
 import { ImageView } from './ImageView.tsx'
-import { CsvToggle, CsvView } from './CsvView.tsx'
+import { CsvToggle } from './CsvToggle.tsx'
+import { TableEditView } from './TableEditView.tsx'
+import { TableView } from './TableView.tsx'
 import { EditView } from './EditView.tsx'
 import { HexEditView } from './HexEditView.tsx'
 import { OtherView } from './OtherView.tsx'
@@ -151,7 +153,12 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   // An SVG is a picture and its source: the toolbar of either has the switch to the other.
   if (svg && svgAs === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType="image/svg+xml" name={name} onSave={onSave} leading={<SvgToggle />} />
   // A CSV or a TSV file is a table and its text: the toolbar of either has the switch to the other.
-  if (delimited && csvAs === 'table') return <CsvView text={text} name={name} tab={/\.tsv$/i.test(path)} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} />
+  if (delimited && csvAs === 'table') {
+    const tsv = /\.tsv$/i.test(path)
+    const looked = () => <TableView text={text} name={name} tab={tsv} tableKey={key} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} />
+    if (!edit) return looked()
+    return <TableEditView tabKey={edit.tabKey} rootId={edit.rootId} path={path} name={name} tab={tsv} tableKey={key} language={language} zoom={zoom} onSave={edit.onSave} onSaveAs={edit.onSaveAs} onOpenWith={onOpenWith} onHex={onHex} onChanged={edit.onChanged} onRestored={edit.onRestored} dirty={edit.dirty} fallback={looked} />
+  }
   // A Markdown file is a page and its text: the toolbar of either has the switch to the other.
   if (kind === 'text' && language === 'markdown' && markdownAs === 'formatted') return <MarkdownView text={text} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} />
   if (kind === 'text') {
