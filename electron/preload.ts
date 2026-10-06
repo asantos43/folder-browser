@@ -24,6 +24,7 @@ const api: FbApi = {
     create: (id, parent, name, kind) => ipcRenderer.invoke('fb:fs-create', id, parent, name, kind) as Promise<OpResult>,
     rename: (id, path, name) => ipcRenderer.invoke('fb:fs-rename', id, path, name) as Promise<OpResult>,
     move: (id, path, toFolder) => ipcRenderer.invoke('fb:fs-move', id, path, toFolder) as Promise<OpResult>,
+    copy: (id, path, toFolder) => ipcRenderer.invoke('fb:fs-copy', id, path, toFolder) as Promise<OpResult>,
     remove: (id, path, how) => ipcRenderer.invoke('fb:fs-remove', id, path, how) as Promise<OpResult>,
   },
   docs: {

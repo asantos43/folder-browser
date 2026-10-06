@@ -19,6 +19,8 @@ type Listing = { state: 'loading' } | { state: 'ready'; entries: DirEntry[]; tru
 
 /** What a row of the tree says when it is dragged to a folder of the same tree: the root it is in and its path there. */
 export const ENTRY_DRAG = 'application/x-folder-browser-entry'
+/** How long a dragged item rests on a closed folder before the folder opens. */
+export const HOVER_OPEN_MS = 600
 
 type Editing = { mode: 'rename'; path: string } | { mode: 'new'; parent: string; kind: 'file' | 'dir' }
 
@@ -60,8 +62,10 @@ export interface ExplorerActions {
   move: (path: string, toFolder: string) => void
   /** Asks where to move an item to. */
   moveTo: (entry: DirEntry) => void
-  /** Asks, and moves an item to the trash. */
-  remove: (entry: DirEntry) => void
+  /** A copy of an item in a folder (a drop with Shift held; into the folder it is in, a duplicate). */
+  copyTo: (path: string, toFolder: string) => void
+  /** Asks, and moves an item to the trash; `forever` (Shift held): asks to delete it permanently. */
+  remove: (entry: DirEntry, forever?: boolean) => void
 }
 
 /** A text field in a row of the tree, to name something: Enter says it, Esc (or leaving) does not. */
@@ -120,6 +124,15 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
   const [dropOver, setDropOver] = useState<string | null>(null)
   // The path to take the focus when the listing that has it comes in (after a rename or a new file).
   const pendingFocus = useRef<string | null>(null)
+  // The row being dragged, and the folder the pointer has rested on while dragging (it opens after a moment).
+  const dragging = useRef<string | null>(null)
+  const hover = useRef<{ path: string; timer: ReturnType<typeof setTimeout> } | null>(null)
+  useEffect(
+    () => () => {
+      if (hover.current) clearTimeout(hover.current.timer)
+    },
+    [],
+  )
   const typed = useRef({ text: '', at: 0 })
   const box = useRef<HTMLDivElement>(null)
   // What was asked of the main process, so that a slow answer to an older question (before a refresh) is not taken for the newest.
@@ -292,7 +305,8 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         }
         break
       case 'Delete':
-        if (changeable(row.entry)) actions.remove(row.entry)
+        // Shift+Delete: the permanent delete, asked about first.
+        if (changeable(row.entry)) actions.remove(row.entry, event.shiftKey)
         break
       case 'Enter':
         if (expandable) toggle(row.entry.path)
@@ -362,25 +376,44 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
     }
   })
 
-  // What is dropped on a folder row (or on the empty part of the tree: the root) is moved into it.
-  const dropOn = (folder: string) => ({
+  // What is dropped on a folder row (or on the empty part of the tree: the root) is moved into it, or copied into it when Shift is held.
+  const clearHover = () => {
+    if (hover.current) clearTimeout(hover.current.timer)
+    hover.current = null
+  }
+  const dropOn = (folder: string, expandable = false) => ({
     onDragOver: (e: DragEvent) => {
       if (!writable || !e.dataTransfer.types.includes(ENTRY_DRAG)) return
       e.preventDefault()
       e.stopPropagation()
-      e.dataTransfer.dropEffect = 'move'
+      // Shift held: a copy; else a move.
+      e.dataTransfer.dropEffect = e.shiftKey ? 'copy' : 'move'
       setDropOver(folder)
+      // Held over a folder that is closed, it opens after a moment (and so on, down to the folder the item is to be dropped in); not the folder that is being dragged.
+      if (hover.current?.path !== folder) clearHover()
+      if (expandable && !hover.current && !open.has(folder) && dragging.current !== folder) {
+        hover.current = { path: folder, timer: setTimeout(() => toggle(folder, true), HOVER_OPEN_MS) }
+      }
     },
-    onDragLeave: () => setDropOver((now) => (now === folder ? null : now)),
+    onDragLeave: (e: DragEvent) => {
+      // (Moving from the row to something inside it is not leaving it.)
+      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+      setDropOver((now) => (now === folder ? null : now))
+      if (hover.current?.path === folder) clearHover()
+    },
     onDrop: (e: DragEvent) => {
       setDropOver(null)
+      clearHover()
       const raw = writable ? e.dataTransfer.getData(ENTRY_DRAG) : ''
       if (!raw) return
       e.preventDefault()
       e.stopPropagation()
       try {
         const dragged = JSON.parse(raw) as { rootId?: unknown; path?: unknown }
-        if (dragged.rootId === rootId && typeof dragged.path === 'string' && dragged.path !== folder && dragged.path.split('/').slice(0, -1).join('/') !== folder) actions.move(dragged.path, folder)
+        if (dragged.rootId !== rootId || typeof dragged.path !== 'string' || dragged.path === folder) return
+        // With Shift: a copy (into the folder it is in too: a duplicate). Without: a move, which into the folder it is in is nothing.
+        if (e.shiftKey) actions.copyTo(dragged.path, folder)
+        else if (dragged.path.split('/').slice(0, -1).join('/') !== folder) actions.move(dragged.path, folder)
       } catch {
         // not ours
       }
@@ -404,7 +437,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
   const current = focused ?? entries[0]?.entry.path
   return (
     <>
-      <div ref={box} role="tree" aria-label={t('sidebar.rootTreeLabel')} onKeyDown={onKeyDown} onContextMenu={backgroundMenu} {...dropOn('')} className={`@container min-h-full py-0.5 text-[13px] ${dropOver === '' ? 'outline-1 -outline-offset-1 outline-focus' : ''}`}>
+      <div ref={box} role="tree" aria-label={t('sidebar.rootTreeLabel')} onKeyDown={onKeyDown} onContextMenu={backgroundMenu} {...dropOn('')} className={`@container min-h-full py-0.5 text-[13px] select-none ${dropOver === '' ? 'outline-1 -outline-offset-1 outline-focus' : ''}`}>
         {rows.map((row) => {
           if (row.type === 'note') {
             return (
@@ -446,9 +479,15 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
                 const move = changeable(entry)
                 if (pinnable(entry)) e.dataTransfer.setData(FOLDER_DRAG, JSON.stringify({ rootId, path: entry.path }))
                 if (move) e.dataTransfer.setData(ENTRY_DRAG, JSON.stringify({ rootId, path: entry.path }))
-                e.dataTransfer.effectAllowed = move && pinnable(entry) ? 'linkMove' : move ? 'move' : 'link'
+                dragging.current = move ? entry.path : null
+                e.dataTransfer.effectAllowed = move && pinnable(entry) ? 'all' : move ? 'copyMove' : 'link'
               }}
-              {...(changeable(entry) ? dropOn(entry.kind === 'dir' ? entry.path : row.parent) : {})}
+              onDragEnd={() => {
+                dragging.current = null
+                clearHover()
+                setDropOver(null)
+              }}
+              {...(changeable(entry) ? dropOn(entry.kind === 'dir' ? entry.path : row.parent, entry.kind === 'dir') : {})}
               onContextMenu={(e) => contextMenu(e, entry)}
               title={[entry.link ? `${entry.path} (${t('tree.linkOutside')})` : entry.path, ...(expandable && entry.kind === 'dir' ? [] : [formatBytes(entry.size)]), formatDate(entry.modified, language)].join('\n')}
               style={{ paddingLeft: 8 + depth * 8 }}

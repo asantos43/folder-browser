@@ -73,10 +73,12 @@ export interface SideBarActions {
   createEntry: (rootId: string, parent: string, name: string, kind: 'file' | 'dir') => Promise<OpResult>
   renameEntry: (rootId: string, path: string, name: string) => Promise<OpResult>
   moveEntry: (rootId: string, path: string, toFolder: string) => void
+  /** A copy of an item in a folder (a drop with Shift held). */
+  copyEntry: (rootId: string, path: string, toFolder: string) => void
   /** Asks where to move an item to. */
   moveEntryTo: (rootId: string, entry: DirEntry) => void
   /** Asks, and moves an item to the trash. */
-  removeEntry: (rootId: string, entry: DirEntry) => void
+  removeEntry: (rootId: string, entry: DirEntry, forever?: boolean) => void
 }
 
 /** The side bar: the places, the folders (and ZIP files) that are open, and the files of the one chosen, as a tree. (A snapshot is a page in a tab, not something the side bar is about.) */
@@ -212,8 +214,9 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
                 create: (parent, name, kind) => actions.createEntry(root.id, parent, name, kind),
                 rename: (path, name) => actions.renameEntry(root.id, path, name),
                 move: (path, toFolder) => actions.moveEntry(root.id, path, toFolder),
+                copyTo: (path, toFolder) => actions.copyEntry(root.id, path, toFolder),
                 moveTo: (entry) => actions.moveEntryTo(root.id, entry),
-                remove: (entry) => actions.removeEntry(root.id, entry),
+                remove: (entry, forever) => actions.removeEntry(root.id, entry, forever),
               }}
             />
         </Section>

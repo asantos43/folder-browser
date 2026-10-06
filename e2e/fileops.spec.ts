@@ -44,6 +44,7 @@ const menu = (page: Page, name: string | RegExp) => page.getByRole('menuitem', {
 test('New File in the header makes an empty file where the focus is, named in the row; a taken or a bad name is said, and Escape gives up', async () => {
   const page = await launch(work)
   await item(page, 'docs').click()
+  await expect(item(page, 'docs')).toHaveAttribute('aria-expanded', 'true')
   await page.getByRole('button', { name: 'New File…' }).click()
   await expect(field(page)).toBeFocused()
   await field(page).fill('a/b')
@@ -218,4 +219,102 @@ test('a ZIP and what is in it cannot be changed from the tree (the whole ZIP fil
   await expect(page.getByText(/Could not move a\.txt/)).toBeVisible()
   expect(fs.readFileSync(onDisk('a.txt'), 'utf8')).toBe('the words of a')
   expect(fs.readFileSync(onDisk('docs', 'a.txt'), 'utf8')).toBe('other a')
+})
+
+test('Shift+Delete asks for the permanent delete at once; Shift held while the question about the trash is on screen turns it into the same', async () => {
+  const page = await launch(work)
+  await item(page, 'a.txt').focus()
+  await page.keyboard.press('Shift+Delete')
+  const forever = page.getByRole('alertdialog', { name: 'Delete permanently?' })
+  await expect(forever).toContainText('This cannot be undone')
+  await forever.getByRole('button', { name: 'Cancel' }).click()
+  expect(fs.existsSync(onDisk('a.txt'))).toBe(true)
+  // The question about the trash, and Shift held.
+  await item(page, 'b.txt').focus()
+  await page.keyboard.press('Delete')
+  const trash = page.getByRole('alertdialog', { name: 'Move to the trash?' })
+  await expect(trash).toContainText('Hold Shift')
+  await page.keyboard.down('Shift')
+  await expect(forever).toBeVisible()
+  await expect(forever.getByRole('button', { name: 'Delete Permanently' })).toBeVisible()
+  await page.keyboard.up('Shift')
+  await expect(trash).toBeVisible()
+  await page.keyboard.down('Shift')
+  await forever.getByRole('button', { name: 'Delete Permanently' }).click()
+  await page.keyboard.up('Shift')
+  await expect(item(page, 'b.txt')).toHaveCount(0)
+  expect(fs.existsSync(onDisk('b.txt'))).toBe(false)
+  // Gone for good: nothing of it in the trash.
+  const trashed = path.join(dir, 'data', 'Trash', 'files')
+  expect(fs.existsSync(trashed) ? fs.readdirSync(trashed) : []).not.toContain('b.txt')
+  expect(fs.existsSync(onDisk('a.txt'))).toBe(true)
+})
+
+/**
+ * Drags a row onto another with Shift pressed during the drag, as a person does (Chromium does not start a drag when the mouse goes down with Shift already held: Shift
+ * and a click select, so the key is pressed after the drag has begun).
+ */
+async function dragWithShift(page: Page, from: ReturnType<typeof item>, to: ReturnType<typeof item>) {
+  const middle = async (row: typeof from) => {
+    const box = (await row.boundingBox())!
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  }
+  const a = await middle(from)
+  const b = await middle(to)
+  await page.mouse.move(a.x, a.y)
+  await page.mouse.down()
+  await page.mouse.move(a.x + 6, a.y + 6, { steps: 3 })
+  await page.mouse.move(b.x, b.y, { steps: 8 })
+  await page.keyboard.down('Shift')
+  await page.mouse.move(b.x + 2, b.y + 1, { steps: 2 })
+  await page.mouse.up()
+  await page.keyboard.up('Shift')
+}
+
+test('dragging with Shift held copies instead of moving: a copy in the folder, a duplicate in the same folder, and the original stays', async () => {
+  const page = await launch(work)
+  await item(page, 'a.txt').dragTo(item(page, 'empty'))
+  await expect.poll(() => fs.existsSync(onDisk('empty', 'a.txt'))).toBe(true)
+  expect(fs.existsSync(onDisk('a.txt'))).toBe(false)
+  await item(page, 'empty').click()
+  await dragWithShift(page, item(page, 'b.txt'), item(page, 'empty'))
+  await expect.poll(() => fs.existsSync(onDisk('empty', 'b.txt'))).toBe(true)
+  expect(fs.readFileSync(onDisk('b.txt'), 'utf8')).toBe('the words of b')
+  await expect(page.getByText(/Copied b\.txt to empty/)).toBeVisible()
+  // A copy of a folder, with all that is in it.
+  await dragWithShift(page, item(page, 'docs'), item(page, 'empty'))
+  await expect.poll(() => fs.existsSync(onDisk('empty', 'docs', 'deep', 'n.txt'))).toBe(true)
+  expect(fs.existsSync(onDisk('docs', 'deep', 'n.txt'))).toBe(true)
+  // A copy into another folder, then a duplicate in its own folder (dropped on a row of the folder it is in): numbered.
+  await item(page, 'empty').click()
+  await expect(item(page, 'n.txt')).toHaveCount(0)
+  await dragWithShift(page, item(page, 'b.txt'), item(page, 'docs'))
+  await expect.poll(() => fs.existsSync(onDisk('docs', 'b.txt'))).toBe(true)
+  await dragWithShift(page, item(page, 'b.txt'), item(page, 'pack.zip'))
+  await expect.poll(() => fs.existsSync(onDisk('b (2).txt'))).toBe(true)
+  expect(fs.readFileSync(onDisk('b (2).txt'), 'utf8')).toBe('the words of b')
+  await expect(page.getByText(/Copied b\.txt to .* as b \(2\)\.txt/)).toBeVisible()
+})
+
+test('a dragged item resting on a closed folder opens it, and again one level down, to be dropped where it is wanted', async () => {
+  const page = await launch(work)
+  const center = async (name: string) => {
+    const box = (await item(page, name).boundingBox())!
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  }
+  await expect(item(page, 'deep')).toHaveCount(0)
+  const from = await center('b.txt')
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.mouse.move(from.x + 5, from.y + 5, { steps: 3 })
+  const docs = await center('docs')
+  await page.mouse.move(docs.x, docs.y, { steps: 8 })
+  // Still closed at first; after a moment it opens.
+  await expect(item(page, 'deep')).toBeVisible({ timeout: 4000 })
+  const deep = await center('deep')
+  await page.mouse.move(deep.x, deep.y, { steps: 6 })
+  await expect(item(page, 'n.txt')).toBeVisible({ timeout: 4000 })
+  await page.mouse.up()
+  await expect.poll(() => fs.existsSync(onDisk('docs', 'deep', 'b.txt'))).toBe(true)
+  expect(fs.existsSync(onDisk('b.txt'))).toBe(false)
 })

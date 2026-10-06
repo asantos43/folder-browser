@@ -212,6 +212,14 @@ describe('changing the disk', () => {
     expect(await roots.remove(root.id, 'old.txt', 'forever', none)).toEqual({ ok: true, path: 'old.txt' })
     expect(fs.existsSync(path.join(dir, 'old.txt'))).toBe(false)
   })
+  it('copies a file or a folder in a folder root, numbered when the name is taken, and refuses in a ZIP root', async () => {
+    const { root } = (await roots.openPath(dir)) as { root: { id: string } }
+    expect(await roots.copy(root.id, 'a.txt', 'docs')).toEqual({ ok: true, path: 'docs/a.txt' })
+    expect(await roots.copy(root.id, 'a.txt', '')).toEqual({ ok: true, path: 'a (2).txt' })
+    expect(fs.readFileSync(path.join(dir, 'a (2).txt'), 'utf8')).toBe('hello')
+    const zipRoot = (await roots.openPath(path.join(dir, 'pack.zip'))) as { root: { id: string } }
+    expect(await roots.copy(zipRoot.root.id, 'top.txt', '')).toEqual({ ok: false, error: 'unsupported' })
+  })
   it('refuses in a ZIP root, in a root that is not open, and in the trash', async () => {
     const zipRoot = (await roots.openPath(path.join(dir, 'pack.zip'))) as { root: { id: string } }
     expect(await roots.create(zipRoot.root.id, '', 'x.txt', 'file')).toEqual({ ok: false, error: 'unsupported' })

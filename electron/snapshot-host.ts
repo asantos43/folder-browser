@@ -690,6 +690,7 @@ export class SnapshotHost {
       short(id) && short(parent) && short(name) && (kind === 'file' || kind === 'dir') ? this.roots.create(id, parent, name, kind) : { ok: false, error: 'invalid-name' })
     handle('fb:fs-rename', (_win, id: unknown, name: unknown, newName: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(newName) ? this.roots.rename(id, name, newName) : { ok: false, error: 'invalid-name' }))
     handle('fb:fs-move', (_win, id: unknown, name: unknown, to: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(to) ? this.roots.move(id, name, to) : { ok: false, error: 'not-found' }))
+    handle('fb:fs-copy', (_win, id: unknown, name: unknown, to: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(to) ? this.roots.copy(id, name, to) : { ok: false, error: 'not-found' }))
     handle('fb:fs-remove', (_win, id: unknown, name: unknown, how: unknown): Promise<OpResult> | OpResult =>
       short(id) && short(name) && (how === 'trash' || how === 'forever') ? this.roots.remove(id, name, how, (file) => shell.trashItem(file)) : { ok: false, error: 'not-found' })
     handle('fb:doc-open', (_win, id: unknown, name: unknown): Promise<DocOpen> | DocOpen => (typeof id === 'string' && typeof name === 'string' ? this.openDoc(id, name) : { error: 'no-file' }))

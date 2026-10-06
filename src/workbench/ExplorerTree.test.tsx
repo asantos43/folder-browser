@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import type { DirEntry, ListResult, OpResult } from '@core/api.ts'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
 import type { SortKey } from '@core/fs/sort.ts'
-import { ENTRY_DRAG, ExplorerTree } from './ExplorerTree.tsx'
+import { ENTRY_DRAG, ExplorerTree, HOVER_OPEN_MS } from './ExplorerTree.tsx'
 
 afterEach(cleanup)
 
@@ -20,7 +20,7 @@ const disk: Record<string, ListResult> = {
 
 function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false, writable = false, sortKey = 'name', sortDescending = false, createRequest }: { writable?: boolean; createRequest?: { kind: 'file' | 'dir'; token: number }; showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean; sortKey?: SortKey; sortDescending?: boolean } = {}) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
-  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), moveTo: vi.fn(), remove: vi.fn() }
+  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), remove: vi.fn() }
   type Props = { showHidden: boolean; activePath?: string; refreshToken: number; sortKey: SortKey; sortDescending: boolean }
   const tree = (props: Props) => (
     <I18nProvider language="en">
@@ -48,7 +48,7 @@ describe('ExplorerTree', () => {
     const again = (listDir2: typeof listDir) =>
       view.rerender(
         <I18nProvider language="en">
-          <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={false} showHidden={false} sortKey="name" sortDescending={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(), rename: vi.fn(), move: vi.fn(), moveTo: vi.fn(), remove: vi.fn() }} />
+          <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={false} showHidden={false} sortKey="name" sortDescending={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(), rename: vi.fn(), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), remove: vi.fn() }} />
         </I18nProvider>,
       )
     const other = vi.fn(async () => ({ entries: [], truncated: false }) as ListResult)
@@ -363,13 +363,17 @@ describe('ExplorerTree: changing the disk', () => {
     await waitFor(() => expect(names()).toHaveLength(4))
     fireEvent.focus(row('a.txt'))
     fireEvent.keyDown(row('a.txt'), { key: 'Delete' })
-    expect(remove).toHaveBeenCalledWith(expect.objectContaining({ path: 'a.txt' }))
+    expect(remove).toHaveBeenCalledWith(expect.objectContaining({ path: 'a.txt' }), false)
     rightClick('a.txt')
     fireEvent.click(menuItem('Move to…'))
     expect(moveTo).toHaveBeenCalledWith(expect.objectContaining({ path: 'a.txt' }))
     rightClick('docs')
     fireEvent.click(screen.getByRole('menuitem', { name: /^Delete/ }))
     expect(remove).toHaveBeenCalledWith(expect.objectContaining({ path: 'docs' }))
+    // Shift+Delete asks for the permanent delete.
+    fireEvent.focus(row('a.txt'))
+    fireEvent.keyDown(row('a.txt'), { key: 'Delete', shiftKey: true })
+    expect(remove).toHaveBeenLastCalledWith(expect.objectContaining({ path: 'a.txt' }), true)
   })
   it('offers none of it where nothing can be changed: a ZIP as the root, the trash, an entry of a ZIP', async () => {
     const { remove, rename } = show({ writable: false })
@@ -418,5 +422,87 @@ describe('ExplorerTree: changing the disk', () => {
     expect(menuItem('New File…')).toBeTruthy()
     expect(menuItem('New Folder…')).toBeTruthy()
     expect(menuItem('Refresh')).toBeTruthy()
+  })
+})
+
+describe('ExplorerTree: dragging with Shift and over closed folders', () => {
+  const row = (name: string) => screen.getByRole('treeitem', { name })
+  const data = (payload: unknown) => ({ dataTransfer: { types: [ENTRY_DRAG], getData: (type: string) => (type === ENTRY_DRAG ? JSON.stringify(payload) : ''), setData: vi.fn(), dropEffect: '', effectAllowed: '' } })
+  /** A drag event with Shift held (the DOM the tests run in does not take the modifier keys of a drag event as an option). */
+  const withShift = (type: 'drop' | 'dragOver', target: Element, init: ReturnType<typeof data>, shiftKey: boolean) => {
+    const event = createEvent[type](target, init)
+    Object.defineProperty(event, 'shiftKey', { value: shiftKey })
+    fireEvent(target, event)
+    return (event as unknown as { dataTransfer: { dropEffect: string } }).dataTransfer.dropEffect
+  }
+
+  it('copies what is dropped with Shift held, also into the folder it is in (a duplicate), and moves it without', async () => {
+    const { move, copyTo } = show({ writable: true })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    withShift('drop', row('docs'), data({ rootId: 'r1', path: 'a.txt' }), true)
+    expect(copyTo).toHaveBeenCalledWith('a.txt', 'docs')
+    expect(move).not.toHaveBeenCalled()
+    // Onto a file of the same folder, with Shift: a duplicate in that folder.
+    withShift('drop', row('a.txt'), data({ rootId: 'r1', path: 'a.txt' }), true)
+    expect(copyTo).toHaveBeenLastCalledWith('a.txt', '')
+    // The same without Shift is nothing.
+    fireEvent.drop(row('a.txt'), data({ rootId: 'r1', path: 'a.txt' }))
+    expect(move).not.toHaveBeenCalled()
+    expect(copyTo).toHaveBeenCalledTimes(2)
+    // Onto the empty part, with Shift.
+    withShift('drop', screen.getByRole('tree'), data({ rootId: 'r1', path: 'docs/readme.md' }), true)
+    expect(copyTo).toHaveBeenLastCalledWith('docs/readme.md', '')
+  })
+  it('shows the pointer of a copy while Shift is held, and of a move without it', async () => {
+    show({ writable: true })
+    await waitFor(() => expect(names()).toHaveLength(4))
+    const over = (shiftKey: boolean) => withShift('dragOver', row('docs'), data({ rootId: 'r1', path: 'a.txt' }), shiftKey)
+    expect(over(true)).toBe('copy')
+    expect(over(false)).toBe('move')
+  })
+  it('opens a closed folder after the pointer rests on it while dragging, one after another down to the folder wanted', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const nested: Record<string, ListResult> = { ...disk, docs: { entries: [entry('deep', 'dir', 'docs'), entry('readme.md', 'file', 'docs')], truncated: false }, 'docs/deep': { entries: [entry('n.txt', 'file', 'docs/deep')], truncated: false } }
+      const { listDir } = show({ writable: true, lists: nested })
+      await vi.waitFor(() => expect(names()).toHaveLength(4))
+      fireEvent.dragStart(row('a.txt'), data({ rootId: 'r1', path: 'a.txt' }))
+      fireEvent.dragOver(row('docs'), data({ rootId: 'r1', path: 'a.txt' }))
+      expect(listDir).not.toHaveBeenCalledWith('docs')
+      await act(async () => void vi.advanceTimersByTime(HOVER_OPEN_MS + 50))
+      await vi.waitFor(() => expect(names()).toContain('deep'))
+      expect(listDir).toHaveBeenCalledWith('docs')
+      fireEvent.dragOver(row('deep'), data({ rootId: 'r1', path: 'a.txt' }))
+      await act(async () => void vi.advanceTimersByTime(HOVER_OPEN_MS + 50))
+      await vi.waitFor(() => expect(names()).toContain('n.txt'))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+  it('does not open a folder that the pointer only passed over, nor the folder that is being dragged, nor one it left', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const { listDir } = show({ writable: true })
+      await vi.waitFor(() => expect(names()).toHaveLength(4))
+      // Passed over: the pointer goes to another row before the moment is up.
+      fireEvent.dragStart(row('a.txt'), data({ rootId: 'r1', path: 'a.txt' }))
+      fireEvent.dragOver(row('docs'), data({ rootId: 'r1', path: 'a.txt' }))
+      await act(async () => void vi.advanceTimersByTime(300))
+      fireEvent.dragOver(row('a.txt'), data({ rootId: 'r1', path: 'a.txt' }))
+      await act(async () => void vi.advanceTimersByTime(HOVER_OPEN_MS * 2))
+      expect(listDir).not.toHaveBeenCalledWith('docs')
+      // Left the row.
+      fireEvent.dragOver(row('docs'), data({ rootId: 'r1', path: 'a.txt' }))
+      fireEvent.dragLeave(row('docs'), { relatedTarget: document.body })
+      await act(async () => void vi.advanceTimersByTime(HOVER_OPEN_MS * 2))
+      expect(listDir).not.toHaveBeenCalledWith('docs')
+      // The folder that is itself being dragged.
+      fireEvent.dragStart(row('docs'), data({ rootId: 'r1', path: 'docs' }))
+      fireEvent.dragOver(row('docs'), data({ rootId: 'r1', path: 'docs' }))
+      await act(async () => void vi.advanceTimersByTime(HOVER_OPEN_MS * 2))
+      expect(listDir).not.toHaveBeenCalledWith('docs')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

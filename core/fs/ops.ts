@@ -168,6 +168,45 @@ export async function moveEntry(root: string, relative: string, toFolder: string
 }
 
 /**
+ * A name for a copy that is free in `dir`: the name itself when it is, else `name (2)`, `name (3)`… with the number before the extension (`a (2).txt`, `archive (2).tar.gz`)
+ * and at the end for a folder or a name with no extension. Nothing is ever replaced: a copy keeps both.
+ */
+async function freeName(dir: string, name: string, folder: boolean): Promise<string> {
+  const taken = async (candidate: string) => (await fsp.lstat(path.join(dir, candidate)).catch(() => null)) !== null
+  if (!(await taken(name))) return name
+  const tar = /\.tar\.[a-z0-9]+$/i.exec(name)
+  const dot = tar ? tar.index : name.lastIndexOf('.')
+  const split = !folder && dot > 0 ? dot : name.length
+  for (let n = 2; n < 10_000; n++) {
+    const candidate = `${name.slice(0, split)} (${n})${name.slice(split)}`
+    if (!(await taken(candidate))) return candidate
+  }
+  return `${name} (${Date.now()})`
+}
+
+/**
+ * A copy of an item in another folder of the same root, or in the folder it is in (a duplicate), under its own name or, if that is taken, a numbered one (`a (2).txt`):
+ * nothing is replaced. A folder is copied with all that is in it, symbolic links as links and never through their targets, times kept; a folder cannot be copied into itself.
+ * A copy that fails half way is removed.
+ */
+export async function copyEntry(root: string, relative: string, toFolder: string): Promise<OpResult> {
+  const entry = await entryAt(root, relative)
+  if ('error' in entry) return fail(entry.error)
+  const dest = await folderAt(root, toFolder)
+  if ('error' in dest) return fail(dest.error)
+  if (entry.stat.isDirectory() && (dest.real === entry.full || dest.real.startsWith(entry.full + path.sep))) return fail('into-itself')
+  const name = await freeName(dest.real, entry.name, entry.stat.isDirectory())
+  const target = path.join(dest.real, name)
+  try {
+    await fsp.cp(entry.full, target, { recursive: true, errorOnExist: true, force: false, preserveTimestamps: true, verbatimSymlinks: true })
+    return { ok: true, path: join(toFolder, name) }
+  } catch (err) {
+    await fsp.rm(target, { recursive: true, force: true }).catch(() => undefined)
+    return fail(errorOf(err))
+  }
+}
+
+/**
  * Removes an item: to the trash (`trash` is the system's, handed in: this module knows no Electron), or for good. A symbolic link is removed as the link. A trash that
  * cannot take the item is `trash-failed`, and the caller decides whether to ask for a permanent delete.
  */

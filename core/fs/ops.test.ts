@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createEntry, moveEntry, removeEntry, renameEntry } from './ops.ts'
+import { copyEntry, createEntry, moveEntry, removeEntry, renameEntry } from './ops.ts'
 
 let base: string
 let root: string
@@ -154,5 +154,56 @@ describe('removeEntry', () => {
     expect(await removeEntry(root, 'p.zip!/x', 'forever', trash)).toEqual({ ok: false, error: 'unsupported' })
     expect(fs.existsSync(path.join(base, 'outside.txt'))).toBe(true)
     expect(trash).not.toHaveBeenCalled()
+  })
+})
+
+describe('copyEntry', () => {
+  it('copies a file into another folder under its own name, and leaves the original', async () => {
+    expect(await copyEntry(root, 'a.txt', 'docs')).toEqual({ ok: true, path: 'docs/a.txt' })
+    expect(text('docs', 'a.txt')).toBe('A')
+    expect(text('a.txt')).toBe('A')
+  })
+  it('copies a folder with all that is in it', async () => {
+    expect(await copyEntry(root, 'docs', 'empty')).toEqual({ ok: true, path: 'empty/docs' })
+    expect(text('empty', 'docs', 'readme.md')).toBe('# hi')
+    expect(text('empty', 'docs', 'deep', 'n.json')).toBe('{}')
+    expect(fs.existsSync(at('docs', 'deep', 'n.json'))).toBe(true)
+  })
+  it('numbers the copy when the name is taken, and never replaces: a duplicate in the same folder, a name taken in another', async () => {
+    expect(await copyEntry(root, 'a.txt', '')).toEqual({ ok: true, path: 'a (2).txt' })
+    expect(await copyEntry(root, 'a.txt', '')).toEqual({ ok: true, path: 'a (3).txt' })
+    expect(await copyEntry(root, 'docs', '')).toEqual({ ok: true, path: 'docs (2)' })
+    fs.writeFileSync(at('docs', 'a.txt'), 'other')
+    expect(await copyEntry(root, 'a.txt', 'docs')).toEqual({ ok: true, path: 'docs/a (2).txt' })
+    expect(text('docs', 'a.txt')).toBe('other')
+    expect(text('a (2).txt')).toBe('A')
+  })
+  it('puts the number before the whole extension of an archive, and at the end of a name with none', async () => {
+    fs.writeFileSync(at('data.tar.gz'), 'x')
+    fs.writeFileSync(at('.env'), 'S=1')
+    fs.writeFileSync(at('Makefile'), 'all:')
+    expect(await copyEntry(root, 'data.tar.gz', '')).toEqual({ ok: true, path: 'data (2).tar.gz' })
+    expect(await copyEntry(root, '.env', '')).toEqual({ ok: true, path: '.env (2)' })
+    expect(await copyEntry(root, 'Makefile', '')).toEqual({ ok: true, path: 'Makefile (2)' })
+  })
+  it('never copies a folder into itself or into what is in it', async () => {
+    expect(await copyEntry(root, 'docs', 'docs')).toEqual({ ok: false, error: 'into-itself' })
+    expect(await copyEntry(root, 'docs', 'docs/deep')).toEqual({ ok: false, error: 'into-itself' })
+    expect(fs.readdirSync(at('docs', 'deep'))).toEqual(['n.json'])
+  })
+  it('copies a symbolic link as a link, never what it points to', async () => {
+    fs.symlinkSync(path.join(base, 'outside.txt'), at('link.txt'))
+    expect(await copyEntry(root, 'link.txt', 'docs')).toEqual({ ok: true, path: 'docs/link.txt' })
+    expect(fs.lstatSync(at('docs', 'link.txt')).isSymbolicLink()).toBe(true)
+    expect(fs.existsSync(path.join(base, 'link.txt'))).toBe(false)
+  })
+  it('refuses a missing item, a target that is not a folder, outside the root, and a ZIP', async () => {
+    expect(await copyEntry(root, 'gone', 'docs')).toEqual({ ok: false, error: 'not-found' })
+    expect(await copyEntry(root, 'a.txt', 'b.txt')).toEqual({ ok: false, error: 'not-folder' })
+    expect(await copyEntry(root, 'a.txt', '../')).toEqual({ ok: false, error: 'outside' })
+    expect(await copyEntry(root, '../outside.txt', 'docs')).toEqual({ ok: false, error: 'outside' })
+    expect(await copyEntry(root, '', 'docs')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await copyEntry(root, 'p.zip!/x', 'docs')).toEqual({ ok: false, error: 'unsupported' })
+    expect(await copyEntry(root, 'a.txt', 'p.zip!/in')).toEqual({ ok: false, error: 'unsupported' })
   })
 })

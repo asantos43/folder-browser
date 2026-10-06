@@ -7,7 +7,7 @@ import type { ByteRange } from './archive/reader.ts'
 import { ZIP_LIMIT } from './filekind.ts'
 import { isHidden } from './fs/hidden.ts'
 import { resolveInside } from './fs/guard.ts'
-import { createEntry, moveEntry, removeEntry, renameEntry, type OpResult } from './fs/ops.ts'
+import { copyEntry, createEntry, moveEntry, removeEntry, renameEntry, type OpResult } from './fs/ops.ts'
 import { sortEntries } from './fs/sort.ts'
 import { INNER, MAX_DEPTH, partsOf } from './vpath.ts'
 import { openZipBuffer, ZipError, type ZipArchive, type ZipEntryInfo } from './zip.ts'
@@ -294,6 +294,12 @@ export class RootRegistry {
   move(id: string, name: string, toFolder: string): Promise<OpResult> {
     const root = this.writable(id)
     return root ? this.changed(id, moveEntry(root.real, name, toFolder)) : Promise.resolve({ ok: false, error: 'unsupported' })
+  }
+
+  /** A copy in a folder of the root (numbered when the name is taken: nothing is replaced). */
+  copy(id: string, name: string, toFolder: string): Promise<OpResult> {
+    const root = this.writable(id)
+    return root ? this.changed(id, copyEntry(root.real, name, toFolder)) : Promise.resolve({ ok: false, error: 'unsupported' })
   }
 
   /** To the trash (`trash` is the system's), or for good. */

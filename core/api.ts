@@ -93,6 +93,8 @@ export interface FbApi {
     create(id: string, parent: string, name: string, kind: 'file' | 'dir'): Promise<OpResult>
     rename(id: string, path: string, name: string): Promise<OpResult>
     move(id: string, path: string, toFolder: string): Promise<OpResult>
+    /** A copy in a folder (also the one it is in); its name is numbered (`a (2).txt`) when the name is taken. The answer has the path of the copy. */
+    copy(id: string, path: string, toFolder: string): Promise<OpResult>
     /** `trash`: to the system's trash. `forever`: gone for good (asked only after the trash refused, or by the user). */
     remove(id: string, path: string, how: 'trash' | 'forever'): Promise<OpResult>
   }

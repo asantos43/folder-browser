@@ -85,7 +85,9 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] Tests: path traversal, symbolic links out of the root, move onto an existing name, move a folder into itself, names (unit); the tree's field, menu, keys and drops (component); the whole flow in the real app (e2e `fileops.spec.ts`)
 - [ ] Several rows selected (Ctrl/Shift click) to move, delete and extract at once
 - [ ] Drag onto a place of the side bar to move there, and onto Trash to delete (the places are other folders than the root)
-- [ ] Copy and paste; Duplicate
+- [x] Copy by dragging with Shift (also a duplicate in the same folder; numbered, never replacing); Shift+Delete for the permanent delete; folders that open while an item is dragged over them
+- [ ] Copy and paste (`Ctrl+C` / `Ctrl+V`) of files in the tree, and Duplicate in the menu
+- [ ] Press Shift *before* the drag: Chromium starts no drag when the mouse goes down with Shift held (it selects); a drag of our own (pointer events) would allow it
 - [ ] Undo of the last delete (Restore from the trash is there) or move
 
 ## Phase 3: editor

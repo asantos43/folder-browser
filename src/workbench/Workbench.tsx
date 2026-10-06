@@ -76,7 +76,10 @@ export function Workbench() {
   const [treeVersion, setTreeVersion] = useState(0)
   const [emptying, setEmptying] = useState<string | null>(null)
   // An item of a folder to delete (asked about, to the trash first; for good only when the trash cannot take it), or to move (asked where to).
-  const [deleting, setDeleting] = useState<{ rootId: string; entry: DirEntry; forever: boolean } | null>(null)
+  // `forever`: permanent from the start (Shift held when it was asked for); `refused`: the trash could not take it, and the user is asked again.
+  const [deleting, setDeleting] = useState<{ rootId: string; entry: DirEntry; forever: boolean; refused: boolean } | null>(null)
+  // Shift held while the question is on screen turns it into the permanent delete, as the key at the start does.
+  const [shiftHeld, setShiftHeld] = useState(false)
   const [moving, setMoving] = useState<{ rootId: string; entry: DirEntry } | null>(null)
   const [pageMenu, setPageMenu] = useState<ContextMenuState | null>(null)
   const [linkHover, setLinkHover] = useState<LinkHover | null>(null)
@@ -571,9 +574,36 @@ export function Workbench() {
     },
     [api, notify, t, pathChanged],
   )
+  useEffect(() => {
+    if (!deleting) return setShiftHeld(false)
+    const track = (event: KeyboardEvent) => setShiftHeld(event.shiftKey)
+    const release = () => setShiftHeld(false)
+    window.addEventListener('keydown', track)
+    window.addEventListener('keyup', track)
+    window.addEventListener('blur', release)
+    return () => {
+      window.removeEventListener('keydown', track)
+      window.removeEventListener('keyup', track)
+      window.removeEventListener('blur', release)
+    }
+  }, [deleting])
+  /** A copy of an item (a drop with Shift held): the copy is numbered when the name is taken, and the tree shows it. */
+  const doCopy = useCallback(
+    (rootId: string, path: string, toFolder: string) => {
+      const name = basename(path)
+      void api?.fs.copy(rootId, path, toFolder).then((result) => {
+        if (!result.ok) return notify({ level: 'error', text: t('fs.failedCopy', { name, reason: t(`fs.error.${result.error}`) }) })
+        setTreeVersion((n) => n + 1)
+        const folder = toFolder === '' ? t('fs.movedToTop', { name: wsNow.current.roots[rootId]?.name ?? '' }) : basename(toFolder)
+        const made = basename(result.path)
+        notify({ level: 'info', text: made === name ? t('fs.copied', { name, folder }) : t('fs.copiedAs', { name, folder, as: made }) })
+      })
+    },
+    [api, notify, t],
+  )
   /** The user said yes to deleting an item: to the trash, or (when the trash refused and the user said yes again) for good. */
   const doDelete = useCallback(
-    (item: { rootId: string; entry: DirEntry; forever: boolean }) => {
+    (item: { rootId: string; entry: DirEntry; forever: boolean; refused: boolean }) => {
       const { rootId, entry, forever } = item
       void api?.fs.remove(rootId, entry.path, forever ? 'forever' : 'trash').then((result) => {
         if (result.ok) {
@@ -582,7 +612,7 @@ export function Workbench() {
           return notify({ level: 'info', text: t(forever ? 'fs.deletedForever' : 'fs.deleted', { name: entry.name }) })
         }
         // The trash could not take it (a file system with no trash): the user is asked again, for good this time.
-        if (result.error === 'trash-failed' && !forever) return setDeleting({ rootId, entry, forever: true })
+        if (result.error === 'trash-failed' && !forever) return setDeleting({ rootId, entry, forever: true, refused: true })
         notify({ level: 'error', text: t('fs.failedDelete', { name: entry.name, reason: t(`fs.error.${result.error}`) }) })
       })
     },
@@ -630,16 +660,17 @@ export function Workbench() {
         }
         return result
       },
-      moveEntry: (id: string, path: string, toFolder: string) => doMove(id, path, toFolder),
       moveEntryTo: (id: string, entry: DirEntry) => setMoving({ rootId: id, entry }),
-      removeEntry: (id: string, entry: DirEntry) => setDeleting({ rootId: id, entry, forever: false }),
+      moveEntry: (id: string, path: string, toFolder: string) => doMove(id, path, toFolder),
+      copyEntry: (id: string, path: string, toFolder: string) => doCopy(id, path, toFolder),
+      removeEntry: (id: string, entry: DirEntry, forever = false) => setDeleting({ rootId: id, entry, forever, refused: false }),
       // A `.wsnp` of a folder is a file like the others: a click shows its page in a preview tab, as a picture is, and a double click keeps it in a tab of its own.
       openSnapshot: (id: string, path: string, keep: boolean) => void api?.openInRoot(id, path).then((results) => handleResults(results, { preview: !keep })),
       saveFile,
       openWith,
       copy,
     }),
-    [run, api, saveFile, openWith, copy, handleResults, reportOpenWith, refreshPlaces, notify, t, pathChanged, doMove],
+    [run, api, saveFile, openWith, copy, handleResults, reportOpenWith, refreshPlaces, notify, t, pathChanged, doMove, doCopy],
   )
 
   return (
@@ -700,15 +731,22 @@ export function Workbench() {
       ) : null}
       {deleting ? (
         <ConfirmDialog
-          title={t(deleting.forever ? 'fs.foreverTitle' : 'fs.deleteTitle')}
-          message={deleting.forever ? t('fs.foreverMessage', { name: deleting.entry.name }) : t(deleting.entry.kind === 'dir' ? 'fs.deleteFolder' : 'fs.deleteFile', { name: deleting.entry.name })}
-          confirmLabel={t(deleting.forever ? 'fs.foreverConfirm' : 'fs.deleteConfirm')}
+          title={t(deleting.forever || shiftHeld ? 'fs.foreverTitle' : 'fs.deleteTitle')}
+          message={
+            deleting.refused
+              ? t('fs.foreverMessage', { name: deleting.entry.name })
+              : deleting.forever || shiftHeld
+                ? t(deleting.entry.kind === 'dir' ? 'fs.foreverChosenFolder' : 'fs.foreverChosenFile', { name: deleting.entry.name })
+                : t(deleting.entry.kind === 'dir' ? 'fs.deleteFolder' : 'fs.deleteFile', { name: deleting.entry.name })
+          }
+          hint={deleting.forever || shiftHeld ? undefined : t('fs.shiftHint')}
+          confirmLabel={t(deleting.forever || shiftHeld ? 'fs.foreverConfirm' : 'fs.deleteConfirm')}
           danger
           onCancel={() => setDeleting(null)}
           onConfirm={() => {
             const item = deleting
             setDeleting(null)
-            doDelete(item)
+            doDelete({ ...item, forever: item.forever || shiftHeld })
           }}
         />
       ) : null}
