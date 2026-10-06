@@ -108,10 +108,13 @@ describe('EditView', () => {
     const draft: Draft = { version: 1, rootPath: '/home/me/work', path: 'a.txt', kind: 'text', text: 'my unsaved words', base: { mtimeMs: 1, size: 5 }, eol: 'crlf', bom: false, at: '2026-10-06T12:00:00.000Z' }
     const { handlers } = setup(OK('on disk', { version: { mtimeMs: 9, size: 7 } }), { draft })
     await waitFor(() => expect(content()).toContain('my unsaved words'))
-    expect(screen.getByText('● Modified')).toBeTruthy()
-    expect(screen.getByText('CRLF')).toBeTruthy()
-    expect(handlers.onRestored).toHaveBeenCalledWith('a.txt')
-    expect(handlers.onChanged).toHaveBeenLastCalledWith('f:r1:a.txt', true)
+    // (What follows from the text is drawn and told just after it: under load not at the same moment.)
+    await waitFor(() => {
+      expect(screen.getByText('● Modified')).toBeTruthy()
+      expect(screen.getByText('CRLF')).toBeTruthy()
+      expect(handlers.onRestored).toHaveBeenCalledWith('a.txt')
+      expect(handlers.onChanged).toHaveBeenLastCalledWith('f:r1:a.txt', true)
+    })
     const buffer = editorBuffers.get('f:r1:a.txt')!
     expect(buffer.saved.toString()).toBe('on disk')
     expect(buffer.version).toEqual({ mtimeMs: 1, size: 5 })
