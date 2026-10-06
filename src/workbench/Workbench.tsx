@@ -27,7 +27,7 @@ import { pruneZooms, stepTabZoom, tabZoomOf } from '@/state/tabZoom.ts'
 import { viewZoom } from '@/state/viewZoom.ts'
 import type { AppInfo } from '@core/api.ts'
 import type { DiffSide } from '@core/diff.ts'
-import { innerPath } from '@core/vpath.ts'
+import { innerPath, isInner } from '@core/vpath.ts'
 import { fileTarget } from '@/find/types.ts'
 import { shownText } from '@/state/shown.ts'
 import { AboutDialog } from '@/components/AboutDialog.tsx'
@@ -824,7 +824,8 @@ export function Workbench() {
       moveEntryTo: (id: string, entry: DirEntry) => setMoving({ rootId: id, entry }),
       moveEntry: (id: string, path: string, toFolder: string) => doMove(id, path, toFolder),
       copyEntry: (id: string, path: string, toFolder: string) => doCopy(id, path, toFolder),
-      removeEntry: (id: string, entry: DirEntry, forever = false) => setDeleting({ rootId: id, entry, forever, refused: false }),
+      // (An entry of a ZIP has no trash: it is deleted for good, and the question says so at once.)
+      removeEntry: (id: string, entry: DirEntry, forever = false) => setDeleting({ rootId: id, entry, forever: forever || wsNow.current.roots[id]?.kind === 'zip' || isInner(entry.path), refused: false }),
       // A `.wsnp` of a folder is a file like the others: a click shows its page in a preview tab, as a picture is, and a double click keeps it in a tab of its own.
       openSnapshot: (id: string, path: string, keep: boolean) => void api?.openInRoot(id, path).then((results) => handleResults(results, { preview: !keep })),
       // The file chosen with Select for Compare is the left side; the one the menu is on is the right (as VS Code does). The choice stays, to compare more files with it.

@@ -11,6 +11,8 @@ export interface ZipEntryInfo {
   size: number
   compressedSize: number
   directory: boolean
+  /** The CRC-32 the ZIP declares for the entry: with the size and date, what an edit checks to know the entry is the one that was read. */
+  crc32: number
   /** Not readable here: ZIP-level encryption, a compression method other than stored and DEFLATE, a symbolic link, or a name that could leave the folder it is extracted to. */
   unreadable?: 'encrypted' | 'method' | 'link' | 'name'
   /** ISO 8601, from the entry's own date. */
@@ -51,7 +53,7 @@ export function safeRelative(name: string): string | null {
 const S_IFMT = 0o170000
 const S_IFLNK = 0o120000
 
-function decodeName(raw: Buffer, flags: number): string {
+export function decodeName(raw: Buffer, flags: number): string {
   const utf8 = (flags & 0x800) !== 0
   if (utf8) return raw.toString('utf8')
   const text = raw.toString('utf8')
@@ -101,7 +103,7 @@ export async function openZipBuffer(buffer: Buffer): Promise<ZipArchive> {
       else if (!directory && raw.compressionMethod !== 0 && raw.compressionMethod !== 8) unreadable = 'method'
       else if (mode === S_IFLNK) unreadable = 'link'
       else if (safeRelative(name) === null) unreadable = 'name'
-      infos.push({ name, size: raw.uncompressedSize, compressedSize: raw.compressedSize, directory, ...(unreadable ? { unreadable } : {}), modified: raw.getLastModDate().toISOString() })
+      infos.push({ name, size: raw.uncompressedSize, compressedSize: raw.compressedSize, directory, crc32: raw.crc32, ...(unreadable ? { unreadable } : {}), modified: raw.getLastModDate().toISOString() })
       if (!raws.has(name)) raws.set(name, raw)
       zip.readEntry()
     })

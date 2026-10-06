@@ -133,8 +133,14 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [ ] Edit in the diff (accept or reject a change), and a diff of two folders
 
 ## Phase 5: edit inside a ZIP
-- [ ] `core/archive/edit.ts`: add, replace, delete, rename/move, mkdir; one rewrite for many operations, into a temporary file, then rename
-- [ ] Edit and save a text entry; create, rename, move and delete entries and folders; nested ZIPs; ZIP64 and encrypted ZIPs stay read-only; `.wsnp` entries refused
+- [x] `core/archive/edit.ts`: `create`, `replace`, `mkdir`, `remove`, `move` (rename) and `copy`; one rewrite for many operations, into a temporary file next to the ZIP, then renamed over it (the old ZIP is looked at again before the rename); ZIP in a ZIP taken out, changed and put back; the entries it did not touch are copied as they were (method, date, mode, order)
+- [x] Edit and save a text entry (`FileVersion.crc32`: the entry is compared by size and CRC-32, another entry changing is not a conflict); create, rename, move, copy and delete entries and folders from the tree (menu, `F2`, `Delete`, drag, Shift-drag, Move to…), also in a ZIP opened as the root and in a ZIP in a ZIP; the tabs follow
+- [x] ZIP64, encrypted entries, other methods, names that could leave a folder, repeated names and over 100,000 entries stay read-only and say why; a `.wsnp` is never changed inside; no move or copy between the disk and a ZIP or between two ZIPs; the delete of an entry is permanent and asked at once (a ZIP has no trash)
+- [x] Tests: the operations, hostile and read-only ZIPs, nested ZIPs, a change by someone else, permissions, big entries (`core/archive/edit.test.ts`); the registry with paths in ZIPs, links that leave the root, the trash, the queue (`core/roots.test.ts`); the tree, the menu, the move dialog; the real app (`e2e/zipedit.spec.ts`)
+- [ ] Move and copy between a folder and a ZIP (and between two ZIPs), and drop a file from the disk or the desktop into a ZIP (an "add" from outside)
+- [ ] Edit the bytes of an entry of a ZIP in the hex view (today only a file of a folder); a CSV entry of a ZIP is edited as a table through the text buffer, but no test covers it yet
+- [ ] Rewrite only the tail of the ZIP when entries are added at the end (today every change rewrites the whole ZIP); raw copy of compressed entries without recompressing them
+- [ ] A ZIP that is written again while a tab shows one of its entries read-only (media, document, picture) keeps showing the old bytes until the tab is opened again
 
 ## Phase 6: finish
 - [ ] README, CHANGELOG, user guides (en and pt-BR), docs complete; screenshots

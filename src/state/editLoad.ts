@@ -17,7 +17,7 @@ export async function loadEditorBuffer(rootId: string, path: string, tabKey: str
   const extensions = editableExtensions(language, wrap)
   if (draft && draft.kind === 'text' && (result.ok || result.error === 'no-file')) {
     const onDisk = result.ok ? result.text : ''
-    const same = result.ok && draft.text === result.text && draft.base.mtimeMs === result.version.mtimeMs && draft.base.size === result.version.size
+    const same = result.ok && draft.text === result.text && draft.base.mtimeMs === result.version.mtimeMs && draft.base.size === result.version.size && draft.base.crc32 === result.version.crc32
     if (!same) {
       const state = EditorState.create({ doc: draft.text, extensions })
       // The version is the one the changes began from: if the file changed on disk since, Save notices.

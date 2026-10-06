@@ -696,7 +696,8 @@ export class SnapshotHost {
     handle('fb:fs-rename', (_win, id: unknown, name: unknown, newName: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(newName) ? this.roots.rename(id, name, newName) : { ok: false, error: 'invalid-name' }))
     handle('fb:fs-move', (_win, id: unknown, name: unknown, to: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(to) ? this.roots.move(id, name, to) : { ok: false, error: 'not-found' }))
     // Editing a text file of a folder: the text in and out whole; the line ending and the byte order mark of the file travel with it.
-    const version = (v: unknown): v is { mtimeMs: number; size: number } => typeof v === 'object' && v !== null && Number.isFinite((v as { mtimeMs?: unknown }).mtimeMs) && Number.isFinite((v as { size?: unknown }).size)
+    const version = (v: unknown): v is { mtimeMs: number; size: number; crc32?: number } =>
+      typeof v === 'object' && v !== null && Number.isFinite((v as { mtimeMs?: unknown }).mtimeMs) && Number.isFinite((v as { size?: unknown }).size) && ((v as { crc32?: unknown }).crc32 === undefined || Number.isFinite((v as { crc32?: unknown }).crc32))
     const ending = (v: unknown): v is 'lf' | 'crlf' | 'cr' => v === 'lf' || v === 'crlf' || v === 'cr'
     handle('fb:edit-open', (_win, id: unknown, name: unknown) => (short(id) && short(name) ? this.roots.edit(id, name) : ({ ok: false, error: 'no-file' } as const)))
     handle('fb:edit-save', (_win, id: unknown, name: unknown, text: unknown, base: unknown, options: unknown) => {
@@ -737,7 +738,7 @@ export class SnapshotHost {
     // Drafts: the changes of a file not yet saved, kept for the next start. The interface names a root; the folder that was opened (its path) is what keeps them apart.
     const rootPathOf = (id: string): string | null => {
       const root = this.roots.info(id)
-      return root && root.kind === 'folder' && !root.trash ? root.path : null
+      return root && !root.trash ? root.path : null
     }
     handle('fb:draft-put', (_win, id: unknown, name: unknown, draft: unknown): boolean => {
       const d = draft as { kind?: unknown; text?: unknown; bytes?: unknown; base?: unknown; eol?: unknown; bom?: unknown } | null

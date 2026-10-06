@@ -140,18 +140,13 @@ test('the line endings and the byte order mark of a file are kept when it is sav
   await expect.poll(() => fs.readFileSync(onDisk('win.txt')).equals(Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('one\r\ntwo\r\nthree')]))).toBe(true)
 })
 
-test('what cannot be edited is shown as it is, and says why: another encoding, a log too big to edit, an entry of a ZIP', async () => {
+test('what cannot be edited is shown as it is, and says why: another encoding, a log too big to edit', async () => {
   const page = await launch(work)
   await item(page, 'latin.txt').dblclick()
   await expect(page.getByText('Shown, not edited: the file is not UTF-8.')).toBeVisible()
   await expect(page.locator('.cm-content')).toHaveAttribute('contenteditable', 'false')
   await item(page, 'big.log').dblclick()
   await expect(page.getByText(/Shown, not edited: the file is too large to edit/)).toBeVisible()
-  await item(page, 'pack.zip').click()
-  await item(page, 'in.txt').dblclick()
-  await expect(editor(page)).toContainText('inside the zip')
-  await expect(editor(page)).toHaveAttribute('contenteditable', 'false')
-  await expect(page.getByRole('button', { name: /Save the file/ })).toHaveCount(0)
 })
 
 test('Format Document lays a minified file out as an edit that is undone with Ctrl+Z', async () => {

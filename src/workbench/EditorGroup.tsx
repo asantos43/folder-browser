@@ -6,7 +6,7 @@ import { createFrameFindTarget } from '@/find/frame.ts'
 import { fileTarget, type FindTarget } from '@/find/types.ts'
 import { useI18n } from '@/i18n/context.tsx'
 import type { ZipEntryInfo } from '@core/api.ts'
-import { trailOf } from '@core/vpath.ts'
+import { isInner, trailOf } from '@core/vpath.ts'
 import type { Notice } from '@/state/messages.ts'
 import { describeIssue } from '@/state/messages.ts'
 import { GroupContext } from '@/state/groups.ts'
@@ -143,7 +143,7 @@ export function EditorGroup({ group, onDropOnTab, onDropFile, zooms, onZoom, rel
           </div>
         ))}
         {fileTab && info?.file && info.kind !== 'media' && info.kind !== 'document' ? (
-          <FileView key={`${fileTab.key}:${reloads[fileTab.key] ?? 0}`} edit={isEditable(ws, fileTab) ? { rootId: fileTab.snapshotId, tabKey: fileTab.key, dirty: Boolean(ws.dirty[fileTab.key]), onRestored, onSave: () => onSaveTab(fileTab.key), onSaveAs: (text, options) => onSaveBufferAs(fileTab.path!.split(/[!/]+/).pop() ?? fileTab.path!, text, options), onSaveBytesAs, onChanged } : undefined} snapshotId={fileTab.snapshotId} path={fileTab.path!} kind={info.kind} mediaType={info.file.mediaType} size={info.file.size} onSave={() => onSaveFile(fileTab.snapshotId, fileTab.path!)} onOpenWith={() => onOpenWith(fileTab.snapshotId, fileTab.path!)} findToken={find.open ? find.token : 0} onHex={() => dispatch({ type: 'open-file', snapshotId: fileTab.snapshotId, path: fileTab.path!, keep: true, size: info.file!.size, as: 'hex' })} onViewEntry={(entry) => onViewEntry(fileTab.snapshotId, fileTab.path!, entry)} onNotify={onNotify} zoom={tabZoomOf(zooms, fileTab.key)} />
+          <FileView key={`${fileTab.key}:${reloads[fileTab.key] ?? 0}`} edit={isEditable(ws, fileTab) ? { rootId: fileTab.snapshotId, tabKey: fileTab.key, dirty: Boolean(ws.dirty[fileTab.key]), hexEditable: ws.roots[fileTab.snapshotId]?.kind === 'folder' && !isInner(fileTab.path!), onRestored, onSave: () => onSaveTab(fileTab.key), onSaveAs: (text, options) => onSaveBufferAs(fileTab.path!.split(/[!/]+/).pop() ?? fileTab.path!, text, options), onSaveBytesAs, onChanged } : undefined} snapshotId={fileTab.snapshotId} path={fileTab.path!} kind={info.kind} mediaType={info.file.mediaType} size={info.file.size} onSave={() => onSaveFile(fileTab.snapshotId, fileTab.path!)} onOpenWith={() => onOpenWith(fileTab.snapshotId, fileTab.path!)} findToken={find.open ? find.token : 0} onHex={() => dispatch({ type: 'open-file', snapshotId: fileTab.snapshotId, path: fileTab.path!, keep: true, size: info.file!.size, as: 'hex' })} onViewEntry={(entry) => onViewEntry(fileTab.snapshotId, fileTab.path!, entry)} onNotify={onNotify} zoom={tabZoomOf(zooms, fileTab.key)} />
         ) : null}
         {!active ? (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 text-fg-muted">

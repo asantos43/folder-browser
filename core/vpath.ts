@@ -33,3 +33,14 @@ export function listingsAbove(path: string): string[] {
   })
   return out
 }
+
+/**
+ * The folder or ZIP a path is in, as the tree names it: the ZIP's own path for an entry at its top (`a.zip!/f.txt` is in `a.zip`), the folder's for one in a folder (`a.zip!/x/f.txt`
+ * is in `a.zip!/x`), and `''` for the top of the root.
+ */
+export function parentPath(path: string): string {
+  const at = path.lastIndexOf(INNER)
+  const slash = path.lastIndexOf('/')
+  if (at >= 0 && at + INNER.length - 1 >= slash) return path.slice(0, at)
+  return slash < 0 ? '' : path.slice(0, slash)
+}

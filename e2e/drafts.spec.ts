@@ -2,6 +2,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { openZipBuffer } from '../core/zip.ts'
+import { zipBuffer } from '../fixtures/zip.ts'
 
 // End-to-end: the changes of a text that are not saved are kept for the next start (a hot exit), and come back in their tab.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -67,6 +69,27 @@ test('closing the application with changes not saved asks nothing, and the next 
   await again.keyboard.press('ControlOrMeta+s')
   await expect.poll(() => onDisk('a.txt')).toBe('first line\nsecond line\nunsaved third line')
   await expect(tab(again, 'a.txt')).not.toContainText('Modified')
+  await expect.poll(draftFiles).toHaveLength(0)
+})
+
+test('the changes to a text inside a ZIP are kept too, come back in their tab, and Save writes them into the ZIP', async () => {
+  fs.writeFileSync(path.join(work, 'pack.zip'), await zipBuffer([{ name: 'in.txt', data: 'inside the zip' }, { name: 'other.txt', data: 'untouched' }]))
+  const inZip = async (name: string) => (await (await openZipBuffer(fs.readFileSync(path.join(work, 'pack.zip')))).read(name, 1000)).toString()
+  const page = await launch(work)
+  await item(page, 'pack.zip').click()
+  await item(page, 'in.txt').dblclick()
+  await typeAtEnd(page, ' and unsaved words')
+  await expect.poll(draftFiles).toHaveLength(1)
+  await quit(page)
+  expect(await inZip('in.txt')).toBe('inside the zip')
+
+  const again = await launch()
+  await expect(tab(again, 'in.txt')).toContainText('Modified')
+  await expect(editor(again)).toContainText('inside the zip and unsaved words')
+  await again.keyboard.press('ControlOrMeta+s')
+  await expect.poll(() => inZip('in.txt')).toBe('inside the zip and unsaved words')
+  expect(await inZip('other.txt')).toBe('untouched')
+  await expect(tab(again, 'in.txt')).not.toContainText('Modified')
   await expect.poll(draftFiles).toHaveLength(0)
 })
 

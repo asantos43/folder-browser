@@ -19,7 +19,7 @@ export function treeMenuFor(entry: Pick<DirEntry, 'kind'>, context: { /** The fo
     case 'dir':
       return [...restore, 'toggle', 'refresh', ...(context.writable ? (['newFile', 'newFolder'] as const) : []), ...(context.canPin ? (['addFavorite'] as const) : []), 'separator', ...change, ...where]
     case 'zip':
-      return [...restore, 'toggle', 'openAsList', 'separator', ...change, ...application, ...where]
+      return [...restore, 'toggle', 'openAsList', ...(context.writable ? (['newFile', 'newFolder'] as const) : []), 'separator', ...change, ...application, ...where]
     case 'wsnp':
       return [...restore, 'openSnapshot', 'openAsZip', 'separator', ...change, ...application, ...where]
     default:
