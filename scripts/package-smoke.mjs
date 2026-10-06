@@ -21,12 +21,16 @@ const check = (ok, name, detail = '') => {
 }
 const skip = (name, why) => console.log(`SKIP  ${name}: ${why}`)
 const has = (tool) => spawnSync(tool, ['--version'], { stdio: 'ignore' }).error === undefined || spawnSync('which', [tool], { stdio: 'ignore' }).status === 0
+const magic0 = (tmp) => fs.readFileSync(path.join(tmp, 'root/usr/share/mime/packages/folder-browser.xml'), 'utf8')
 const out = (cmd, ...a) => execFileSync(cmd, a, { encoding: 'utf8', maxBuffer: 1 << 28 })
 
 /** What the file association needs on Linux, from a list of the files of a package and its install script. */
 function linuxPackage(kind, file, listing, scripts) {
   check(listing.includes('/usr/share/applications/folder-browser.desktop'), `${kind}: has the menu entry`)
-  check(listing.includes('/usr/share/mime/packages/folder-browser.xml') && listing.includes('/usr/share/mime/packages/folder-browser-magic.xml'), `${kind}: has the file type (by name, and by the first entry of the ZIP)`)
+  // One file for the type, ours (by name and by the first entry of the ZIP, with the icon of the application): a second one (electron-builder makes it from a file association with a
+  // `mimeType`) says the icon is a generic document, and the desktop may take that one.
+  check(listing.includes('/usr/share/mime/packages/folder-browser.xml'), `${kind}: has the file type (by name, and by the first entry of the ZIP)`)
+  check(listing.split('\n').filter((line) => /\/usr\/share\/mime\/packages\/[^/\s]+\.xml/.test(line)).length === 1, `${kind}: has only one file that says what a .wsnp is`)
   check(/folder-browser\.png/.test(listing), `${kind}: has the icon`)
   // The desktop's icon theme (hicolor) lists sizes up to 512: a lone 1024 × 1024 picture is not found by it, and the menu shows no icon.
   for (const size of ['16x16', '32x32', '48x48', '128x128', '256x256', '512x512']) check(new RegExp(`/usr/share/icons/hicolor/${size}/apps/folder-browser\\.png`).test(listing), `${kind}: has the icon at ${size}`)
@@ -56,7 +60,10 @@ for (const name of files.filter((f) => f.endsWith('.deb'))) {
     check(desktop.includes(`MimeType=${MIME}`), `${name}: the menu entry handles ${MIME}`)
     check(/^Exec=.*%U$/m.test(desktop), `${name}: the menu entry takes the files it is opened with (%U)`)
     check(/^Icon=folder-browser$/m.test(desktop), `${name}: the menu entry has the icon`)
-    const magic = fs.readFileSync(path.join(tmp, 'root/usr/share/mime/packages/folder-browser-magic.xml'), 'utf8')
+    const types = (/^MimeType=(.*)$/m.exec(desktop)?.[1] ?? '').split(';').filter(Boolean)
+    check(types.length === new Set(types).size, `${name}: the menu entry lists each file type once`)
+    check(magic0(tmp).includes('<icon name="folder-browser"/>') && !/x-office-document/.test(magic0(tmp)), `${name}: the file type has the icon of the application`)
+    const magic = fs.readFileSync(path.join(tmp, 'root/usr/share/mime/packages/folder-browser.xml'), 'utf8')
     check(magic.includes(`type="${MIME}"`) && magic.includes('mimetypeapplication/vnd.wsnp+zip') && magic.includes('offset="30"'), `${name}: a file is told from a plain ZIP by its first entry`)
     linuxPackage(`${name}`, file, out('dpkg-deb', '-c', file).replace(/\/\.\//g, '/'), fs.readFileSync(path.join(tmp, 'ctl/postinst'), 'utf8'))
   } finally {
