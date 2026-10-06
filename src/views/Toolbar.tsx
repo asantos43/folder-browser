@@ -30,6 +30,20 @@ export function ToolbarButton({ icon, label, onClick, disabled, pressed, text }:
   )
 }
 
+/**
+ * What the toolbar of a file's view offers after Save As: open the file with another application (the chooser of this app), and see its bytes (in a tab of their own).
+ * Each is there only when the view was given what it does.
+ */
+export function FileActions({ onOpenWith, onHex }: { onOpenWith?: () => void; onHex?: () => void }) {
+  const { t } = useI18n()
+  return (
+    <>
+      {onOpenWith ? <ToolbarButton icon="link-external" label={t('tree.openWith')} onClick={onOpenWith} /> : null}
+      {onHex ? <ToolbarButton icon="file-binary" label={t('hex.view')} onClick={onHex} /> : null}
+    </>
+  )
+}
+
 export const Separator = () => <span role="separator" aria-orientation="vertical" className="mx-1 h-4 w-px bg-group-border" />
 
 const keyOf = (mode: ZoomMode): string => (typeof mode === 'number' ? String(mode) : mode)

@@ -1,5 +1,5 @@
 import path from 'node:path'
-import type { SnapshotRegistry } from './snapshots.ts'
+import type { FileSource } from './sources.ts'
 import { expandSelection, extractEntries, extractToFile, ZipError } from './zip.ts'
 
 export type ExtractResult =
@@ -19,7 +19,7 @@ export interface ExtractAsk {
  * Extracts the named entries of a ZIP in a snapshot. One file asks for a file name (as Save As does); anything else asks for a folder
  * and recreates the folders of the ZIP inside it. Nothing leaves the chosen place, and nothing there is overwritten.
  */
-export async function extractSelection(registry: SnapshotRegistry, id: string, zipPath: string, names: readonly string[], ask: ExtractAsk, options: { folder?: boolean } = {}): Promise<ExtractResult> {
+export async function extractSelection(registry: FileSource, id: string, zipPath: string, names: readonly string[], ask: ExtractAsk, options: { folder?: boolean } = {}): Promise<ExtractResult> {
   const zip = await registry.zipAt(id, zipPath)
   if ('error' in zip) return { error: zip.error }
   const picked = expandSelection(zip.entries, names)

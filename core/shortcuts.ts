@@ -7,7 +7,7 @@ export interface KeyLike {
   alt?: boolean
 }
 
-export type CommandName = 'toggleSideBar' | 'openFile' | 'find' | 'print' | 'quickOpen' | 'commandPalette' | 'goBack' | 'goForward' | 'openSettings' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'closeEditor' | 'nextEditor' | 'previousEditor' | 'cycleRecent' | 'cycleRecentBack' | 'goToTab1' | 'goToTab2' | 'goToTab3' | 'goToTab4' | 'goToTab5' | 'goToTab6' | 'goToTab7' | 'goToTab8' | 'goToTab9'
+export type CommandName = 'toggleSideBar' | 'openFile' | 'openFolder' | 'toggleHidden' | 'find' | 'print' | 'quickOpen' | 'commandPalette' | 'goBack' | 'goForward' | 'openSettings' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'closeEditor' | 'nextEditor' | 'previousEditor' | 'cycleRecent' | 'cycleRecentBack' | 'goToTab1' | 'goToTab2' | 'goToTab3' | 'goToTab4' | 'goToTab5' | 'goToTab6' | 'goToTab7' | 'goToTab8' | 'goToTab9'
 
 /**
  * VS Code's shortcuts for the commands the viewer has (docs/UI-DESIGN.md, "Behaviour taken from VS Code"): Ctrl on Windows
@@ -24,11 +24,15 @@ export function commandFor(e: KeyLike, mac: boolean): CommandName | null {
     if (key === '0' && !e.shift) return 'zoomReset'
     // The command palette, as in VS Code (Ctrl+P is Print here).
     if (e.shift && key === 'p') return 'commandPalette'
+    // Open Folder (Ctrl+Shift+O); in VS Code it is a chord, which the viewer has no way to wait for.
+    if (e.shift && key === 'o') return 'openFolder'
     if (!e.shift) {
       if (key === 'e') return 'quickOpen'
       if (key === ',') return 'openSettings'
       if (key === 'b') return 'toggleSideBar'
       if (key === 'o') return 'openFile'
+      // Show or hide the hidden files, as a file manager's Ctrl+H does.
+      if (key === 'h') return 'toggleHidden'
       if (key === 'f') return 'find'
       if (key === 'p') return 'print'
       if (key === 'w') return 'closeEditor'

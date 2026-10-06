@@ -19,7 +19,6 @@ electron/     the main process: main.ts (starts the app), window.ts (the framele
               interface), preload.ts, menu.ts (macOS), snapshot-view.ts (the wsnp:// protocol)
 src/          the interface (renderer): React, Tailwind; theme/ (tokens), i18n/, components/, workbench/ (title bar, activity bar, side bar, editor group, status bar)
 core/         plain TypeScript with no Electron imports: archive/ (ZIP reader and writer), serve.ts
-export/       image and PDF capture
 fixtures/     builders of synthetic .wsnp files and PageKeep ZIPs (build.ts, with pictures and PDFs for the viewers; pdf.ts makes a valid PDF), and of files to refuse or flag (hostile.ts), used by the tests
 e2e/          end-to-end tests (Playwright driving the Electron app)
 docs/         the specification, guidelines, architecture and this guide
@@ -31,7 +30,7 @@ docs/         the specification, guidelines, architecture and this guide
 | --- | --- |
 | `npm run app` | Builds everything and starts the app |
 | `npm run build` | `build:ui` (the interface, Vite, into `dist/`) and `build:electron` (the main process and the preload, into `dist-electron/`) |
-| `npm test` | Unit and component tests (vitest): `core/`, `electron/`, `export/`, `src/`, `scripts/` |
+| `npm test` | Unit and component tests (vitest): `core/`, `electron/`, `src/`, `scripts/` |
 | `npm run test:e2e` | Builds, then runs the Playwright tests against the real Electron app (each launch has its own `--user-data-dir`) |
 | `npm run notices` / `npm run notices:check` | Writes `THIRD-PARTY-NOTICES.md` (the licences of the libraries bundled into the application, with their texts, and what Electron ships) / fails when it is out of date; CI runs the check. Run `npm run notices` after changing a dependency that the application imports (the list is `ROOTS` in `scripts/third-party-notices.mjs`). The installers carry the file and the About window shows it |
 | `npm run format-sync` | Checks that `docs/FORMAT.md` and `docs/MANIFEST-SIGNING.md` match the hashes recorded in `docs/FORMAT.sha256` and, when wsnp-viewer is found beside this repository (or given with `-- --sibling=PATH`), that its copies are identical. The docs are copied from wsnp-viewer, never edited here |

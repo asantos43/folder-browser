@@ -41,11 +41,11 @@ describe('the interface protocol', () => {
     expect([403, 404]).toContain((await serveUi(root, 'fb-ui://host/%2e%2e/fb-ui-secret.txt')).status)
     expect([403, 404]).toContain((await serveUi(root, 'fb-ui://host/..%2f..%2ffb-ui-secret.txt')).status)
   })
-  it('lets the interface embed only snapshots and web frames, and run only its own scripts', () => {
+  it('lets the interface embed only snapshots, documents and web frames, and run only its own scripts', () => {
     expect(UI_CSP).toContain("script-src 'self' 'wasm-unsafe-eval'")
     expect(UI_CSP).toContain("worker-src 'self'")
     expect(UI_CSP).toContain("default-src 'none'")
-    expect(UI_CSP).toContain('frame-src wsnp: https: http:')
+    expect(UI_CSP).toContain('frame-src wsnp: fb-doc: https: http:')
     // WebAssembly may be compiled (pdf.js's decoders), but no code is ever built from a string.
     expect(UI_CSP).not.toMatch(/'unsafe-eval'/)
   })

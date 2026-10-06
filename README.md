@@ -21,6 +21,8 @@ Brazilian Portuguese, following the system language. [Português do Brasil](READ
 | **Browse** | A tree of folders and ZIP files (a ZIP opens like a folder, even inside another ZIP), with a switch to **show hidden files** (`Ctrl+H`). |
 | **Change** | Create, **rename**, move and delete files and folders, on disk and inside a ZIP. Delete goes to the trash. |
 | **Edit** | Text files (HTML, TXT, JSON, Markdown, source code…) open in an editor with syntax colours; `Ctrl+S` saves to the folder or back into the ZIP. |
+| **Documents** | Word, PowerPoint, LibreOffice and Excel files (`.docx`, `.pptx`, `.odt`, `.ods`, `.odp`, `.xlsx`, `.xls`…) are drawn in a tab, in a frame that has no network; CSV and TSV open as a table. |
+| **Hex** | Programs, libraries and any file of bytes (`.exe`, `.dll`, `.so`, `.bin`, `.iso`…) open as offset, hexadecimal and text, with selection, copy, Go to offset and Find for bytes or text; the header says what the file is (ELF, PE, Mach-O, ZIP…) without running it. |
 | **Play** | Videos and sounds play in a tab (mp4, webm, mp3, flac, wav…), with seek, volume, speed and Next/Previous in the folder, also from a ZIP. |
 | **Compare** | Select two text files (disk or ZIP) and see their **diff**, side by side or unified. |
 | **Right click** | A menu by kind of file (text, picture, PDF, ZIP, `.wsnp`, folder), and **Open With…** on every file, with the applications installed on the computer. |

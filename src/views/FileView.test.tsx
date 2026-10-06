@@ -3,7 +3,7 @@ import type { FbApi } from '@core/api.ts'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
-import { markdownView, markdownWide, markdownWrapCode, svgView } from '@/state/setting.ts'
+import { csvView, markdownView, markdownWide, markdownWrapCode, svgView } from '@/state/setting.ts'
 import { FileView, forgetReads } from './FileView.tsx'
 import { ImageView } from './ImageView.tsx'
 
@@ -25,7 +25,7 @@ const PNG = new Uint8Array([137, 80, 78, 71])
 const show = (path = 'a.txt', id = 's1') =>
   render(
     <I18nProvider language="en">
-      <FileView snapshotId={id} path={path} kind="text" mediaType="text/plain" size={5} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      <FileView snapshotId={id} path={path} kind="text" mediaType="text/plain" size={5} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
     </I18nProvider>,
   )
 
@@ -82,12 +82,12 @@ describe('FileView: no flash between one file and the next', () => {
     window.fb = { readFile } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="big.png" kind="image" mediaType="image/png" size={big.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path="big.png" kind="image" mediaType="image/png" size={big.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     ).unmount()
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="big.png" kind="image" mediaType="image/png" size={big.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path="big.png" kind="image" mediaType="image/png" size={big.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     )
     await waitFor(() => expect(readFile).toHaveBeenCalledTimes(2))
@@ -123,7 +123,7 @@ describe('FileView: an SVG is a picture and its source', () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(SVG) })) } as unknown as FbApi
     return render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path={path} kind="text" mediaType="image/svg+xml" size={SVG.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path={path} kind="text" mediaType="image/svg+xml" size={SVG.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     )
   }
@@ -162,7 +162,7 @@ describe('FileView: an SVG is a picture and its source', () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode('<a/>') })) } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="a.xml" kind="text" mediaType="application/xml" size={4} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+        <FileView snapshotId="s1" path="a.xml" kind="text" mediaType="application/xml" size={4} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
       </I18nProvider>,
     )
     await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
@@ -174,7 +174,7 @@ describe('FileView: an SVG is a picture and its source', () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(SVG) })) } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="z.svg" kind="text" mediaType="image/svg+xml" size={SVG.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} zoom={1.5} />
+        <FileView snapshotId="s1" path="z.svg" kind="text" mediaType="image/svg+xml" size={SVG.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} zoom={1.5} />
       </I18nProvider>,
     )
     await waitFor(() => expect(document.querySelector('.cm-editor')?.closest('div[style]')?.getAttribute('style')).toContain('--wsnp-zoom: 1.5'))
@@ -184,7 +184,7 @@ describe('FileView: an SVG is a picture and its source', () => {
 const other = (path: string, size: number, mediaType?: string) =>
   render(
     <I18nProvider language="en">
-      <FileView snapshotId="s1" path={path} kind="other" mediaType={mediaType} size={size} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      <FileView snapshotId="s1" path={path} kind="other" mediaType={mediaType} size={size} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
     </I18nProvider>,
   )
 
@@ -196,10 +196,11 @@ describe('FileView: a file of no known type', () => {
     await waitFor(() => expect(document.querySelector('.cm-content')?.textContent).toContain('first line'))
     expect(screen.queryByText('This kind of file is not shown here.')).toBeNull()
   })
-  it('is offered with Save As when it is binary', async () => {
+  it('is shown in hexadecimal when it is binary', async () => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new Uint8Array([1, 2, 0, 3, 4]) })) } as unknown as FbApi
     other('blob.xyz', 5)
-    await waitFor(() => expect(screen.getByText('This kind of file is not shown here.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of blob.xyz' })).toBeTruthy())
+    expect(screen.getByRole('row').textContent).toContain('0102000304')
     expect(document.querySelector('.cm-content')).toBeNull()
   })
   it('is not read at all when its type is known and not shown (a video)', async () => {
@@ -211,13 +212,95 @@ describe('FileView: a file of no known type', () => {
   })
 })
 
+describe('FileView: hexadecimal', () => {
+  it('shows a program in hexadecimal at once, by its type', async () => {
+    window.fb = { readFile: vi.fn(async () => ({ bytes: new Uint8Array([0x4d, 0x5a, 0, 0, 0]) })) } as unknown as FbApi
+    render(
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path="setup.exe" kind="hex" mediaType={undefined} size={5} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of setup.exe' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('MS-DOS executable')).toBeTruthy())
+  })
+  it('offers "View as hex" on a file that is not shown (a text file too large), which opens its bytes in a tab of their own', () => {
+    const readFile = vi.fn()
+    window.fb = { readFile } as unknown as FbApi
+    const onHex = vi.fn()
+    render(
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path="huge.log" kind="other" mediaType="text/plain" size={9 * 2 ** 20} onSave={() => {}} onHex={onHex} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>,
+    )
+    expect(readFile).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'View as hex' }))
+    expect(onHex).toHaveBeenCalledOnce()
+  })
+  it('reads a big file a window at a time, not whole', async () => {
+    const readFile = vi.fn()
+    const readRange = vi.fn(async () => ({ bytes: new Uint8Array(65536).fill(65), size: 40 * 2 ** 20 }))
+    window.fb = { readFile, readRange } as unknown as FbApi
+    render(
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path="disk.iso" kind="hex" mediaType={undefined} size={40 * 2 ** 20} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of disk.iso' })).toBeTruthy())
+    expect(readFile).not.toHaveBeenCalled()
+  })
+})
+
+describe('FileView: Open With…', () => {
+  it('is offered on a file that is not shown, and on a text', async () => {
+    window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode('hello') })) } as unknown as FbApi
+    const onOpenWith = vi.fn()
+    const view = (kind: 'other' | 'text', path: string) => (
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path={path} kind={kind} mediaType={kind === 'other' ? 'video/mp4' : 'text/plain'} size={5} onSave={() => {}} onHex={() => {}} onOpenWith={onOpenWith} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>
+    )
+    const { unmount } = render(view('other', 'clip.mp4'))
+    fireEvent.click(screen.getByRole('button', { name: 'Open With…' }))
+    expect(onOpenWith).toHaveBeenCalledTimes(1)
+    unmount()
+    render(view('text', 'a.txt'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open With…' }))
+    expect(onOpenWith).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('FileView: CSV', () => {
+  const csv = (path: string, body: string) => {
+    window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(body) })) } as unknown as FbApi
+    render(
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path={path} kind="text" mediaType={undefined} size={body.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>,
+    )
+  }
+  it('is a table at first, and its text when the user switches', async () => {
+    csvView.set('table')
+    csv('boats.csv', 'Boat,Seats\nGull,12\n')
+    await waitFor(() => expect(screen.getByRole('table', { name: 'Table of boats.csv' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Show the file as text' }))
+    await waitFor(() => expect(document.querySelector('.cm-content')?.textContent).toContain('Gull,12'))
+    expect(screen.getByRole('button', { name: 'Show the file as a table' })).toBeTruthy()
+    csvView.set('table')
+  })
+  it('reads a TSV by its tabs', async () => {
+    csvView.set('table')
+    csv('boats.tsv', 'Boat\tSeats\nGull\t12\n')
+    await waitFor(() => expect(screen.getByRole('cell', { name: '12' })).toBeTruthy())
+  })
+})
+
 describe('FileView: Markdown', () => {
   const MD = '# Harbor notes\n\nThe ferry leaves at **noon**.\n\n- [site](https://example.com/x)\n- <b>raw</b>\n- [bad](javascript:alert(1))\n\n![the map](assets/map.png)\n'
   const markdown = (zoom = 1) => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(MD) })), openExternal: vi.fn(async () => {}) } as unknown as FbApi
     render(
       <I18nProvider language="en">
-        <FileView snapshotId="s1" path="docs/README.md" kind="text" mediaType="text/markdown" size={MD.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} zoom={zoom} />
+        <FileView snapshotId="s1" path="docs/README.md" kind="text" mediaType="text/markdown" size={MD.length} onSave={() => {}} onHex={() => {}} onViewEntry={() => {}} onNotify={() => {}} zoom={zoom} />
       </I18nProvider>,
     )
   }

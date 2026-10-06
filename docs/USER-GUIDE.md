@@ -90,7 +90,8 @@ Zoom belongs to the **tab**, never to the whole application (the interface, the 
 | Markdown (`.md`) | A **formatted page** at first (headings, lists, tables, code; a web link opens in your browser; a picture is not loaded, its description is shown instead, and HTML written inside is shown as text); the **Formatted / Text** buttons at the start of the toolbar switch to the text (with colours, Find and Word Wrap) and back. The choice is kept for every Markdown file. **Full Width** makes the page as wide as the window (no scroll bar in a wide code block) and **Wrap Code** wraps long lines of code; both are kept. |
 | A file of a kind the viewer does not know (`.py`, `.sh`, `.toml`, `LICENSE`, a ZIP's entry with an odd extension) | Shown as text when what it holds is text; otherwise offered with Save As. |
 | ZIP files | The **list of files** in the ZIP, with sizes and dates: see "ZIP files" below. |
-| Anything else (a document, audio, video, a file that is too large) | A page with its name, type and size, and **Save As…**. |
+| A video or a sound (Folder Browser) | **Played** in a tab, with the browser's own player; what it cannot decode is said, with **Save As…** and **Open With…**. |
+| Anything else (a document, a file that is too large; also audio and video in WSNP Viewer) | A page with its name, type and size, and **Save As…**. |
 
 A click on a link **inside a page**: a `#section` link scrolls in the page; a link to a file saved in the snapshot opens a tab (a picture, a PDF, source) or offers
 **Save As…** (a document or a video); a ZIP opens as a list; a link to the web opens your **default browser**, only when you click it, and never inside the page.

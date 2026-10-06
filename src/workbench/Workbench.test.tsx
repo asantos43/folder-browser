@@ -17,10 +17,13 @@ describe('the workbench', () => {
     shown()
     expect(screen.getByTestId('titlebar')).toBeTruthy()
     expect(screen.getByRole('navigation', { name: 'Activity Bar' })).toBeTruthy()
-    expect(screen.getByRole('complementary', { name: 'Snapshots' })).toBeTruthy()
+    expect(screen.getByRole('complementary', { name: 'Explorer' })).toBeTruthy()
     expect(screen.getByRole('main')).toBeTruthy()
     expect(screen.getByRole('contentinfo')).toBeTruthy()
-    expect(screen.getByText('No snapshot is open.')).toBeTruthy()
+    // Nothing of snapshots until one is open: the side bar is for folders.
+    expect(screen.queryByText('No snapshot is open.')).toBeNull()
+    expect(screen.queryByRole('listbox', { name: 'Open Snapshots' })).toBeNull()
+    expect(screen.getByText('No folder is open.')).toBeTruthy()
   })
   it('draws the menu of VS Code in the title bar (File, Edit, View, Go, Help)', () => {
     shown()
@@ -73,6 +76,7 @@ describe('the workbench', () => {
   it('speaks Brazilian Portuguese when asked', () => {
     render(<I18nProvider language="pt-BR"><Workbench /></I18nProvider>)
     expect([...screen.getByRole('menubar').querySelectorAll('[role=menuitem]')].map((b) => b.textContent)).toEqual(['Arquivo', 'Editar', 'Exibir', 'Ir', 'Ajuda'])
-    expect(screen.getByText('Nenhum snapshot aberto.')).toBeTruthy()
+    expect(screen.queryByText('Nenhum snapshot aberto.')).toBeNull()
+    expect(screen.getByText('Nenhuma pasta aberta.')).toBeTruthy()
   })
 })

@@ -24,6 +24,7 @@ function fakeApi(initial: OpenResult[] = []) {
     pathForFile: vi.fn((file: File) => `/dropped/${file.name}`),
     ready: vi.fn(async () => initial),
     openDialog: vi.fn(async (): Promise<OpenResult[]> => []),
+    openFolderDialog: vi.fn(async (): Promise<OpenResult[]> => []),
     openPaths: vi.fn(async (): Promise<OpenResult[]> => []),
     onOpened: (l: (r: OpenResult[]) => void) => (listeners.opened.add(l), () => void listeners.opened.delete(l)),
     close: vi.fn(async (_id: string) => {}),
@@ -51,6 +52,8 @@ function fakeApi(initial: OpenResult[] = []) {
     appInfo: vi.fn(async () => ({ name: 'Folder Browser', version: '1.2.3', electron: '44.5.0', chrome: '152.0', node: '24.1.0', platform: 'linux', arch: 'x64', licence: 'MIT', notices: '# Third-party notices\n\nreact 19 MIT' })),
     reveal: vi.fn(async (_id: string) => {}),
     recent: { list: vi.fn(async () => ['/home/me/a.wsnp']), clear: vi.fn(async () => {}) },
+    places: { list: vi.fn(async () => ({ places: [], volumes: [], recent: [], favorites: [] })), openTrash: vi.fn(async () => []), addFavorite: vi.fn(async () => true), removeFavorite: vi.fn(async () => {}), moveFavorite: vi.fn(async () => {}), clearRecentFolders: vi.fn(async () => {}) },
+    trash: { restore: vi.fn(async () => ({ restored: '/x' })), empty: vi.fn(async () => 0) },
     session: { load: vi.fn(async () => storedSession), save: vi.fn(async (value: unknown) => void (storedSession = value)) },
     signers: { list: vi.fn(async (): Promise<Record<string, { name?: string }>> => ({})), trust: vi.fn(async (_fingerprint: string, _name?: string) => {}), forget: vi.fn(async (_fingerprint: string) => {}) },
   }
@@ -59,6 +62,8 @@ function fakeApi(initial: OpenResult[] = []) {
     integrity: (e: IntegrityEvent) => act(() => listeners.integrity.forEach((l) => l(e))),
     command: (c: string) => act(() => listeners.command.forEach((l) => l(c))),
     pageContext: (at: { snapshotId: string; x: number; y: number; hasSelection: boolean }) => act(() => listeners.pageContext.forEach((l) => l(at))),
+    /** A file of a snapshot asked for by a click on a link in its page (what opens an inner file now that there is no tree of them). */
+    openFile: (target: { snapshotId: string; path: string }) => act(() => listeners.openFile.forEach((l) => l(target))),
   }
   return { api: api as unknown as FbApi & typeof api, emit }
 }
@@ -66,8 +71,14 @@ const ok = (id: string, title?: string, already = false, signature?: SnapshotInf
 const FP = 'ab'.repeat(32)
 const signedBy = (): SnapshotInfo['signature'] => ({ state: 'valid', algorithm: 'Ed25519', publicKey: 'AAAA', fingerprint: FP, fingerprintShort: 'ABAB-ABAB-ABAB-ABAB-ABAB-ABAB-ABAB-ABAB' })
 
+/** The fake of the test that is running, for the helpers that open inner files. */
+let current: ReturnType<typeof fakeApi> | undefined
+/** A file of snapshot `a` (or another) opens in a tab, as a click on a link in its page makes it open. */
+const openInner = (path: string, snapshotId = 'a') => current!.emit.openFile({ snapshotId, path })
+
 function show(initial: OpenResult[] = []) {
   const fake = fakeApi(initial)
+  current = fake
   window.fb = fake.api
   render(<I18nProvider language="en"><Workbench /></I18nProvider>)
   return fake
@@ -92,7 +103,8 @@ describe('the workbench with snapshots', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(2)
     expect(api.ready).toHaveBeenCalledOnce()
     expect(api.verify.mock.calls.map((c) => c[0])).toEqual(['a', 'b'])
-    expect(screen.getByRole('listbox', { name: 'Open Snapshots' }).querySelectorAll('[role=option]')).toHaveLength(2)
+    // There is no list of open snapshots: each is a page in a tab.
+    expect(screen.queryByRole('listbox', { name: 'Open Snapshots' })).toBeNull()
   })
   it('shows each snapshot in an iframe with the sandbox and its own origin, and only the active one is visible', async () => {
     show([ok('a', 'Alpha'), ok('b', 'Beta')])
@@ -111,7 +123,7 @@ describe('the workbench with snapshots', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(2)
     await emit.opened([ok('a', 'Alpha', true)])
     expect(screen.getAllByRole('tab')).toHaveLength(2)
-    expect(screen.getByRole('tab', { selected: true }).textContent).toContain('Alpha')
+    expect(screen.getByRole('tab', { selected: true }).textContent).toContain('a.wsnp')
     expect(api.verify.mock.calls.map((c) => c[0])).toEqual(['a', 'b'])
   })
   it('says why a file was refused, in plain words, and keeps the open ones', async () => {
@@ -132,13 +144,13 @@ describe('the workbench with snapshots', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(1)
     expect(document.querySelectorAll('iframe')).toHaveLength(1)
   })
-  it('opens the picker from the menu, the shortcut and the button', async () => {
+  it('opens the picker from the menu and the shortcut; there is no button for it in the side bar or the activity bar (folders are what the application is for)', async () => {
     const { api } = show()
+    expect(screen.queryByRole('button', { name: /^Open File/ })).toBeNull()
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }))
     fireEvent.click(screen.getByRole('menuitem', { name: /Open File/ }))
     fireEvent.keyDown(window, { key: 'o', ctrlKey: true })
-    fireEvent.click(screen.getByRole('button', { name: 'Open File' }))
-    await waitFor(() => expect(api.openDialog).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(api.openDialog).toHaveBeenCalledTimes(2))
   })
   it('opens a recent file from the File menu', async () => {
     const { api } = show()
@@ -155,17 +167,17 @@ describe('the workbench with snapshots', () => {
     expect(screen.getByRole('contentinfo').textContent).toContain('Checking 50%')
     await emit.integrity({ id: 'a', state: 'done', report: { checked: 7, bytes: 100, problems: [{ code: 'inline-script', path: 'index.html' }], aborted: false } })
     expect(screen.getByRole('contentinfo').textContent).toContain('1 problem')
-    fireEvent.click(screen.getByRole('button', { name: 'Integrity' }))
+    // The status bar item opens the metadata of the snapshot, which says what the check found, and a problem opens its file.
+    fireEvent.click(within(screen.getByRole('contentinfo')).getByTitle('Integrity'))
+    expect(screen.getByRole('tab', { selected: true }).textContent).toContain('Metadata')
     fireEvent.click(screen.getByRole('button', { name: 'index.html has a script written into the page.' }))
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('index.html')]))
   })
   it('shows a file of the snapshot as source and offers Save As for one that cannot be shown', async () => {
     const { api } = show([ok('a', 'Alpha')])
     await screen.findAllByRole('tab')
-    fireEvent.click(screen.getByRole('treeitem', { name: 'assets' }))
-    fireEvent.click(screen.getByRole('treeitem', { name: 'files' }))
     // A ZIP is listed, not read into the interface; Save As is still on its toolbar.
-    fireEvent.doubleClick(screen.getByRole('treeitem', { name: 'bundle.zip' }))
+    await openInner('assets/files/bundle.zip')
     expect(await screen.findByRole('table', { name: /Files in the ZIP: bundle.zip/ })).toBeTruthy()
     expect(api.zipList).toHaveBeenCalledWith('a', 'assets/files/bundle.zip')
     fireEvent.click(screen.getByRole('button', { name: 'Save As…' }))
@@ -207,15 +219,15 @@ describe('the workbench with snapshots', () => {
     expect(view.textContent).toContain('1280 × 800')
     expect(view.textContent).toContain('HTTP 404')
     expect(view.textContent).toContain('Not signed.')
-    expect(screen.getByRole('navigation', { name: 'Breadcrumbs' }).textContent).toBe('AlphaMetadata')
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Alpha', 'Metadata: Alpha'])
+    expect(screen.getByRole('navigation', { name: 'Breadcrumbs' }).textContent).toBe('a.wsnpMetadata')
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['a.wsnp', 'Metadata: a.wsnp'])
   })
   it('opens a file for a tab through the main process, and a link click can ask for one too', async () => {
     const { api } = show([ok('a', 'Alpha')])
     await screen.findAllByRole('tab')
-    fireEvent.click(screen.getByRole('treeitem', { name: 'index.html' }))
+    await openInner('index.html')
     await waitFor(() => expect(api.readFile).toHaveBeenCalledWith('a', 'index.html'))
-    expect(screen.getByRole('navigation', { name: 'Breadcrumbs' }).textContent).toBe('Alphaindex.html')
+    expect(screen.getByRole('navigation', { name: 'Breadcrumbs' }).textContent).toBe('a.wsnpindex.html')
   })
   it('takes files dropped on the window by their path, and shows a hint while they are over it', async () => {
     const { api } = show()
@@ -232,22 +244,22 @@ describe('the workbench with snapshots', () => {
     await screen.findAllByRole('tab')
     const active = () => screen.getByRole('tab', { selected: true }).textContent
     await emit.command('goToTab1')
-    expect(active()).toContain('Alpha')
+    expect(active()).toContain('a.wsnp')
     await emit.command('nextEditor')
-    expect(active()).toContain('Beta')
+    expect(active()).toContain('b.wsnp')
     await emit.command('previousEditor')
-    expect(active()).toContain('Alpha')
+    expect(active()).toContain('a.wsnp')
     // Used last: Alpha, Beta, Gamma. Ctrl+Tab goes down that list, and letting go of Control makes the last one shown the most recent.
     await emit.command('cycleRecent')
-    expect(active()).toContain('Beta')
+    expect(active()).toContain('b.wsnp')
     await emit.command('cycleRecent')
-    expect(active()).toContain('Gamma')
+    expect(active()).toContain('c.wsnp')
     await emit.command('cycleEnd')
     await emit.command('cycleRecent')
-    expect(active()).toContain('Alpha')
+    expect(active()).toContain('a.wsnp')
     await emit.command('cycleEnd')
     await emit.command('goToTab9')
-    expect(active()).toContain('Gamma')
+    expect(active()).toContain('c.wsnp')
     await emit.command('toggleSideBar')
     expect(screen.getByRole('button', { name: 'Toggle Primary Side Bar' }).getAttribute('aria-pressed')).toBe('false')
   })
@@ -364,13 +376,7 @@ describe('Copy, Find and Print', () => {
     if (!screen.queryByRole('menu', { name: 'Edit' })) fireEvent.click(screen.getByRole('menuitem', { name: 'Edit' }))
     return within(screen.getByRole('menu', { name: 'Edit' })).getByRole('menuitem', { name: new RegExp(`^${name}`) }) as HTMLButtonElement
   }
-  const openFile = async (...names: string[]) => {
-    for (const name of names) {
-      const item = screen.getByRole('treeitem', { name })
-      if (item.getAttribute('aria-expanded') === 'false') fireEvent.click(item)
-    }
-    fireEvent.doubleClick(screen.getByRole('treeitem', { name: names.at(-1)! }))
-  }
+  const openFile = async (...names: string[]) => openInner(names.join('/'))
   const findBox = () => screen.getByRole('textbox', { name: 'Find' })
 
   it('has Copy and Find off while nothing is open', async () => {
@@ -480,13 +486,14 @@ describe('Copy, Find and Print', () => {
     selection.mockRestore()
   })
 
-  it('has Open File and Print on the activity bar; Print is off with nothing to print', async () => {
+  it('has Open Folder and Print on the activity bar; Print is off with nothing to print', async () => {
     const { api } = show()
     await waitFor(() => expect(api.recent.list).toHaveBeenCalled())
     const bar = screen.getByRole('navigation', { name: 'Activity Bar' })
     expect((within(bar).getByRole('button', { name: 'Print…' }) as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.click(within(bar).getByRole('button', { name: 'Open File…' }))
-    await waitFor(() => expect(api.openDialog).toHaveBeenCalled())
+    expect(within(bar).queryByRole('button', { name: 'Open File…' })).toBeNull()
+    fireEvent.click(within(bar).getByRole('button', { name: 'Open Folder' }))
+    await waitFor(() => expect(api.openFolderDialog).toHaveBeenCalled())
   })
 
   it('prints the page of the snapshot from the activity bar, the menu and Ctrl+P', async () => {
@@ -508,11 +515,11 @@ describe('Copy, Find and Print', () => {
     await openFile('assets', 'styles', 'site.css')
     await waitFor(() => expect(document.querySelector('.cm-content')?.textContent).toContain('contents of'))
     fireEvent.keyDown(window, { key: 'p', ctrlKey: true })
-    await waitFor(() => expect(api.print).toHaveBeenLastCalledWith({ kind: 'text', title: 'site.css', text: 'contents of assets/styles/site.css', name: 'site.css' }))
-    await openFile('images', 'logo.png')
+    await waitFor(() => expect(api.print).toHaveBeenLastCalledWith({ kind: 'text', title: 'site.css', text: expect.stringMatching(/^contents of assets\/styles\/site\.css\n?$/), name: 'site.css' }))
+    await openFile('assets', 'images', 'logo.png')
     fireEvent.keyDown(window, { key: 'p', ctrlKey: true })
     await waitFor(() => expect(api.print).toHaveBeenLastCalledWith({ kind: 'image', id: 'a', path: 'assets/images/logo.png' }))
-    await openFile('files', 'bundle.zip')
+    await openFile('assets', 'files', 'bundle.zip')
     await screen.findByRole('table')
     const bar = screen.getByRole('navigation', { name: 'Activity Bar' })
     expect((within(bar).getByRole('button', { name: 'Print…' }) as HTMLButtonElement).disabled).toBe(true)
@@ -541,16 +548,16 @@ describe('Go Back, Go Forward, Go to File and the command palette', () => {
     expect(arrows().back.disabled).toBe(true)
     expect(arrows().forward.disabled).toBe(true)
     fireEvent.click(screen.getAllByRole('tab')[0])
-    expect(selectedTab()).toContain('Alpha')
+    expect(selectedTab()).toContain('a.wsnp')
     expect(arrows().back.disabled).toBe(false)
     fireEvent.click(arrows().back)
-    expect(selectedTab()).toContain('Beta')
+    expect(selectedTab()).toContain('b.wsnp')
     expect(arrows().back.disabled).toBe(true)
     expect(arrows().forward.disabled).toBe(false)
     fireEvent.keyDown(window, { key: 'ArrowRight', altKey: true })
-    expect(selectedTab()).toContain('Alpha')
+    expect(selectedTab()).toContain('a.wsnp')
     fireEvent.keyDown(window, { key: 'ArrowLeft', altKey: true })
-    expect(selectedTab()).toContain('Beta')
+    expect(selectedTab()).toContain('b.wsnp')
   })
 
   it('skips a tab that was closed, and forgets what was ahead when the user goes somewhere new', async () => {
@@ -560,7 +567,7 @@ describe('Go Back, Go Forward, Go to File and the command palette', () => {
     fireEvent.click(arrows().back)
     fireEvent.click(screen.getAllByRole('tab')[0])
     expect(arrows().forward.disabled).toBe(true)
-    expect(selectedTab()).toContain('Alpha')
+    expect(selectedTab()).toContain('a.wsnp')
   })
 
   it('opens Go to File from the box in the title bar, lists the tabs, and opens the file that was typed for', async () => {
@@ -568,13 +575,13 @@ describe('Go Back, Go Forward, Go to File and the command palette', () => {
     await screen.findAllByRole('tab')
     fireEvent.click(screen.getByRole('button', { name: /Folder Browser/ }))
     const dialog = screen.getByRole('dialog', { name: 'Go to File' })
-    expect(within(dialog).getAllByRole('option').map((o) => o.textContent)).toEqual([expect.stringContaining('Alpha')])
+    expect(within(dialog).getAllByRole('option').map((o) => o.textContent)).toEqual([expect.stringContaining('a.wsnp')])
     const box = within(dialog).getByRole('combobox')
     expect(document.activeElement).toBe(box)
     fireEvent.change(box, { target: { value: 'logo' } })
     const options = within(dialog).getAllByRole('option')
     expect(options[0].textContent).toContain('logo.png')
-    expect(options[0].textContent).toContain('Alpha › assets/images')
+    expect(options[0].textContent).toContain('a.wsnp › assets/images')
     fireEvent.keyDown(box, { key: 'Enter' })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(selectedTab()).toContain('logo.png')
@@ -688,13 +695,7 @@ describe('Save as PDF and the menus of a right click', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }))
     return within(screen.getByRole('menu', { name: 'File' })).getByRole('menuitem', { name }) as HTMLButtonElement
   }
-  const openFile = (...names: string[]) => {
-    for (const name of names) {
-      const item = screen.getByRole('treeitem', { name })
-      if (item.getAttribute('aria-expanded') === 'false') fireEvent.click(item)
-    }
-    fireEvent.doubleClick(screen.getByRole('treeitem', { name: names.at(-1)! }))
-  }
+  const openFile = (...names: string[]) => openInner(names.join('/'))
 
   it('saves the page of the snapshot as a PDF from the File menu, and says where it went', async () => {
     const { api } = show([ok('a', 'Alpha')])
@@ -716,10 +717,10 @@ describe('Save as PDF and the menus of a right click', () => {
     fireEvent.click(fileMenu(/^Save as PDF/))
     // As the tab shows it: a stylesheet is laid out, so the text has its line ending.
     await waitFor(() => expect(api.savePdf).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'text', title: 'site.css', name: 'site.css', text: expect.stringContaining('contents of assets/styles/site.css') })))
-    openFile('images', 'logo.png')
+    openFile('assets', 'images', 'logo.png')
     fireEvent.click(fileMenu(/^Save as PDF/))
     await waitFor(() => expect(api.savePdf).toHaveBeenLastCalledWith({ kind: 'image', id: 'a', path: 'assets/images/logo.png' }))
-    openFile('files', 'bundle.zip')
+    openFile('assets', 'files', 'bundle.zip')
     await screen.findByRole('table')
     expect(fileMenu(/^Save as PDF/).disabled).toBe(true)
   })
@@ -807,7 +808,7 @@ describe('reopening what was open', () => {
     const { api } = showRestoring()
     await waitFor(() => expect(screen.getAllByRole('tab')).toHaveLength(3))
     expect(api.openPaths).toHaveBeenCalledWith(['/home/me/a.wsnp', '/home/me/b.wsnp'])
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([expect.stringContaining('Alpha'), expect.stringContaining('site.css'), expect.stringContaining('Beta')])
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([expect.stringContaining('a.wsnp'), expect.stringContaining('site.css'), expect.stringContaining('b.wsnp')])
     expect(screen.getByRole('tab', { selected: true }).textContent).toContain('site.css')
     expect(api.verify).toHaveBeenCalledTimes(2)
   })
@@ -871,11 +872,8 @@ describe('reopening what was open', () => {
 
 describe('Open With…', () => {
   const openWithMenu = async (name: string) => {
-    for (const folder of ['assets', 'files']) {
-      const item = screen.getByRole('treeitem', { name: folder })
-      if (item.getAttribute('aria-expanded') === 'false') fireEvent.click(item)
-    }
-    fireEvent.contextMenu(screen.getByRole('treeitem', { name }))
+    await openInner(`assets/files/${name}`)
+    fireEvent.contextMenu(await screen.findByRole('tab', { name: new RegExp(name.replace('.', '\\.')) }))
     fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Open With…' }))
   }
 
@@ -912,11 +910,8 @@ describe('Open With… on Linux: the viewer shows the choice itself', () => {
   const chooser = { token: 'tok', name: 'report.pdf', mime: 'application/pdf', mimeLabel: 'PDF document', apps: [{ id: 'evince.desktop', name: 'Document Viewer', recommended: true }, { id: 'edge.desktop', name: 'Microsoft Edge', recommended: false }] }
   const ask = async (api: ReturnType<typeof fakeApi>['api']) => {
     api.openWith.mockResolvedValueOnce({ choose: chooser })
-    for (const folder of ['assets', 'files']) {
-      const item = screen.getByRole('treeitem', { name: folder })
-      if (item.getAttribute('aria-expanded') === 'false') fireEvent.click(item)
-    }
-    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'report.pdf' }))
+    await openInner('assets/files/report.pdf')
+    fireEvent.contextMenu(await screen.findByRole('tab', { name: /report\.pdf/ }))
     fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Open With…' }))
     return screen.findByRole('dialog', { name: 'Open With' })
   }
@@ -1118,9 +1113,7 @@ describe('the zoom of a tab', () => {
   it('zooms a source file: its text is drawn at the scale, and the page behind is not zoomed', async () => {
     show([ok('a', 'Alpha')])
     await screen.findAllByRole('tab')
-    fireEvent.click(screen.getByRole('treeitem', { name: 'assets' }))
-    fireEvent.click(screen.getByRole('treeitem', { name: 'styles' }))
-    fireEvent.doubleClick(screen.getByRole('treeitem', { name: 'site.css' }))
+    await openInner('assets/styles/site.css')
     await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
     const box = () => document.querySelector('.cm-editor')!.closest('div[style]') as HTMLElement
     expect(box().style.getPropertyValue('--wsnp-zoom')).toBe('1')
@@ -1135,9 +1128,7 @@ describe('the zoom of a tab', () => {
   it('leaves a picture or a PDF to its own zoom: the keys step it, Ctrl+0 resets it, and the wheel is its own', async () => {
     show([ok('a', 'Alpha')])
     await screen.findAllByRole('tab')
-    fireEvent.click(screen.getByRole('treeitem', { name: 'assets' }))
-    fireEvent.click(screen.getByRole('treeitem', { name: 'images' }))
-    fireEvent.doubleClick(screen.getByRole('treeitem', { name: 'logo.png' }))
+    await openInner('assets/images/logo.png')
     await screen.findByRole('toolbar')
     const own = { step: vi.fn(), reset: vi.fn() }
     const off = viewZoom.set(own)

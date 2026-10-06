@@ -1,4 +1,4 @@
-import type { Chooser, OpenResult, OpenWithResult, SaveResult } from '@core/api.ts'
+import type { Chooser, DirEntry, OpenResult, OpenWithResult, Place, PlacesData, RootInfo, SaveResult } from '@core/api.ts'
 import { commandFor, type CommandName } from '@core/shortcuts.ts'
 import { Allotment } from 'allotment'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
@@ -7,10 +7,10 @@ import { basename } from '@/lib/format.ts'
 import { readStored, writeStored } from '@/lib/storage.ts'
 import { refusalNotice } from '@/state/messages.ts'
 import { useNotifications } from '@/state/notifications.ts'
-import { empty, isHeldBack, isSnapshotTab, reduce, released, snapshotKey } from '@/state/workspace.ts'
+import { empty, isHeldBack, isSnapshotTab, reduce, released } from '@/state/workspace.ts'
 import { emptyHistory, step, visit, type History } from '@/state/history.ts'
 import { isSession, keyOfEntry, sessionOf, type Session } from '@/state/session.ts'
-import { reopenSession, svgView } from '@/state/setting.ts'
+import { reopenSession, showHidden, sortDescending, sortKey, svgView } from '@/state/setting.ts'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { shownSource } from '@/state/fileLanguage.ts'
 import { LanguagePicker } from './LanguagePicker.tsx'
@@ -26,6 +26,9 @@ import { fileTarget } from '@/find/types.ts'
 import { shownText } from '@/state/shown.ts'
 import { AboutDialog } from '@/components/AboutDialog.tsx'
 import { OpenWithDialog } from '@/components/OpenWithDialog.tsx'
+import { ConfirmDialog } from '@/components/ConfirmDialog.tsx'
+import { PropertiesDialog } from '@/components/PropertiesDialog.tsx'
+import { locationOf } from './treeMenu.ts'
 import { LinkTooltip, type LinkHover } from '@/components/LinkTooltip.tsx'
 import { ActivityBar, type ViewId } from './ActivityBar.tsx'
 import { EditorGroup } from './EditorGroup.tsx'
@@ -34,7 +37,7 @@ import { SideBar } from './SideBar.tsx'
 import { StatusBar } from './StatusBar.tsx'
 import type { Signers } from './signature.ts'
 import { TitleBar } from './TitleBar.tsx'
-import { activeTabOf, canFind, canPrint, canSaveWsnp, printRequestOf, zoomTargetOf } from './availability.ts'
+import { activeSnapshotId, activeTabOf, canFind, canPrint, canSaveWsnp, printRequestOf, zoomTargetOf } from './availability.ts'
 import { shortcut } from './commands.ts'
 import { isMac, platform, type Commands } from './commands.ts'
 
@@ -47,6 +50,9 @@ export function Workbench() {
   const { t } = useI18n()
   const { setting, setSetting } = useTheme()
   svgView.use()
+  const hiddenShown = showHidden.use()
+  const sortBy = sortKey.use()
+  const sortBackwards = sortDescending.use()
   const { notifications, notify, dismiss } = useNotifications()
   const [ws, dispatch] = useReducer(reduce, empty)
   const [sideBarVisible, setSideBarVisible] = useState(() => readStored('sideBarVisible', true, isBoolean))
@@ -64,6 +70,10 @@ export function Workbench() {
   // The zoom of each tab (those that have one: a page of a snapshot, a text); a picture and a PDF keep their own.
   const [zooms, setZooms] = useState<Record<string, number>>({})
   const [chooser, setChooser] = useState<Chooser | null>(null)
+  const [properties, setProperties] = useState<{ entry: DirEntry; location: string } | null>(null)
+  const [placesData, setPlacesData] = useState<PlacesData | null>(null)
+  const [treeVersion, setTreeVersion] = useState(0)
+  const [emptying, setEmptying] = useState<string | null>(null)
   const [pageMenu, setPageMenu] = useState<ContextMenuState | null>(null)
   const [linkHover, setLinkHover] = useState<LinkHover | null>(null)
   // The session is written only once the last one has been read back.
@@ -91,38 +101,59 @@ export function Workbench() {
 
   // ---- opening files: the picker, the recent list, a drop, and what the system asks for
   const refreshRecent = useCallback(() => void api?.recent.list().then(setRecent), [api])
+  const refreshPlaces = useCallback(() => void api?.places.list().then(setPlacesData), [api])
+  useEffect(refreshPlaces, [refreshPlaces])
   const handleResults = useCallback(
-    (results: OpenResult[]) => {
+    (results: OpenResult[], options?: { preview?: boolean }) => {
       for (const result of results) {
-        if (result.ok) {
-          dispatch({ type: 'snapshot-opened', snapshot: result.snapshot })
+        if (!result.ok) notify(refusalNotice(t, result))
+        else if ('root' in result) {
+          // A folder or a ZIP to browse; a file named on its own opens its folder, and the file in a tab.
+          dispatch({ type: 'root-opened', root: result.root })
+          if (result.open) dispatch({ type: 'open-file', snapshotId: result.root.id, path: result.open.path, keep: true, size: result.open.size })
+        } else {
+          // A snapshot opened by itself (File ▸ Open File, a drop, the command line) comes with its folder: it is a file of it, and its page is a tab.
+          if (result.folder) dispatch({ type: 'root-opened', root: result.folder })
+          dispatch({ type: 'snapshot-opened', snapshot: result.snapshot, ...(options?.preview ? { preview: true } : {}) })
           if (!result.already) void api?.verify(result.snapshot.id)
-        } else notify(refusalNotice(t, result))
+        }
       }
-      if (results.length) refreshRecent()
+      if (results.length) {
+        refreshRecent()
+        refreshPlaces()
+      }
     },
-    [api, notify, refreshRecent, t],
+    [api, notify, refreshRecent, refreshPlaces, t],
   )
   /** Opens again the snapshots of a session, and the tabs in them in the order they had; a file that is gone is said, the rest still opens. */
   const restore = useCallback(
     async (session: Session | null) => {
-      if (!api || !session?.tabs.length) return
-      const paths = [...new Set(session.tabs.map((tab) => tab.snapshot))]
+      if (!api || !session || (!session.tabs.length && !session.roots?.length)) return
+      const paths = [...new Set([...(session.roots ?? []), ...session.tabs.map((tab) => tab.snapshot)])]
       const results = await api.openPaths(paths)
       const byPath = new Map<string, Extract<OpenResult, { ok: true }>>()
       results.forEach((result, i) => (result.ok ? byPath.set(paths[i], result) : notify(refusalNotice(t, result))))
       const shown = new Set<string>()
+      const show = (path: string, opened: Extract<OpenResult, { ok: true }>) => {
+        if (shown.has(path)) return
+        shown.add(path)
+        if ('root' in opened) dispatch({ type: 'root-opened', root: opened.root })
+        else {
+          dispatch({ type: 'snapshot-opened', snapshot: opened.snapshot })
+          if (!opened.already) void api.verify(opened.snapshot.id)
+        }
+      }
+      for (const path of session.roots ?? []) {
+        const opened = byPath.get(path)
+        if (opened) show(path, opened)
+      }
       let activeKey: string | undefined
       session.tabs.forEach((entry, i) => {
         const opened = byPath.get(entry.snapshot)
         if (!opened) return
-        const id = opened.snapshot.id
-        if (!shown.has(entry.snapshot)) {
-          shown.add(entry.snapshot)
-          dispatch({ type: 'snapshot-opened', snapshot: opened.snapshot })
-          if (!opened.already) void api.verify(id)
-        }
-        if (entry.kind === 'file') dispatch({ type: 'open-file', snapshotId: id, path: entry.file!, keep: true, ...(entry.size === undefined ? {} : { size: entry.size }) })
+        const id = 'root' in opened ? opened.root.id : opened.snapshot.id
+        show(entry.snapshot, opened)
+        if (entry.kind === 'file') dispatch({ type: 'open-file', snapshotId: id, path: entry.file!, keep: true, ...(entry.size === undefined ? {} : { size: entry.size }), ...(entry.as ? { as: entry.as } : {}) })
         else if (entry.kind === 'metadata') dispatch({ type: 'open-metadata', snapshotId: id })
         if (i === session.active) activeKey = keyOfEntry(entry, id)
       })
@@ -371,6 +402,8 @@ export function Workbench() {
       if (command === 'showAbout') return void (api?.appInfo().then((info) => setAbout({ info })) ?? setAbout({ info: null }))
       if (command === 'zoomIn' || command === 'zoomOut' || command === 'zoomReset') return zoomTab(command === 'zoomIn' ? 1 : command === 'zoomOut' ? -1 : 0)
       if (command === 'openFile') return void api?.openDialog().then(handleResults)
+      if (command === 'openFolder') return void api?.openFolderDialog().then(handleResults)
+      if (command === 'toggleHidden') return showHidden.set(!showHidden.get())
       if (command === 'copy') return void copySelection()
       if (command === 'print') return void printTab()
       if (command === 'savePdf') return void savePdfTab()
@@ -459,6 +492,13 @@ export function Workbench() {
       toggleSideBar,
       setTheme: setSetting,
       openFile: () => run('openFile'),
+      openFolder: () => run('openFolder'),
+      toggleHidden: () => run('toggleHidden'),
+      showHidden: hiddenShown,
+      sortKey: sortBy,
+      sortDescending: sortBackwards,
+      setSortKey: (key) => sortKey.set(key),
+      setSortDescending: (descending) => sortDescending.set(descending),
       print: () => run('print'),
       savePdf: () => run('savePdf'),
       saveAsWsnp: () => run('saveAsWsnp'),
@@ -480,7 +520,10 @@ export function Workbench() {
       zoomOut: () => run('zoomOut'),
       zoomReset: () => run('zoomReset'),
       canZoom: zoomTargetOf(ws) !== null,
-      showMetadata: () => wsNow.current.selected && dispatch({ type: 'open-metadata', snapshotId: wsNow.current.selected }),
+      showMetadata: () => {
+        const id = activeSnapshotId(wsNow.current)
+        if (id) dispatch({ type: 'open-metadata', snapshotId: id })
+      },
       hasEditor: ws.tabs.length > 0,
       canFind: canFind(ws),
       canPrint: canPrint(ws),
@@ -490,20 +533,43 @@ export function Workbench() {
       canGoForward: step(history, 1, new Set(ws.tabs.map((tab) => tab.key)), ws.active) !== null,
       recent,
     }),
-    [toggleSideBar, setSetting, run, api, handleResults, refreshRecent, ws, recent, savePdfTab, saveConverted, go, history],
+    [toggleSideBar, setSetting, run, api, handleResults, refreshRecent, ws, recent, savePdfTab, saveConverted, go, history, hiddenShown, sortBy, sortBackwards],
   )
 
   const sideBarActions = useMemo(
     () => ({
-      openFile: () => run('openFile'),
-      openTreeFile: (snapshotId: string, path: string, keep: boolean) => dispatch({ type: 'open-file', snapshotId, path, keep }),
+      openFolder: () => run('openFolder'),
+      listDir: (id: string, path: string) => api!.listDir(id, path),
+      openRootFile: (id: string, entry: { path: string; size: number }, keep: boolean, as?: 'hex') => dispatch({ type: 'open-file', snapshotId: id, path: entry.path, keep, size: entry.size, ...(as ? { as } : {}) }),
+      reveal: (id: string, path: string) => void api?.reveal(id, path),
+      closeRoot: (id: string) => dispatch({ type: 'root-closed', id }),
+      openDefault: (id: string, path: string) => void api?.openDefault(id, path).then((result) => reportOpenWith(basename(path), result)),
+      properties: (root: RootInfo, entry: DirEntry) => setProperties({ entry, location: locationOf(root, entry.path, platform() === 'win32' ? '\\' : '/') }),
+      openPlace: (place: Place) => void (place.kind === 'trash' ? api?.places.openTrash() : api?.openPaths([place.path]))?.then(handleResults),
+      removeFavorite: (folder: string) => void api?.places.removeFavorite(folder).then(refreshPlaces),
+      moveFavorite: (folder: string, to: number) => void api?.places.moveFavorite(folder, to).then(refreshPlaces),
+      clearRecentFolders: () => void api?.places.clearRecentFolders().then(refreshPlaces),
+      pinFolder: (id: string, path: string) =>
+        void api?.places.addFavorite(id, path).then((ok) => {
+          if (ok) refreshPlaces()
+          else notify({ level: 'info', text: t('places.pinFailed') })
+        }),
+      restoreTrash: (id: string, path: string) =>
+        void api?.trash.restore(id, path).then((result) => {
+          if ('restored' in result) notify({ level: 'info', text: t('trash.restored', { path: result.restored }) })
+          else if (result.error === 'exists') notify({ level: 'error', text: t('trash.errorExists', { name: path }) })
+          else if (result.error === 'unknown-origin') notify({ level: 'error', text: t('trash.errorOrigin', { name: path }) })
+          else notify({ level: 'error', text: t('trash.errorFailed', { name: path, message: result.message ?? result.error }) })
+          setTreeVersion((n) => n + 1)
+        }),
+      emptyTrash: (id: string) => setEmptying(id),
+      // A `.wsnp` of a folder is a file like the others: a click shows its page in a preview tab, as a picture is, and a double click keeps it in a tab of its own.
+      openSnapshot: (id: string, path: string, keep: boolean) => void api?.openInRoot(id, path).then((results) => handleResults(results, { preview: !keep })),
       saveFile,
       openWith,
       copy,
-      openExternal,
-      showMetadata: (snapshotId: string) => dispatch({ type: 'open-metadata', snapshotId }),
     }),
-    [run, saveFile, openWith, copy, openExternal],
+    [run, api, saveFile, openWith, copy, handleResults, reportOpenWith, refreshPlaces, notify, t],
   )
 
   return (
@@ -517,17 +583,17 @@ export function Workbench() {
           theme={setting}
           setTheme={setSetting}
           onOpenSettings={() => run('openSettings')}
-          onOpenFile={() => run('openFile')}
+          onOpenFolder={() => run('openFolder')}
           onPrint={() => run('print')}
           canPrint={canPrint(ws)}
         />
         <div className="min-w-0 flex-1">
           <Allotment onChange={(sizes) => sizes[0] && sideBarVisible && (setSideBarWidth(sizes[0]), writeStored('sideBarWidth', Math.round(sizes[0])))}>
             <Allotment.Pane preferredSize={sideBarWidth} minSize={170} maxSize={640} visible={sideBarVisible} snap>
-              <SideBar ws={ws} dispatch={dispatch} actions={sideBarActions} signers={signers} />
+              <SideBar ws={ws} dispatch={dispatch} actions={sideBarActions} places={placesData} treeVersion={treeVersion} />
             </Allotment.Pane>
             <Allotment.Pane minSize={200}>
-              <EditorGroup zooms={zooms} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onReveal={(id) => void api?.reveal(id)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
+              <EditorGroup zooms={zooms} onZoom={(change) => ('wheel' in change ? zoomWheel(change.wheel) : zoomTab(change.direction === 'in' ? 1 : change.direction === 'out' ? -1 : 0))} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onOpenWith={openWith} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
             </Allotment.Pane>
           </Allotment>
         </div>
@@ -540,15 +606,29 @@ export function Workbench() {
         ws={ws}
         signers={signers}
         onOpenSettings={() => run('openSettings')}
-        onShowMetadata={() => ws.selected && dispatch({ type: 'open-metadata', snapshotId: ws.selected })}
+        onShowMetadata={() => commands.showMetadata()}
         onOpenExternal={openExternal}
         onSelectLanguage={() => setPickingLanguage(true)}
-        onShowIntegrity={() => {
-          setSideBarVisible(true)
-          setView('snapshots')
-          if (ws.selected) dispatch({ type: 'activate', key: ws.tabs.find((tab) => tab.snapshotId === ws.selected && isSnapshotTab(tab))?.key ?? snapshotKey(ws.selected) })
-        }}
+        onShowIntegrity={() => commands.showMetadata()}
       />
+      {emptying ? (
+        <ConfirmDialog
+          title={t('trash.emptyTitle')}
+          message={t('trash.emptyMessage')}
+          confirmLabel={t('tree.emptyTrash')}
+          danger
+          onCancel={() => setEmptying(null)}
+          onConfirm={() => {
+            const id = emptying
+            setEmptying(null)
+            void api?.trash.empty(id).then((count) => {
+              notify({ level: 'info', text: t('trash.emptied', { count }) })
+              setTreeVersion((n) => n + 1)
+            })
+          }}
+        />
+      ) : null}
+      {properties ? <PropertiesDialog entry={properties.entry} location={properties.location} onClose={() => setProperties(null)} /> : null}
       {about ? <AboutDialog info={about.info} onClose={() => setAbout(null)} onOpenExternal={openExternal} onCopy={copy} /> : null}
       {pickingLanguage && shownFile ? <LanguagePicker file={shownFile} onClose={() => setPickingLanguage(false)} /> : null}
       {quick ? (

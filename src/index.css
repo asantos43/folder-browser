@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import './theme/tokens.css';
-@import '@vscode/codicons/dist/codicon.css';
+/* In the components layer, so that the sizes of the utilities (`text-[24px]`) win over the 16 px the icon font sets for itself (an unlayered rule beats every layer). */
+@import '@vscode/codicons/dist/codicon.css' layer(components);
 @import 'allotment/dist/style.css';
 
 /* The tokens are the only colours: Tailwind's colour scale is replaced by them. */
@@ -160,6 +161,11 @@ body {
 .markdown-body h5, .markdown-body h6 { font-size: 0.875em; }
 .markdown-body p, .markdown-body ul, .markdown-body ol, .markdown-body pre, .markdown-body table, .markdown-body blockquote { margin: 0 0 1em; }
 .markdown-body ul, .markdown-body ol { padding-left: 2em; }
+/* The reset of the base styles takes the markers away: a list has them back. */
+.markdown-body ul { list-style: disc; }
+.markdown-body ol { list-style: decimal; }
+.markdown-body ul ul { list-style: circle; }
+.markdown-body ul ul ul { list-style: square; }
 .markdown-body li > ul, .markdown-body li > ol { margin: 0; }
 .markdown-body a { color: var(--vscode-textLinkForeground); text-decoration: none; cursor: pointer; }
 .markdown-body a:hover { text-decoration: underline; }

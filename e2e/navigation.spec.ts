@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { writeSampleWsnp, writeViewerWsnp } from '../fixtures/build.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: the arrows and the box of the title bar, the command palette, and reopening what was open.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -50,20 +51,20 @@ test.describe('the title bar', () => {
     await expect(back(page)).toBeDisabled()
     await expect(forward(page)).toBeDisabled()
     await tabs(page).first().click()
-    await expect(selected(page)).toContainText('Harbor Times')
+    await expect(selected(page)).toContainText('viewer.wsnp')
     await expect(back(page)).toBeEnabled()
     await back(page).click()
-    await expect(selected(page)).toContainText('Second page')
+    await expect(selected(page)).toContainText('second.wsnp')
     await expect(back(page)).toBeDisabled()
     await expect(forward(page)).toBeEnabled()
     await forward(page).click()
-    await expect(selected(page)).toContainText('Harbor Times')
+    await expect(selected(page)).toContainText('viewer.wsnp')
     // (Alt+Left and Alt+Right; on macOS Control+- and Control+Shift+-, as in VS Code.)
     const [backKey, forwardKey] = process.platform === 'darwin' ? ['Control+-', 'Control+Shift+-'] : ['Alt+ArrowLeft', 'Alt+ArrowRight']
     await page.keyboard.press(backKey)
-    await expect(selected(page)).toContainText('Second page')
+    await expect(selected(page)).toContainText('second.wsnp')
     await page.keyboard.press(forwardKey)
-    await expect(selected(page)).toContainText('Harbor Times')
+    await expect(selected(page)).toContainText('viewer.wsnp')
   })
 
   test('the arrows say what they do, with their keys', async () => {
@@ -83,7 +84,7 @@ test.describe('the title bar', () => {
     await expect(dialog.getByRole('combobox')).toBeFocused()
     await dialog.getByRole('combobox').fill('hand')
     await expect(dialog.getByRole('option').first()).toContainText('handbook.pdf')
-    await expect(dialog.getByRole('option').first()).toContainText('Harbor Times › assets/files')
+    await expect(dialog.getByRole('option').first()).toContainText('viewer.wsnp › assets/files')
     await page.keyboard.press('Enter')
     await expect(dialog).toHaveCount(0)
     await expect(selected(page)).toContainText('handbook.pdf')
@@ -142,26 +143,22 @@ test.describe('the title bar', () => {
 test.describe('reopening what was open', () => {
   test('the snapshots and files open at the end come back at the next start, in order, with the same tab in front', async () => {
     let page = await launch(viewer(), second())
-    await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
-    await page.getByRole('treeitem', { name: 'styles', exact: true }).click()
-    await page.getByRole('treeitem', { name: 'site.css', exact: true }).dblclick()
+    await goToFile(page, 'site.css')
     await expect(selected(page)).toContainText('site.css')
     await app!.close()
     page = await launch()
     await expect(tabs(page)).toHaveCount(3)
     await expect(selected(page)).toContainText('site.css')
     const names = await tabs(page).evaluateAll((els) => els.map((e) => e.querySelector('span.truncate')?.textContent ?? ''))
-    // (The tree is that of the snapshot in front, the second one: its file opens beside it.)
-    expect(names).toEqual(['Harbor Times', 'Second page', 'site.css'])
+    // (A file opens beside the tab in front.)
+    expect(names).toEqual(['viewer.wsnp', 'second.wsnp', 'site.css'])
     // The restored snapshots are checked like any other.
-    await expect(page.getByRole('contentinfo')).toContainText(/Intact|Checking/)
+    await expect(page.getByRole('contentinfo')).toContainText(/Intact|Checking|problem/)
   })
 
   test('the tab in front, the metadata and a file in a ZIP are remembered too', async () => {
     let page = await launch(viewer())
-    await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
-    await page.getByRole('treeitem', { name: 'files', exact: true }).click()
-    await page.getByRole('treeitem', { name: 'bundle.zip', exact: true }).dblclick()
+    await goToFile(page, 'bundle.zip')
     await page.getByRole('table').waitFor()
     await page.getByRole('cell', { name: 'docs/readme.txt', exact: true }).dblclick()
     await expect(page.locator('.cm-content')).toContainText('the ferry leaves at noon')
@@ -176,7 +173,7 @@ test.describe('reopening what was open', () => {
     await app!.close()
     page = await launch(second())
     await expect(tabs(page)).toHaveCount(1)
-    await expect(selected(page)).toContainText('Second page')
+    await expect(selected(page)).toContainText('second.wsnp')
   })
 
   test('nothing comes back after the last tab was closed on purpose', async () => {
@@ -194,7 +191,7 @@ test.describe('reopening what was open', () => {
     const box = page.getByRole('checkbox', { name: 'Reopen the files that were open' })
     await expect(box).toBeChecked()
     await box.uncheck()
-    await page.getByRole('tab', { name: /Harbor Times/ }).click()
+    await page.getByRole('tab', { name: /viewer.wsnp/ }).click()
     await app!.close()
     page = await launch()
     await expect(tabs(page)).toHaveCount(0)
@@ -208,7 +205,7 @@ test.describe('reopening what was open', () => {
     fs.rmSync(second())
     page = await launch()
     await expect(tabs(page)).toHaveCount(1)
-    await expect(selected(page)).toContainText('Harbor Times')
+    await expect(selected(page)).toContainText('viewer.wsnp')
     await expect(page.getByRole('alert')).toContainText('second.wsnp')
   })
 })

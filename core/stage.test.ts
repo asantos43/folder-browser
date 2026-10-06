@@ -59,6 +59,16 @@ describe('stageFile', () => {
     fs.rmSync(staged.dir, { recursive: true, force: true })
   })
 
+  it('stops at a size it is given, and leaves nothing behind; a file under it is copied; a prefix names the folder', async () => {
+    const before = fs.readdirSync(dir).filter((n) => n.startsWith('fb-big-'))
+    expect(await stageFile(registry, id, 'assets/files/report.pdf', dir, { maxBytes: 4, prefix: 'fb-big-' })).toEqual({ error: 'too-large' })
+    expect(fs.readdirSync(dir).filter((n) => n.startsWith('fb-big-'))).toEqual(before)
+    const staged = await stageFile(registry, id, 'assets/files/report.pdf', dir, { maxBytes: 10_000_000, prefix: 'fb-big-' })
+    if ('error' in staged) throw new Error(staged.error)
+    expect(path.basename(staged.dir).startsWith('fb-big-')).toBe(true)
+    fs.rmSync(staged.dir, { recursive: true, force: true })
+  })
+
   it('refuses a file that could run as a program, and one that is not there, and writes nothing', async () => {
     const before = fs.readdirSync(dir).filter((n) => n.startsWith(STAGE_PREFIX))
     expect(await stageFile(registry, id, 'assets/files/setup.exe', dir)).toEqual({ error: 'risky' })

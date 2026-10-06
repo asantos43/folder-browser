@@ -1,4 +1,4 @@
-import type { IntegrityEvent } from '@core/api.ts'
+import type { IntegrityEvent, RootInfo } from '@core/api.ts'
 import type { SnapshotInfo } from '@core/snapshots.ts'
 import type { IntegrityReport } from '@core/validate/index.ts'
 import type { Issue } from '@core/validate/issues.ts'
@@ -15,6 +15,8 @@ export interface Tab {
   path?: string
   /** The size of a file that is an entry of a ZIP (the manifest does not list it), known when it is opened from the ZIP's list. */
   size?: number
+  /** How the file is shown when the user chose, whatever its kind: its bytes (hexadecimal). The same file can be open in a tab of its own kind and in one of these. */
+  as?: 'hex'
   /** A view of the snapshot that is not a file of it: its metadata. */
   view?: 'metadata' | 'settings'
   /** Shown in italics and replaced by the next single click, until it is kept (double click, or a tab of the snapshot itself). */
@@ -26,18 +28,20 @@ export type IntegrityState = { state: 'running'; done: number; total: number } |
 
 export interface Workspace {
   snapshots: Record<string, SnapshotInfo>
+  /** The folders and ZIP files opened to browse. A tab of one of their files has the root's id in `snapshotId`. */
+  roots: Record<string, RootInfo>
   tabs: Tab[]
   active: string | null
   /** Keys of the tabs, the one used last first. */
   recent: string[]
-  /** The snapshot whose files the side bar shows. */
+  /** The snapshot or root whose files the side bar shows. */
   selected: string | null
   integrity: Record<string, IntegrityState>
   /** Snapshots found not valid that the user chose to see anyway. */
   shownAnyway: Record<string, true>
 }
 
-export const empty: Workspace = { snapshots: {}, tabs: [], active: null, recent: [], selected: null, integrity: {}, shownAnyway: {} }
+export const empty: Workspace = { snapshots: {}, roots: {}, tabs: [], active: null, recent: [], selected: null, integrity: {}, shownAnyway: {} }
 
 export const snapshotKey = (id: string) => `s:${id}`
 export const metadataKey = (id: string) => `m:${id}`
@@ -57,10 +61,18 @@ export const invalidProblems = (ws: Workspace, id: string): Issue[] => {
 /** Not valid, and not yet chosen to be shown anyway: the page is held back. */
 export const isHeldBack = (ws: Workspace, id: string): boolean => invalidProblems(ws, id).length > 0 && !ws.shownAnyway[id]
 export const fileKey = (id: string, path: string) => `f:${id}:${path}`
+/** The tab of a file shown as its bytes: a key of its own, so that the file can be open both ways. */
+export const hexKey = (id: string, path: string) => `x:${id}:${path}`
 
 export type Action =
-  | { type: 'snapshot-opened'; snapshot: SnapshotInfo }
-  | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number }
+  /**
+   * The page of a snapshot, in a tab. `preview`: shown as a file is on a single click (an italic tab, replaced by the next preview); otherwise it is kept. A snapshot is a page,
+   * never what the side bar shows: that is a folder (or a ZIP file) that was opened.
+   */
+  | { type: 'snapshot-opened'; snapshot: SnapshotInfo; preview?: boolean }
+  | { type: 'root-opened'; root: RootInfo }
+  | { type: 'root-closed'; id: string }
+  | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number; /** Show the bytes (hexadecimal) instead of what the kind of the file gets. */ as?: 'hex' }
   | { type: 'open-metadata'; snapshotId: string }
   | { type: 'open-settings' }
   | { type: 'show-anyway'; snapshotId: string }
@@ -74,16 +86,19 @@ export type Action =
   | { type: 'pin'; key: string; pinned: boolean }
   | { type: 'move'; key: string; to: number }
   | { type: 'step'; direction: 1 | -1 }
+  /** The side bar goes to a folder (or ZIP file) that is open. */
   | { type: 'select'; snapshotId: string }
   | { type: 'integrity'; event: IntegrityEvent }
 
 /** Pinned tabs come first, in the order they have; the rest keep theirs. */
 const arranged = (tabs: Tab[]): Tab[] => [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)]
 
+/** Bringing a tab to the front: a file of an open folder takes the side bar to that folder; the page of a snapshot, its metadata and its files never do (a snapshot is a page, not a folder). */
 function withActive(ws: Workspace, key: string | null, touch = true): Workspace {
   if (key === null) return { ...ws, active: null }
   const tab = ws.tabs.find((t) => t.key === key)
-  return { ...ws, active: key, selected: tab?.snapshotId || ws.selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
+  const follows = tab !== undefined && ws.roots[tab.snapshotId] !== undefined
+  return { ...ws, active: key, selected: follows ? tab.snapshotId : ws.selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
 }
 
 /** Removes the tabs of the given keys, and the snapshots that are left without a tab of their own. */
@@ -108,8 +123,10 @@ function without(ws: Workspace, keys: Set<string>): Workspace {
     active = recent[0] ?? tabs.at(-1)?.key ?? null
   }
   const next = { ...ws, tabs, snapshots, integrity, shownAnyway, recent }
-  const selected = active ? tabs.find((t) => t.key === active)?.snapshotId : undefined
-  return { ...next, active, selected: selected || (ws.selected && snapshots[ws.selected] ? ws.selected : (Object.keys(snapshots)[0] ?? null)) }
+  const activeTab = active ? tabs.find((t) => t.key === active) : undefined
+  const ofRoot = activeTab && ws.roots[activeTab.snapshotId] ? activeTab.snapshotId : undefined
+  const exists = (id: string | null): id is string => id !== null && Boolean(ws.roots[id])
+  return { ...next, active, selected: ofRoot ?? (exists(ws.selected) ? ws.selected : (Object.keys(ws.roots)[0] ?? null)) }
 }
 
 export function reduce(ws: Workspace, action: Action): Workspace {
@@ -118,19 +135,45 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const { id } = action.snapshot
       const key = snapshotKey(id)
       const snapshots = { ...ws.snapshots, [id]: action.snapshot }
-      const tabs = ws.tabs.some((t) => t.key === key) ? ws.tabs : arranged([...ws.tabs, { key, snapshotId: id, preview: false, pinned: false }])
-      return withActive({ ...ws, snapshots, tabs }, key)
+      const existing = ws.tabs.find((t) => t.key === key)
+      if (existing) {
+        // A double click keeps what was only previewed; a preview of what is kept changes nothing.
+        const tabs = existing.preview && !action.preview ? ws.tabs.map((t) => (t.key === key ? { ...t, preview: false } : t)) : ws.tabs
+        return withActive({ ...ws, snapshots, tabs }, key)
+      }
+      const tab: Tab = { key, snapshotId: id, preview: action.preview === true, pinned: false }
+      if (!tab.preview) return withActive({ ...ws, snapshots, tabs: arranged([...ws.tabs, tab]) }, key)
+      // A preview takes the place of the one before it, and that one (a snapshot too, perhaps) is closed.
+      const old = ws.tabs.findIndex((t) => t.preview && !t.pinned)
+      if (old < 0) return withActive({ ...ws, snapshots, tabs: arranged([...ws.tabs, tab]) }, key)
+      const base = without({ ...ws, snapshots }, new Set([ws.tabs[old].key]))
+      return withActive({ ...base, tabs: arranged([...base.tabs.slice(0, old), tab, ...base.tabs.slice(old)]) }, key)
+    }
+    case 'root-opened': {
+      const roots = { ...ws.roots, [action.root.id]: action.root }
+      return { ...ws, roots, selected: action.root.id }
+    }
+    case 'root-closed': {
+      if (!ws.roots[action.id]) return ws
+      const roots = { ...ws.roots }
+      delete roots[action.id]
+      return without({ ...ws, roots }, new Set(ws.tabs.filter((t) => t.snapshotId === action.id).map((t) => t.key)))
     }
     case 'open-file': {
-      const key = fileKey(action.snapshotId, action.path)
+      const key = action.as === 'hex' ? hexKey(action.snapshotId, action.path) : fileKey(action.snapshotId, action.path)
       const existing = ws.tabs.find((t) => t.key === key)
       if (existing) {
         const tabs = existing.preview && action.keep ? ws.tabs.map((t) => (t.key === key ? { ...t, preview: false } : t)) : ws.tabs
         return withActive({ ...ws, tabs }, key)
       }
-      const tab: Tab = { key, snapshotId: action.snapshotId, path: action.path, ...(action.size === undefined ? {} : { size: action.size }), preview: !action.keep, pinned: false }
+      const tab: Tab = { key, snapshotId: action.snapshotId, path: action.path, ...(action.size === undefined ? {} : { size: action.size }), ...(action.as ? { as: action.as } : {}), preview: !action.keep, pinned: false }
       // A new preview takes the place of the old one; a kept tab opens beside the active one, as VS Code does.
       const old = tab.preview ? ws.tabs.findIndex((t) => t.preview && !t.pinned) : -1
+      // (A snapshot that was only previewed goes with its preview: the snapshot is closed, not left open with no tab.)
+      if (old >= 0 && isSnapshotTab(ws.tabs[old])) {
+        const base = without(ws, new Set([ws.tabs[old].key]))
+        return withActive({ ...base, tabs: arranged([...base.tabs.slice(0, old), tab, ...base.tabs.slice(old)]) }, key)
+      }
       let tabs: Tab[]
       if (old >= 0) tabs = ws.tabs.map((t, i) => (i === old ? tab : t))
       else {
@@ -196,7 +239,7 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       return withActive(ws, next.key)
     }
     case 'select':
-      return ws.snapshots[action.snapshotId] ? { ...ws, selected: action.snapshotId } : ws
+      return ws.roots[action.snapshotId] ? { ...ws, selected: action.snapshotId } : ws
     case 'integrity': {
       const { event } = action
       if (!ws.snapshots[event.id]) return ws
@@ -206,5 +249,5 @@ export function reduce(ws: Workspace, action: Action): Workspace {
   }
 }
 
-/** The ids of snapshots that were open and are not: the main process is told to release them. */
-export const released = (before: Workspace, after: Workspace): string[] => Object.keys(before.snapshots).filter((id) => !after.snapshots[id])
+/** The ids of snapshots and roots that were open and are not: the main process is told to release them. */
+export const released = (before: Workspace, after: Workspace): string[] => [...Object.keys(before.snapshots).filter((id) => !after.snapshots[id]), ...Object.keys(before.roots).filter((id) => !after.roots[id])]

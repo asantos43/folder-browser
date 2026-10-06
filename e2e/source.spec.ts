@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { writeViewerWsnp } from '../fixtures/build.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: a text file of a snapshot in a tab: laid out for reading, word wrap, the colours of the languages it knows.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -24,14 +25,13 @@ async function launch(): Promise<Page> {
   await page.getByRole('tab').first().waitFor()
   return page
 }
-async function openFile(page: Page, folder: string[], name: string) {
-  for (const f of folder) {
-    const item = page.getByRole('treeitem', { name: f, exact: true })
-    if ((await item.getAttribute('aria-expanded')) === 'false') await item.click()
-  }
-  await page.getByRole('treeitem', { name, exact: true }).dblclick()
+// (A snapshot has no tree of its files: a file opens by Go to File, as a link in its page would open it.)
+async function openFile(page: Page, _folder: string[], name: string) {
+  await goToFile(page, name)
 }
 const content = (page: Page) => page.locator('.cm-content')
+// The language of the file is named in the toolbar of the tab and in the status bar: the tab's is the one meant.
+const languageName = (page: Page, name: string, exact = true) => page.getByRole('main', { name: 'Editor' }).getByText(name, { exact })
 const lineCount = async (page: Page) => Number((await page.getByText(/^\d+ lines$/).textContent())?.split(' ')[0])
 const formatButton = (page: Page) => page.getByRole('button', { name: /Show the file laid out/ })
 const wrapButton = (page: Page) => page.getByRole('button', { name: /Wrap long lines/ })
@@ -45,7 +45,7 @@ test.describe('laid out for reading', () => {
     await expect(content(page)).toContainText('"name": "harbor",')
     // What the file says is not changed by laying it out: the number too big for a double is as it was.
     await expect(content(page)).toContainText('12345678901234567890')
-    await expect(page.getByText('JSON', { exact: true })).toBeVisible()
+    await expect(languageName(page, 'JSON')).toBeVisible()
     await formatButton(page).click()
     await expect(page.getByText('As saved')).toBeVisible()
     expect(await lineCount(page)).toBe(1)
@@ -106,7 +106,7 @@ test.describe('word wrap', () => {
     await openFile(page, ['assets', 'files'], 'long.txt')
     const firstLine = page.locator('.cm-line').first()
     const tall = () => firstLine.evaluate((el) => el.getBoundingClientRect().height)
-    await expect(page.getByText('Plain Text')).toBeVisible()
+    await expect(languageName(page, 'Plain Text')).toBeVisible()
     expect(await tall()).toBeLessThan(30)
     await expect(page.locator('.cm-lineWrapping')).toHaveCount(0)
     await wrapButton(page).click()
@@ -148,11 +148,13 @@ test.describe('the colours of the languages', () => {
     ]
     for (const [folder, name, language] of cases) {
       await openFile(page, folder, name)
-      await expect(page.getByText(language, { exact: true })).toBeVisible()
+      // Markdown opens formatted: its colours are those of its source.
+      if (language === 'Markdown') await page.getByRole('button', { name: 'Show the Markdown as text' }).click()
+      await expect(languageName(page, language)).toBeVisible()
       expect((await colours(page)).size, `${name} has more than one colour`).toBeGreaterThan(1)
     }
     await openFile(page, ['assets', 'files'], 'long.txt')
-    await expect(page.getByText('Plain Text')).toBeVisible()
+    await expect(languageName(page, 'Plain Text')).toBeVisible()
     expect((await colours(page)).size).toBe(0)
   })
 

@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Frame, type Page } from '@playwright/test'
 import { writeViewerWsnp } from '../fixtures/build.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: Save as PDF for the page, an HTML file, a text and a picture; and the menus of a right click in the page and in a text.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -26,12 +27,9 @@ async function launch(env: Record<string, string> = {}): Promise<Page> {
   await page.frameLocator('iframe').locator('#end').waitFor()
   return page
 }
-async function openFile(page: Page, folder: string[], name: string) {
-  for (const f of folder) {
-    const item = page.getByRole('treeitem', { name: f, exact: true })
-    if ((await item.getAttribute('aria-expanded')) === 'false') await item.click()
-  }
-  await page.getByRole('treeitem', { name, exact: true }).dblclick()
+// (A snapshot has no tree of its files: a file opens by Go to File, as a link in its page would open it.)
+async function openFile(page: Page, _folder: string[], name: string) {
+  await goToFile(page, name)
 }
 /** The save dialog is answered by the main process, which keeps what it was asked. */
 async function answerSave(to: string) {
@@ -84,6 +82,8 @@ test.describe('Save as PDF', () => {
     expect(await suggested()).toBe('page.pdf')
 
     await openFile(page, ['assets', 'files'], 'notes.md')
+    // Markdown opens formatted; its source is the other button of the toolbar.
+    await page.getByRole('button', { name: 'Show the Markdown as text' }).click()
     await expect(page.locator('.cm-content')).toContainText('# Notes')
     const text = path.join(dir, 'text.pdf')
     await answerSave(text)

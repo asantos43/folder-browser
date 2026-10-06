@@ -118,7 +118,8 @@ and the integrity result (every file's SHA-256 checked: "intact" or which files 
   does; the ZIP's folders are kept; nothing is overwritten; unsafe names, links and entries the viewer cannot read are skipped and counted), or **viewed**: an entry opens in a tab of its own by its path
   `zip!/entry`, and a ZIP inside the ZIP as a list again. A ZIP is read in memory and never unzipped to disk unless the user extracts.
 - **Open With…** (the tree's context menu) asks the system which application to open a file with, and hands it a read-only copy in a temporary folder, removed at quit; a file that could run as a program is never handed over.
-- A file the viewer cannot show (an office document, audio, video, any unknown type, anything too large) is offered with **Save As…**, which writes it to a place the
+- **Folder Browser plays** a video or a sound of a snapshot in a tab (the browser's own player, from a copy made for the tab and removed with it: `docs/ARCHITECTURE.md`, "Media"); WSNP Viewer, which this file comes from, offers them with Save As. What the player cannot decode is said in words, with Save As and Open With….
+- A file the viewer cannot show (an office document, any unknown type, anything too large; and a video or a sound too, in WSNP Viewer) is offered with **Save As…**, which writes it to a place the
   user picks. Save As is also in the tree's context menu for every file, and on the toolbar of a picture or a PDF. A click on a link to a saved file in the page opens what a tab can show, and offers Save As for the rest. The bytes are streamed from the archive to the chosen file, so a large file never has to fit in memory.
 
 ## Password protection

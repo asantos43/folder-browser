@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canProbe, effectiveType, FORMATTABLE, isSvg, languageOf, looksLikeText, TEXT_LIMIT, viewKind, ZIP_LIMIT } from './filekind.ts'
+import { canProbe, DOCUMENT_LIMIT, effectiveType, FORMATTABLE, isSvg, languageOf, looksLikeText, LOG_LIMIT, TEXT_LIMIT, viewKind, ZIP_LIMIT } from './filekind.ts'
 
 describe('viewKind: which files a tab can show', () => {
   it('shows source, pictures, PDFs and fonts', () => {
@@ -15,10 +15,37 @@ describe('viewKind: which files a tab can show', () => {
     expect(viewKind('image/webp', 'a.webp', 100)).toBe('image')
     expect(viewKind('font/woff2', 'a.woff2', 100)).toBe('font')
   })
-  it('offers to save office documents, audio, video and unknown types, and a PDF too large to read into the interface', () => {
+  it('offers to save audio, video and unknown types, and a PDF too large to read into the interface', () => {
     expect(viewKind('application/pdf', 'big.pdf', 64 * 2 ** 20 + 1)).toBe('other')
-    for (const [type, name] of [['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'a.docx'], ['audio/mpeg', 'a.mp3'], ['video/mp4', 'a.mp4'], ['application/x-unknown', 'a.bin']] as const) {
+    for (const [type, name] of [['audio/mpeg', 'a.mp3'], ['video/mp4', 'a.mp4'], ['application/x-unknown', 'a.bin']] as const) {
       expect(viewKind(type, name, 100), name).toBe('other')
+    }
+  })
+  it('opens a log as text up to a larger size than other text (logs are big), and no larger', () => {
+    expect(viewKind(undefined, 'server.log', TEXT_LIMIT + 1)).toBe('text')
+    expect(viewKind('text/plain', 'app.LOG', LOG_LIMIT)).toBe('text')
+    expect(viewKind(undefined, 'server.log', LOG_LIMIT + 1)).toBe('other')
+    expect(viewKind(undefined, 'notes.txt', TEXT_LIMIT + 1)).toBe('other')
+  })
+  it('draws office documents, by their type or their extension, unless they are too big to read into a page', () => {
+    for (const name of ['a.docx', 'b.PPTX', 'c.odt', 'd.ods', 'e.xlsx', 'f.xls', 'g.doc', 'h.ppt', 'i.odp']) expect(viewKind('application/octet-stream', name, 100), name).toBe('document')
+    expect(viewKind('application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'blob', 100)).toBe('document')
+    expect(viewKind(undefined, 'a.docx', DOCUMENT_LIMIT)).toBe('document')
+    expect(viewKind(undefined, 'a.docx', DOCUMENT_LIMIT + 1)).toBe('other')
+    // Not because of a name alone: a file called `doc` is looked at.
+    expect(viewKind(undefined, 'doc', 100)).toBe('other')
+    expect(canProbe(undefined, 'doc', 100)).toBe(true)
+  })
+  it('shows programs, libraries and the like in hexadecimal, by their extension, whatever the size', () => {
+    for (const name of ['setup.exe', 'lib.DLL', 'libc.so', 'a.out.o', 'Main.class', 'disk.iso', 'x.bin', 'data.dat', 'app.wasm', 'a.sqlite']) {
+      expect(viewKind('application/octet-stream', name, 100), name).toBe('hex')
+      expect(viewKind(undefined, name, 10 * 2 ** 30), name).toBe('hex')
+    }
+  })
+  it('does not take a file for a binary because of a name alone: only after a dot (a script called `bin`, a file called `a`)', () => {
+    for (const name of ['bin', 'a', 'o', 'lib', 'dat', 'db']) {
+      expect(viewKind(undefined, name, 100), name).toBe('other')
+      expect(canProbe(undefined, name, 100), name).toBe(true)
     }
   })
   it('lists a ZIP in a tab, by its type or its extension, unless it is too big to hold in memory', () => {
@@ -26,7 +53,6 @@ describe('viewKind: which files a tab can show', () => {
     expect(viewKind('application/x-zip-compressed', 'a.zip', 100)).toBe('zip')
     expect(viewKind('application/octet-stream', 'bundle.ZIP', 100)).toBe('zip')
     expect(viewKind('application/zip', 'a.zip', ZIP_LIMIT + 1)).toBe('other')
-    expect(viewKind('application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'a.docx', 100)).toBe('other')
   })
   it('knows an SVG by its type or, when the type says nothing, its extension: it is source and a picture', () => {
     expect(isSvg('image/svg+xml', 'a.svg')).toBe(true)

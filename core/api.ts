@@ -1,21 +1,33 @@
 import type { ExtractResult } from './extract.ts'
+import type { PlacesData } from './places.ts'
+import type { ListResult, RootInfo } from './roots.ts'
+import type { RestoreResult } from './trash.ts'
 import type { SnapshotInfo } from './snapshots.ts'
 import type { ZipEntryInfo } from './zip.ts'
 import type { IntegrityReport, Issue } from './validate/index.ts'
 
 /** What the main process offers the interface (through the preload). Plain data only: nothing here can read an archive. */
 export type OpenResult =
-  | { ok: true; snapshot: SnapshotInfo; /** The file was open already: show its tab. */ already: boolean }
+  | { ok: true; snapshot: SnapshotInfo; /** The file was open already: show its tab. */ already: boolean; /** The folder it is in, opened to browse with it: a snapshot is a file of a folder (not given when it was opened from the tree of that folder). */ folder?: RootInfo }
+  /** A folder or a ZIP file opened to browse (`open`: the file the user named, when it was a file of a folder: its tab opens too). */
+  | { ok: true; root: RootInfo; already: boolean; open?: { path: string; size: number } }
   | { ok: false; path: string; issues: Issue[]; omitted: number }
 
 export type ReadResult = { bytes: Uint8Array } | { error: 'no-snapshot' | 'no-file' | 'too-large' }
+/** A window of a file's bytes, and the whole file's size. */
+export type RangeResult = { bytes: Uint8Array; size: number } | { error: 'no-snapshot' | 'no-file' | 'too-large' }
+/** A document of a root, ready to be drawn in a frame at `url` (`fb-doc://<token>/`): by the library `flavour` (core/docs.ts). */
+export type DocOpen = { token: string; url: string; flavour: 'docx' | 'pptx' | 'odf' } | { error: 'no-file' | 'too-large' | 'unsupported' }
 export type SaveResult = { saved: true; path: string } | { saved: false; reason: 'cancelled' | 'error'; message?: string }
 export type IntegrityEvent = { id: string; state: 'running'; done: number; total: number } | { id: string; state: 'done'; report: IntegrityReport }
 
 export type ZipList = { entries: ZipEntryInfo[]; truncated: boolean } | { error: 'no-snapshot' | 'no-file' | 'too-large' | 'not-zip' }
+export type { DirEntry, ListResult, RootInfo } from './roots.ts'
+export type { Place, PlacesData, PlaceKind } from './places.ts'
+export type { RestoreResult } from './trash.ts'
 export type { ExtractResult, ZipEntryInfo }
 /** What to print: the page of a snapshot, a picture of it, or a text (as the tab shows it). */
-export type PrintRequest = { kind: 'snapshot'; id: string } | { kind: 'image'; id: string; path: string } | { kind: 'html'; id: string; path: string } | { kind: 'text'; title: string; text: string; /** The name of the file, for the PDF's. */ name?: string }
+export type PrintRequest = { kind: 'snapshot'; id: string } | { kind: 'image'; id: string; path: string } | { kind: 'html'; id: string; path: string } | { kind: 'document'; id: string; path: string } | { kind: 'text'; title: string; text: string; /** The name of the file, for the PDF's. */ name?: string }
 export type PrintResult = { printed: true } | { printed: false; reason: 'cancelled' | 'error' | 'unsupported'; message?: string }
 
 /** What came of "Open with…": the system asked which application to use, or why not. */
@@ -54,6 +66,9 @@ export interface AppInfo {
   notices: string
 }
 
+/** A video or a sound opened to be played: its address, for the media element, and what it is. */
+export type MediaOpen = { token: string; url: string; kind: 'video' | 'audio'; mime: string; size: number } | { error: 'no-file' | 'too-large' | 'unsupported' }
+
 export interface FbApi {
   platform: string
   /** The colours of the title bar (the native window buttons are drawn with them on Windows and Linux). */
@@ -64,14 +79,26 @@ export interface FbApi {
   pathForFile(file: File): string
   /** Tells the main process the interface is listening; answers with what the command line asked to open. */
   ready(): Promise<OpenResult[]>
-  /** The file picker; opens what is chosen. */
+  /** The file picker (a `.wsnp`, or a ZIP); opens what is chosen. */
   openDialog(): Promise<OpenResult[]>
+  /** The folder picker; opens the folder as a root of the tree. */
+  openFolderDialog(): Promise<OpenResult[]>
+  /** Of a root: makes a file playable (`fb-media://`), by ranges. A file of the disk is served as it is; an entry of a ZIP is copied first, to a folder of its own (up to 2 GB). */
+  media: { open(id: string, path: string): Promise<MediaOpen>; release(token: string): Promise<void> }
+  /** An office document of a root or a snapshot (docx, pptx, odt, ods, odp, xlsx, xls…): makes its page, which draws it in a sandboxed frame with no network. The token lives as long as the tab. */
+  docs: { open(id: string, path: string): Promise<DocOpen>; release(token: string): Promise<void> }
+  /** Opens a `.wsnp` of a folder (a file of the disk, by its path in the root) as a snapshot. */
+  openInRoot(id: string, path: string): Promise<OpenResult[]>
+  /** What is directly in a folder of a root, a ZIP of it, or a folder of that ZIP (`path` is relative to the root; `''` is the root itself). */
+  listDir(id: string, path: string): Promise<ListResult>
   openPaths(paths: string[]): Promise<OpenResult[]>
   /** Files the system asked for while the app runs (double-click, a second launch, `open-file`). */
   onOpened(listener: (results: OpenResult[]) => void): () => void
   close(id: string): Promise<void>
   /** A whole file of a snapshot, for a tab. */
   readFile(id: string, path: string): Promise<ReadResult>
+  /** `length` bytes (at most 1 MiB) of a file of a folder from `offset`, with the file's size: the hex view reads a big file by pages. */
+  readRange(id: string, path: string, offset: number, length: number): Promise<RangeResult>
   /** Asks where to save a file of a snapshot and writes it there, streamed. */
   saveFileAs(id: string, path: string): Promise<SaveResult>
   /** Starts the integrity pass (SHA-256 of every file); progress and the result arrive through `onIntegrity`. */
@@ -108,15 +135,30 @@ export interface FbApi {
   saveConverted(id: string): Promise<SaveResult>
   /** Opens a file of a snapshot with an application the system asks the user to choose (a copy of the file is handed over, read-only). */
   openWith(id: string, path: string): Promise<OpenWithResult>
+  /** Opens a copy of a file in the default application of its type, with no choice. */
+  openDefault(id: string, path: string): Promise<OpenWithResult>
   /** The application chosen in the viewer's own chooser; `always` makes it the default for the type. */
   openWithApp(token: string, appId: string, always: boolean): Promise<OpenWithResult>
   /** The chooser was closed without a choice: the copy made for it is removed. */
   openWithCancel(token: string): Promise<void>
   /** Puts text on the clipboard. */
   copyText(text: string): Promise<void>
-  /** Shows the snapshot's file in the system's file manager. */
-  reveal(id: string): Promise<void>
+  /** Shows the snapshot's file, or a file of a root (the ZIP that holds it, for an entry of a ZIP), in the system's file manager. */
+  reveal(id: string, path?: string): Promise<void>
   recent: { list(): Promise<string[]>; clear(): Promise<void> }
+  /** The side bar's places: the well-known folders, the volumes, the folders opened lately and the ones the user pinned. */
+  places: {
+    list(): Promise<PlacesData>
+    /** Opens the trash as a root (on Windows, the system's Recycle Bin opens instead and nothing is returned). */
+    openTrash(): Promise<OpenResult[]>
+    /** Pins a folder of a root (`path` is relative to it). False when it is not a folder of the disk, or the list is full. */
+    addFavorite(rootId: string, path: string): Promise<boolean>
+    removeFavorite(folder: string): Promise<void>
+    moveFavorite(folder: string, to: number): Promise<void>
+    clearRecentFolders(): Promise<void>
+  }
+  /** Of a root that is the trash: puts an item (a top-level row) back where it was, or deletes everything in it for good. */
+  trash: { restore(rootId: string, name: string): Promise<RestoreResult>; empty(rootId: string): Promise<number> }
   /** The tabs open at the end of the last session (names only), kept by the main process; `save(null)` forgets. */
   session: { load(): Promise<unknown>; save(value: unknown): Promise<void> }
 }

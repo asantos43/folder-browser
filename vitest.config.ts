@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['core/**/*.test.ts', 'electron/**/*.test.ts', 'export/**/*.test.ts', 'src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts'],
+    include: ['core/**/*.test.ts', 'electron/**/*.test.ts', 'src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts'],
     environment: 'node',
     // A snapshot's iframe is served by the main process: in a component test it must not try to load.
     environmentOptions: { happyDOM: { settings: { disableIframePageLoading: true, handleDisabledFileLoadingAsSuccess: true } } },

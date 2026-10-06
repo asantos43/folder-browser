@@ -13,34 +13,68 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [ ] `npm run notices` (`THIRD-PARTY-NOTICES.md`) after the new dependencies come in
 
 ## Phase 1: browse
-- [ ] Open a folder or a `.zip` (dialog, drag and drop, command line); authorised roots in the main process (`core/fs/guard.ts`)
-- [ ] Lazy tree of a folder (`core/fs/listDir`), a ZIP expands as a folder (also nested, `a.zip!/b.zip!/c`)
-- [ ] Switch to show hidden files (`Ctrl+H`, kept in settings), for disk and ZIP entries (`core/fs/hidden.ts`)
-- [ ] Read-only views of text, picture, PDF, Markdown, fonts; extract from a ZIP
-- [ ] The desktop file also takes `inode/directory` and `application/zip`
+- [x] Open a folder or a `.zip` (dialog, drag and drop, command line, a file's folder); the interface names a root by an id and a relative path, and `core/fs/guard.ts` refuses `..` and links that leave it
+- [x] Lazy tree of a folder (`core/roots.ts`, `ExplorerTree`), a ZIP expands as a folder (also nested, `a.zip!/b.zip!/c`)
+- [x] Switch to show hidden files (`Ctrl+H`, the side bar, the status bar and Settings; kept), for disk and ZIP entries (`core/fs/hidden.ts`)
+- [x] Read-only views of text, picture, PDF, Markdown, fonts of a folder or a ZIP; a ZIP also as a list with Extract (context menu: Open as List)
+- [ ] Names of the first-level roots in the title bar's "Go to File" (the tree is lazy, so it has no list of every file yet)
+- [ ] Open Recent as "Recent Folders" (phase 1d)
+- [x] The desktop file also takes `inode/directory` and `application/zip`
 
 ## Phase 1b: `.wsnp`
-- [ ] A `.wsnp` in the tree opens as a snapshot (double click); "Open as ZIP" shows its entries
-- [ ] Same behaviour as WSNP Viewer: integrity, signature, PageKeep conversion, Print, Save as PDF, Find, zoom (the inherited specs pass against the tree)
-- [ ] Entries of a `.wsnp` are read-only (the whole file can be renamed, moved, deleted)
+- [x] A `.wsnp` in the tree is a file like the others, viewed as the page it represents: a click previews it (italic tab), a double click or Enter keeps it in a tab of its own; no list of open snapshots and no side bar for it; "Open as ZIP" lists its entries (`fb:open-in-root`, `RootRegistry.diskFile`); the Open Snapshots section shows only while one is open
+- [x] Same behaviour as WSNP Viewer: it is the same code (a snapshot opened from the tree is opened like one from the picker: integrity, signature, Print, Save as PDF, Find, zoom); the inherited specs pass
+- [ ] A PageKeep ZIP found in a folder opens as a snapshot (today it opens as a ZIP folder; "Open as Snapshot" for `.zip` rows)
+- [ ] Entries of a `.wsnp` are read-only (the whole file can be renamed, moved, deleted): nothing writes yet, so this is a rule for phases 2 to 5 (`core/archive/edit.ts` must refuse a `.wsnp`)
 
 ## Phase 1c: right-click menu and Open With…
-- [ ] `buildContextMenu` by kind of file (folder, text, picture, PDF, ZIP, `.wsnp`, font/other, entry in a ZIP, several selected)
-- [ ] **Open With…** on every file, with the installed applications (`core/apps.ts`, `OpenWithDialog`); a copy for entries in a ZIP
+- [x] The right-click menu of the tree by kind of row (`src/workbench/treeMenu.ts`, pure and tested): folder, file, ZIP, `.wsnp`; entries in a ZIP get the file menu
+- [ ] Several rows selected (Compare Selected, Move to…, Delete, Extract) and the actions of later phases (Edit, Compare, Play, Rename…) join the lists as they land
+- [x] **Open With…** on every file, with the installed applications (`core/apps.ts`, `OpenWithDialog`); a read-only copy for entries in a ZIP; also **Open with Default Application**, Show in Folder, Copy Path, Copy Name and Properties
 
 ## Phase 1d: places and favourites
-- [ ] "Places" section above the tree: Home, Desktop, Documents, Downloads, Music, Pictures, Videos (`app.getPath`), Computer, mounted volumes (`core/places.ts`)
-- [ ] Recent Folders (last 10 folders and ZIPs, can be cleared) and Favourites (add from the folder's context menu or by dragging; rename, reorder, remove)
-- [ ] Trash (`core/trash.ts`): list, restore, empty on Linux and macOS; opens the system Recycle Bin on Windows
-- [ ] Dragging files onto a place moves them there; onto Trash deletes (with confirmation)
-- [ ] A click on a place authorises that folder as a root (`core/fs/guard.ts`)
+- [x] "Places" section above the tree: Home, Desktop, Documents, Downloads, Music, Pictures, Videos (`app.getPath`), Trash, Computer, mounted volumes (`core/places.ts`, `PlacesView`)
+- [x] Recent Folders (last 10 folders and ZIPs, can be cleared) and Favourites (add from the folder's context menu or by dragging a folder onto them; reorder and remove; `core/favorites.ts`)
+- [ ] Rename a favourite (today a favourite is shown by the name of its folder)
+- [x] Trash (`core/trash.ts`): browse, Restore (never over what is there), Empty Trash (asks first: `ConfirmDialog`) on Linux and macOS; opens the system Recycle Bin on Windows (not tried: no Windows machine here)
+- [ ] Dragging files onto a place moves them there; onto Trash deletes (with confirmation): needs the file operations of phase 2
+- [x] A click on a place opens that folder as a root (the interface names roots by id; the main process never opens one on its own)
 
 ## Phase 1e: media playback
-- [ ] `filekind` gets `video` and `audio`; `MediaView` with play/pause, seek, volume, speed, loop, full screen, Next/Previous in the folder, Media Session keys
-- [ ] `fb-media://` protocol with Range (reuses `core/serve.ts`), only for authorised roots, by an id; `media-src` in the CSP
-- [ ] Entries of a ZIP: stored ones are streamed, deflated ones are played from a temporary copy (`core/stage.ts`, up to 2 GB)
-- [ ] Formats the Chromium cannot play (HEVC…) say why and offer Open With…
-- [ ] Tests: Range server (206, bad ranges, outside the roots), a synthetic `.wav`/`.webm` in e2e
+- [x] `mediaKind` in `core/filekind.ts` (video or audio, by type or name); `MediaView` with the browser's own player (play/pause, seek, volume, speed, full screen), Repeat, Next/Previous through the media files of the folder, a sound that ends goes on to the next, Media Session keys; the player keeps playing when another tab comes to the front
+- [x] `fb-media://<token>/` protocol with Range (`core/media.ts`, reuses `parseRange` of `core/serve.ts`), by an unguessable token the main process gives for a file of a root; `media-src fb-media:` in the CSP
+- [x] Entries of a ZIP are played from a temporary copy (`core/stage.ts` with `maxBytes`, up to 2 GB; removed when the tab closes and at quit); streaming stored entries straight from the ZIP is left for later
+- [x] Formats the Chromium cannot play (HEVC…) say why and offer Open With… and Save As
+- [x] Tests: Range server (206, 416, HEAD), tokens, `MediaView`, a synthetic `.wav` in e2e (plays, seeks, goes on in the background, from a ZIP, broken file)
+- [ ] Try a real mp4 (H.264), mp3, flac and an HEVC file by hand (the tests only have WAV and a broken file: no encoder here)
+- [x] A snapshot's own media plays too (by the type its manifest declares; a link to it in the page opens a tab); Previous/Next are not offered for it
+- [x] The open-snapshot mode is gone (the list, the side bar with the files of a snapshot, Information and Integrity, `asFile`): a snapshot is a page in a tab; its inner files open from the links of the page, the metadata and Go to File; WSNP Viewer (Open With…) is for anything more
+- [ ] Previous/Next for the media of a snapshot (from its list of files)
+
+- [x] Order the files of a folder by name, date or size (button and View menu), with the size and the date on each row
+- [ ] Columns for size and date that the user can turn on or off, and drag to resize (today: the one the order is by, both when the side bar is wide)
+
+## Phase 1m: hexadecimal view and spreadsheets
+- [x] `core/hex.ts` (rows, search patterns, header identification, search through a file by blocks, scroll metrics for files of any length), `HexView` (virtual rows, selection, copy, Go to offset, Find), `fb:read-range` for big files of a folder, `viewKind` `hex` for programs and the like, "View as hex" on every file that is not shown
+- [x] "Open as Hex" in the right-click menu of any file: a tab that says how it is shown (`Tab.as`, `hexKey`), kept in the session; "View as hex" opens the same tab
+- [ ] Header panel for ELF, PE and Mach-O (sections, imports): read-only, no execution
+- [x] Office documents with ready-made libraries (looked for first; TabularJS and SheetJS were tried and left out): docx-preview (docx), pptx-renderer (pptx), odr-core (odt, ods, odp, odg, xlsx, xls, doc, ppt), each in a sandboxed `fb-doc://` frame (`core/docs.ts`, `electron/doc-protocol.ts`, `src/docs/`, `DocumentView`)
+- [x] CSV and TSV as a table, with a Table / Text switch (`core/csv.ts`, `CsvView`)
+- [x] Zoom, Find (`Ctrl+F`) and Print inside a document's frame; zoom and `Ctrl+F` for the bytes of a file; Open With… in the toolbars of documents, bytes, tables and cards; View as hex in the toolbar of every text; `.log` as text up to 32 MB
+- [ ] Print the bytes of a file and the CSV table as a table (a CSV prints as its text)
+- [ ] Zoom keys with the focus inside a document are relayed by the page (the main process reads real key presses first); Find of a pptx highlights in the slide list only
+- [x] A document's tab keeps its drawing when another tab comes to the front (drawn on first view, kept hidden but laid out)
+- [ ] Try real files by hand (Word with headers and footnotes, a PowerPoint with charts and SmartArt, an `.xls`): the tests only have small hand-written ones
+- [ ] `.rtf`, `.pages`, `.numbers`, `.key`: not drawn (Open With… or hex)
+
+## Open points of phase 1 (to pick up between phases)
+- [ ] Decide whether the **Save as .wsnp…** bar of a converted PageKeep ZIP (`ConvertedBar`) stays: it is the only part of the viewer's conversion still in the app; the **Metadata** tab of a snapshot stays for now
+- [ ] Try the app on **Windows and macOS** (Trash, Open With…, the chooser, icons, packages): everything so far was tried on Linux only
+- [ ] Try real files by hand: an mp4 (H.264), mp3, flac, an HEVC file; a Word file with headers and footnotes, a PowerPoint with charts and SmartArt, an `.xls`, a big `.docx` (zoom, Find, Print)
+- [ ] Print the bytes of a file; print a CSV table as a table
+- [ ] The header panel of ELF, PE and Mach-O files in the hex view
+- [ ] Previous/Next for the media of a snapshot; rename a favourite; columns for size and date the user can choose
+- [ ] The pull requests: phases 1 to 1p are stacked branches on one line of history (`phase-1-browse` … `phase-1p-zoom-find-print`); none is merged into `main` yet
 
 ## Phase 2: change files on disk
 - [ ] Create file, create folder, **rename** (F2, inline), move (dialog and drag and drop), delete (to the trash, with confirmation)

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AppInfo, ExtractResult, IntegrityEvent, OpenResult, OpenWithResult, PrintResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
+import type { AppInfo, DocOpen, ExtractResult, IntegrityEvent, OpenResult, ListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
 
 /** What the interface may ask of the main process: nothing else crosses the boundary (core/api.ts). */
 const on = <T>(channel: string, listener: (value: T) => void) => {
@@ -15,10 +15,22 @@ const api: FbApi = {
   pathForFile: (file) => webUtils.getPathForFile(file),
   ready: () => ipcRenderer.invoke('fb:ready') as Promise<OpenResult[]>,
   openDialog: () => ipcRenderer.invoke('fb:open-dialog') as Promise<OpenResult[]>,
+  openFolderDialog: () => ipcRenderer.invoke('fb:open-folder-dialog') as Promise<OpenResult[]>,
+  media: {
+    open: (id, path) => ipcRenderer.invoke('fb:media-open', id, path) as Promise<MediaOpen>,
+    release: (token) => ipcRenderer.invoke('fb:media-release', token) as Promise<void>,
+  },
+  docs: {
+    open: (id, path) => ipcRenderer.invoke('fb:doc-open', id, path) as Promise<DocOpen>,
+    release: (token) => ipcRenderer.invoke('fb:doc-release', token) as Promise<void>,
+  },
+  openInRoot: (id, path) => ipcRenderer.invoke('fb:open-in-root', id, path) as Promise<OpenResult[]>,
+  listDir: (id, path) => ipcRenderer.invoke('fb:list-dir', id, path) as Promise<ListResult>,
   openPaths: (paths) => ipcRenderer.invoke('fb:open-paths', paths) as Promise<OpenResult[]>,
   onOpened: (listener) => on<OpenResult[]>('fb:opened', listener),
   close: (id) => ipcRenderer.invoke('fb:close', id) as Promise<void>,
   readFile: (id, path) => ipcRenderer.invoke('fb:read-file', id, path),
+  readRange: (id, path, offset, length) => ipcRenderer.invoke('fb:read-range', id, path, offset, length),
   saveFileAs: (id, path) => ipcRenderer.invoke('fb:save-as', id, path),
   verify: (id) => ipcRenderer.invoke('fb:verify', id) as Promise<void>,
   onIntegrity: (listener) => on<IntegrityEvent>('fb:integrity', listener),
@@ -42,11 +54,24 @@ const api: FbApi = {
   savePdf: (request) => ipcRenderer.invoke('fb:save-pdf', request) as Promise<SaveResult>,
   saveConverted: (id) => ipcRenderer.invoke('fb:save-converted', id) as Promise<SaveResult>,
   openWith: (id, path) => ipcRenderer.invoke('fb:open-with', id, path) as Promise<OpenWithResult>,
+  openDefault: (id, path) => ipcRenderer.invoke('fb:open-default', id, path) as Promise<OpenWithResult>,
   openWithApp: (token, appId, always) => ipcRenderer.invoke('fb:open-with-app', token, appId, always) as Promise<OpenWithResult>,
   openWithCancel: (token) => ipcRenderer.invoke('fb:open-with-cancel', token) as Promise<void>,
   copyText: (text) => ipcRenderer.invoke('fb:copy', text) as Promise<void>,
-  reveal: (id) => ipcRenderer.invoke('fb:reveal', id) as Promise<void>,
+  reveal: (id, path) => ipcRenderer.invoke('fb:reveal', id, path) as Promise<void>,
   session: { load: () => ipcRenderer.invoke('fb:session-load') as Promise<unknown>, save: (value) => ipcRenderer.invoke('fb:session-save', value) as Promise<void> },
+  places: {
+    list: () => ipcRenderer.invoke('fb:places-list') as Promise<PlacesData>,
+    openTrash: () => ipcRenderer.invoke('fb:places-open-trash') as Promise<OpenResult[]>,
+    addFavorite: (rootId, path) => ipcRenderer.invoke('fb:favorites-add', rootId, path) as Promise<boolean>,
+    removeFavorite: (folder) => ipcRenderer.invoke('fb:favorites-remove', folder) as Promise<void>,
+    moveFavorite: (folder, to) => ipcRenderer.invoke('fb:favorites-move', folder, to) as Promise<void>,
+    clearRecentFolders: () => ipcRenderer.invoke('fb:recent-folders-clear') as Promise<void>,
+  },
+  trash: {
+    restore: (rootId, name) => ipcRenderer.invoke('fb:trash-restore', rootId, name) as Promise<RestoreResult>,
+    empty: (rootId) => ipcRenderer.invoke('fb:trash-empty', rootId) as Promise<number>,
+  },
   recent: { list: () => ipcRenderer.invoke('fb:recent-list') as Promise<string[]>, clear: () => ipcRenderer.invoke('fb:recent-clear') as Promise<void> },
 }
 

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import type { SortKey } from '@core/fs/sort.ts'
 import { readStored, writeStored } from '@/lib/storage.ts'
 
 /** A setting kept on this computer that more than one part of the interface reads and changes (word wrap, formatting): a value, and a hook. */
@@ -35,6 +36,8 @@ const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean'
 export const wordWrap = createSetting('wordWrap', false, isBoolean)
 /** An SVG file is shown as a picture or as its source: the last choice is kept (as a picture at first). */
 export const svgView = createSetting<'image' | 'code'>('svgView', 'image', (v): v is 'image' | 'code' => v === 'image' || v === 'code')
+/** A CSV or TSV file is shown as a table or as its text: the last choice is kept (as a table at first). */
+export const csvView = createSetting<'table' | 'text'>('csvView', 'table', (v): v is 'table' | 'text' => v === 'table' || v === 'text')
 /** A Markdown file is shown formatted or as its text: the last choice is kept (formatted at first). */
 export const markdownView = createSetting<'formatted' | 'text'>('markdownView', 'formatted', (v): v is 'formatted' | 'text' => v === 'formatted' || v === 'text')
 /** A Markdown page is as wide as the window, not the reading column of 880 px (so that a code block or a table needs no scroll bar). Off by default. */
@@ -43,5 +46,11 @@ export const markdownWide = createSetting('markdownWide', false, isBoolean)
 export const markdownWrapCode = createSetting('markdownWrapCode', false, isBoolean)
 /** At start, without a file to open, the snapshots and files that were open when the application was closed are opened again (VS Code does the same). */
 export const reopenSession = createSetting('reopenSession', true, isBoolean)
+/** Hidden files and folders (a name that starts with a dot) are shown in the tree. Off by default, as in a file manager. */
+export const showHidden = createSetting('showHidden', false, isBoolean)
+/** What the files of a folder are ordered by (folders stay first): the name, the date they changed, or the size. */
+export const sortKey = createSetting<SortKey>('sortKey', 'name', (v): v is SortKey => v === 'name' || v === 'modified' || v === 'size')
+/** The order of the key turned round: Z to A, the newest and the largest first. */
+export const sortDescending = createSetting('sortDescending', false, isBoolean)
 /** Source files that a formatter can lay out again (HTML, CSS, JavaScript, JSON, XML) are shown formatted. On by default: a saved page is usually minified. */
 export const formatSource = createSetting('formatSource', true, isBoolean)

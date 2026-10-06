@@ -29,7 +29,7 @@ describe('TabStrip', () => {
     const ws = build(opened('a', 'Alpha'), opened('b', 'Beta'), { type: 'open-file', snapshotId: 'b', path: 'assets/styles/site.css', keep: false })
     show(ws)
     const tabs = screen.getAllByRole('tab')
-    expect(tabs.map((t) => t.querySelector('span.truncate')?.textContent)).toEqual(['Alpha', 'Beta', 'site.css'])
+    expect(tabs.map((t) => t.querySelector('span.truncate')?.textContent)).toEqual(['a.wsnp', 'b.wsnp', 'site.css'])
     expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['false', 'false', 'true'])
     expect(tabs[2].querySelector('span.truncate')?.className).toContain('italic')
     expect(tabs[0].querySelector('span.truncate')?.className).not.toContain('italic')
@@ -38,7 +38,7 @@ describe('TabStrip', () => {
     const ws = build(opened('a', 'Alpha'), opened('b', 'Beta'), { type: 'open-file', snapshotId: 'a', path: 'index.html', keep: true }, { type: 'open-file', snapshotId: 'b', path: 'index.html', keep: true })
     show(ws)
     const same = screen.getAllByRole('tab').filter((t) => t.textContent?.includes('index.html'))
-    expect(same.map((t) => t.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Alpha'), expect.stringContaining('Beta')]))
+    expect(same.map((t) => t.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('a.wsnp'), expect.stringContaining('b.wsnp')]))
     expect(screen.getAllByRole('tab')[0].textContent).not.toContain('https://')
   })
   it('activates on click, keeps a preview on double click, closes on × and on middle click', () => {

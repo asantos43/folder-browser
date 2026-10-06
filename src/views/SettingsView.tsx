@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import { LANGUAGE_NAMES, type Language } from '@/i18n/index.ts'
 import { setLanguageSetting, useLanguageSetting, type LanguageSetting } from '@/state/language.ts'
-import { formatSource, reopenSession, wordWrap } from '@/state/setting.ts'
+import { formatSource, reopenSession, showHidden, wordWrap } from '@/state/setting.ts'
 import type { ThemeSetting } from '@/theme/theme.ts'
 
 function Setting({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
@@ -32,6 +32,8 @@ export function SettingsView({ theme, setTheme }: { theme: ThemeSetting; setThem
   const wrap = wordWrap.use()
   const format = formatSource.use()
   const reopen = reopenSession.use()
+  const hidden = showHidden.use()
+  const files$ = matches(t('settings.files'), t('settings.showHidden'), t('settings.showHiddenHint'), 'hidden dotfiles dot files')
   const startup$ = matches(t('settings.startup'), t('settings.reopen'), t('settings.reopenHint'), 'restore session reopen startup')
   const editor$ = matches(t('settings.editor'), t('settings.wordWrap'), t('settings.wordWrapHint'), t('settings.formatSource'), t('settings.formatSourceHint'), 'wrap format pretty minified')
   const privacy$ = matches(t('settings.privacy'), t('settings.privacyText'), 'privacy network')
@@ -80,6 +82,17 @@ export function SettingsView({ theme, setTheme }: { theme: ThemeSetting; setThem
             </Setting>
           </>
         ) : null}
+        {files$ ? (
+          <>
+            <h2 className="m-0 mb-3 border-b border-group-border pb-1 text-[13px] font-bold uppercase text-fg-muted">{t('settings.files')}</h2>
+            <Setting title={t('settings.showHidden')} hint={t('settings.showHiddenHint')}>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={hidden} onChange={(e) => showHidden.set(e.target.checked)} />
+                {t('settings.showHidden')}
+              </label>
+            </Setting>
+          </>
+        ) : null}
         {editor$ ? (
           <>
             <h2 className="m-0 mb-3 border-b border-group-border pb-1 text-[13px] font-bold uppercase text-fg-muted">{t('settings.editor')}</h2>
@@ -103,7 +116,7 @@ export function SettingsView({ theme, setTheme }: { theme: ThemeSetting; setThem
             <p className="m-0 text-[13px] text-fg-muted">{t('settings.privacyText')}</p>
           </>
         ) : null}
-        {!theme$ && !language$ && !startup$ && !editor$ && !privacy$ ? <p className="m-0 text-fg-muted">{t('settings.noMatch', { query: query.trim() })}</p> : null}
+        {!theme$ && !language$ && !startup$ && !files$ && !editor$ && !privacy$ ? <p className="m-0 text-fg-muted">{t('settings.noMatch', { query: query.trim() })}</p> : null}
       </div>
     </div>
   )

@@ -34,9 +34,9 @@ test('the window is the workbench: title bar, menu, activity bar, side bar, edit
   await expect(page).toHaveTitle('Folder Browser')
   if (htmlMenu) await expect(page.getByRole('menubar').getByRole('menuitem')).toHaveText(['File', 'Edit', 'View', 'Go', 'Help'])
   await expect(page.getByRole('navigation', { name: 'Activity Bar' })).toBeVisible()
-  await expect(page.getByRole('complementary', { name: 'Snapshots' })).toBeVisible()
+  await expect(page.getByRole('complementary', { name: 'Explorer' })).toBeVisible()
   await expect(page.getByRole('main')).toBeVisible()
-  await expect(page.getByRole('contentinfo')).toContainText('No snapshot open')
+  await expect(page.getByRole('contentinfo')).toContainText('No folder open')
   const bar = await page.getByTestId('titlebar').boundingBox()
   expect(bar?.height).toBe(30)
   expect(await page.getByRole('contentinfo').boundingBox().then((b) => b?.height)).toBe(22)
@@ -45,7 +45,7 @@ test('the window is the workbench: title bar, menu, activity bar, side bar, edit
 
 test('Ctrl+B (and the View menu) hide and show the side bar', async () => {
   const page = await launch()
-  const side = page.getByRole('complementary', { name: 'Snapshots' })
+  const side = page.getByRole('complementary', { name: 'Explorer' })
   await page.keyboard.press('ControlOrMeta+B')
   await expect(side).toBeHidden()
   if (htmlMenu) {
@@ -79,7 +79,7 @@ test('the theme can be chosen, changes the colours, and is remembered', async ()
 test('the interface follows the system language: Brazilian Portuguese', async () => {
   const page = await launch('--lang=pt-BR')
   if (htmlMenu) await expect(page.getByRole('menubar').getByRole('menuitem')).toHaveText(['Arquivo', 'Editar', 'Exibir', 'Ir', 'Ajuda'])
-  await expect(page.getByRole('contentinfo')).toContainText('Nenhum snapshot aberto')
+  await expect(page.getByRole('contentinfo')).toContainText('Nenhuma pasta aberta')
   await expect(page.getByRole('button', { name: 'Gerenciar' })).toBeVisible()
 })
 
@@ -92,7 +92,7 @@ test('the interface reaches nothing outside itself', async () => {
   expect(attempts).toEqual(['refused', 'refused', 'refused'])
   // The window has no Node and offers only what the preload exposes.
   expect(await page.evaluate(() => typeof (globalThis as { require?: unknown }).require)).toBe('undefined')
-  expect(await page.evaluate(() => Object.keys((window as unknown as { fb: object }).fb).sort())).toEqual(['appInfo', 'clearFindInPage', 'close', 'copyFromPage', 'copyText', 'findInPage', 'onCommand', 'onIntegrity', 'onOpenFile', 'onOpened', 'onPageContext', 'onSaved', 'openDialog', 'openExternal', 'openPaths', 'openWith', 'openWithApp', 'openWithCancel', 'pathForFile', 'platform', 'print', 'readFile', 'ready', 'recent', 'reveal', 'saveConverted', 'saveFileAs', 'savePdf', 'selectAllInPage', 'session', 'setTitleBar', 'signers', 'verify', 'zipExtract', 'zipList'])
+  expect(await page.evaluate(() => Object.keys((window as unknown as { fb: object }).fb).sort())).toEqual(['appInfo', 'clearFindInPage', 'close', 'copyFromPage', 'copyText', 'docs', 'findInPage', 'listDir', 'media', 'onCommand', 'onIntegrity', 'onOpenFile', 'onOpened', 'onPageContext', 'onSaved', 'openDefault', 'openDialog', 'openExternal', 'openFolderDialog', 'openInRoot', 'openPaths', 'openWith', 'openWithApp', 'openWithCancel', 'pathForFile', 'places', 'platform', 'print', 'readFile', 'readRange', 'ready', 'recent', 'reveal', 'saveConverted', 'saveFileAs', 'savePdf', 'selectAllInPage', 'session', 'setTitleBar', 'signers', 'trash', 'verify', 'zipExtract', 'zipList'])
 })
 
 test('Settings opens in a tab (Ctrl+, or the gear), changes the language at once and remembers it', async () => {

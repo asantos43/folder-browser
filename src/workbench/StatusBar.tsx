@@ -2,8 +2,10 @@ import type { ReactNode } from 'react'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
 import { LANGUAGE_NAMES, type MessageKey } from '@/i18n/index.ts'
+import { showHidden } from '@/state/setting.ts'
 import { TAB_LIMITS } from '@/state/tabZoom.ts'
 import { shownSource } from '@/state/fileLanguage.ts'
+import { activeSnapshotId } from './availability.ts'
 import { formatDate } from '@/lib/format.ts'
 import { describeSignature, type Signers } from './signature.ts'
 import { invalidProblems, type IntegrityState, type Workspace } from '@/state/workspace.ts'
@@ -43,7 +45,11 @@ function Integrity({ state, invalid, onClick }: { state: IntegrityState | undefi
 export function StatusBar({ zoom, showZoom, onResetZoom, onZoom, ws, signers, onOpenSettings, onShowMetadata, onOpenExternal, onShowIntegrity, onSelectLanguage }: { onSelectLanguage: () => void; onZoom: (direction: 1 | -1) => void; zoom: number; showZoom: boolean; onResetZoom: () => void; ws: Workspace; signers: Signers; onOpenSettings: () => void; onShowMetadata: () => void; onOpenExternal: (url: string) => void; onShowIntegrity: () => void }) {
   const { t, language } = useI18n()
   const source = shownSource.use()
-  const snapshot = ws.selected ? ws.snapshots[ws.selected] : undefined
+  // What the tab on screen belongs to: a snapshot (its page, its metadata, a file of it), or else the folder the side bar is on.
+  const snapshotId = activeSnapshotId(ws)
+  const snapshot = snapshotId ? ws.snapshots[snapshotId] : undefined
+  const root = !snapshot && ws.selected ? ws.roots[ws.selected] : undefined
+  const hidden = showHidden.use()
   const m = snapshot?.manifest
   let host = ''
   try {
@@ -70,10 +76,15 @@ export function StatusBar({ zoom, showZoom, onResetZoom, onZoom, ws, signers, on
         </button>
       ) : null}
     </>
+  ) : root ? (
+    <span className={`${item} min-w-0`} title={root.path}>
+      <Icon name={root.kind === 'zip' ? 'file-zip' : 'folder'} className="shrink-0 text-[16px]" />
+      <span className="truncate">{t('status.folder', { path: root.path })}</span>
+    </span>
   ) : (
     <span className={item}>
       <Icon name="file-zip" className="text-[16px]" />
-      {t('status.noSnapshot')}
+      {t('status.nothingOpen')}
     </span>
   )
   return (
@@ -93,6 +104,11 @@ export function StatusBar({ zoom, showZoom, onResetZoom, onZoom, ws, signers, on
               <Icon name="zoom-in" className="text-[16px]" />
             </button>
           </div>
+        ) : null}
+        {root ? (
+          <button type="button" onClick={() => showHidden.set(!hidden)} aria-pressed={hidden} className={clickable} title={hidden ? t('status.hiddenShown') : t('status.hiddenHidden')} aria-label={t('menu.showHidden')}>
+            <Icon name={hidden ? 'eye' : 'eye-closed'} className="text-[16px]" />
+          </button>
         ) : null}
         {source ? (
           <button type="button" onClick={onSelectLanguage} className={clickable} title={t('status.language')}>

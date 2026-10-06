@@ -1,15 +1,17 @@
-import { canProbe, effectiveType, isSvg, languageOf, looksLikeText, type ViewKind } from '@core/filekind.ts'
+import { canProbe, effectiveType, isDelimited, isSvg, languageOf, looksLikeText, type ViewKind } from '@core/filekind.ts'
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import { basename } from '@/lib/format.ts'
 import { fileLanguage, shownSource } from '@/state/fileLanguage.ts'
-import { markdownView, svgView } from '@/state/setting.ts'
+import { csvView, markdownView, svgView } from '@/state/setting.ts'
 import { MarkdownToggle, MarkdownView } from './MarkdownView.tsx'
 import { SvgToggle } from './SvgToggle.tsx'
 import { TextView } from './TextView.tsx'
 import { FontView } from './FontView.tsx'
 import { ImageView } from './ImageView.tsx'
+import { CsvToggle, CsvView } from './CsvView.tsx'
 import { OtherView } from './OtherView.tsx'
+import { HEX_WHOLE_LIMIT, HexView, RangeHexView } from './HexView.tsx'
 import { PdfView } from './PdfView.tsx'
 import { ZipView } from './ZipView.tsx'
 import type { ZipEntryInfo } from '@core/api.ts'
@@ -65,15 +67,19 @@ function useLate(ms: number): boolean {
 }
 
 /** The tab of one file of a snapshot: source, picture or font when it can be shown, and a way to save it when it cannot. */
-export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onViewEntry, onNotify, zoom = 1 }: { /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
+export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onHex, onOpenWith, findToken = 0, onViewEntry, onNotify, zoom = 1 }: { /** Hands the file to another application, by the chooser of this app. */ onOpenWith?: () => void; /** Counts up at each Find (`Ctrl+F`): a view with a search of its own (hexadecimal) takes the focus there. */ findToken?: number; /** Opens the file as its bytes (hexadecimal), in a tab of its own: offered on what is not shown. */ onHex: () => void; /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
   const { t } = useI18n()
   const key = `${snapshotId}:${path}`
   // A file of no known type (an entry of a ZIP with an extension the viewer has never heard of) is read and looked at: if it is text, it is shown as text.
   const probe = canProbe(mediaType, path, size)
   const [sniffed, setSniffed] = useState<'text' | 'binary' | undefined>(undefined)
   const kind: ViewKind = probe && sniffed === 'text' ? 'text' : declaredKind
+  // A program, a library or any file of bytes is shown in hexadecimal; so is a file of an unknown type that is not text (and any file the user opens as Hex: its tab says so).
+  const hex = kind === 'hex' || (probe && sniffed === 'binary')
+  // Over the limit it is read a window at a time instead (a file of a folder only).
+  const windowed = hex && size > HEX_WHOLE_LIMIT
   const [loaded, setLoaded] = useState<Loaded>(() => {
-    const bytes = (kind === 'other' && !probe) || kind === 'zip' ? undefined : recall(key)
+    const bytes = (kind === 'other' && !probe) || kind === 'zip' || (kind === 'hex' && size > HEX_WHOLE_LIMIT) ? undefined : recall(key)
     return bytes ? { state: 'ready', bytes } : { state: 'loading' }
   })
   const late = useLate(150)
@@ -81,6 +87,8 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   const svg = kind === 'text' && isSvg(mediaType, path)
   const svgAs = svgView.use()
   const markdownAs = markdownView.use()
+  const csvAs = csvView.use()
+  const delimited = kind === 'text' && isDelimited(mediaType, path)
   // The language the viewer detects, unless the user picked another one for this file (the status bar's Select Language Mode).
   const detected = languageOf(mediaType, path)
   const language = fileLanguage.use(key) ?? detected
@@ -90,7 +98,7 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   }, [sourceShown, key, language, detected])
 
   useEffect(() => {
-    if ((kind === 'other' && !probe) || kind === 'zip') return
+    if ((kind === 'other' && !probe) || kind === 'zip' || windowed) return
     let alive = true
     const again = recall(key)
     if (again) {
@@ -106,7 +114,7 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
     return () => {
       alive = false
     }
-  }, [snapshotId, path, kind, key, probe])
+  }, [snapshotId, path, kind, key, probe, windowed])
 
   useEffect(() => {
     if (!probe) return
@@ -118,17 +126,26 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
 
   // A ZIP is listed by the main process, which keeps it: nothing is read into the interface.
   if (kind === 'zip') return <ZipView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} onView={onViewEntry} onNotify={onNotify} />
-  if (kind === 'other' && !probe) return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} />
+  if (windowed) return <RangeHexView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} onOpenWith={onOpenWith} zoom={zoom} findToken={findToken} fallback={() => <OtherView name={name} mediaType={mediaType} size={size} reason="tooLarge" onSave={onSave} onOpenWith={onOpenWith} />} />
+  if (kind === 'other' && !probe) return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} onHex={onHex} onOpenWith={onOpenWith} />
   // A moment of nothing, not of a message that flashes: "Loading…" appears only when the file is slow.
-  if (probe && sniffed === 'binary') return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} />
   if (loaded.state === 'loading' || (probe && loaded.state === 'ready' && sniffed === undefined)) return late ? <p className="m-0 p-6 text-fg-muted">{t('file.loading')}</p> : <div className="min-h-0 flex-1 bg-editor" />
-  if (loaded.state === 'failed') return <OtherView name={name} mediaType={mediaType} size={size} reason={loaded.error === 'too-large' ? 'tooLarge' : 'readError'} onSave={onSave} />
+  if (loaded.state === 'failed') return <OtherView name={name} mediaType={mediaType} size={size} reason={loaded.error === 'too-large' ? 'tooLarge' : 'readError'} onSave={onSave} onOpenWith={onOpenWith} />
+  if (hex) return <HexBytes name={name} bytes={loaded.bytes} onSave={onSave} onOpenWith={onOpenWith} zoom={zoom} findToken={findToken} />
   // An SVG is a picture and its source: the toolbar of either has the switch to the other.
   if (svg && svgAs === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType="image/svg+xml" name={name} onSave={onSave} leading={<SvgToggle />} />
+  // A CSV or a TSV file is a table and its text: the toolbar of either has the switch to the other.
+  if (delimited && csvAs === 'table') return <CsvView text={text} name={name} tab={/\.tsv$/i.test(path)} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} />
   // A Markdown file is a page and its text: the toolbar of either has the switch to the other.
-  if (kind === 'text' && language === 'markdown' && markdownAs === 'formatted') return <MarkdownView text={text} onSave={onSave} zoom={zoom} />
-  if (kind === 'text') return <TextView text={text} language={language} size={size} onSave={onSave} zoom={zoom} leading={svg ? <SvgToggle /> : language === 'markdown' ? <MarkdownToggle /> : undefined} />
+  if (kind === 'text' && language === 'markdown' && markdownAs === 'formatted') return <MarkdownView text={text} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} />
+  if (kind === 'text') return <TextView text={text} language={language} size={size} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} leading={svg ? <SvgToggle /> : language === 'markdown' ? <MarkdownToggle /> : delimited ? <CsvToggle /> : undefined} />
   if (kind === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType={effectiveType(mediaType, path)} name={name} onSave={onSave} />
   if (kind === 'pdf') return <PdfView id={`${snapshotId}:${path}`} bytes={loaded.bytes} name={name} onSave={onSave} />
   return <FontView bytes={loaded.bytes} />
+}
+
+/** The bytes of a file that was read whole, in hexadecimal. */
+function HexBytes({ name, bytes, onSave, onOpenWith, zoom, findToken }: { name: string; bytes: Uint8Array; onSave: () => void; onOpenWith?: () => void; zoom: number; findToken: number }) {
+  const source = useMemo(() => ({ bytes }), [bytes])
+  return <HexView name={name} source={source} onSave={onSave} onOpenWith={onOpenWith} zoom={zoom} findToken={findToken} />
 }

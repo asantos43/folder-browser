@@ -8,6 +8,12 @@ import { kindOf } from './tabInfo.ts'
 
 export const activeTabOf = (ws: Workspace): Tab | undefined => ws.tabs.find((tab) => tab.key === ws.active)
 
+/** The snapshot the tab on screen belongs to (its page, its metadata, or one of its files), when it does. */
+export const activeSnapshotId = (ws: Workspace): string | undefined => {
+  const tab = activeTabOf(ws)
+  return tab && ws.snapshots[tab.snapshotId] ? tab.snapshotId : undefined
+}
+
 /** Everything that shows text can be searched: a page, source, a PDF, the metadata, a ZIP's list, Settings. A picture and a font sample have none. */
 export function canFind(ws: Workspace): boolean {
   const tab = activeTabOf(ws)
@@ -16,7 +22,7 @@ export function canFind(ws: Workspace): boolean {
   const { kind, file } = kindOf(ws, tab)
   // An SVG shown as a picture has no text to search.
   if (kind === 'text' && isSvg(file?.mediaType, tab.path) && svgView.get() === 'image') return false
-  return kind !== 'image' && kind !== 'font'
+  return kind !== 'image' && kind !== 'font' && kind !== 'media'
 }
 
 /** What can be printed: the page of a snapshot that is shown, a text, a picture. */
@@ -26,7 +32,7 @@ export function canPrint(ws: Workspace): boolean {
   if (isSnapshotTab(tab)) return !isHeldBack(ws, tab.snapshotId)
   if (tab.path === undefined) return false
   const { kind } = kindOf(ws, tab)
-  return kind === 'text' || kind === 'image'
+  return kind === 'text' || kind === 'image' || kind === 'document'
 }
 
 /**
@@ -40,6 +46,9 @@ export function zoomTargetOf(ws: Workspace): 'page' | 'text' | 'view' | null {
   if (tab.path === undefined) return null
   const { kind, file } = kindOf(ws, tab)
   if (kind === 'image' || kind === 'pdf') return 'view'
+  // A document is a page, and the bytes of a file are drawn at a size: both have the tab's own zoom.
+  if (kind === 'document') return 'page'
+  if (kind === 'hex') return 'text'
   if (kind !== 'text') return null
   return isSvg(file?.mediaType, tab.path) && svgView.get() === 'image' ? 'view' : 'text'
 }
@@ -55,9 +64,11 @@ export function printRequestOf(ws: Workspace, shown: () => string | null): Print
   const path = tab.path!
   const { kind, file } = kindOf(ws, tab)
   if (kind === 'image') return { kind: 'image', id: tab.snapshotId, path }
+  if (kind === 'document') return { kind: 'document', id: tab.snapshotId, path }
   // An SVG shown as a picture is printed as one.
   if (isSvg(file?.mediaType, path) && svgView.get() === 'image' && !isInner(path)) return { kind: 'image', id: tab.snapshotId, path }
-  if (languageOf(file?.mediaType, path) === 'html' && !isInner(path)) return { kind: 'html', id: tab.snapshotId, path }
+  // (An HTML file of a folder is printed as text: only a snapshot's files are shown as pages.)
+  if (languageOf(file?.mediaType, path) === 'html' && !isInner(path) && !ws.roots[tab.snapshotId]) return { kind: 'html', id: tab.snapshotId, path }
   return { kind: 'text', title: basename(path), text: shown() ?? '', name: basename(path) }
 }
 

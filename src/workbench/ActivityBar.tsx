@@ -11,7 +11,7 @@ export type ViewId = 'snapshots'
 const VIEWS: { id: ViewId; icon: string; label: 'activity.snapshots' }[] = [{ id: 'snapshots', icon: 'files', label: 'activity.snapshots' }]
 
 /** The 48 px column of icons: the views at the top, the manage menu (theme) at the bottom. */
-export function ActivityBar({ active, sideBarVisible, onSelect, theme, setTheme, onOpenSettings, onOpenFile, onPrint, canPrint }: { onOpenFile: () => void; onPrint: () => void; canPrint: boolean; active: ViewId; sideBarVisible: boolean; onSelect: (view: ViewId) => void; theme: ThemeSetting; setTheme: (t: ThemeSetting) => void; onOpenSettings: () => void }) {
+export function ActivityBar({ active, sideBarVisible, onSelect, theme, setTheme, onOpenSettings, onOpenFolder, onPrint, canPrint }: { onOpenFolder: () => void; onPrint: () => void; canPrint: boolean; active: ViewId; sideBarVisible: boolean; onSelect: (view: ViewId) => void; theme: ThemeSetting; setTheme: (t: ThemeSetting) => void; onOpenSettings: () => void }) {
   const { t } = useI18n()
   const [manage, setManage] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -46,7 +46,7 @@ export function ActivityBar({ active, sideBarVisible, onSelect, theme, setTheme,
           )
         })}
         <span role="separator" className="mx-3 my-1 block h-px bg-activity-off opacity-30" />
-        <button type="button" title={`${t('activity.openFile')} (${shortcut('Ctrl+O')})`} aria-label={t('activity.openFile')} onClick={onOpenFile} className="flex h-12 w-12 items-center justify-center text-activity-off hover:text-activity-fg">
+        <button type="button" title={`${t('activity.openFolder')} (${shortcut('Ctrl+Shift+O')})`} aria-label={t('activity.openFolder')} onClick={onOpenFolder} className="flex h-12 w-12 items-center justify-center text-activity-off hover:text-activity-fg">
           <Icon name="folder-opened" className="text-[24px]" />
         </button>
         <button type="button" title={`${t('activity.print')} (${shortcut('Ctrl+P')})`} aria-label={t('activity.print')} disabled={!canPrint} onClick={onPrint} className="flex h-12 w-12 items-center justify-center text-activity-off hover:text-activity-fg disabled:opacity-40 disabled:hover:text-activity-off">

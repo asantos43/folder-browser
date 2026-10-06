@@ -16,6 +16,8 @@ const ROOTS = [
   'react', 'react-dom', 'allotment', '@vscode/codicons', 'pdfjs-dist', 'yauzl', 'yazl', 'parse5',
   '@codemirror/state', '@codemirror/view', '@codemirror/language', '@codemirror/lang-json', '@codemirror/lang-html',
   '@codemirror/lang-css', '@codemirror/lang-javascript', '@codemirror/lang-xml', '@codemirror/lang-markdown', '@codemirror/lang-yaml', '@lezer/highlight', 'js-beautify',
+  // The libraries that draw office documents (src/docs/): each is built into a script of its own.
+  'docx-preview', '@aiden0z/pptx-renderer', '@opendocument/odr-core',
 ]
 // Only one file of these is bundled, so what their package.json lists for their command-line tools is not inside the application.
 const NO_DEPENDENCIES = new Set(['js-beautify'])
@@ -25,6 +27,12 @@ const EXTRA = [
   ['pdfjs-dist', 'cmaps', 'The character maps pdf.js uses for CJK text (Adobe)'],
   ['pdfjs-dist', 'wasm', 'The decoders pdf.js runs as WebAssembly (OpenJPEG, JBIG2, QCMS)'],
   ['pdfjs-dist', 'iccs', 'The colour profile pdf.js uses'],
+]
+
+// What odr-core's WebAssembly is built from (its conanfile.py, v7.4.0), which no package.json lists.
+const COMPILED_IN = [
+  ['pugixml', 'MIT'], ['fmt', 'MIT'], ['md4c', 'MIT'], ['miniz', 'MIT'], ['nlohmann/json', 'MIT'], ['openjpeg', 'BSD-2-Clause'],
+  ['Crypto++', 'BSL-1.0'], ['utfcpp', 'BSL-1.0'], ['uchardet', 'MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later (used under the MPL)'],
 ]
 
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'))
@@ -79,6 +87,14 @@ function build() {
       const files = fs.existsSync(dir) ? licenceFiles(dir) : []
       return `- **${lib}/${folder}**: ${what}. ${files.length ? `Licence files: ${files.map((f) => `\`${f}\``).join(', ')} (texts below).` : 'Licence: see the library\'s LICENSE.'}`
     }),
+    '',
+    '## Compiled into odr-core',
+    '',
+    'The WebAssembly of `@opendocument/odr-core` (MPL-2.0; the source is at https://github.com/opendocument-app/OpenDocument.core, and this application uses the published package unchanged) is built from these C++ libraries:',
+    '',
+    ...COMPILED_IN.map(([name, licence]) => `- **${name}**: ${licence}`),
+    '',
+    'Their licence texts are in the repository above (`conanfile.py` names the versions; `tools/pdf/THIRD_PARTY_LICENSES.md` the PDF tables).',
     '',
     '## Licence texts',
     '',

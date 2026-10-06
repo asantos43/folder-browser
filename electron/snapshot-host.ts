@@ -4,26 +4,36 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, webFrameMain, type IpcMainInvokeEvent, type Session, type WebContents, type WebFrameMain } from 'electron'
-import type { AppInfo, IntegrityEvent, OpenResult, OpenWithResult, PrintRequest, PrintResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell, webFrameMain, type IpcMainInvokeEvent, type Session, type WebContents, type WebFrameMain } from 'electron'
+import type { AppInfo, DocOpen, IntegrityEvent, ListResult, MediaOpen, OpenResult, OpenWithResult, PrintRequest, PrintResult, RangeResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
 import { extractSelection, type ExtractResult } from '../core/extract.ts'
 import { FRAME_SCRIPT } from '../core/frameScript.ts'
-import { BINARY_LIMIT, effectiveType, viewKind } from '../core/filekind.ts'
+import { BINARY_LIMIT, DOCUMENT_LIMIT, effectiveType, mediaKind, viewKind } from '../core/filekind.ts'
+import { DocFiles, documentFlavour } from '../core/docs.ts'
 import { imageDocument, textDocument } from '../core/printHtml.ts'
+import type { FavoriteFolders } from '../core/favorites.ts'
+import { isPageKeepZip } from '../core/convert/pagekeep.ts'
 import type { RecentFiles } from '../core/recent.ts'
+import { MediaFiles, serveFile } from '../core/media.ts'
+import { RootRegistry } from '../core/roots.ts'
 import type { SessionStore } from '../core/session-store.ts'
 import type { SignerStore } from '../core/signers.ts'
+import { Sources } from '../core/sources.ts'
 import { infoOf, SnapshotRegistry, type OpenOutcome } from '../core/snapshots.ts'
 import { verifyContents } from '../core/validate/index.ts'
 import { launchWith, linuxChoices, makeDefault, openWithDefault, openWithSystem } from './open-with.ts'
 import { pdfOf, printContents, usingHtml } from './print.ts'
 import { removeStaged, removeStagedSync, stageFile, sweepStaged } from '../core/stage.ts'
-import { SCHEME, SnapshotView } from './snapshot-view.ts'
+import { serveDoc } from './doc-protocol.ts'
+import { DOC_SCHEME, MEDIA_SCHEME, SCHEME, SnapshotView } from './snapshot-view.ts'
+import { registerPlacesIpc } from './places-ipc.ts'
 import { UI_ORIGIN } from './ui-protocol.ts'
 
 const WEB_LINK = /^(https?|mailto):/i
 /** The most text the interface may put on the clipboard at once. */
 const MAX_COPY = 16 * 2 ** 20
+/** The most bytes the hex view asks for at once. */
+const MAX_RANGE = 2 ** 20
 
 /**
  * The snapshot host of the interface: every open snapshot is an `<iframe sandbox>` of the window, loading `wsnp://<id>/`
@@ -33,6 +43,16 @@ const MAX_COPY = 16 * 2 ** 20
  */
 export class SnapshotHost {
   readonly registry = new SnapshotRegistry({ generator: { name: 'Folder Browser', version: app.getVersion() } })
+  /** The folders and ZIP files opened to browse. */
+  readonly roots = new RootRegistry()
+  /** The videos and sounds being played. */
+  private readonly media = new MediaFiles()
+  /** The office documents being drawn. */
+  private readonly docs = new DocFiles()
+  /** The scripts that draw them (the build made them). */
+  private readonly docScripts = path.join(app.getAppPath(), 'dist', 'docs')
+  /** Both, behind one set of calls: a snapshot's id and a root's are told apart here. */
+  readonly sources = new Sources(this.registry, this.roots)
   /** Requests cancelled below the page, for the tests and the log. */
   readonly blocked: string[] = []
   private readonly integrity = new Map<string, AbortController>()
@@ -44,6 +64,8 @@ export class SnapshotHost {
   private listening = false
 
   private readonly recent: RecentFiles
+  private readonly recentFolders: RecentFiles
+  private readonly favorites: FavoriteFolders
   private readonly signers: SignerStore
   private readonly openExternal: (url: string) => void
 
@@ -51,8 +73,10 @@ export class SnapshotHost {
   startup: Promise<unknown> = Promise.resolve()
   private readonly session: SessionStore
 
-  constructor(recent: RecentFiles, signers: SignerStore, session: SessionStore, openExternal: (url: string) => void = (url) => void shell.openExternal(url)) {
+  constructor(recent: RecentFiles, signers: SignerStore, session: SessionStore, places: { recentFolders: RecentFiles; favorites: FavoriteFolders }, openExternal: (url: string) => void = (url) => void shell.openExternal(url)) {
     this.recent = recent
+    this.recentFolders = places.recentFolders
+    this.favorites = places.favorites
     this.signers = signers
     this.session = session
     this.openExternal = openExternal
@@ -66,8 +90,25 @@ export class SnapshotHost {
       const body: BodyInit | null = res.body instanceof Readable ? (Readable.toWeb(res.body) as ReadableStream) : res.body ? new Uint8Array(res.body) : null
       return new Response(body, { status: res.status, headers: res.headers })
     })
+    ses.protocol.handle(MEDIA_SCHEME, (request) => {
+      const media = this.media.get(new URL(request.url).hostname)
+      if (!media) return new Response(null, { status: 404 })
+      const res = serveFile(media, request.headers.get('range'), request.method)
+      return new Response(res.body ? (Readable.toWeb(res.body) as ReadableStream) : null, { status: res.status, headers: res.headers })
+    })
+    // The page of a document, its file and its script: from the folder the build made.
+    ses.protocol.handle(DOC_SCHEME, (request) => serveDoc(this.docs, this.docScripts, request.url))
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
       if (details.url.startsWith(`${UI_ORIGIN}/`) || /^(data|blob|devtools):/.test(details.url)) return callback({})
+      // A media element of the interface (never of a snapshot's page) plays what it was given a token for.
+      const token = /^fb-media:\/\/([^/]+)\//.exec(details.url)?.[1]
+      if (token && this.media.has(token) && details.resourceType === 'media' && (details.frame?.url ?? details.referrer ?? '').startsWith(`${UI_ORIGIN}/`)) return callback({})
+      // A document's frame is the interface's to make, and what the frame asks of its own address (its file, its script) is its own.
+      const doc = /^fb-doc:\/\/([^/]+)\//.exec(details.url)?.[1]
+      if (doc && this.docs.has(doc)) {
+        const asking = (details.resourceType === 'subFrame' ? details.frame?.parent?.url : details.frame?.url) ?? ''
+        if ((details.resourceType === 'subFrame' && asking.startsWith(`${UI_ORIGIN}/`)) || asking.startsWith(`${DOC_SCHEME}://${doc}/`)) return callback({})
+      }
       const wanted = /^wsnp:\/\/([^/]+)\//.exec(details.url)?.[1]
       if (wanted && this.registry.has(wanted)) {
         // For a frame's own navigation the requesting frame is the new frame (no address yet): its parent asked.
@@ -92,7 +133,7 @@ export class SnapshotHost {
     const wc = win.webContents
     const clicked = (frame: WebFrameMain | null | undefined): Promise<boolean> => (frame ? frame.executeJavaScript('navigator.userActivation.isActive').then(Boolean, () => false) : Promise.resolve(false))
     const handle = (url: string, event: Electron.Event | undefined, frame: WebFrameMain | null | undefined, isMainFrame: boolean) => {
-      if (url.startsWith(`${UI_ORIGIN}/`)) return
+      if (url.startsWith(`${UI_ORIGIN}/`) || (url.startsWith(`${DOC_SCHEME}://`) && this.docs.has(new URL(url).hostname))) return
       if (url.startsWith(`${SCHEME}://`)) return this.handleFileLink(win, url, event, frame, clicked)
       event?.preventDefault()
       void (!isMainFrame && WEB_LINK.test(url) ? clicked(frame) : Promise.resolve(false)).then((yes) => {
@@ -140,23 +181,49 @@ export class SnapshotHost {
     event?.preventDefault()
     void clicked(frame).then(async (yes) => {
       if (!yes || win.isDestroyed()) return
-      const kind = viewKind(type, name, snapshot.archive.get(name)!.size)
+      const kind = mediaKind(type, name) ? 'media' : viewKind(type, name, snapshot.archive.get(name)!.size)
       if (kind === 'other') win.webContents.send('fb:saved', { name, result: await this.save(win, snapshot.id, name) })
       else win.webContents.send('fb:open-file', { snapshotId: snapshot.id, path: name })
     })
   }
 
-  /** Opens files and reports each outcome; a file already open is not opened again. */
-  async openPaths(paths: string[]): Promise<OpenResult[]> {
+  /**
+   * Opens what is named and reports each outcome; what is open already is not opened again. A `.wsnp` (or a ZIP saved by PageKeep) is a snapshot; a folder, or any
+   * other ZIP, is a root to browse; any other file opens its folder, and the file in it.
+   */
+  async openPaths(paths: string[], options: { withFolder?: boolean } = {}): Promise<OpenResult[]> {
     const results: OpenResult[] = []
-    for (const file of paths) {
-      const outcome: OpenOutcome = await this.registry.openPath(file).catch((err: Error) => ({ ok: false as const, path: file, issues: [{ code: 'read-error' as const, path: path.basename(file), detail: err.message }], omitted: 0 }))
-      if (outcome.ok) {
-        this.recent.add(outcome.snapshot.path)
-        results.push({ ok: true, snapshot: infoOf(outcome.snapshot), already: outcome.already })
-      } else results.push(outcome)
-    }
+    for (const file of paths) results.push(await this.openOne(file, options.withFolder !== false))
     return results
+  }
+
+  /** `withFolder`: a `.wsnp` (or a PageKeep ZIP) comes with the folder it is in, opened to browse: it is a file of that folder. (Not from the tree of that folder, which is open.) */
+  private async openOne(file: string, withFolder: boolean): Promise<OpenResult> {
+    const stat = await fs.promises.stat(file).catch(() => undefined)
+    const kind = !stat ? 'missing' : stat.isDirectory() ? 'folder' : /\.wsnp$/i.test(file) ? 'snapshot' : /\.zip$/i.test(file) ? ((await isPageKeepZip(file)) ? 'snapshot' : 'zip') : 'file'
+    if (kind === 'folder' || kind === 'zip') return this.openRoot(file)
+    if (kind === 'file' && stat) {
+      const opened = await this.openRoot(path.dirname(file))
+      return 'root' in opened ? { ...opened, open: { path: path.basename(file), size: stat.size } } : opened
+    }
+    const outcome: OpenOutcome = await this.registry.openPath(file).catch((err: Error) => ({ ok: false as const, path: file, issues: [{ code: 'read-error' as const, path: path.basename(file), detail: err.message }], omitted: 0 }))
+    if (outcome.ok) {
+      this.recent.add(outcome.snapshot.path)
+      const folder = withFolder ? await this.openRoot(path.dirname(file)) : undefined
+      return { ok: true, snapshot: infoOf(outcome.snapshot), already: outcome.already, ...(folder && 'root' in folder ? { folder: folder.root } : {}) }
+    }
+    return outcome
+  }
+
+  private async openRoot(target: string, options: { trash?: boolean } = {}): Promise<OpenResult> {
+    const opened = await this.roots.openPath(target, options)
+    if ('error' in opened) {
+      const why = { 'not-found': 'It is not there.', 'not-supported': 'It is neither a folder nor a ZIP file.', 'too-large': 'The ZIP is too large to browse here.', 'not-zip': 'It is not a ZIP file.', denied: 'It cannot be read: the permission is missing.' }[opened.error]
+      return { ok: false, path: target, issues: [{ code: 'read-error', path: path.basename(target) || target, detail: why }], omitted: 0 }
+    }
+    this.recent.add(opened.root.path)
+    if (!options.trash) this.recentFolders.add(opened.root.path)
+    return { ok: true, root: opened.root, already: opened.already }
   }
 
   /** Files the system asked for: shown at once when the interface is listening, kept for it otherwise. */
@@ -171,8 +238,8 @@ export class SnapshotHost {
   }
 
   async save(win: BrowserWindow, id: string, name: string): Promise<SaveResult> {
-    const stream = await this.registry.stream(id, name)
-    if (!stream) return { saved: false, reason: 'error', message: 'The file is not in the snapshot.' }
+    const stream = await this.sources.stream(id, name)
+    if (!stream) return { saved: false, reason: 'error', message: 'The file is not there.' }
     const picked = await dialog.showSaveDialog(win, { defaultPath: path.basename(name) })
     if (picked.canceled || !picked.filePath) {
       stream.destroy()
@@ -186,10 +253,16 @@ export class SnapshotHost {
     }
   }
 
-  /** The top frame of a snapshot's page in the window (a frame of the page itself is not it). */
+  /**
+   * The top frame of a snapshot's page in the window (a frame of the page itself is not it), or the frame that holds the drawing of a document: its page, or, for an
+   * OpenDocument file (which is drawn in a frame of the page), that frame.
+   */
   private pageFrame(win: BrowserWindow, id: string): WebFrameMain | undefined {
     const top = win.webContents.mainFrame
-    return top.frames.find((f) => f.url.startsWith(`${SCHEME}://${id}/`))
+    const snapshot = top.frames.find((f) => f.url.startsWith(`${SCHEME}://${id}/`))
+    if (snapshot) return snapshot
+    const doc = top.frames.find((f) => f.url.startsWith(`${DOC_SCHEME}://${id}/`))
+    return doc?.frames.find((f) => f.url === 'about:srcdoc') ?? doc
   }
 
   /** What the page has selected, to the clipboard. The page itself is asked: the frame is another process, and the menu has the focus. */
@@ -232,7 +305,17 @@ export class SnapshotHost {
    */
   private async render<T>(win: BrowserWindow, request: PrintRequest, use: (wc: WebContents) => Promise<T>): Promise<{ value: T } | { failed: PrintResult }> {
     try {
+      if (request.kind === 'document') return await this.renderDocument(request, use)
       if (request.kind === 'text') return { value: await usingHtml(textDocument((request.name ?? request.title).slice(0, 300), request.text), use) }
+      if (this.roots.has(request.id)) {
+        // A picture of a folder or a ZIP is printed as it is; the page of a snapshot and an HTML file as a page are the snapshots'.
+        if (request.kind !== 'image') return { failed: { printed: false, reason: 'unsupported' } }
+        const type = effectiveType(undefined, request.path)
+        if (!/^image\/(png|jpe?g|gif|webp|avif|bmp|svg\+xml)$/.test(type)) return { failed: { printed: false, reason: 'unsupported' } }
+        const read = await this.sources.read(request.id, request.path, BINARY_LIMIT)
+        if (!('bytes' in read)) return { failed: { printed: false, reason: 'error', message: read.error } }
+        return { value: await usingHtml(imageDocument(path.basename(request.path), type, read.bytes), use) }
+      }
       const snapshot = this.registry.get(request.id)
       if (!snapshot) return { failed: { printed: false, reason: 'error', message: 'The snapshot is closed.' } }
       if (request.kind === 'image') {
@@ -253,6 +336,41 @@ export class SnapshotHost {
       }
     } catch (err) {
       return { failed: { printed: false, reason: 'error', message: (err as Error).message } }
+    }
+  }
+
+  /**
+   * A document, drawn by its own page in a window that is never shown (a session of its own that can load only that page, its file and its script), handed to `use` once it is
+   * drawn: the whole of it, every sheet and every slide, as the page makes it for printing.
+   */
+  private async renderDocument<T>(request: Extract<PrintRequest, { kind: 'document' }>, use: (wc: WebContents) => Promise<T>): Promise<{ value: T } | { failed: PrintResult }> {
+    const flavour = documentFlavour(this.registry.get(request.id)?.types.get(request.path), request.path)
+    if (!flavour || !this.sources.has(request.id)) return { failed: { printed: false, reason: 'unsupported' } }
+    const read = await this.sources.read(request.id, request.path, DOCUMENT_LIMIT)
+    if ('error' in read) return { failed: { printed: false, reason: 'error', message: read.error } }
+    const token = this.docs.add({ bytes: new Uint8Array(read.bytes), name: request.path.split(/[!/\\]+/).pop() ?? request.path, flavour })
+    const partition = `doc-print-${crypto.randomBytes(6).toString('hex')}`
+    const ses = session.fromPartition(partition)
+    ses.protocol.handle(DOC_SCHEME, (req) => serveDoc(this.docs, this.docScripts, req.url))
+    ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => callback({ cancel: !(details.url.startsWith(`${DOC_SCHEME}://${token}/`) || /^(data|blob):/.test(details.url)) }))
+    ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
+    const window = new BrowserWindow({ show: false, webPreferences: { partition, sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: false } })
+    try {
+      await window.loadURL(`${DOC_SCHEME}://${token}/?print=1`)
+      // Drawn when the page says so (it sets its state); a document that never is, is given up on.
+      const waited = Date.now()
+      for (;;) {
+        const state: unknown = await window.webContents.executeJavaScript('window.__fbDocState').catch(() => undefined)
+        if (state === 'ready') break
+        if (state === 'error') return { failed: { printed: false, reason: 'error', message: String(await window.webContents.executeJavaScript('window.__fbDocMessage').catch(() => '')) } }
+        if (Date.now() - waited > 45_000) return { failed: { printed: false, reason: 'error', message: 'The document took too long to draw.' } }
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+      await window.webContents.executeJavaScript('document.fonts?.ready').catch(() => undefined)
+      return { value: await use(window.webContents) }
+    } finally {
+      if (!window.isDestroyed()) window.destroy()
+      this.docs.release(token)
     }
   }
 
@@ -310,7 +428,7 @@ export class SnapshotHost {
    * the choice itself (`linuxChoices`: the desktop's chooser would open behind the window on Wayland) and waits for `openWithApp` or `openWithCancel`.
    */
   private async openWith(id: string, name: string): Promise<OpenWithResult> {
-    const staged = await stageFile(this.registry, id, name, os.tmpdir()).catch((err: Error) => ({ error: 'error' as const, message: err.message }))
+    const staged = await stageFile(this.sources, id, name, os.tmpdir()).catch((err: Error) => ({ error: 'error' as const, message: err.message }))
     if ('error' in staged) return { opened: false, reason: staged.error === 'risky' ? 'unsafe' : staged.error === 'no-file' ? 'no-file' : 'error', ...('message' in staged ? { message: staged.message } : {}) }
     this.staged.add(staged.dir)
     const discard = async () => {
@@ -332,6 +450,69 @@ export class SnapshotHost {
     // A copy nobody opened is not kept.
     if (!outcome.opened) await discard()
     return outcome
+  }
+
+  /** Opens a copy of a file in the application the system has for its type, with no choice. */
+  private async openDefault(id: string, name: string): Promise<OpenWithResult> {
+    const staged = await stageFile(this.sources, id, name, os.tmpdir()).catch((err: Error) => ({ error: 'error' as const, message: err.message }))
+    if ('error' in staged) return { opened: false, reason: staged.error === 'risky' ? 'unsafe' : staged.error === 'no-file' ? 'no-file' : 'error', ...('message' in staged ? { message: staged.message } : {}) }
+    this.staged.add(staged.dir)
+    if (process.env.WSNP_OPEN_WITH_LOG) {
+      fs.appendFileSync(process.env.WSNP_OPEN_WITH_LOG, `${staged.file}\n`)
+      return { opened: true, chooser: false }
+    }
+    const outcome = await openWithDefault(staged.file)
+    // A copy nobody opened is not kept.
+    if (!outcome.opened) {
+      this.staged.delete(staged.dir)
+      await removeStaged(staged.dir)
+    }
+    return outcome
+  }
+
+  /**
+   * Makes a video or a sound of a root playable: a file of a folder is served as it is, an entry of a ZIP (which has no cheap seek) from a copy in a folder of its own.
+   * The interface gets a token (an address), never a path.
+   */
+  private async openMedia(id: string, name: string): Promise<MediaOpen> {
+    const snapshot = this.registry.get(id)
+    // A file of a snapshot is played by the type its manifest declares; a root's by its name.
+    const declared = snapshot?.types.get(name)
+    const kind = mediaKind(declared, name)
+    if (!kind || !(snapshot || this.roots.has(id))) return { error: 'unsupported' }
+    let file = this.roots.has(id) ? await this.roots.diskFile(id, name) : null
+    let scratch: string | undefined
+    if (!file) {
+      const staged = await stageFile(this.sources, id, name, os.tmpdir(), { maxBytes: 2 * 2 ** 30, prefix: 'fb-media-' }).catch(() => ({ error: 'no-file' as const }))
+      if ('error' in staged) return { error: staged.error === 'too-large' ? 'too-large' : 'no-file' }
+      file = staged.file
+      scratch = staged.dir
+      this.staged.add(staged.dir)
+    }
+    const stat = await fs.promises.stat(file).catch(() => undefined)
+    if (!stat?.isFile()) return { error: 'no-file' }
+    const mime = effectiveType(declared, name)
+    const token = this.media.add({ file, mime, size: stat.size, ...(scratch ? { scratch } : {}) })
+    return { token, url: `${MEDIA_SCHEME}://${token}/`, kind, mime, size: stat.size }
+  }
+
+  /** An office document of a root or a snapshot, read whole (up to the limit) and given a page of its own: what draws it runs in a frame that reaches nothing. */
+  private async openDoc(id: string, name: string): Promise<DocOpen> {
+    const declared = this.registry.get(id)?.types.get(name)
+    const flavour = documentFlavour(declared, name)
+    if (!flavour || !this.sources.has(id)) return { error: 'unsupported' }
+    const read = await this.sources.read(id, name, DOCUMENT_LIMIT)
+    if ('error' in read) return { error: read.error === 'too-large' ? 'too-large' : 'no-file' }
+    const token = this.docs.add({ bytes: new Uint8Array(read.bytes), name: name.split(/[!/\\]+/).pop() ?? name, flavour })
+    return { token, url: `${DOC_SCHEME}://${token}/`, flavour }
+  }
+
+  private async releaseMedia(token: string): Promise<void> {
+    const media = this.media.release(token)
+    if (media?.scratch) {
+      this.staged.delete(media.scratch)
+      await removeStaged(media.scratch)
+    }
   }
 
   /** The application picked in the viewer's own chooser: only one the chooser listed, and only for the copy made for it. */
@@ -361,6 +542,8 @@ export class SnapshotHost {
   cleanup(): void {
     for (const dir of this.staged) removeStagedSync(dir)
     this.staged.clear()
+    this.media.releaseAll()
+    this.docs.releaseAll()
   }
 
   /** At start: the copies an earlier session left (a crash), a day old or more. */
@@ -417,17 +600,32 @@ export class SnapshotHost {
       })
       return picked.canceled ? [] : this.openPaths(picked.filePaths)
     })
+    handle('fb:open-folder-dialog', async (win) => {
+      const picked = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'multiSelections'] })
+      return picked.canceled ? [] : this.openPaths(picked.filePaths)
+    })
+    handle('fb:open-in-root', async (_win, id: unknown, name: unknown): Promise<OpenResult[]> => {
+      // Only a `.wsnp` of a folder, by its path in the root: the interface never names a path of the disk.
+      const file = typeof id === 'string' && typeof name === 'string' && /\.wsnp$/i.test(name) ? await this.roots.diskFile(id, name) : null
+      return file ? this.openPaths([file], { withFolder: false }) : []
+    })
+    handle('fb:list-dir', async (_win, id: unknown, dir: unknown): Promise<ListResult> => (typeof id === 'string' && typeof dir === 'string' && dir.length < 4096 ? this.roots.list(id, dir) : { error: 'no-root' }))
     handle('fb:open-paths', (_win, paths: unknown) => (isPaths(paths) ? this.openPaths(paths) : []))
     handle('fb:close', async (_win, id: unknown) => {
       if (typeof id !== 'string') return
       this.integrity.get(id)?.abort()
       this.integrity.delete(id)
-      await this.registry.close(id)
+      await this.sources.close(id)
     })
     handle('fb:read-file', async (_win, id: unknown, name: unknown): Promise<ReadResult> => {
       if (typeof id !== 'string' || typeof name !== 'string') return { error: 'no-file' }
-      const read = await this.registry.read(id, name, BINARY_LIMIT)
+      const read = await this.sources.read(id, name, BINARY_LIMIT)
       return 'bytes' in read ? { bytes: new Uint8Array(read.bytes) } : read
+    })
+    handle('fb:read-range', async (_win, id: unknown, name: unknown, offset: unknown, length: unknown): Promise<RangeResult> => {
+      if (typeof id !== 'string' || typeof name !== 'string' || !Number.isSafeInteger(offset) || !Number.isSafeInteger(length) || (offset as number) < 0 || (length as number) < 0) return { error: 'no-file' }
+      const read = await this.sources.roots.range(id, name, offset as number, Math.min(length as number, MAX_RANGE))
+      return 'bytes' in read ? { bytes: new Uint8Array(read.bytes), size: read.size } : read
     })
     handle('fb:save-as', (win, id: unknown, name: unknown): Promise<SaveResult> | SaveResult =>
       typeof id === 'string' && typeof name === 'string' ? this.save(win, id, name) : { saved: false, reason: 'error' })
@@ -440,12 +638,12 @@ export class SnapshotHost {
     })
     handle('fb:zip-list', async (_win, id: unknown, zipPath: unknown): Promise<ZipList> => {
       if (typeof id !== 'string' || typeof zipPath !== 'string') return { error: 'no-file' }
-      const zip = await this.registry.zipAt(id, zipPath)
+      const zip = await this.sources.zipAt(id, zipPath)
       return 'error' in zip ? zip : { entries: [...zip.entries], truncated: zip.truncated }
     })
     handle('fb:zip-extract', async (win, id: unknown, zipPath: unknown, names: unknown, options: unknown): Promise<ExtractResult> => {
       if (typeof id !== 'string' || typeof zipPath !== 'string' || !Array.isArray(names) || names.length > 50_000 || !names.every((n) => typeof n === 'string')) return { error: 'no-file' }
-      return extractSelection(this.registry, id, zipPath, names as string[], {
+      return extractSelection(this.sources, id, zipPath, names as string[], {
         file: async (defaultName) => {
           const picked = await dialog.showSaveDialog(win, { defaultPath: defaultName })
           return picked.canceled ? undefined : picked.filePath
@@ -471,7 +669,7 @@ export class SnapshotHost {
     const asPrintRequest = (request: unknown): PrintRequest | null => {
       const r = request as Record<string, unknown> | null
       if (r?.kind === 'snapshot' && typeof r.id === 'string') return { kind: 'snapshot', id: r.id }
-      if ((r?.kind === 'image' || r?.kind === 'html') && typeof r.id === 'string' && typeof r.path === 'string') return { kind: r.kind, id: r.id, path: r.path }
+      if ((r?.kind === 'image' || r?.kind === 'html' || r?.kind === 'document') && typeof r.id === 'string' && typeof r.path === 'string') return { kind: r.kind, id: r.id, path: r.path }
       if (r?.kind === 'text' && typeof r.title === 'string' && typeof r.text === 'string' && r.text.length <= MAX_COPY) return { kind: 'text', title: r.title, text: r.text, ...(typeof r.name === 'string' ? { name: r.name.slice(0, 300) } : {}) }
       return null
     }
@@ -485,10 +683,21 @@ export class SnapshotHost {
     })
     handle('fb:save-converted', (win, id: unknown): Promise<SaveResult> | SaveResult => (typeof id === 'string' ? this.saveConverted(win, id) : { saved: false, reason: 'error' }))
     handle('fb:open-with', (_win, id: unknown, name: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof id === 'string' && typeof name === 'string' ? this.openWith(id, name) : { opened: false, reason: 'no-file' }))
+    handle('fb:media-open', (_win, id: unknown, name: unknown): Promise<MediaOpen> | MediaOpen => (typeof id === 'string' && typeof name === 'string' ? this.openMedia(id, name) : { error: 'no-file' }))
+    handle('fb:doc-open', (_win, id: unknown, name: unknown): Promise<DocOpen> | DocOpen => (typeof id === 'string' && typeof name === 'string' ? this.openDoc(id, name) : { error: 'no-file' }))
+    handle('fb:doc-release', (_win, token: unknown) => (typeof token === 'string' ? this.docs.release(token) : undefined))
+    handle('fb:media-release', (_win, token: unknown) => (typeof token === 'string' ? this.releaseMedia(token) : undefined))
+    handle('fb:open-default', (_win, id: unknown, name: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof id === 'string' && typeof name === 'string' ? this.openDefault(id, name) : { opened: false, reason: 'no-file' }))
     handle('fb:open-with-app', (_win, token: unknown, appId: unknown, always: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof token === 'string' && typeof appId === 'string' ? this.openWithApp(token, appId, always === true) : { opened: false, reason: 'no-file' }))
     handle('fb:open-with-cancel', (_win, token: unknown) => (typeof token === 'string' ? this.openWithCancel(token) : undefined))
-    handle('fb:reveal', (_win, id: unknown) => {
-      const snapshot = typeof id === 'string' ? this.registry.get(id) : undefined
+    handle('fb:reveal', async (_win, id: unknown, name: unknown) => {
+      if (typeof id !== 'string') return
+      if (this.roots.has(id)) {
+        const file = await this.roots.diskPath(id, typeof name === 'string' ? name : '')
+        shell.showItemInFolder(file ?? this.roots.info(id)!.path)
+        return
+      }
+      const snapshot = this.registry.get(id)
       if (snapshot) shell.showItemInFolder(snapshot.path)
     })
     handle('fb:signers-list', () => Object.fromEntries(Object.entries(this.signers.list()).map(([fingerprint, s]) => [fingerprint, { name: s.name }])))
@@ -511,6 +720,7 @@ export class SnapshotHost {
     })
     handle('fb:session-load', () => this.session.load())
     handle('fb:session-save', (_win, value: unknown) => this.session.save(value))
+    registerPlacesIpc(handle, { roots: this.roots, favorites: this.favorites, recentFolders: this.recentFolders, openRoot: (target, options) => this.openRoot(target, options) })
     handle('fb:recent-list', () => this.recent.list())
     handle('fb:recent-clear', () => this.recent.clear())
   }

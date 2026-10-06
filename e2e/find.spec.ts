@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Frame, type Page } from '@playwright/test'
 import { writeSampleWsnp, writeViewerWsnp } from '../fixtures/build.ts'
+import { goToFile } from './helpers.ts'
 
 // End-to-end: Find, Copy, Print and the two icons of the activity bar, in every kind of tab.
 const noSandbox = process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : []
@@ -26,12 +27,9 @@ async function launch(env: Record<string, string> = {}): Promise<Page> {
   await page.frameLocator('iframe').locator('#end').waitFor()
   return page
 }
-async function openFile(page: Page, folder: string[], name: string) {
-  for (const f of folder) {
-    const item = page.getByRole('treeitem', { name: f, exact: true })
-    if ((await item.getAttribute('aria-expanded')) === 'false') await item.click()
-  }
-  await page.getByRole('treeitem', { name, exact: true }).dblclick()
+// (A snapshot has no tree of its files: a file opens by Go to File, as a link in its page would open it.)
+async function openFile(page: Page, _folder: string[], name: string) {
+  await goToFile(page, name)
 }
 const pageFrame = (page: Page): Frame => page.frames().find((f) => f.url().startsWith('wsnp://'))!
 const selectionOfPage = (page: Page) => pageFrame(page).evaluate(() => String(getSelection()))
@@ -125,7 +123,7 @@ test.describe('Find', () => {
     await page.keyboard.press('ControlOrMeta+f')
     await findBox(page).fill('word wrap')
     await expect(counter(page, /^1 of \d+$/)).toBeVisible()
-    await page.getByRole('tab', { name: 'Harbor Times' }).click({ button: 'right' })
+    await page.getByRole('tab', { name: 'viewer.wsnp' }).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Show Metadata' }).click()
     await expect(page.getByRole('tab', { selected: true })).toContainText('Metadata')
     // Each tab has its own search: the bar closed when the tab changed.
@@ -175,6 +173,8 @@ test.describe('Copy', () => {
     test.skip(process.platform === 'darwin', 'macOS has the native menu')
     const page = await launch()
     await openFile(page, ['assets', 'files'], 'notes.md')
+    // Markdown opens formatted; its source is the other button of the toolbar.
+    await page.getByRole('button', { name: 'Show the Markdown as text' }).click()
     await expect(page.locator('.cm-content')).toContainText('# Notes')
     await page.locator('.cm-line').first().click({ clickCount: 3 })
     await app!.evaluate(({ clipboard }) => clipboard.writeText('before'))
@@ -202,18 +202,19 @@ test.describe('Copy', () => {
 test.describe('Print and the activity bar', () => {
   const pdfAt = (file: string) => expect.poll(() => (fs.existsSync(file) ? fs.readFileSync(file).subarray(0, 5).toString() : ''), { timeout: 15000 }).toBe('%PDF-')
 
-  test('the two icons: Open File opens what the dialog answers, Print is off until there is something to print', async () => {
+  test('the icons: Open Folder is there and Open File is not (Ctrl+O opens what the dialog answers); Print is off until there is something to print', async () => {
     const page = await launch()
     const bar = page.getByRole('navigation', { name: 'Activity Bar' })
-    await expect(bar.getByRole('button', { name: 'Open File…' })).toBeVisible()
+    await expect(bar.getByRole('button', { name: 'Open Folder' })).toBeVisible()
+    await expect(bar.getByRole('button', { name: 'Open File…' })).toHaveCount(0)
     await expect(bar.getByRole('button', { name: 'Print…' })).toBeEnabled()
     const second = path.join(dir, 'second.wsnp')
     await writeSampleWsnp(second, { title: 'Second page', url: 'https://second.example/' })
     await app!.evaluate(({ dialog }, file) => {
       dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [file] })) as unknown as typeof dialog.showOpenDialog
     }, second)
-    await bar.getByRole('button', { name: 'Open File…' }).click()
-    await expect(page.getByRole('tab', { selected: true })).toContainText('Second page')
+    await page.keyboard.press('ControlOrMeta+o')
+    await expect(page.getByRole('tab', { selected: true })).toContainText('second.wsnp')
     await page.keyboard.press('ControlOrMeta+w')
     await page.keyboard.press('ControlOrMeta+w')
     await expect(page.getByRole('tab')).toHaveCount(0)

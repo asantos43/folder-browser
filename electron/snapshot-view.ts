@@ -7,6 +7,10 @@ import { serveEntry } from '../core/serve.ts'
 export const SCHEME = 'wsnp'
 /** The interface's own scheme (phase 1 spike): the page that holds the snapshots' iframes. */
 export const UI_SCHEME = 'fb-ui'
+/** The address of a video or a sound the interface is playing: `fb-media://<token>/` (core/media.ts). */
+export const MEDIA_SCHEME = 'fb-media'
+/** The page of an office document the interface is showing: `fb-doc://<token>/` (core/docs.ts). */
+export const DOC_SCHEME = 'fb-doc'
 
 /** Must run before the app is ready. */
 export function registerScheme(): void {
@@ -14,6 +18,10 @@ export function registerScheme(): void {
     { scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
     // The interface fetches its own data files (pdf.js's fonts and character maps) from its own origin.
     { scheme: UI_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } },
+    // A video or a sound is read by ranges (to seek), and streamed.
+    { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+    // The page of a document is a sandboxed frame (an opaque origin) that fetches its file and its script from its own address.
+    { scheme: DOC_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
   ])
 }
 

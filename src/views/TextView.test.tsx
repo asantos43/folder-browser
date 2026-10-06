@@ -14,10 +14,10 @@ beforeEach(() => {
 afterEach(cleanup)
 
 const MIN_JSON = '{"name":"harbor","items":[{"id":1},{"id":2}],"ok":true}'
-const show = (text: string, language: Parameters<typeof TextView>[0]['language'], size = text.length, onSave = vi.fn()) => {
+const show = (text: string, language: Parameters<typeof TextView>[0]['language'], size = text.length, onSave = vi.fn(), actions: { onHex?: () => void; onOpenWith?: () => void } = {}) => {
   render(
     <I18nProvider language="en">
-      <TextView text={text} language={language} size={size} onSave={onSave} />
+      <TextView text={text} language={language} size={size} onSave={onSave} {...actions} />
     </I18nProvider>,
   )
   return onSave
@@ -28,7 +28,8 @@ describe('TextView: formatting', () => {
   it('shows minified JSON laid out, says so, and counts the lines it now has', async () => {
     show(MIN_JSON, 'json')
     await waitFor(() => expect(screen.getByText('Formatted')).toBeTruthy())
-    expect(content()).toContain('"name": "harbor",')
+    // (The label comes before the editor has the new text: wait for the text too.)
+    await waitFor(() => expect(content()).toContain('"name": "harbor",'))
     expect(screen.getByText(/\d+ lines/).textContent).not.toBe('1 lines')
     expect(screen.getByText('JSON')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Show the file laid out/ }).getAttribute('aria-pressed')).toBe('true')
@@ -97,5 +98,17 @@ describe('TextView: the rest of the toolbar', () => {
     const onSave = show('x', 'plain')
     fireEvent.click(screen.getByRole('button', { name: 'Save As…' }))
     expect(onSave).toHaveBeenCalledOnce()
+  })
+  it('has View as hex and Open With… when it is given what they do, and not when it is not', () => {
+    const onHex = vi.fn()
+    const onOpenWith = vi.fn()
+    show('x', 'plain', 1, vi.fn(), { onHex, onOpenWith })
+    fireEvent.click(screen.getByRole('button', { name: 'View as hex' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open With…' }))
+    expect(onHex).toHaveBeenCalledOnce()
+    expect(onOpenWith).toHaveBeenCalledOnce()
+    cleanup()
+    show('x', 'plain')
+    expect(screen.queryByRole('button', { name: 'View as hex' })).toBeNull()
   })
 })
