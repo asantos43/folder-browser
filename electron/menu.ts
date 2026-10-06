@@ -15,6 +15,7 @@ export function installMenu(send: (command: string) => void): void {
       label: 'File',
       submenu: [
         { label: 'Open File…', accelerator: 'Cmd+O', click: () => send('openFile') },
+        { label: 'Open ZIP File…', click: () => send('openZip') },
         { type: 'separator' },
         { label: 'Save', accelerator: 'Cmd+S', click: () => send('save') },
         { label: 'Save All', accelerator: 'Cmd+Alt+S', click: () => send('saveAll') },

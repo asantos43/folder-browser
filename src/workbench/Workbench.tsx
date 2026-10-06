@@ -557,6 +557,7 @@ export function Workbench() {
       if (command === 'zoomIn' || command === 'zoomOut' || command === 'zoomReset') return zoomTab(command === 'zoomIn' ? 1 : command === 'zoomOut' ? -1 : 0)
       if (command === 'openFile') return void api?.openDialog().then(handleResults)
       if (command === 'openFolder') return void api?.openFolderDialog().then(handleResults)
+      if (command === 'openZip') return void api?.openZipDialog().then(handleResults)
       if (command === 'toggleHidden') return showHidden.set(!showHidden.get())
       if (command === 'copy') return void copySelection()
       if (command === 'print') return void printTab()
@@ -649,6 +650,7 @@ export function Workbench() {
       setTheme: setSetting,
       openFile: () => run('openFile'),
       openFolder: () => run('openFolder'),
+      openZip: () => run('openZip'),
       toggleHidden: () => run('toggleHidden'),
       showHidden: hiddenShown,
       sortKey: sortBy,
@@ -824,6 +826,7 @@ export function Workbench() {
   const sideBarActions = useMemo(
     () => ({
       openFolder: () => run('openFolder'),
+      openZip: () => run('openZip'),
       listDir: (id: string, path: string) => api!.listDir(id, path),
       openRootFile: (id: string, entry: { path: string; size: number }, keep: boolean, as?: 'hex') => dispatch({ type: 'open-file', snapshotId: id, path: entry.path, keep, size: entry.size, ...(as ? { as } : {}) }),
       reveal: (id: string, path: string) => void api?.reveal(id, path),

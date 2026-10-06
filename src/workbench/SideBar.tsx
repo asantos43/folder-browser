@@ -52,6 +52,7 @@ function SortButton({ by, descending }: { by: SortKey; descending: boolean }) {
 
 export interface SideBarActions {
   openFolder: () => void
+  openZip: () => void
   listDir: (rootId: string, path: string) => Promise<ListResult>
   openRootFile: (rootId: string, entry: Pick<DirEntry, 'path' | 'size'>, keep: boolean, as?: 'hex') => void
   reveal: (rootId: string, path: string) => void
@@ -115,9 +116,14 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
         <Section
           title={t('sidebar.openFolders')}
           actions={
-            <button type="button" title={t('menu.openFolder')} aria-label={t('menu.openFolder')} onClick={actions.openFolder} className={iconButton}>
-              <Icon name="new-folder" className="text-[16px]" />
-            </button>
+            <>
+              <button type="button" title={t('menu.openFolder')} aria-label={t('menu.openFolder')} onClick={actions.openFolder} className={iconButton}>
+                <Icon name="new-folder" className="text-[16px]" />
+              </button>
+              <button type="button" title={t('menu.openZip')} aria-label={t('menu.openZip')} onClick={actions.openZip} className={iconButton}>
+                <Icon name="file-zip" className="text-[16px]" />
+              </button>
+            </>
           }
         >
           {rootIds.length ? (
@@ -156,6 +162,9 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
               <p className="m-0 mb-1.5 text-fg-muted">{t('sidebar.noFolder')}</p>
               <button type="button" onClick={actions.openFolder} className="h-[26px] w-full rounded-sm bg-button px-3 text-[13px] text-button-fg hover:bg-button-hover">
                 {t('sidebar.openFolder')}
+              </button>
+              <button type="button" onClick={actions.openZip} className="mt-1.5 h-[26px] w-full rounded-sm bg-button px-3 text-[13px] text-button-fg hover:bg-button-hover">
+                {t('sidebar.openZip')}
               </button>
             </div>
           )}

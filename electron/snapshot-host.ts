@@ -606,8 +606,17 @@ export class SnapshotHost {
       return picked.canceled ? [] : this.openPaths(picked.filePaths)
     })
     handle('fb:open-folder-dialog', async (win) => {
-      const picked = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'multiSelections'] })
+      // (macOS can choose a folder or a file in one dialog; Linux and Windows cannot, which is why Open ZIP File… is its own command.)
+      const picked = await dialog.showOpenDialog(win, { properties: process.platform === 'darwin' ? ['openDirectory', 'openFile', 'multiSelections'] : ['openDirectory', 'multiSelections'] })
       return picked.canceled ? [] : this.openPaths(picked.filePaths)
+    })
+    // A ZIP file chosen to be browsed as a folder (a PageKeep ZIP too: that is what the user asked for here).
+    handle('fb:open-zip-dialog', async (win) => {
+      const picked = await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'], filters: [{ name: 'ZIP files', extensions: ['zip'] }, { name: 'All files', extensions: ['*'] }] })
+      if (picked.canceled) return []
+      const results: OpenResult[] = []
+      for (const file of picked.filePaths) results.push(await this.openRoot(file))
+      return results
     })
     handle('fb:open-in-root', async (_win, id: unknown, name: unknown): Promise<OpenResult[]> => {
       // Only a `.wsnp` of a folder, by its path in the root: the interface never names a path of the disk.
