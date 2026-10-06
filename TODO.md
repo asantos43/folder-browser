@@ -47,7 +47,8 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] Formats the Chromium cannot play (HEVC…) say why and offer Open With… and Save As
 - [x] Tests: Range server (206, 416, HEAD), tokens, `MediaView`, a synthetic `.wav` in e2e (plays, seeks, goes on in the background, from a ZIP, broken file)
 - [ ] Try a real mp4 (H.264), mp3, flac and an HEVC file by hand (the tests only have WAV and a broken file: no encoder here)
-- [ ] A snapshot's own media stays "saved, not played" (docs/VIEWER-GUIDELINES.md); decide whether it should play too
+- [x] A snapshot's own media plays too (by the type its manifest declares; a link to it in the page opens a tab); Previous/Next are not offered for it
+- [ ] Previous/Next for the media of a snapshot (from its list of files)
 
 ## Phase 2: change files on disk
 - [ ] Create file, create folder, **rename** (F2, inline), move (dialog and drag and drop), delete (to the trash, with confirmation)

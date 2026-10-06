@@ -68,7 +68,7 @@ the folder becomes an authorised root; the app never authorises a folder on its 
 
 ## Media
 
-*(Built in phase 1e: `core/media.ts`, `electron/snapshot-host.ts` (`fb:media-open`), `src/views/MediaView.tsx`.)* The player is only for the files of a folder or a ZIP opened to browse: a snapshot's own media is still saved, not played (`mediaKind` is used only for roots).
+*(Built in phase 1e: `core/media.ts`, `electron/snapshot-host.ts` (`fb:media-open`), `src/views/MediaView.tsx`.)* A video or a sound of a **snapshot** is played too (decided by the developer; WSNP Viewer only offers it with Save As): the type is the one its manifest declares, the file is copied for the tab like an entry of a ZIP, and Previous/Next are not offered there (a snapshot has no folder listing).
 
 Video and audio play in a tab (`MediaView`, the Chromium's `<video>` and `<audio>`), from the `fb-media://` protocol with Range so that seeking works on large files. An entry in a ZIP that is *stored* is streamed from the archive; a *deflated* one has no cheap seek, so it is
 played from a temporary copy (`core/stage.ts`, removed at quit, up to 2 GB). What the Chromium cannot decode (for example HEVC) is said in words, with **Open With…** as the way out. The page of a media file runs nothing: it is a decoder and a set of controls.

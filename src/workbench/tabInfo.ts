@@ -67,5 +67,6 @@ export const kindOf = (ws: Workspace, tab: Tab) => {
   let file: { path: string; size: number; mediaType?: string } | undefined = ws.snapshots[tab.snapshotId]?.files.find((f) => f.path === tab.path)
   // An entry of a ZIP in the snapshot is not in the manifest: its type comes from its name and its size from the ZIP's list.
   if (!file && tab.path && isInner(tab.path) && ws.snapshots[tab.snapshotId]) file = { path: tab.path, size: tab.size ?? 0 }
-  return { file, kind: file && tab.path ? viewKind(file.mediaType, tab.path, file.size) : ('other' as const) }
+  // A video or a sound of a snapshot is played too, by the type its manifest declares (or by its name, for an entry of a ZIP in it).
+  return { file, kind: file && tab.path ? (mediaKind(file.mediaType, tab.path) ? ('media' as const) : viewKind(file.mediaType, tab.path, file.size)) : ('other' as const) }
 }

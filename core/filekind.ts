@@ -119,8 +119,8 @@ const ZIP = /^application\/(zip|x-zip|x-zip-compressed)$/
 const FONT = /^(font\/.+|application\/(font-woff2?|x-font-.+|vnd\.ms-fontobject))$/
 
 /**
- * Whether a file is a video or a sound, by its type or its name: it is played in a tab. (Only for the files of a folder or a ZIP opened to browse: a snapshot's
- * media is saved, not played, as docs/VIEWER-GUIDELINES.md says, so `viewKind` never answers `media`.)
+ * Whether a file is a video or a sound, by its type or its name: it is played in a tab, whether it is a file of a folder, an entry of a ZIP or a file of a snapshot.
+ * (`viewKind` never answers `media`: the callers ask `mediaKind` first.)
  */
 export function mediaKind(mediaType: string | undefined, name: string): 'video' | 'audio' | null {
   const type = effectiveType(mediaType, name)

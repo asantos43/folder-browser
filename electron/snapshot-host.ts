@@ -165,7 +165,7 @@ export class SnapshotHost {
     event?.preventDefault()
     void clicked(frame).then(async (yes) => {
       if (!yes || win.isDestroyed()) return
-      const kind = viewKind(type, name, snapshot.archive.get(name)!.size)
+      const kind = mediaKind(type, name) ? 'media' : viewKind(type, name, snapshot.archive.get(name)!.size)
       if (kind === 'other') win.webContents.send('fb:saved', { name, result: await this.save(win, snapshot.id, name) })
       else win.webContents.send('fb:open-file', { snapshotId: snapshot.id, path: name })
     })
@@ -415,9 +415,12 @@ export class SnapshotHost {
    * The interface gets a token (an address), never a path.
    */
   private async openMedia(id: string, name: string): Promise<MediaOpen> {
-    const kind = mediaKind(undefined, name)
-    if (!kind || !this.roots.has(id)) return { error: 'unsupported' }
-    let file = await this.roots.diskFile(id, name)
+    const snapshot = this.registry.get(id)
+    // A file of a snapshot is played by the type its manifest declares; a root's by its name.
+    const declared = snapshot?.types.get(name)
+    const kind = mediaKind(declared, name)
+    if (!kind || !(snapshot || this.roots.has(id))) return { error: 'unsupported' }
+    let file = this.roots.has(id) ? await this.roots.diskFile(id, name) : null
     let scratch: string | undefined
     if (!file) {
       const staged = await stageFile(this.sources, id, name, os.tmpdir(), { maxBytes: 2 * 2 ** 30, prefix: 'fb-media-' }).catch(() => ({ error: 'no-file' as const }))
@@ -428,7 +431,7 @@ export class SnapshotHost {
     }
     const stat = await fs.promises.stat(file).catch(() => undefined)
     if (!stat?.isFile()) return { error: 'no-file' }
-    const mime = effectiveType(undefined, name)
+    const mime = effectiveType(declared, name)
     const token = this.media.add({ file, mime, size: stat.size, ...(scratch ? { scratch } : {}) })
     return { token, url: `${MEDIA_SCHEME}://${token}/`, kind, mime, size: stat.size }
   }

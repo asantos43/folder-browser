@@ -39,7 +39,10 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
   const heldBack = active && isSnapshotTab(active) && isHeldBack(ws, active.snapshotId) ? active : undefined
   const info = fileTab ? kindOf(ws, fileTab) : undefined
   // A video or a sound keeps playing when another tab comes to the front: its player stays (hidden), as a snapshot's frame does.
-  const players = ws.tabs.filter((tab) => tab.path !== undefined && kindOf(ws, tab).kind === 'media')
+  const players = ws.tabs.flatMap((tab) => {
+    const { kind, file } = tab.path !== undefined ? kindOf(ws, tab) : { kind: undefined, file: undefined }
+    return kind === 'media' ? [{ tab, size: file?.size ?? 0 }] : []
+  })
 
   // What Find searches: the page of a snapshot (in its own frame, through the main process), the source editor or the PDF (they register
   // themselves), or the text of whatever else is shown (metadata, a ZIP's list, Settings).
@@ -89,12 +92,12 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
             onOpenFile={(path) => dispatch({ type: 'open-file', snapshotId: metadataTab.snapshotId, path, keep: false })}
           />
         ) : null}
-        {players.map((tab) => (
+        {players.map(({ tab, size }) => (
           <div key={tab.key} hidden={ws.active !== tab.key} className="min-h-0 flex-1">
             <MediaView
               rootId={tab.snapshotId}
               path={tab.path!}
-              size={tab.size ?? 0}
+              size={size}
               onOpenSibling={(path) => dispatch({ type: 'open-file', snapshotId: tab.snapshotId, path, keep: false })}
               onOpenWith={() => onOpenWith(tab.snapshotId, tab.path!)}
               onSave={() => onSaveFile(tab.snapshotId, tab.path!)}

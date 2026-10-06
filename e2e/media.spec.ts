@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { wavBuffer } from '../fixtures/audio.ts'
+import { sampleFiles, writeWsnp } from '../fixtures/build.ts'
 import { zipSync } from '../fixtures/zip.ts'
 
 // End-to-end: videos and sounds of a folder or a ZIP, played in a tab (a sound the browser plays with no codec: a WAV).
@@ -22,7 +23,8 @@ test.beforeEach(() => {
   fs.writeFileSync(path.join(work, '2-second.wav'), wavBuffer(2, 660))
   fs.writeFileSync(path.join(work, '3-third.wav'), wavBuffer(1, 880))
   fs.writeFileSync(path.join(work, 'notes.txt'), 'play me')
-  fs.writeFileSync(path.join(work, 'broken.mp4'), Buffer.from('this is not a video at all, only text pretending'))
+  fs.mkdirSync(path.join(work, 'bad'))
+  fs.writeFileSync(path.join(work, 'bad', 'broken.mp4'), Buffer.from('this is not a video at all, only text pretending'))
   fs.writeFileSync(path.join(work, 'pack.zip'), zipSync([{ name: 'inside.wav', data: wavBuffer(1, 330) }]))
 })
 test.afterEach(async () => {
@@ -111,6 +113,7 @@ test('a sound inside a ZIP plays from a copy that is removed when the tab closes
 
 test('what the player cannot decode is said in words, with Open With… and Save As as the way out', async () => {
   const page = await launch(work)
+  await item(page, 'bad').click()
   await item(page, 'broken.mp4').dblclick()
   await expect(page.getByRole('alert')).toContainText('does not know its format')
   await expect(page.getByRole('button', { name: 'Open With…' })).toBeVisible()
@@ -126,4 +129,26 @@ test('the menu of a media file says Play, and a sound is shown with the icon of 
   await item(page, 'notes.txt').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Play' })).toHaveCount(0)
   await expect(page.getByRole('menuitem', { name: 'Open', exact: true })).toBeVisible()
+})
+
+test('a sound of a snapshot is played too, by the type its manifest declares, and one it cannot decode is said', async () => {
+  const file = path.join(dir, 'tunes.wsnp')
+  await writeWsnp(file, [
+    ...sampleFiles(),
+    { path: 'assets/media/tune.wav', type: 'audio/wav', data: wavBuffer(1, 523) },
+    { path: 'assets/media/clip.mp4', type: 'video/mp4', data: Buffer.alloc(512, 1) },
+  ])
+  const page = await launch(file)
+  await page.getByRole('treeitem', { name: 'assets', exact: true }).click()
+  await page.getByRole('treeitem', { name: 'media', exact: true }).click()
+  await page.getByRole('treeitem', { name: 'tune.wav' }).dblclick()
+  await expect(audio(page)).toBeVisible()
+  await expect.poll(async () => (await state(page)).duration).toBeCloseTo(1, 0)
+  expect((await state(page)).src).toMatch(/^fb-media:\/\/m[0-9a-f]{24}\/$/)
+  // The copy of a file of a snapshot is made for the tab, and goes with it.
+  expect(copies()).toHaveLength(1)
+  await page.keyboard.press('ControlOrMeta+w')
+  await expect.poll(copies).toEqual([])
+  await page.getByRole('treeitem', { name: 'clip.mp4' }).dblclick()
+  await expect(page.getByRole('alert')).toContainText('does not know its format')
 })
