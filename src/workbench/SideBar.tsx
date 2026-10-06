@@ -1,4 +1,4 @@
-import type { DirEntry, ListResult, Place, PlacesData, RootInfo } from '@core/api.ts'
+import type { OpResult, DirEntry, ListResult, Place, PlacesData, RootInfo } from '@core/api.ts'
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
@@ -69,6 +69,16 @@ export interface SideBarActions {
   saveFile: (snapshotId: string, path: string) => void
   openWith: (snapshotId: string, path: string) => void
   copy: (text: string) => void
+  /** The files of a folder that was opened: made, renamed, moved, deleted (core/fs/ops.ts). */
+  createEntry: (rootId: string, parent: string, name: string, kind: 'file' | 'dir') => Promise<OpResult>
+  renameEntry: (rootId: string, path: string, name: string) => Promise<OpResult>
+  moveEntry: (rootId: string, path: string, toFolder: string) => void
+  /** A copy of an item in a folder (a drop with Shift held). */
+  copyEntry: (rootId: string, path: string, toFolder: string) => void
+  /** Asks where to move an item to. */
+  moveEntryTo: (rootId: string, entry: DirEntry) => void
+  /** Asks, and moves an item to the trash. */
+  removeEntry: (rootId: string, entry: DirEntry, forever?: boolean) => void
 }
 
 /** The side bar: the places, the folders (and ZIP files) that are open, and the files of the one chosen, as a tree. (A snapshot is a page in a tab, not something the side bar is about.) */
@@ -79,6 +89,7 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
   const by = sortKey.use()
   const descending = sortDescending.use()
   const [refreshToken, setRefreshToken] = useState(0)
+  const [createRequest, setCreateRequest] = useState<{ kind: 'file' | 'dir'; token: number } | undefined>(undefined)
   const rootIds = Object.keys(ws.roots)
   const activeTab = ws.tabs.find((tab) => tab.key === ws.active)
   // The file of the tab on screen, when it is of the folder the tree shows (the tree opens ZIP files like folders, so the whole path is a place in it).
@@ -150,6 +161,16 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
           actions={
             (
               <>
+                {root.kind === 'folder' && !root.trash ? (
+                  <>
+                    <button type="button" title={t('tree.newFile')} aria-label={t('tree.newFile')} onClick={() => setCreateRequest((c) => ({ kind: 'file', token: (c?.token ?? 0) + 1 }))} className={iconButton}>
+                      <Icon name="new-file" className="text-[16px]" />
+                    </button>
+                    <button type="button" title={t('tree.newFolder')} aria-label={t('tree.newFolder')} onClick={() => setCreateRequest((c) => ({ kind: 'dir', token: (c?.token ?? 0) + 1 }))} className={iconButton}>
+                      <Icon name="new-folder" className="text-[16px]" />
+                    </button>
+                  </>
+                ) : null}
                 <SortButton by={by} descending={descending} />
                 {root.trash ? (
                   <button type="button" title={t('tree.emptyTrash')} aria-label={t('tree.emptyTrash')} onClick={() => actions.emptyTrash(root.id)} className={iconButton}>
@@ -171,6 +192,8 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
               rootId={root.id}
               rootKind={root.kind}
               trash={root.trash === true}
+              writable={root.kind === 'folder' && root.trash !== true}
+              createRequest={createRequest}
               activePath={activePath}
               showHidden={hidden}
               sortKey={by}
@@ -188,6 +211,12 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
                 save: (path) => actions.saveFile(root.id, path),
                 copy: actions.copy,
                 reveal: (path) => actions.reveal(root.id, path),
+                create: (parent, name, kind) => actions.createEntry(root.id, parent, name, kind),
+                rename: (path, name) => actions.renameEntry(root.id, path, name),
+                move: (path, toFolder) => actions.moveEntry(root.id, path, toFolder),
+                copyTo: (path, toFolder) => actions.copyEntry(root.id, path, toFolder),
+                moveTo: (entry) => actions.moveEntryTo(root.id, entry),
+                remove: (entry, forever) => actions.removeEntry(root.id, entry, forever),
               }}
             />
         </Section>

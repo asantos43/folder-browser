@@ -16,9 +16,13 @@ npm ci
 
 ```
 electron/     the main process: main.ts (starts the app), window.ts (the frameless window and its session), ui-protocol.ts (serves the
-              interface), preload.ts, menu.ts (macOS), snapshot-view.ts (the wsnp:// protocol)
-src/          the interface (renderer): React, Tailwind; theme/ (tokens), i18n/, components/, workbench/ (title bar, activity bar, side bar, editor group, status bar)
-core/         plain TypeScript with no Electron imports: archive/ (ZIP reader and writer), serve.ts
+              interface), preload.ts, menu.ts (macOS), snapshot-host.ts (the IPC and what the interface asks of the files), snapshot-view.ts (the wsnp://
+              protocol), doc-protocol.ts (the fb-doc:// page of an office document), open-with.ts, print.ts, places-ipc.ts
+src/          the interface (renderer): React, Tailwind; theme/ (tokens), i18n/, components/, workbench/ (title bar, activity bar, side bar, the tree, editor group,
+              status bar), views/ (what a tab shows), find/, state/ (the reducer of tabs and the settings), docs/ (the scripts that draw office documents: built
+              by vite.docs.config.ts, run in a sandboxed frame, never by the interface)
+core/         plain TypeScript with no Electron imports: archive/ (ZIP reader and writer), roots.ts (the folders and ZIPs opened), fs/ (guard, names, ops, sort, hidden),
+              filekind.ts, hex.ts, csv.ts, docs.ts, media.ts, places.ts, trash.ts, serve.ts
 fixtures/     builders of synthetic .wsnp files and PageKeep ZIPs (build.ts, with pictures and PDFs for the viewers; pdf.ts makes a valid PDF), and of files to refuse or flag (hostile.ts), used by the tests
 e2e/          end-to-end tests (Playwright driving the Electron app)
 docs/         the specification, guidelines, architecture and this guide
@@ -29,7 +33,7 @@ docs/         the specification, guidelines, architecture and this guide
 | Command | What it does |
 | --- | --- |
 | `npm run app` | Builds everything and starts the app |
-| `npm run build` | `build:ui` (the interface, Vite, into `dist/`) and `build:electron` (the main process and the preload, into `dist-electron/`) |
+| `npm run build` | `build:ui` (the interface, Vite, into `dist/`), `build:docs` (the scripts that draw office documents, into `dist/docs/`: one per library, `vite.docs.config.ts`) and `build:electron` (the main process and the preload, into `dist-electron/`) |
 | `npm test` | Unit and component tests (vitest): `core/`, `electron/`, `src/`, `scripts/` |
 | `npm run test:e2e` | Builds, then runs the Playwright tests against the real Electron app (each launch has its own `--user-data-dir`) |
 | `npm run notices` / `npm run notices:check` | Writes `THIRD-PARTY-NOTICES.md` (the licences of the libraries bundled into the application, with their texts, and what Electron ships) / fails when it is out of date; CI runs the check. Run `npm run notices` after changing a dependency that the application imports (the list is `ROOTS` in `scripts/third-party-notices.mjs`). The installers carry the file and the About window shows it |
@@ -48,10 +52,14 @@ docs/         the specification, guidelines, architecture and this guide
 
 `WSNP_DEBUG=1` prints progress lines to stderr.
 
+The end-to-end specs that delete files give the app a trash of its own with `XDG_DATA_HOME`, and the ones that need a home (`e2e/places.spec.ts`) a made-up `HOME`: never run them against your own.
+
 A hidden window that is not rendered offscreen never paints, so anything that photographs a page must use `offscreen: true` (see `SnapshotViewOptions`).
 
 ## Tests
 
 - **Unit** tests are `*.test.ts` next to the code and use synthetic files from `fixtures/`. **Component** tests are `*.test.tsx` with `// @vitest-environment happy-dom` on the first line.
 - **End-to-end** tests (`e2e/`) start the real Electron app with Playwright, each launch with its own `--user-data-dir`.
-- Hostile inputs (ZIP64, encryption, unsafe names, wrong sizes) are covered in `core/archive/reader.test.ts`.
+- Hostile inputs (ZIP64, encryption, unsafe names, wrong sizes) are covered in `core/archive/reader.test.ts`; hostile paths and links for the file operations in `core/fs/ops.test.ts`; the sandboxed frame of a document in `e2e/documents.spec.ts`.
+- The specs open windows: leave the computer alone while they run, and run the whole suite in the background with its output in a file (a spec that fails once may pass alone: a click while the window lacks focus; do not "fix" the pointer tests of `zoom.spec.ts`).
+- The synthetic office documents of the tests are written by hand in `fixtures/office.ts`; no real file from a private site enters the repository.

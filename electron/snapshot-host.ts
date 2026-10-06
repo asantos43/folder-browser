@@ -5,7 +5,7 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell, webFrameMain, type IpcMainInvokeEvent, type Session, type WebContents, type WebFrameMain } from 'electron'
-import type { AppInfo, DocOpen, IntegrityEvent, ListResult, MediaOpen, OpenResult, OpenWithResult, PrintRequest, PrintResult, RangeResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
+import type { AppInfo, DocOpen, OpResult, IntegrityEvent, ListResult, MediaOpen, OpenResult, OpenWithResult, PrintRequest, PrintResult, RangeResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
 import { extractSelection, type ExtractResult } from '../core/extract.ts'
 import { FRAME_SCRIPT } from '../core/frameScript.ts'
 import { BINARY_LIMIT, DOCUMENT_LIMIT, effectiveType, mediaKind, viewKind } from '../core/filekind.ts'
@@ -684,6 +684,15 @@ export class SnapshotHost {
     handle('fb:save-converted', (win, id: unknown): Promise<SaveResult> | SaveResult => (typeof id === 'string' ? this.saveConverted(win, id) : { saved: false, reason: 'error' }))
     handle('fb:open-with', (_win, id: unknown, name: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof id === 'string' && typeof name === 'string' ? this.openWith(id, name) : { opened: false, reason: 'no-file' }))
     handle('fb:media-open', (_win, id: unknown, name: unknown): Promise<MediaOpen> | MediaOpen => (typeof id === 'string' && typeof name === 'string' ? this.openMedia(id, name) : { error: 'no-file' }))
+    // The files of a folder that was opened: the interface names the root and paths inside it, and the answer says what was done (or why not).
+    const short = (v: unknown): v is string => typeof v === 'string' && v.length < 4096
+    handle('fb:fs-create', (_win, id: unknown, parent: unknown, name: unknown, kind: unknown): Promise<OpResult> | OpResult =>
+      short(id) && short(parent) && short(name) && (kind === 'file' || kind === 'dir') ? this.roots.create(id, parent, name, kind) : { ok: false, error: 'invalid-name' })
+    handle('fb:fs-rename', (_win, id: unknown, name: unknown, newName: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(newName) ? this.roots.rename(id, name, newName) : { ok: false, error: 'invalid-name' }))
+    handle('fb:fs-move', (_win, id: unknown, name: unknown, to: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(to) ? this.roots.move(id, name, to) : { ok: false, error: 'not-found' }))
+    handle('fb:fs-copy', (_win, id: unknown, name: unknown, to: unknown): Promise<OpResult> | OpResult => (short(id) && short(name) && short(to) ? this.roots.copy(id, name, to) : { ok: false, error: 'not-found' }))
+    handle('fb:fs-remove', (_win, id: unknown, name: unknown, how: unknown): Promise<OpResult> | OpResult =>
+      short(id) && short(name) && (how === 'trash' || how === 'forever') ? this.roots.remove(id, name, how, (file) => shell.trashItem(file)) : { ok: false, error: 'not-found' })
     handle('fb:doc-open', (_win, id: unknown, name: unknown): Promise<DocOpen> | DocOpen => (typeof id === 'string' && typeof name === 'string' ? this.openDoc(id, name) : { error: 'no-file' }))
     handle('fb:doc-release', (_win, token: unknown) => (typeof token === 'string' ? this.docs.release(token) : undefined))
     handle('fb:media-release', (_win, token: unknown) => (typeof token === 'string' ? this.releaseMedia(token) : undefined))

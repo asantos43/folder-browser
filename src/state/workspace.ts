@@ -64,6 +64,15 @@ export const fileKey = (id: string, path: string) => `f:${id}:${path}`
 /** The tab of a file shown as its bytes: a key of its own, so that the file can be open both ways. */
 export const hexKey = (id: string, path: string) => `x:${id}:${path}`
 
+/** Whether `path` is `from` or something inside it (a folder, or a ZIP file and its entries: `from!/…`). */
+export const isUnder = (path: string, from: string): boolean => path === from || path.startsWith(`${from}/`) || path.startsWith(`${from}!/`)
+
+/** `path` after `from` became `to`; the same path when it was not under `from`. */
+export const remapPath = (path: string, from: string, to: string): string => (isUnder(path, from) ? to + path.slice(from.length) : path)
+
+/** The key of a tab of a file, by how it is shown. */
+const keyOfFileTab = (tab: Tab): string => (tab.as === 'hex' ? hexKey(tab.snapshotId, tab.path!) : fileKey(tab.snapshotId, tab.path!))
+
 export type Action =
   /**
    * The page of a snapshot, in a tab. `preview`: shown as a file is on a single click (an italic tab, replaced by the next preview); otherwise it is kept. A snapshot is a page,
@@ -73,6 +82,10 @@ export type Action =
   | { type: 'root-opened'; root: RootInfo }
   | { type: 'root-closed'; id: string }
   | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number; /** Show the bytes (hexadecimal) instead of what the kind of the file gets. */ as?: 'hex' }
+  /** An item of a folder was renamed or moved: the tabs of it (and of what is in it) follow it, keeping their place, their preview and their pin. */
+  | { type: 'path-changed'; rootId: string; from: string; to: string }
+  /** An item of a folder was deleted: the tabs of it (and of what was in it) close. */
+  | { type: 'path-removed'; rootId: string; path: string }
   | { type: 'open-metadata'; snapshotId: string }
   | { type: 'open-settings' }
   | { type: 'show-anyway'; snapshotId: string }
@@ -183,6 +196,32 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       }
       const replaced = old >= 0 ? ws.tabs[old].key : null
       return withActive({ ...ws, tabs, recent: ws.recent.filter((k) => k !== replaced) }, key)
+    }
+    case 'path-changed': {
+      const moved = (t: Tab) => t.snapshotId === action.rootId && t.path !== undefined && isUnder(t.path, action.from)
+      if (!ws.tabs.some(moved)) return ws
+      const keys = new Map<string, string>()
+      let tabs = ws.tabs.map((t) => {
+        if (!moved(t)) return t
+        const next = { ...t, path: remapPath(t.path!, action.from, action.to) }
+        next.key = keyOfFileTab(next)
+        keys.set(t.key, next.key)
+        return next
+      })
+      // A tab already open at the new name (it cannot be: a name that was taken is refused) would be two of the same: the one that moved stays.
+      const seen = new Set<string>()
+      tabs = tabs.filter((t, i) => {
+        const keep = !seen.has(t.key) || tabs.findIndex((o) => o.key === t.key) !== i
+        seen.add(t.key)
+        return keep
+      })
+      const rekey = (key: string | null) => (key !== null ? (keys.get(key) ?? key) : null)
+      const alive = new Set(tabs.map((t) => t.key))
+      return { ...ws, tabs, active: rekey(ws.active), recent: [...new Set(ws.recent.map((k) => rekey(k)!))].filter((k) => alive.has(k)) }
+    }
+    case 'path-removed': {
+      const gone = ws.tabs.filter((t) => t.snapshotId === action.rootId && t.path !== undefined && isUnder(t.path, action.path))
+      return gone.length ? without(ws, new Set(gone.map((t) => t.key))) : ws
     }
     case 'open-metadata': {
       const key = metadataKey(action.snapshotId)

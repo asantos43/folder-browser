@@ -30,6 +30,29 @@ describe('treeMenuFor', () => {
   })
 })
 
+describe('treeMenuFor: changing the disk', () => {
+  const edit = ['rename', 'moveTo', 'delete']
+  it('offers Rename, Move to… and Delete for what is on the disk of a folder that was opened, and New File and New Folder in a folder', () => {
+    for (const kind of ['file', 'zip', 'wsnp', 'dir'] as const) expect(treeMenuFor({ kind }, { writable: true }), kind).toEqual(expect.arrayContaining(edit))
+    expect(treeMenuFor({ kind: 'dir' }, { writable: true })).toEqual(expect.arrayContaining(['newFile', 'newFolder']))
+    for (const kind of ['file', 'zip', 'wsnp'] as const) expect(treeMenuFor({ kind }, { writable: true }), kind).not.toContain('newFile')
+  })
+  it('offers none of it for what cannot be changed (inside a ZIP, in the trash, a ZIP as the root)', () => {
+    for (const kind of ['file', 'zip', 'wsnp', 'dir'] as const) {
+      const items = treeMenuFor({ kind })
+      for (const action of [...edit, 'newFile', 'newFolder']) expect(items, `${kind} ${action}`).not.toContain(action)
+    }
+  })
+  it('keeps the groups apart with separators', () => {
+    for (const kind of ['dir', 'file', 'zip', 'wsnp'] as const) {
+      const items = treeMenuFor({ kind }, { writable: true, canPin: kind === 'dir', media: kind === 'file' })
+      expect(items[0]).not.toBe('separator')
+      expect(items.at(-1)).not.toBe('separator')
+      items.forEach((item, i) => item === 'separator' && expect(items[i + 1]).not.toBe('separator'))
+    }
+  })
+})
+
 describe('treeMenuFor with a context', () => {
   it('offers to pin a folder of the disk, and only a folder', () => {
     expect(treeMenuFor({ kind: 'dir' }, { canPin: true })).toContain('addFavorite')

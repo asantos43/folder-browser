@@ -1,7 +1,7 @@
 import type { DirEntry, RootInfo } from '@core/api.ts'
 
 /** What a row of the tree can offer. The menu of each kind of row is a list of these (and separators); the tree gives each its label and what it does. */
-export type TreeAction = 'play' | 'restore' | 'addFavorite' | 'toggle' | 'refresh' | 'open' | 'openAsList' | 'openSnapshot' | 'openAsZip' | 'openAsHex' | 'openWith' | 'openDefault' | 'save' | 'reveal' | 'copyPath' | 'copyName' | 'properties'
+export type TreeAction = 'newFile' | 'newFolder' | 'rename' | 'moveTo' | 'delete' | 'play' | 'restore' | 'addFavorite' | 'toggle' | 'refresh' | 'open' | 'openAsList' | 'openSnapshot' | 'openAsZip' | 'openAsHex' | 'openWith' | 'openDefault' | 'save' | 'reveal' | 'copyPath' | 'copyName' | 'properties'
 export type TreeMenuItem = TreeAction | 'separator'
 
 /**
@@ -9,19 +9,20 @@ export type TreeMenuItem = TreeAction | 'separator'
  * every other file opens in a tab. Every file, whatever it is, can be opened in another application (**Open With…**, and the default one), saved, shown in its folder
  * and have its path copied; those are the last group of the menu. (Editing, comparing and playing join the lists as those phases land.)
  */
-export function treeMenuFor(entry: Pick<DirEntry, 'kind'>, context: { /** The folder can be pinned to the favourites: a folder of the disk. */ canPin?: boolean; /** A top-level row of the trash: it can be put back. */ trashItem?: boolean; /** The file is a video or a sound: it is played. */ media?: boolean } = {}): TreeMenuItem[] {
+export function treeMenuFor(entry: Pick<DirEntry, 'kind'>, context: { /** The folder can be pinned to the favourites: a folder of the disk. */ canPin?: boolean; /** A top-level row of the trash: it can be put back. */ trashItem?: boolean; /** The file is a video or a sound: it is played. */ media?: boolean; /** The item is on the disk, in a folder that was opened: it can be renamed, moved and deleted, and a folder can have files and folders made in it. */ writable?: boolean } = {}): TreeMenuItem[] {
   const restore: TreeMenuItem[] = context.trashItem ? ['restore', 'separator'] : []
+  const change: TreeMenuItem[] = context.writable ? ['rename', 'moveTo', 'delete', 'separator'] : []
   const where: TreeMenuItem[] = ['reveal', 'copyPath', 'copyName', 'separator', 'properties']
   const application: TreeMenuItem[] = ['openAsHex', 'openWith', 'openDefault', 'save', 'separator']
   switch (entry.kind) {
     case 'dir':
-      return [...restore, 'toggle', 'refresh', ...(context.canPin ? (['addFavorite'] as const) : []), 'separator', ...where]
+      return [...restore, 'toggle', 'refresh', ...(context.writable ? (['newFile', 'newFolder'] as const) : []), ...(context.canPin ? (['addFavorite'] as const) : []), 'separator', ...change, ...where]
     case 'zip':
-      return [...restore, 'toggle', 'openAsList', 'separator', ...application, ...where]
+      return [...restore, 'toggle', 'openAsList', 'separator', ...change, ...application, ...where]
     case 'wsnp':
-      return [...restore, 'openSnapshot', 'openAsZip', 'separator', ...application, ...where]
+      return [...restore, 'openSnapshot', 'openAsZip', 'separator', ...change, ...application, ...where]
     default:
-      return [...restore, context.media ? 'play' : 'open', 'separator', ...application, ...where]
+      return [...restore, context.media ? 'play' : 'open', 'separator', ...change, ...application, ...where]
   }
 }
 
