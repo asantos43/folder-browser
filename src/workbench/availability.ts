@@ -32,7 +32,7 @@ export function canPrint(ws: Workspace): boolean {
   if (isSnapshotTab(tab)) return !isHeldBack(ws, tab.snapshotId)
   if (tab.path === undefined) return false
   const { kind } = kindOf(ws, tab)
-  return kind === 'text' || kind === 'image'
+  return kind === 'text' || kind === 'image' || kind === 'document'
 }
 
 /**
@@ -46,6 +46,9 @@ export function zoomTargetOf(ws: Workspace): 'page' | 'text' | 'view' | null {
   if (tab.path === undefined) return null
   const { kind, file } = kindOf(ws, tab)
   if (kind === 'image' || kind === 'pdf') return 'view'
+  // A document is a page, and the bytes of a file are drawn at a size: both have the tab's own zoom.
+  if (kind === 'document') return 'page'
+  if (kind === 'hex') return 'text'
   if (kind !== 'text') return null
   return isSvg(file?.mediaType, tab.path) && svgView.get() === 'image' ? 'view' : 'text'
 }
@@ -61,6 +64,7 @@ export function printRequestOf(ws: Workspace, shown: () => string | null): Print
   const path = tab.path!
   const { kind, file } = kindOf(ws, tab)
   if (kind === 'image') return { kind: 'image', id: tab.snapshotId, path }
+  if (kind === 'document') return { kind: 'document', id: tab.snapshotId, path }
   // An SVG shown as a picture is printed as one.
   if (isSvg(file?.mediaType, path) && svgView.get() === 'image' && !isInner(path)) return { kind: 'image', id: tab.snapshotId, path }
   // (An HTML file of a folder is printed as text: only a snapshot's files are shown as pages.)

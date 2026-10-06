@@ -60,7 +60,9 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [ ] Header panel for ELF, PE and Mach-O (sections, imports): read-only, no execution
 - [x] Office documents with ready-made libraries (looked for first; TabularJS and SheetJS were tried and left out): docx-preview (docx), pptx-renderer (pptx), odr-core (odt, ods, odp, odg, xlsx, xls, doc, ppt), each in a sandboxed `fb-doc://` frame (`core/docs.ts`, `electron/doc-protocol.ts`, `src/docs/`, `DocumentView`)
 - [x] CSV and TSV as a table, with a Table / Text switch (`core/csv.ts`, `CsvView`)
-- [ ] Zoom, Find (`Ctrl+F`) and Print inside a document's frame (today the page scrolls only; Save As and View as hex are in its toolbar)
+- [x] Zoom, Find (`Ctrl+F`) and Print inside a document's frame; zoom and `Ctrl+F` for the bytes of a file; Open With… in the toolbars of documents, bytes, tables and cards; View as hex in the toolbar of every text; `.log` as text up to 32 MB
+- [ ] Print the bytes of a file and the CSV table as a table (a CSV prints as its text)
+- [ ] Zoom keys with the focus inside a document are relayed by the page (the main process reads real key presses first); Find of a pptx highlights in the slide list only
 - [x] A document's tab keeps its drawing when another tab comes to the front (drawn on first view, kept hidden but laid out)
 - [ ] Try real files by hand (Word with headers and footnotes, a PowerPoint with charts and SmartArt, an `.xls`): the tests only have small hand-written ones
 - [ ] `.rtf`, `.pages`, `.numbers`, `.key`: not drawn (Open With… or hex)

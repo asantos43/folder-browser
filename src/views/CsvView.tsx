@@ -2,7 +2,7 @@ import { detectDelimiter, MAX_COLUMNS, MAX_ROWS, parseDelimited } from '@core/cs
 import { useMemo, type CSSProperties } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import { csvView } from '@/state/setting.ts'
-import { SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
+import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
 
 /** The two ways to see a CSV or TSV file, side by side in the toolbar of either: as a table, or as the text it is written in. The choice is kept for every such file. */
 export function CsvToggle() {
@@ -18,7 +18,7 @@ export function CsvToggle() {
 }
 
 /** A CSV or TSV file as a table: the first row is the header and stays in view, the rows are numbered, and the cells are text (nothing in them is read as markup or followed). */
-export function CsvView({ text, name, tab, onSave, zoom = 1 }: { text: string; name: string; tab: boolean; onSave: () => void; zoom?: number }) {
+export function CsvView({ text, name, tab, onSave, onOpenWith, onHex, zoom = 1 }: { text: string; name: string; tab: boolean; onSave: () => void; onOpenWith?: () => void; onHex?: () => void; zoom?: number }) {
   const { t } = useI18n()
   const table = useMemo(() => parseDelimited(text, detectDelimiter(text, tab)), [text, tab])
   const [head, ...body] = table.rows
@@ -29,6 +29,7 @@ export function CsvView({ text, name, tab, onSave, zoom = 1 }: { text: string; n
       <Toolbar>
         <CsvToggle />
         <SaveButton label={t('file.saveAs')} onClick={onSave} />
+        <FileActions onOpenWith={onOpenWith} onHex={onHex} />
         <span className="ml-auto flex items-center gap-3 pr-1 text-[12px] text-fg-muted">
           {table.truncated ? <span>{t('csv.truncated', { rows: String(MAX_ROWS), columns: String(MAX_COLUMNS) })}</span> : null}
           <span>{t('csv.size', { rows: String(table.rows.length), columns: String(columns) })}</span>

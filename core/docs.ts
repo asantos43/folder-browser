@@ -32,13 +32,14 @@ export function docPage(flavour: DocFlavour, name: string): string {
   const escaped = name.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
   return `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="doc-name" content="${escaped}"><title>Document</title>
-<style>html,body{margin:0;height:100%}body{background:#525659;font-family:system-ui,sans-serif}#root{min-height:100%}</style></head>
+<style>html,body{margin:0;height:100%}body{background:#525659;font-family:system-ui,sans-serif}#root{min-height:100%}
+@page{margin:0}@media print{html,body{background:#fff!important;height:auto}#root{min-height:0}.docx-wrapper{background:#fff!important;padding:0!important}.docx-wrapper>section.docx{box-shadow:none!important;margin:0!important}}</style></head>
 <body><div id="root"></div><script src="/_v/${flavour}.js"></script></body></html>
 `
 }
 
-/** What the page of a document tells the interface that holds it (`postMessage`): it drew the document (with how many views it has: sheets, slides), or could not. */
-export type DocReport = { type: 'ready'; views: number } | { type: 'error'; message: string }
+/** What the page of a document tells the interface that holds it (`postMessage`): it drew the document (with how many views it has: sheets, slides), or could not, or the wheel turned (or a zoom key pressed) with Control held over it (a zoom: the page never zooms itself). */
+export type DocReport = { type: 'ready'; views: number } | { type: 'error'; message: string } | { type: 'wheel'; deltaY: number } | { type: 'zoom'; direction: 'in' | 'out' | 'reset' }
 export type DocMessage = DocReport & { fbDoc: true }
 
 export interface DocFile {

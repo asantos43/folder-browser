@@ -56,4 +56,17 @@ describe('CsvView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save As…' }))
     expect(onSave).toHaveBeenCalledOnce()
   })
+  it('has View as hex and Open With…', () => {
+    const onHex = vi.fn()
+    const onOpenWith = vi.fn()
+    render(
+      <I18nProvider language="en">
+        <CsvView text={'a,b\n1,2\n'} name="x.csv" tab={false} onSave={() => {}} onHex={onHex} onOpenWith={onOpenWith} />
+      </I18nProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'View as hex' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open With…' }))
+    expect(onHex).toHaveBeenCalledOnce()
+    expect(onOpenWith).toHaveBeenCalledOnce()
+  })
 })

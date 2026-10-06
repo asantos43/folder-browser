@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canProbe, DOCUMENT_LIMIT, effectiveType, FORMATTABLE, isSvg, languageOf, looksLikeText, TEXT_LIMIT, viewKind, ZIP_LIMIT } from './filekind.ts'
+import { canProbe, DOCUMENT_LIMIT, effectiveType, FORMATTABLE, isSvg, languageOf, looksLikeText, LOG_LIMIT, TEXT_LIMIT, viewKind, ZIP_LIMIT } from './filekind.ts'
 
 describe('viewKind: which files a tab can show', () => {
   it('shows source, pictures, PDFs and fonts', () => {
@@ -20,6 +20,12 @@ describe('viewKind: which files a tab can show', () => {
     for (const [type, name] of [['audio/mpeg', 'a.mp3'], ['video/mp4', 'a.mp4'], ['application/x-unknown', 'a.bin']] as const) {
       expect(viewKind(type, name, 100), name).toBe('other')
     }
+  })
+  it('opens a log as text up to a larger size than other text (logs are big), and no larger', () => {
+    expect(viewKind(undefined, 'server.log', TEXT_LIMIT + 1)).toBe('text')
+    expect(viewKind('text/plain', 'app.LOG', LOG_LIMIT)).toBe('text')
+    expect(viewKind(undefined, 'server.log', LOG_LIMIT + 1)).toBe('other')
+    expect(viewKind(undefined, 'notes.txt', TEXT_LIMIT + 1)).toBe('other')
   })
   it('draws office documents, by their type or their extension, unless they are too big to read into a page', () => {
     for (const name of ['a.docx', 'b.PPTX', 'c.odt', 'd.ods', 'e.xlsx', 'f.xls', 'g.doc', 'h.ppt', 'i.odp']) expect(viewKind('application/octet-stream', name, 100), name).toBe('document')

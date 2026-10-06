@@ -36,6 +36,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 - **Open as Hex** in the right-click menu of every file of the tree (a ZIP and a `.wsnp` too), and **View as hex** on any file that is not shown, open the bytes in a tab of their own beside the file in its own kind (`Tab.as`, key `x:<id>:<path>`, tab named `Hex: <name>`; it is kept in the session like any tab).
 - **A document is drawn once and kept**: its tab keeps the drawing (hidden but laid out) when another tab comes to the front, so going back is immediate; it is drawn when its tab is first brought to the front (a restored session is not drawn all at once) and goes with its tab.
 
+- **Zoom, Find and Print for documents**: a document has the zoom of its tab (`Ctrl+=`, `Ctrl+-`, `Ctrl+0`, `Ctrl`+wheel over the page — the page, and the sheet or slide frame inside it, say that the wheel or a zoom key was used, and the interface zooms; the zoom buttons of the status bar too); `Ctrl+F` searches the document in its frame (the browser's own find, run by the main process in the frame; in a workbook, the sheet on screen); Print and Save as PDF draw the whole document (every sheet, every slide) in a window that is never shown, with its own session that can load only that page, its file and its script, and the window goes away (`PrintRequest` `document`). The bytes of a file (hex) have the zoom of their tab (rows and text) and `Ctrl+F` goes to their own box that looks for bytes or text.
+- **Open With… and View as hex in the toolbars**: the document, the hexadecimal view, the CSV table and the card of a file that is not shown have **Open With…** (the chooser of this app); every text file (source, Markdown, CSV, SVG as source) has **View as hex**, which opens its bytes in a tab beside it.
+- **A `.log` opens as text** up to 32 MB (other text, 5 MB): logs are text, and big (`LOG_LIMIT`).
+
 ### Fixed
 
 - Five end-to-end specs inherited from WSNP Viewer that had gone stale (the language of a file is named twice on screen, and Markdown opens formatted); the same fix is in wsnp-viewer (branch `fix-stale-e2e-specs`). No change to the application.

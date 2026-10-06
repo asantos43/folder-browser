@@ -1,20 +1,22 @@
 import type { DocMessage } from '@core/docs.ts'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createFrameFindTarget } from '@/find/frame.ts'
+import { fileTarget } from '@/find/types.ts'
 import { useI18n } from '@/i18n/context.tsx'
 import { OtherView } from './OtherView.tsx'
-import { SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
+import { FileActions, SaveButton, Toolbar } from './Toolbar.tsx'
 
 /** The longest a document may take to be drawn before it is given up on. */
 const PATIENCE_MS = 45_000
 
-type Load = { state: 'opening' } | { state: 'drawing'; url: string } | { state: 'drawn'; url: string } | { state: 'failed'; reason: 'tooLarge' | 'readError' | 'notDrawn'; detail?: string }
+type Load = { state: 'opening' } | { state: 'drawing'; url: string; token: string } | { state: 'drawn'; url: string; token: string } | { state: 'failed'; reason: 'tooLarge' | 'readError' | 'notDrawn'; detail?: string }
 
 /**
  * An office document (Word, Excel, PowerPoint, OpenDocument) in a tab. It is not drawn here: the main process gives the file a page of its own (`fb:doc-open`), and that page
  * draws it by the library that suits it, in a frame that is sandboxed, has no network and cannot reach this window (core/docs.ts). The page says how it went (`postMessage`);
  * a document it cannot draw is said in words, with Save As and the hexadecimal view as the way out.
  */
-export function DocumentView({ snapshotId, path, name, mediaType, size, onSave, onHex }: { snapshotId: string; path: string; name: string; mediaType: string | undefined; size: number; onSave: () => void; onHex: () => void }) {
+export function DocumentView({ snapshotId, path, name, mediaType, size, active = true, zoom = 1, onZoom, onSave, onOpenWith, onHex }: { snapshotId: string; path: string; name: string; mediaType: string | undefined; size: number; /** The tab is in front: only then does Find act on this document, and only then is its wheel heard. */ active?: boolean; /** The zoom of the tab: the frame is laid out at 1/zoom of the room and scaled up (or down) to fill it, as a browser's zoom lays a page out. */ zoom?: number; /** The wheel turned, or a zoom key pressed, with Control held over the document (a zoom of the tab). */ onZoom?: (change: { wheel: number } | { direction: 'in' | 'out' | 'reset' }) => void; onSave: () => void; onOpenWith?: () => void; onHex: () => void }) {
   const { t } = useI18n()
   const [load, setLoad] = useState<Load>({ state: 'opening' })
   const frame = useRef<HTMLIFrameElement>(null)
@@ -32,7 +34,7 @@ export function DocumentView({ snapshotId, path, name, mediaType, size, onSave, 
       token = result.token
       // The tab closed while the main process was reading the file: the page is let go at once.
       if (!alive) return void window.fb?.docs.release(result.token)
-      setLoad({ state: 'drawing', url: result.url })
+      setLoad({ state: 'drawing', url: result.url, token: result.token })
     })
     return () => {
       alive = false
@@ -40,13 +42,21 @@ export function DocumentView({ snapshotId, path, name, mediaType, size, onSave, 
     }
   }, [snapshotId, path])
 
+  const zoomed = useRef(onZoom)
+  zoomed.current = onZoom
+  const activeNow = useRef(active)
+  activeNow.current = active
   // What the page says, and only the page of this frame.
   useEffect(() => {
     if (!url) return
     const onMessage = (event: MessageEvent) => {
       const data = event.data as Partial<DocMessage> | null
       if (event.source !== frame.current?.contentWindow || !data || data.fbDoc !== true) return
-      if (data.type === 'ready') setLoad((old) => ('url' in old ? { state: 'drawn', url: old.url } : old))
+      if (data.type === 'wheel' && typeof data.deltaY === 'number') {
+        if (activeNow.current) zoomed.current?.({ wheel: data.deltaY })
+      } else if (data.type === 'zoom' && (data.direction === 'in' || data.direction === 'out' || data.direction === 'reset')) {
+        if (activeNow.current) zoomed.current?.({ direction: data.direction })
+      } else if (data.type === 'ready') setLoad((old) => ('url' in old ? { state: 'drawn', url: old.url, token: old.token } : old))
       else if (data.type === 'error') setLoad({ state: 'failed', reason: 'notDrawn', detail: typeof data.message === 'string' ? data.message.slice(0, 300) : '' })
     }
     window.addEventListener('message', onMessage)
@@ -57,16 +67,29 @@ export function DocumentView({ snapshotId, path, name, mediaType, size, onSave, 
     }
   }, [url, t])
 
-  if (load.state === 'failed') return <OtherView name={name} mediaType={mediaType} size={size} reason={load.reason} detail={load.detail} onSave={onSave} onHex={onHex} />
+  // Find (Ctrl+F) acts on this document while its tab is in front and it is drawn: the main process runs the browser's own find in its frame.
+  const token = load.state === 'drawn' ? load.token : undefined
+  const target = useMemo(() => (token && window.fb ? createFrameFindTarget(window.fb, token) : null), [token])
+  useEffect(() => (active && target ? fileTarget.set(target) : undefined), [active, target])
+
+  if (load.state === 'failed') return <OtherView name={name} mediaType={mediaType} size={size} reason={load.reason} detail={load.detail} onSave={onSave} onHex={onHex} onOpenWith={onOpenWith} />
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <Toolbar>
         <SaveButton label={t('file.saveAs')} onClick={onSave} />
-        <Separator />
-        <ToolbarButton icon="file-binary" label={t('hex.viewTitle')} onClick={onHex} />
+        <FileActions onOpenWith={onOpenWith} onHex={onHex} />
       </Toolbar>
-      <div className="relative min-h-0 flex-1 bg-[#525659]">
-        {url ? <iframe ref={frame} title={t('doc.frame', { name })} src={url} sandbox="allow-scripts" className="absolute inset-0 h-full w-full border-0" /> : null}
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-[#525659]">
+        {url ? (
+          <iframe
+            ref={frame}
+            title={t('doc.frame', { name })}
+            src={url}
+            sandbox="allow-scripts"
+            className="absolute top-0 left-0 border-0"
+            style={{ width: `${100 / zoom}%`, height: `${100 / zoom}%`, ...(zoom === 1 ? {} : { transform: `scale(${zoom})`, transformOrigin: '0 0' }) }}
+          />
+        ) : null}
         {load.state !== 'drawn' ? <p role="status" className="absolute top-0 left-0 m-0 p-6 text-[13px] text-white/80">{t('doc.drawing')}</p> : null}
       </div>
     </div>

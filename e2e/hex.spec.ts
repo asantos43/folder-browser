@@ -30,7 +30,7 @@ test.beforeEach(() => {
   fs.writeFileSync(path.join(work, 'blob.xyz'), Buffer.from([1, 2, 0, 3, 4, 0xff]))
   fs.writeFileSync(path.join(work, 'report.pages'), zipSync([{ name: '[Content_Types].xml', data: '<x/>' }]))
   // Text, but too large to open in a tab: it is not shown, and can be seen as bytes.
-  fs.writeFileSync(path.join(work, 'huge.log'), 'line of a log\n'.repeat(450_000))
+  fs.writeFileSync(path.join(work, 'huge.txt'), 'line of a text\n'.repeat(450_000))
   fs.writeFileSync(path.join(work, 'notes.txt'), 'text stays text')
   // Over what is read whole into the interface (16 MiB): read by windows.
   fs.writeFileSync(path.join(work, 'big.iso'), elfFile(17 * 2 ** 20))
@@ -91,12 +91,12 @@ test('a file of an unknown type that is a ZIP is shown in hexadecimal, and a tex
   await item(page, 'report.pages').dblclick()
   await expect(grid(page, 'report.pages')).toBeVisible()
   await expect(page.getByText('ZIP archive')).toBeVisible()
-  await item(page, 'huge.log').dblclick()
+  await item(page, 'huge.txt').dblclick()
   await expect(page.getByText('This kind of file is not shown here.')).toBeVisible()
   await page.getByRole('button', { name: 'View as hex' }).click()
-  await expect(page.getByRole('tab', { name: /^Hex: huge\.log/ })).toBeVisible()
-  await expect(grid(page, 'huge.log')).toBeVisible()
-  await expect(grid(page, 'huge.log').getByRole('row').first()).toContainText('6c696e65206f66')
+  await expect(page.getByRole('tab', { name: /^Hex: huge\.txt/ })).toBeVisible()
+  await expect(grid(page, 'huge.txt')).toBeVisible()
+  await expect(grid(page, 'huge.txt').getByRole('row').first()).toContainText('6c696e65206f66')
 })
 
 test('a file over what is read whole is read a window at a time: the end of it is there', async () => {

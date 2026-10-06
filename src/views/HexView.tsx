@@ -2,9 +2,10 @@ import { asciiOf, findInFile, firstRowAt, hexByte, HEX_WIDTH, identify, offsetLa
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import { formatBytes } from '@/lib/format.ts'
-import { SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
+import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
 import { useSize } from './useViewport.ts'
 
+/** The height of a row at 100 %. */
 const ROW = 20
 const CHUNK = 64 * 1024
 /** The chunks kept (64 KiB each): 16 MiB. */
@@ -63,7 +64,7 @@ function readerOf(source: HexSource): ByteReader {
 export const HEX_WHOLE_LIMIT = 16 * 2 ** 20
 
 /** A big file of a folder in hex: its windows come from the main process; a file that cannot be read that way (an entry of a ZIP) is only offered with Save As. */
-export function RangeHexView({ snapshotId, path, name, size, onSave, fallback }: { snapshotId: string; path: string; name: string; size: number; onSave: () => void; fallback: () => ReactNode }) {
+export function RangeHexView({ snapshotId, path, name, size, onSave, onOpenWith, zoom, findToken, fallback }: { snapshotId: string; path: string; name: string; size: number; onSave: () => void; onOpenWith?: () => void; zoom?: number; findToken?: number; fallback: () => ReactNode }) {
   const [readable, setReadable] = useState<boolean | undefined>(undefined)
   useEffect(() => {
     let alive = true
@@ -84,7 +85,7 @@ export function RangeHexView({ snapshotId, path, name, size, onSave, fallback }:
     [snapshotId, path, size],
   )
   if (readable === undefined) return <div className="min-h-0 flex-1 bg-editor" />
-  return readable ? <HexView name={name} source={source} onSave={onSave} /> : <>{fallback()}</>
+  return readable ? <HexView name={name} source={source} onSave={onSave} onOpenWith={onOpenWith} zoom={zoom} findToken={findToken} /> : <>{fallback()}</>
 }
 
 const hex = (bytes: Uint8Array): string => Array.from(bytes, hexByte).join(' ')
@@ -95,7 +96,7 @@ const text = (bytes: Uint8Array): string => Array.from(bytes, asciiOf).join('')
  * exist). It is read-only and runs nothing: what the first bytes say the file is (an ELF, a PE, a ZIP…) is read from its header, as `file` does. Click a byte (Shift-click or
  * the arrows with Shift to extend), Ctrl+C copies the bytes as hex, Ctrl+G goes to an offset, and Find looks for bytes or text.
  */
-export function HexView({ name, source, onSave }: { name: string; source: HexSource; onSave: () => void }) {
+export function HexView({ name, source, onSave, onOpenWith, zoom = 1, findToken = 0 }: { name: string; source: HexSource; onSave: () => void; onOpenWith?: () => void; /** The zoom of the tab: the rows and their text are drawn at that scale. */ zoom?: number; /** Counts up at each Find (`Ctrl+F`): the box that looks for bytes or text takes the focus. */ findToken?: number }) {
   const { t } = useI18n()
   const size = sizeOf(source)
   const { at, need, failed } = useChunks(source)
@@ -110,11 +111,13 @@ export function HexView({ name, source, onSave }: { name: string; source: HexSou
   const [found, setFound] = useState<'none' | 'searching' | 'notFound' | 'invalid'>('none')
   const search = useRef(0)
   const gotoInput = useRef<HTMLInputElement>(null)
+  const queryInput = useRef<HTMLInputElement>(null)
   const [identity, setIdentity] = useState<Identity | null>(null)
 
-  const metrics = useMemo(() => scrollMetrics(size, ROW, room.height), [size, room.height])
+  const rowHeight = Math.max(8, Math.round(ROW * zoom))
+  const metrics = useMemo(() => scrollMetrics(size, rowHeight, room.height), [size, rowHeight, room.height])
   const firstRow = firstRowAt(metrics, scrollTop)
-  const visibleRows = Math.min(metrics.rows - firstRow, Math.ceil(room.height / ROW) + 1)
+  const visibleRows = Math.min(metrics.rows - firstRow, Math.ceil(room.height / rowHeight) + 1)
   need(firstRow * HEX_WIDTH, (firstRow + visibleRows) * HEX_WIDTH - 1)
 
   useEffect(() => {
@@ -131,11 +134,11 @@ export function HexView({ name, source, onSave }: { name: string; source: HexSou
       const el = box.current
       if (!el) return
       const first = firstRowAt(metrics, el.scrollTop)
-      const fits = Math.max(1, Math.floor(room.height / ROW))
+      const fits = Math.max(1, Math.floor(room.height / rowHeight))
       if (row < first) el.scrollTop = scrollTopOf(metrics, row)
       else if (row >= first + fits) el.scrollTop = scrollTopOf(metrics, row - fits + 1)
     },
-    [metrics, room.height],
+    [metrics, room.height, rowHeight],
   )
   const select = useCallback(
     (anchor: number, head: number) => {
@@ -162,7 +165,7 @@ export function HexView({ name, source, onSave }: { name: string; source: HexSou
 
   const onKey = (event: KeyboardEvent) => {
     const head = selection?.head ?? 0
-    const page = Math.max(1, Math.floor(room.height / ROW) - 1) * HEX_WIDTH
+    const page = Math.max(1, Math.floor(room.height / rowHeight) - 1) * HEX_WIDTH
     const moves: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: HEX_WIDTH, ArrowUp: -HEX_WIDTH, PageDown: page, PageUp: -page }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
       event.preventDefault()
@@ -209,6 +212,10 @@ export function HexView({ name, source, onSave }: { name: string; source: HexSou
     setSelection({ anchor: at, head: at + needle.length - 1 })
   }
   useEffect(() => () => void (search.current += 1), [])
+  // Ctrl+F: the box that looks for bytes or text.
+  useEffect(() => {
+    if (findToken > 0) queryInput.current?.focus()
+  }, [findToken])
 
   const rows = Array.from({ length: Math.max(0, visibleRows) }, (_, i) => firstRow + i)
   const inSelection = (offset: number) => range !== null && offset >= range.from && offset <= range.to
@@ -241,6 +248,7 @@ export function HexView({ name, source, onSave }: { name: string; source: HexSou
           <option value="text">{t('hex.findText')}</option>
         </select>
         <input
+          ref={queryInput}
           aria-label={mode === 'hex' ? t('hex.findHexHint') : t('hex.findTextHint')}
           placeholder={mode === 'hex' ? t('hex.findHexHint') : t('hex.findTextHint')}
           value={query}
@@ -256,6 +264,7 @@ export function HexView({ name, source, onSave }: { name: string; source: HexSou
         {status ? <span role="status" className="text-[12px] text-fg-muted">{status}</span> : null}
         <Separator />
         <SaveButton label={t('file.saveAs')} onClick={onSave} />
+        <FileActions onOpenWith={onOpenWith} />
         <span className="ml-auto flex items-center gap-3 pr-1 text-[12px] whitespace-nowrap text-fg-muted">
           {identity ? <span>{identity.description}</span> : null}
           <span>{formatBytes(size)}</span>
@@ -271,6 +280,7 @@ export function HexView({ name, source, onSave }: { name: string; source: HexSou
           tabIndex={0}
           onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
           onKeyDown={onKey}
+          style={{ fontSize: `${13 * zoom}px` }}
           className="relative min-h-0 flex-1 overflow-y-auto overflow-x-auto bg-editor font-mono text-[13px] text-editor-fg outline-none select-none"
         >
           <div style={{ height: metrics.height, minWidth: 'max-content' }}>
@@ -279,7 +289,7 @@ export function HexView({ name, source, onSave }: { name: string; source: HexSou
                 const start = row * HEX_WIDTH
                 const length = Math.min(HEX_WIDTH, size - start)
                 return (
-                  <div key={row} role="row" style={{ height: ROW }} className="flex items-center gap-4 px-3 whitespace-pre">
+                  <div key={row} role="row" style={{ height: rowHeight }} className="flex items-center gap-4 px-3 whitespace-pre">
                     <span className="text-fg-muted">{offsetLabel(start, size)}</span>
                     <span className="flex">
                       {Array.from({ length: HEX_WIDTH }, (_, i) => {

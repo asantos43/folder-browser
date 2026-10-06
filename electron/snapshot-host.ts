@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, webFrameMain, type IpcMainInvokeEvent, type Session, type WebContents, type WebFrameMain } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell, webFrameMain, type IpcMainInvokeEvent, type Session, type WebContents, type WebFrameMain } from 'electron'
 import type { AppInfo, DocOpen, IntegrityEvent, ListResult, MediaOpen, OpenResult, OpenWithResult, PrintRequest, PrintResult, RangeResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
 import { extractSelection, type ExtractResult } from '../core/extract.ts'
 import { FRAME_SCRIPT } from '../core/frameScript.ts'
@@ -49,6 +49,8 @@ export class SnapshotHost {
   private readonly media = new MediaFiles()
   /** The office documents being drawn. */
   private readonly docs = new DocFiles()
+  /** The scripts that draw them (the build made them). */
+  private readonly docScripts = path.join(app.getAppPath(), 'dist', 'docs')
   /** Both, behind one set of calls: a snapshot's id and a root's are told apart here. */
   readonly sources = new Sources(this.registry, this.roots)
   /** Requests cancelled below the page, for the tests and the log. */
@@ -95,8 +97,7 @@ export class SnapshotHost {
       return new Response(res.body ? (Readable.toWeb(res.body) as ReadableStream) : null, { status: res.status, headers: res.headers })
     })
     // The page of a document, its file and its script: from the folder the build made.
-    const scripts = path.join(app.getAppPath(), 'dist', 'docs')
-    ses.protocol.handle(DOC_SCHEME, (request) => serveDoc(this.docs, scripts, request.url))
+    ses.protocol.handle(DOC_SCHEME, (request) => serveDoc(this.docs, this.docScripts, request.url))
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
       if (details.url.startsWith(`${UI_ORIGIN}/`) || /^(data|blob|devtools):/.test(details.url)) return callback({})
       // A media element of the interface (never of a snapshot's page) plays what it was given a token for.
@@ -252,10 +253,16 @@ export class SnapshotHost {
     }
   }
 
-  /** The top frame of a snapshot's page in the window (a frame of the page itself is not it). */
+  /**
+   * The top frame of a snapshot's page in the window (a frame of the page itself is not it), or the frame that holds the drawing of a document: its page, or, for an
+   * OpenDocument file (which is drawn in a frame of the page), that frame.
+   */
   private pageFrame(win: BrowserWindow, id: string): WebFrameMain | undefined {
     const top = win.webContents.mainFrame
-    return top.frames.find((f) => f.url.startsWith(`${SCHEME}://${id}/`))
+    const snapshot = top.frames.find((f) => f.url.startsWith(`${SCHEME}://${id}/`))
+    if (snapshot) return snapshot
+    const doc = top.frames.find((f) => f.url.startsWith(`${DOC_SCHEME}://${id}/`))
+    return doc?.frames.find((f) => f.url === 'about:srcdoc') ?? doc
   }
 
   /** What the page has selected, to the clipboard. The page itself is asked: the frame is another process, and the menu has the focus. */
@@ -298,6 +305,7 @@ export class SnapshotHost {
    */
   private async render<T>(win: BrowserWindow, request: PrintRequest, use: (wc: WebContents) => Promise<T>): Promise<{ value: T } | { failed: PrintResult }> {
     try {
+      if (request.kind === 'document') return await this.renderDocument(request, use)
       if (request.kind === 'text') return { value: await usingHtml(textDocument((request.name ?? request.title).slice(0, 300), request.text), use) }
       if (this.roots.has(request.id)) {
         // A picture of a folder or a ZIP is printed as it is; the page of a snapshot and an HTML file as a page are the snapshots'.
@@ -328,6 +336,41 @@ export class SnapshotHost {
       }
     } catch (err) {
       return { failed: { printed: false, reason: 'error', message: (err as Error).message } }
+    }
+  }
+
+  /**
+   * A document, drawn by its own page in a window that is never shown (a session of its own that can load only that page, its file and its script), handed to `use` once it is
+   * drawn: the whole of it, every sheet and every slide, as the page makes it for printing.
+   */
+  private async renderDocument<T>(request: Extract<PrintRequest, { kind: 'document' }>, use: (wc: WebContents) => Promise<T>): Promise<{ value: T } | { failed: PrintResult }> {
+    const flavour = documentFlavour(this.registry.get(request.id)?.types.get(request.path), request.path)
+    if (!flavour || !this.sources.has(request.id)) return { failed: { printed: false, reason: 'unsupported' } }
+    const read = await this.sources.read(request.id, request.path, DOCUMENT_LIMIT)
+    if ('error' in read) return { failed: { printed: false, reason: 'error', message: read.error } }
+    const token = this.docs.add({ bytes: new Uint8Array(read.bytes), name: request.path.split(/[!/\\]+/).pop() ?? request.path, flavour })
+    const partition = `doc-print-${crypto.randomBytes(6).toString('hex')}`
+    const ses = session.fromPartition(partition)
+    ses.protocol.handle(DOC_SCHEME, (req) => serveDoc(this.docs, this.docScripts, req.url))
+    ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => callback({ cancel: !(details.url.startsWith(`${DOC_SCHEME}://${token}/`) || /^(data|blob):/.test(details.url)) }))
+    ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
+    const window = new BrowserWindow({ show: false, webPreferences: { partition, sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: false } })
+    try {
+      await window.loadURL(`${DOC_SCHEME}://${token}/?print=1`)
+      // Drawn when the page says so (it sets its state); a document that never is, is given up on.
+      const waited = Date.now()
+      for (;;) {
+        const state: unknown = await window.webContents.executeJavaScript('window.__fbDocState').catch(() => undefined)
+        if (state === 'ready') break
+        if (state === 'error') return { failed: { printed: false, reason: 'error', message: String(await window.webContents.executeJavaScript('window.__fbDocMessage').catch(() => '')) } }
+        if (Date.now() - waited > 45_000) return { failed: { printed: false, reason: 'error', message: 'The document took too long to draw.' } }
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+      await window.webContents.executeJavaScript('document.fonts?.ready').catch(() => undefined)
+      return { value: await use(window.webContents) }
+    } finally {
+      if (!window.isDestroyed()) window.destroy()
+      this.docs.release(token)
     }
   }
 
@@ -626,7 +669,7 @@ export class SnapshotHost {
     const asPrintRequest = (request: unknown): PrintRequest | null => {
       const r = request as Record<string, unknown> | null
       if (r?.kind === 'snapshot' && typeof r.id === 'string') return { kind: 'snapshot', id: r.id }
-      if ((r?.kind === 'image' || r?.kind === 'html') && typeof r.id === 'string' && typeof r.path === 'string') return { kind: r.kind, id: r.id, path: r.path }
+      if ((r?.kind === 'image' || r?.kind === 'html' || r?.kind === 'document') && typeof r.id === 'string' && typeof r.path === 'string') return { kind: r.kind, id: r.id, path: r.path }
       if (r?.kind === 'text' && typeof r.title === 'string' && typeof r.text === 'string' && r.text.length <= MAX_COPY) return { kind: 'text', title: r.title, text: r.text, ...(typeof r.name === 'string' ? { name: r.name.slice(0, 300) } : {}) }
       return null
     }

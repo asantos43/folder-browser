@@ -250,6 +250,25 @@ describe('FileView: hexadecimal', () => {
   })
 })
 
+describe('FileView: Open With…', () => {
+  it('is offered on a file that is not shown, and on a text', async () => {
+    window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode('hello') })) } as unknown as FbApi
+    const onOpenWith = vi.fn()
+    const view = (kind: 'other' | 'text', path: string) => (
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path={path} kind={kind} mediaType={kind === 'other' ? 'video/mp4' : 'text/plain'} size={5} onSave={() => {}} onHex={() => {}} onOpenWith={onOpenWith} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>
+    )
+    const { unmount } = render(view('other', 'clip.mp4'))
+    fireEvent.click(screen.getByRole('button', { name: 'Open With…' }))
+    expect(onOpenWith).toHaveBeenCalledTimes(1)
+    unmount()
+    render(view('text', 'a.txt'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open With…' }))
+    expect(onOpenWith).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe('FileView: CSV', () => {
   const csv = (path: string, body: string) => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(body) })) } as unknown as FbApi

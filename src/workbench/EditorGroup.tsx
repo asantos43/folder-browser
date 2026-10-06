@@ -28,7 +28,7 @@ import { TabStrip } from './TabStrip.tsx'
  * The editor group: the tab strip, the breadcrumbs and the area of the active tab. Every open snapshot keeps its `<iframe sandbox>`
  * (hidden while another tab shows), so its scroll and state stay as they were; a file tab shows the file.
  */
-export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, find, onCloseFind, ws, dispatch, onSaveFile, onOpenWith, onReveal, onCopy, onOpenExternal, signers, onTrust, onForget, theme, setTheme }: { /** The zoom of each tab that has one. */ zooms: Readonly<Record<string, number>>; onSaveConverted: (snapshotId: string) => void; onViewEntry: (snapshotId: string, zipPath: string, entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; find: { open: boolean; token: number }; onCloseFind: () => void; theme: ThemeSetting; setTheme: (theme: ThemeSetting) => void; signers: Signers; onTrust: (fingerprint: string, name?: string) => void; onForget: (fingerprint: string) => void; ws: Workspace; dispatch: (a: Action) => void; onSaveFile: (snapshotId: string, path: string) => void; onOpenWith: (snapshotId: string, path: string) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; onOpenExternal: (url: string) => void }) {
+export function EditorGroup({ zooms, onZoom, onSaveConverted, onViewEntry, onNotify, find, onCloseFind, ws, dispatch, onSaveFile, onOpenWith, onReveal, onCopy, onOpenExternal, signers, onTrust, onForget, theme, setTheme }: { /** The zoom of each tab that has one. */ zooms: Readonly<Record<string, number>>; /** The wheel or a zoom key over a document (a zoom of its tab). */ onZoom: (change: { wheel: number } | { direction: 'in' | 'out' | 'reset' }) => void; onSaveConverted: (snapshotId: string) => void; onViewEntry: (snapshotId: string, zipPath: string, entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; find: { open: boolean; token: number }; onCloseFind: () => void; theme: ThemeSetting; setTheme: (theme: ThemeSetting) => void; signers: Signers; onTrust: (fingerprint: string, name?: string) => void; onForget: (fingerprint: string) => void; ws: Workspace; dispatch: (a: Action) => void; onSaveFile: (snapshotId: string, path: string) => void; onOpenWith: (snapshotId: string, path: string) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; onOpenExternal: (url: string) => void }) {
   const { t } = useI18n()
   const views = useMemo(() => describeTabs(ws, t), [ws, t])
   const active = ws.tabs.find((tab) => tab.key === ws.active)
@@ -63,7 +63,7 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
   const pageId = active && isSnapshotTab(active) && !heldBack ? active.snapshotId : null
   const frame = useMemo(() => (pageId && window.fb ? createFrameFindTarget(window.fb, pageId) : null), [pageId])
   const fileKind = fileTab ? info?.kind : undefined
-  const getTarget = useCallback((): FindTarget | null => (frame ? frame : fileKind === 'text' || fileKind === 'pdf' ? fileTarget.get() : dom), [frame, fileKind, dom])
+  const getTarget = useCallback((): FindTarget | null => (frame ? frame : fileKind === 'text' || fileKind === 'pdf' || fileKind === 'document' ? fileTarget.get() : dom), [frame, fileKind, dom])
 
   return (
     <main aria-label="Editor" className="flex h-full min-w-0 flex-col bg-editor text-editor-fg">
@@ -72,7 +72,7 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
       <div ref={area} className="relative flex min-h-0 flex-1 flex-col">
         {active && isSnapshotTab(active) && !heldBack && ws.snapshots[active.snapshotId]?.converted ? <ConvertedBar info={ws.snapshots[active.snapshotId].converted!} onSave={() => onSaveConverted(active.snapshotId)} /> : null}
         {/* No key: Find closes when the tab changes, so there is no state to carry over (and a key on it kept it mounted once closed). */}
-        {find.open && active ? <FindBar getTarget={getTarget} focusToken={find.token} onClose={onCloseFind} /> : null}
+        {find.open && active && fileKind !== 'hex' ? <FindBar getTarget={getTarget} focusToken={find.token} onClose={onCloseFind} /> : null}
         {frames.map((tab) => {
           // The zoom of the page is the tab's own: the frame is laid out at 1/zoom of the room and scaled up (or down) to fill it, as a browser's zoom lays a page out.
           const zoom = tabZoomOf(zooms, tab.key)
@@ -124,13 +124,17 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
               name={tab.path!.split(/[!/]+/).pop() ?? tab.path!}
               mediaType={file.mediaType}
               size={file.size}
+              active={ws.active === tab.key}
+              zoom={tabZoomOf(zooms, tab.key)}
+              onZoom={onZoom}
               onSave={() => onSaveFile(tab.snapshotId, tab.path!)}
+              onOpenWith={() => onOpenWith(tab.snapshotId, tab.path!)}
               onHex={() => dispatch({ type: 'open-file', snapshotId: tab.snapshotId, path: tab.path!, keep: true, size: file.size, as: 'hex' })}
             />
           </div>
         ))}
         {fileTab && info?.file && info.kind !== 'media' && info.kind !== 'document' ? (
-          <FileView key={fileTab.key} snapshotId={fileTab.snapshotId} path={fileTab.path!} kind={info.kind} mediaType={info.file.mediaType} size={info.file.size} onSave={() => onSaveFile(fileTab.snapshotId, fileTab.path!)} onHex={() => dispatch({ type: 'open-file', snapshotId: fileTab.snapshotId, path: fileTab.path!, keep: true, size: info.file!.size, as: 'hex' })} onViewEntry={(entry) => onViewEntry(fileTab.snapshotId, fileTab.path!, entry)} onNotify={onNotify} zoom={tabZoomOf(zooms, fileTab.key)} />
+          <FileView key={fileTab.key} snapshotId={fileTab.snapshotId} path={fileTab.path!} kind={info.kind} mediaType={info.file.mediaType} size={info.file.size} onSave={() => onSaveFile(fileTab.snapshotId, fileTab.path!)} onOpenWith={() => onOpenWith(fileTab.snapshotId, fileTab.path!)} findToken={find.open ? find.token : 0} onHex={() => dispatch({ type: 'open-file', snapshotId: fileTab.snapshotId, path: fileTab.path!, keep: true, size: info.file!.size, as: 'hex' })} onViewEntry={(entry) => onViewEntry(fileTab.snapshotId, fileTab.path!, entry)} onNotify={onNotify} zoom={tabZoomOf(zooms, fileTab.key)} />
         ) : null}
         {!active ? (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 text-fg-muted">

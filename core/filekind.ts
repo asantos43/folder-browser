@@ -67,6 +67,8 @@ const LANGUAGE_OF_TYPE = new Map<string, Language>([...SOURCE_LANGUAGES.map(([la
 
 /** A text file bigger than this is not opened in a tab: it is offered with Save As, like a PDF. */
 export const TEXT_LIMIT = 5 * 2 ** 20
+/** A log is text too, and logs are big: one up to this is opened in a tab (a bigger one: Save As, or hex, which reads it a window at a time). */
+export const LOG_LIMIT = 32 * 2 ** 20
 /** A picture or a font bigger than this is not read into the interface either. */
 export const BINARY_LIMIT = 64 * 2 ** 20
 /** An office document is read whole into the page that draws it: a bigger one is only offered with Save As (and hex). */
@@ -177,7 +179,7 @@ export function mediaKind(mediaType: string | undefined, name: string): 'video' 
 /** What tab a file gets. Programs and the like are `hex`; office documents and unknown types are `other`: they are saved, not shown (an unknown one is looked at: text, or hex when it is not). */
 export function viewKind(mediaType: string | undefined, name: string, size: number): ViewKind {
   const type = effectiveType(mediaType, name)
-  if (TEXT.test(type)) return size <= TEXT_LIMIT ? 'text' : 'other'
+  if (TEXT.test(type)) return size <= (/\.log$/i.test(name) ? LOG_LIMIT : TEXT_LIMIT) ? 'text' : 'other'
   if (IMAGE.test(type)) return size <= BINARY_LIMIT ? 'image' : 'other'
   if (type === 'application/pdf') return size <= BINARY_LIMIT ? 'pdf' : 'other'
   if (FONT.test(type)) return size <= BINARY_LIMIT ? 'font' : 'other'

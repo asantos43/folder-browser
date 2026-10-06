@@ -25,10 +25,10 @@ const elf = () => {
   bytes.set(new TextEncoder().encode('Hello, hex!'), 32)
   return bytes
 }
-const show = (source: HexSource = { bytes: elf() }, onSave = vi.fn()) => {
+const show = (source: HexSource = { bytes: elf() }, onSave = vi.fn(), extra: { zoom?: number; findToken?: number; onOpenWith?: () => void } = {}) => {
   render(
     <I18nProvider language="en">
-      <HexView name="libx.so" source={source} onSave={onSave} />
+      <HexView name="libx.so" source={source} onSave={onSave} {...extra} />
     </I18nProvider>,
   )
   return onSave
@@ -126,6 +126,31 @@ describe('HexView', () => {
     const onSave = show()
     fireEvent.click(screen.getByRole('button', { name: 'Save As…' }))
     expect(onSave).toHaveBeenCalledOnce()
+  })
+})
+
+describe('HexView: zoom, Find and Open With', () => {
+  it('draws the rows and their text at the zoom of the tab', () => {
+    show({ bytes: elf() }, vi.fn(), { zoom: 1.5 })
+    expect((rows()[0] as HTMLElement).style.height).toBe('30px')
+    expect(grid().style.fontSize).toBe('19.5px')
+  })
+  it('puts the focus in the box that looks for bytes or text at each Ctrl+F, and not before', () => {
+    render(
+      <I18nProvider language="en">
+        <HexView name="libx.so" source={{ bytes: elf() }} onSave={() => {}} findToken={0} />
+      </I18nProvider>,
+    )
+    expect(document.activeElement).not.toBe(screen.getByPlaceholderText('Bytes, e.g. 4d 5a'))
+    cleanup()
+    show({ bytes: elf() }, vi.fn(), { findToken: 1 })
+    expect(document.activeElement).toBe(screen.getByPlaceholderText('Bytes, e.g. 4d 5a'))
+  })
+  it('has Open With… when it is given what that does', () => {
+    const onOpenWith = vi.fn()
+    show({ bytes: elf() }, vi.fn(), { onOpenWith })
+    fireEvent.click(screen.getByRole('button', { name: 'Open With…' }))
+    expect(onOpenWith).toHaveBeenCalledOnce()
   })
 })
 

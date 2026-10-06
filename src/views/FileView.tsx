@@ -67,7 +67,7 @@ function useLate(ms: number): boolean {
 }
 
 /** The tab of one file of a snapshot: source, picture or font when it can be shown, and a way to save it when it cannot. */
-export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onHex, onViewEntry, onNotify, zoom = 1 }: { /** Opens the file as its bytes (hexadecimal), in a tab of its own: offered on what is not shown. */ onHex: () => void; /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
+export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size, onSave, onHex, onOpenWith, findToken = 0, onViewEntry, onNotify, zoom = 1 }: { /** Hands the file to another application, by the chooser of this app. */ onOpenWith?: () => void; /** Counts up at each Find (`Ctrl+F`): a view with a search of its own (hexadecimal) takes the focus there. */ findToken?: number; /** Opens the file as its bytes (hexadecimal), in a tab of its own: offered on what is not shown. */ onHex: () => void; /** The zoom of the tab (a text is drawn at that scale; a picture and a PDF keep their own). */ zoom?: number; onViewEntry: (entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; snapshotId: string; path: string; kind: ViewKind; mediaType: string | undefined; size: number; onSave: () => void }) {
   const { t } = useI18n()
   const key = `${snapshotId}:${path}`
   // A file of no known type (an entry of a ZIP with an extension the viewer has never heard of) is read and looked at: if it is text, it is shown as text.
@@ -126,26 +126,26 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
 
   // A ZIP is listed by the main process, which keeps it: nothing is read into the interface.
   if (kind === 'zip') return <ZipView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} onView={onViewEntry} onNotify={onNotify} />
-  if (windowed) return <RangeHexView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} fallback={() => <OtherView name={name} mediaType={mediaType} size={size} reason="tooLarge" onSave={onSave} />} />
-  if (kind === 'other' && !probe) return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} onHex={onHex} />
+  if (windowed) return <RangeHexView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} onOpenWith={onOpenWith} zoom={zoom} findToken={findToken} fallback={() => <OtherView name={name} mediaType={mediaType} size={size} reason="tooLarge" onSave={onSave} onOpenWith={onOpenWith} />} />
+  if (kind === 'other' && !probe) return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} onHex={onHex} onOpenWith={onOpenWith} />
   // A moment of nothing, not of a message that flashes: "Loading…" appears only when the file is slow.
   if (loaded.state === 'loading' || (probe && loaded.state === 'ready' && sniffed === undefined)) return late ? <p className="m-0 p-6 text-fg-muted">{t('file.loading')}</p> : <div className="min-h-0 flex-1 bg-editor" />
-  if (loaded.state === 'failed') return <OtherView name={name} mediaType={mediaType} size={size} reason={loaded.error === 'too-large' ? 'tooLarge' : 'readError'} onSave={onSave} />
-  if (hex) return <HexBytes name={name} bytes={loaded.bytes} onSave={onSave} />
+  if (loaded.state === 'failed') return <OtherView name={name} mediaType={mediaType} size={size} reason={loaded.error === 'too-large' ? 'tooLarge' : 'readError'} onSave={onSave} onOpenWith={onOpenWith} />
+  if (hex) return <HexBytes name={name} bytes={loaded.bytes} onSave={onSave} onOpenWith={onOpenWith} zoom={zoom} findToken={findToken} />
   // An SVG is a picture and its source: the toolbar of either has the switch to the other.
   if (svg && svgAs === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType="image/svg+xml" name={name} onSave={onSave} leading={<SvgToggle />} />
   // A CSV or a TSV file is a table and its text: the toolbar of either has the switch to the other.
-  if (delimited && csvAs === 'table') return <CsvView text={text} name={name} tab={/\.tsv$/i.test(path)} onSave={onSave} zoom={zoom} />
+  if (delimited && csvAs === 'table') return <CsvView text={text} name={name} tab={/\.tsv$/i.test(path)} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} />
   // A Markdown file is a page and its text: the toolbar of either has the switch to the other.
-  if (kind === 'text' && language === 'markdown' && markdownAs === 'formatted') return <MarkdownView text={text} onSave={onSave} zoom={zoom} />
-  if (kind === 'text') return <TextView text={text} language={language} size={size} onSave={onSave} zoom={zoom} leading={svg ? <SvgToggle /> : language === 'markdown' ? <MarkdownToggle /> : delimited ? <CsvToggle /> : undefined} />
+  if (kind === 'text' && language === 'markdown' && markdownAs === 'formatted') return <MarkdownView text={text} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} />
+  if (kind === 'text') return <TextView text={text} language={language} size={size} onSave={onSave} onOpenWith={onOpenWith} onHex={onHex} zoom={zoom} leading={svg ? <SvgToggle /> : language === 'markdown' ? <MarkdownToggle /> : delimited ? <CsvToggle /> : undefined} />
   if (kind === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType={effectiveType(mediaType, path)} name={name} onSave={onSave} />
   if (kind === 'pdf') return <PdfView id={`${snapshotId}:${path}`} bytes={loaded.bytes} name={name} onSave={onSave} />
   return <FontView bytes={loaded.bytes} />
 }
 
 /** The bytes of a file that was read whole, in hexadecimal. */
-function HexBytes({ name, bytes, onSave }: { name: string; bytes: Uint8Array; onSave: () => void }) {
+function HexBytes({ name, bytes, onSave, onOpenWith, zoom, findToken }: { name: string; bytes: Uint8Array; onSave: () => void; onOpenWith?: () => void; zoom: number; findToken: number }) {
   const source = useMemo(() => ({ bytes }), [bytes])
-  return <HexView name={name} source={source} onSave={onSave} />
+  return <HexView name={name} source={source} onSave={onSave} onOpenWith={onOpenWith} zoom={zoom} findToken={findToken} />
 }

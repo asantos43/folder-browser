@@ -9,14 +9,14 @@ import { formatSource as formatSetting, wordWrap } from '@/state/setting.ts'
 import { shownText } from '@/state/shown.ts'
 import { CodeView } from './CodeView.tsx'
 import { canFormat, formatSource } from './format.ts'
-import { SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
+import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
 
 /**
  * A text file of the snapshot in a tab: source with the colours of its language, a toolbar with **Format** (HTML, CSS, JavaScript, JSON and XML laid
  * out for reading, which a saved page badly needs, as against as they were saved), **Word Wrap** (Alt+Z) and Save As, and the language and the
  * number of lines. Both switches are settings of the whole application, kept on this computer.
  */
-export function TextView({ text, language, size, onSave, leading, zoom = 1 }: { text: string; language: Language; size: number; onSave: () => void; /** Buttons at the start of the toolbar (the SVG's switch to the picture). */ leading?: ReactNode; /** The zoom of this tab: the text is drawn at that scale. */ zoom?: number }) {
+export function TextView({ text, language, size, onSave, onOpenWith, onHex, leading, zoom = 1 }: { text: string; language: Language; size: number; onSave: () => void; onOpenWith?: () => void; onHex?: () => void; /** Buttons at the start of the toolbar (the SVG's switch to the picture). */ leading?: ReactNode; /** The zoom of this tab: the text is drawn at that scale. */ zoom?: number }) {
   const { t } = useI18n()
   const wrap = wordWrap.use()
   const formatOn = formatSetting.use()
@@ -77,6 +77,7 @@ export function TextView({ text, language, size, onSave, leading, zoom = 1 }: { 
         <ToolbarButton icon="word-wrap" text={t('text.wordWrap')} label={t('text.wordWrapTitle')} pressed={wrap} onClick={() => wordWrap.set(!wrap)} />
         <Separator />
         <SaveButton label={t('file.saveAs')} onClick={onSave} />
+        <FileActions onOpenWith={onOpenWith} onHex={onHex} />
         <span className="ml-auto flex items-center gap-3 pr-1 text-[12px] text-fg-muted">
           {status ? <span aria-live="polite">{status}</span> : null}
           <span>{t('text.lines', { count: lines })}</span>

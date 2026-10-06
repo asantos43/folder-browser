@@ -2,7 +2,7 @@ import { useMemo, type CSSProperties, type MouseEvent } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import { markdownView, markdownWide, markdownWrapCode } from '@/state/setting.ts'
 import { renderMarkdown } from './markdown.ts'
-import { SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
+import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
 
 /** The two ways to see a Markdown file, side by side in the toolbar of either: formatted as it reads, or as the text it is written in. The choice is kept for every Markdown file. */
 export function MarkdownToggle() {
@@ -18,7 +18,7 @@ export function MarkdownToggle() {
 }
 
 /** A Markdown file as a page: headings, lists, tables, code. A link to the web opens in the browser; nothing else in it is followed or loaded. */
-export function MarkdownView({ text, onSave, zoom = 1 }: { text: string; onSave: () => void; zoom?: number }) {
+export function MarkdownView({ text, onSave, onOpenWith, onHex, zoom = 1 }: { text: string; onSave: () => void; onOpenWith?: () => void; onHex?: () => void; zoom?: number }) {
   const { t } = useI18n()
   const wide = markdownWide.use()
   const wrapCode = markdownWrapCode.use()
@@ -38,6 +38,7 @@ export function MarkdownView({ text, onSave, zoom = 1 }: { text: string; onSave:
         <ToolbarButton icon="word-wrap" text={t('markdown.wrapCode')} label={t('markdown.wrapCodeTitle')} pressed={wrapCode} onClick={() => markdownWrapCode.set(!wrapCode)} />
         <Separator />
         <SaveButton label={t('file.saveAs')} onClick={onSave} />
+        <FileActions onOpenWith={onOpenWith} onHex={onHex} />
         <span className="ml-auto flex items-center gap-3 pr-1 text-[12px] text-fg-muted">
           <span>{t('text.language.markdown')}</span>
         </span>

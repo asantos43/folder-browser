@@ -27,7 +27,7 @@ export type { Place, PlacesData, PlaceKind } from './places.ts'
 export type { RestoreResult } from './trash.ts'
 export type { ExtractResult, ZipEntryInfo }
 /** What to print: the page of a snapshot, a picture of it, or a text (as the tab shows it). */
-export type PrintRequest = { kind: 'snapshot'; id: string } | { kind: 'image'; id: string; path: string } | { kind: 'html'; id: string; path: string } | { kind: 'text'; title: string; text: string; /** The name of the file, for the PDF's. */ name?: string }
+export type PrintRequest = { kind: 'snapshot'; id: string } | { kind: 'image'; id: string; path: string } | { kind: 'html'; id: string; path: string } | { kind: 'document'; id: string; path: string } | { kind: 'text'; title: string; text: string; /** The name of the file, for the PDF's. */ name?: string }
 export type PrintResult = { printed: true } | { printed: false; reason: 'cancelled' | 'error' | 'unsupported'; message?: string }
 
 /** What came of "Open with…": the system asked which application to use, or why not. */

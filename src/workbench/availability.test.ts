@@ -47,3 +47,23 @@ describe('an SVG shown as a picture', () => {
     expect(printRequestOf(ws, () => 'source')).toMatchObject({ kind: 'text', text: 'source', name: 'mark.svg' })
   })
 })
+
+describe('office documents and the bytes of a file', () => {
+  const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const open = (path: string, as?: 'hex') => run({ type: 'root-opened', root }, { type: 'open-file', snapshotId: 'r1', path, keep: true, size: 900, ...(as ? { as } : {}) })
+  it('a document is a page with the zoom of its tab, is searched in its frame and is printed whole', () => {
+    const ws = open('docs/report.docx')
+    expect(zoomTargetOf(ws)).toBe('page')
+    expect(canFind(ws)).toBe(true)
+    expect(canPrint(ws)).toBe(true)
+    expect(printRequestOf(ws, () => null)).toEqual({ kind: 'document', id: 'r1', path: 'docs/report.docx' })
+    for (const name of ['a.pptx', 'a.odt', 'a.ods', 'a.xlsx', 'a.xls']) expect(printRequestOf(open(name), () => null), name).toEqual({ kind: 'document', id: 'r1', path: name })
+  })
+  it('the bytes of a file have the zoom of their tab and a search of their own, and are not printed', () => {
+    const ws = open('docs/report.docx', 'hex')
+    expect(zoomTargetOf(ws)).toBe('text')
+    expect(canFind(ws)).toBe(true)
+    expect(canPrint(ws)).toBe(false)
+    expect(printRequestOf(ws, () => null)).toBeNull()
+  })
+})

@@ -1,5 +1,9 @@
 import { Odr } from '@opendocument/odr-core'
-import { boot, docName } from './boot.ts'
+import { boot, docName, printing } from './boot.ts'
+
+/** Run in the page of a view (a frame of this page): the wheel and the zoom keys with Control held are a zoom, said to this page, which says it on. */
+const WHEEL_SCRIPT = `<script>addEventListener('wheel',function(e){if(!(e.ctrlKey||e.metaKey)||!e.deltaY)return;e.preventDefault();parent.postMessage({fbDoc:true,type:'wheel',deltaY:e.deltaY},'*')},{capture:true,passive:false});addEventListener('keydown',function(e){if(!(e.ctrlKey||e.metaKey)||e.altKey)return;var d=e.key==='='||e.key==='+'?'in':e.key==='-'?'out':e.key==='0'?'reset':null;if(!d)return;e.preventDefault();parent.postMessage({fbDoc:true,type:'zoom',direction:d},'*')},true)</script>`
+const withWheel = (html: string): string => (html.includes('</body>') ? html.replace('</body>', `${WHEEL_SCRIPT}</body>`) : html + WHEEL_SCRIPT)
 
 // The OpenDocument family, the older Office files and every spreadsheet: odr-core (WebAssembly) renders a view of the document to a page of its own, drawn here in a
 // frame. A workbook has a bar to go from one sheet to another.
@@ -7,6 +11,13 @@ boot(async (bytes, root) => {
   const odr = await Odr.load()
   const doc = odr.open(new Uint8Array(bytes), { name: docName() })
   if (doc.isPasswordEncrypted()) throw new Error('This document is protected by a password.')
+  // To be printed the page is the whole document (every sheet, every slide), not a frame with a bar.
+  if (printing()) {
+    document.open()
+    document.write(doc.render(0).html)
+    document.close()
+    return { views: 1 }
+  }
   // The first view is the whole document: for a workbook that is every sheet one under the other, with no names, so a workbook is shown one sheet at a time (a bar names them).
   const all = doc.listViews()
   const views = all.length > 1 && all[1].path.startsWith('sheet') ? all.slice(1) : all.slice(0, 1)
@@ -14,7 +25,7 @@ boot(async (bytes, root) => {
   frame.setAttribute('sandbox', 'allow-scripts')
   frame.style.cssText = 'flex:1;min-height:0;width:100%;border:0;background:#fff'
   const show = (index: number) => {
-    frame.srcdoc = doc.render(index).html
+    frame.srcdoc = withWheel(doc.render(index).html)
   }
   root.style.cssText = 'display:flex;flex-direction:column;height:100vh'
   root.append(frame)
