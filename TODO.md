@@ -10,7 +10,8 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] New icon (`build/icon.svg`, `build/icon.png`, `build/icons/*`, `public/icon.svg`): concept C2 chosen by the developer: folder with a zipper, a page, a pencil, play and the lens
 - [x] `asantos43/folder-browser` created on GitHub (private) and `main` pushed
 - [x] `docs/USER-GUIDE.md` and `docs/USER-GUIDE.pt-BR.md` rewritten for Folder Browser (phase 2); `docs/UI-DESIGN.md` (the table of what each part becomes), `docs/DEVELOPMENT.md`, `PRIVACY.md` (en and pt-BR) and `SECURITY.md` brought up to date. `docs/RELEASING.md` has nothing of the viewer that is wrong, but is untried (no release was made yet)
-- [ ] Screenshots for the user guide and the README (the old ones were of WSNP Viewer and were taken out of the guide)
+- [x] Screenshots for the user guide and the README: `npm run screenshots` (`scripts/screenshots.ts`) drives the real application over a synthetic folder (`scripts/demo-folder.ts`, also what to open to look at the app: `node scripts/demo-folder.ts`) and writes `docs/images/*.png`; both guides show them. The windows are 1280×800 in Light+ (and one in Dark+); pictures of Windows and macOS are still to take
+- [ ] In a narrow editor group (two groups side by side at 1280 px) the toolbar of a Markdown file overlaps the buttons of the other group: let the toolbar wrap or hide labels
 - [x] `npm run notices` (`THIRD-PARTY-NOTICES.md`) after the new dependencies come in
 
 ## Phase 1: browse

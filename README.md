@@ -10,8 +10,12 @@ two text files side by side in a **diff**, and open `.wsnp` files (web pages sav
 It runs on Linux, Windows and macOS, is built with Electron and TypeScript, and looks and behaves like Visual Studio Code's Dark+ and Light+. English and
 Brazilian Portuguese, following the system language. [Português do Brasil](README.pt-BR.md).
 
-> **Status: under construction.** The project was started from WSNP Viewer 0.1.0, so the `.wsnp` viewer, the tabs, the file tree, the ZIP list, Find, Print and Open With…
-> already work. Everything else below is planned, phase by phase: see [`TODO.md`](TODO.md).
+![Folder Browser: the folder tree on the left, a file in a tab on the right](docs/images/workbench.png)
+
+The [user guide](docs/USER-GUIDE.md) shows each feature, with pictures, and how to use it.
+
+> **Status: under construction.** Browsing folders and ZIP files, the tree with several rows marked, Cut/Copy/Paste, editing text (also inside a ZIP), tables, diff, two editor groups,
+> media, office documents, the hex view and `.wsnp` snapshots work; the first release (packages, final screenshots) is the last phase: see [`TODO.md`](TODO.md).
 
 ## What it does
 

@@ -4,6 +4,8 @@ Folder Browser looks at the folders on your computer and at what is in them. It 
 
 ## Opening a folder
 
+![Folder Browser with the folder Harbor Times open: the tree on the left, a Markdown file on the right](images/workbench.png)
+
 - **File ▸ Open Folder…** (`Ctrl+Shift+O`, `⇧⌘O` on macOS), or **drag** a folder, a ZIP file or any file onto the window, or name one on the command line.
 - A **ZIP file** opens as a folder, also a ZIP inside a ZIP. A file that you name on its own opens in a tab, with its folder opened beside it.
 - **File ▸ Open File…** (`Ctrl+O`) asks for a file; the installers register `.wsnp` and `.zip` with the application, so a double click in the file manager works too.
@@ -27,11 +29,15 @@ It is laid out like Visual Studio Code: a **title bar** with the menu, an **acti
 
 ### The right-click menu
 
+![The right-click menu of a text file](images/context-menu.png)
+
 The menu of a row depends on what it is. A folder: expand, refresh, **New File…**, **New Folder…**, **Rename**, **Move to…**, **Delete**, add to Favorites. A ZIP file: expand, **Open as List**. A `.wsnp`: **Open** (its page) or **Open as ZIP**. A file: **Open** (or **Play**); a text file also **Select for Compare** (and, once another is chosen, **Compare with Selected**). **For every file**: **Open as Hex**, **Open With…**, **Open with Default Application**, **Save As…**, **Show in File Manager**, **Copy Path**, **Copy Name**, **Properties**.
 
 **Open With…** asks your system which application should open the file (Windows' dialog, macOS's chooser, and on Linux a dialog of the application's own, with the applications registered for the type first, then all the others, a search box and **Always use for this file type**). The application is given a **read-only copy** in your temporary folder, removed when the application quits. A kind of file that can run as a program (`.exe`, `.bat`, `.sh`, `.desktop`, `.jar`…) is never handed over: use **Save As…**.
 
 ## Making, renaming, moving and deleting
+
+![Renaming a file in its row of the tree](images/rename.png)
 
 These work on the files and folders of a folder you opened, and on what is inside a ZIP file (see "Inside a ZIP" below); not in the Trash place.
 
@@ -43,6 +49,12 @@ These work on the files and folders of a folder you opened, and on what is insid
 - The **tabs follow**: the tab of a renamed or moved file (or of a file in a renamed folder) keeps its place, its zoom and its preview, with the new name, and the tab of a deleted item closes.
 
 ## Several rows, Cut, Copy and Paste
+
+![Three rows marked, and the menu for all of them](images/multiselect.png)
+
+![Move to… for the marked rows](images/move-dialog.png)
+
+![Rows that were cut are dimmed; Paste is in the menu of a folder](images/clipboard-menu.png)
 
 - **Mark several rows** in the tree: **Ctrl+click** (`⌘+click` on macOS) marks or unmarks a row, **Shift+click** marks everything from the row you clicked last to this one, **Shift+↑ / ↓** (also `Shift+Home` / `End`) extends the marks from where they began, and **Ctrl+A** (`⌘A`) marks every row on screen. The marked rows are highlighted. A click with Ctrl or Shift only marks (nothing opens). A plain click, a plain arrow or **Esc** lets the marks go, and a mark goes with its row (when it is deleted or its folder is closed).
 - **An action on a marked row is on all of them**, once: **Delete** (one question for all; `Shift+Delete` asks for the permanent delete), **Move to…** (one folder picker), **dragging** one of them onto a folder (they go together; with **Shift** held they are copied), and, for exactly two text files, **Compare Selected**. The right-click menu of a marked row is for all the marked rows and says how many. If a folder and something in it are both marked, only the folder is acted on. When something cannot be done to some of them, one message says how many and what went wrong first; the rest is done. This works inside a ZIP too.
@@ -69,7 +81,17 @@ These work on the files and folders of a folder you opened, and on what is insid
 
 **Open With…** and **View as hex** are in the toolbar of the document, the table, the bytes and every text, and on the cards.
 
+A few of the views, from the folder used for these pictures:
+
+| | |
+| --- | --- |
+| ![A PDF](images/pdf.png) | ![A picture](images/image.png) |
+| ![A sound in the player](images/media.png) | ![The bytes of a file in hexadecimal](images/hex.png) |
+| ![A Word document](images/docx.png) | ![A spreadsheet](images/spreadsheet.png) |
+
 ## Editing text
+
+![A text file with a change not saved: the dot on the tab and Modified in the toolbar](images/editing.png)
 
 A text file of a folder you opened, or inside a ZIP, opens ready to edit, with the colours of its language, undo and redo (`Ctrl+Z`, `Ctrl+Shift+Z`), automatic closing of brackets, `Tab` to indent, and Word Wrap.
 
@@ -85,6 +107,8 @@ A text file of a folder you opened, or inside a ZIP, opens ready to edit, with t
 
 ## Tables (CSV and TSV)
 
+![A CSV file as a table](images/table.png)
+
 A CSV or TSV file opens as a **table** (**Table / Text** in the toolbar switch to the source; the choice is kept). The first row is the header and stays in view; the rows are numbered with their line in the file; the delimiter (comma, semicolon, tab, bar) is found by itself. Only the rows in view are drawn, so a file of hundreds of thousands of rows scrolls at once (up to 500,000 rows and 500 columns; said when cut).
 
 - **Sort**: the arrow in a column's header sorts it up, then down, then back to the file's order. Numbers and ISO dates are sorted as such (the type is found from the values), text the way people sort it (`item 2` before `item 10`), and empty cells always last. Sorting never changes the file.
@@ -97,6 +121,8 @@ A CSV or TSV file opens as a **table** (**Table / Text** in the toolbar switch t
 
 ## Comparing two text files
 
+![Two files side by side, the changes marked and counted](images/diff.png)
+
 Right-click a text file in the tree and choose **Select for Compare**, then right-click another and choose **Compare with Selected**: the two open in one tab, `a.txt ↔ b.txt`, the first as the left side. Either may be a file of a folder or an entry of a ZIP (also inside another ZIP), of the same open folder or of two different ones; the choice stays, so more files can be compared with the same first one. Only a text of up to 5 MB in UTF-8 can be compared; anything else is refused with its name and the reason.
 
 - **Side by Side** and **Inline** (one column, the removed lines above the added ones) switch the layout; the choice is kept. The colours of each file's language are kept, removed lines are red, added ones green, and the words that changed inside a line are marked more strongly.
@@ -107,6 +133,8 @@ Right-click a text file in the tree and choose **Select for Compare**, then righ
 - A comparison only looks: nothing is written, and both files are read from the disk (or the ZIP) as they are saved, not with the changes you have not saved in their tabs. The tab follows a side that is renamed or moved, closes when a side is deleted or its folder is closed, zooms like a text (`Ctrl+=`, `Ctrl+-`), and is not kept for the next start. **Find** (`Ctrl+F`) searches the lines in view.
 
 ## Two editor groups
+
+![Two editor groups side by side](images/split.png)
 
 The editor can show **two groups of tabs side by side**, as VS Code does. There are three ways to make the second one: **Split Right** in the menu of a tab (the tab goes to a new group on its right), dragging a tab to the **right half of the editor**, and dragging a **file of the tree** to the right half (it opens there). While one of these is being dragged the half that will take it is lit; with two groups, the whole group under the pointer takes it. A tab can be moved back with **Move to Left Group** or by dragging it to the other group (onto a tab of it, it lands next to that tab).
 
@@ -120,6 +148,8 @@ A ZIP file opens in the tree like a folder, and the entries open in tabs like fi
 
 ## Inside a ZIP
 
+![A text file inside a ZIP being edited, with the menu of another entry](images/zip-edit.png)
+
 A ZIP file, also a ZIP inside a ZIP, is changed like a folder, and what you change is written back into the ZIP file.
 
 - **New File…** and **New Folder…** work in the menu of a ZIP file (they make the item at its top) and of its folders; **Rename** (`F2`), **Move to…** (or a drag onto a folder of the same ZIP), a **Shift-drag copy** (numbered when the name is taken) and **Delete** work on its entries. A ZIP has no trash, so **Delete** asks "Delete permanently?" at once, and that cannot be undone. A folder that you empty stays in the ZIP, as it would on a disk. Nothing is replaced, and a folder never goes into itself.
@@ -130,12 +160,16 @@ A ZIP file, also a ZIP inside a ZIP, is changed like a folder, and what you chan
 
 ## Zoom, Find, Copy and Print
 
+![Find in a source file, with the matches marked](images/find.png)
+
 - **Zoom** belongs to the **tab**, never to the whole application. `Ctrl+=`, `Ctrl+-` and `Ctrl+0` (`⌘` on macOS), or `Ctrl` and the wheel (also over a document or a page), zoom the page of a snapshot, a text, a table, a document and the rows of the hexadecimal view (25 % to 500 %). The **status bar** has **−**, the level (click it for 100 %) and **+**. A picture and a PDF keep their own zoom (the same keys step it). Each tab has its own; a closed tab forgets it.
 - **Find** (`Ctrl+F`, **Edit ▸ Find**) works in every tab that has text: a source file (over the whole text), a table, a PDF, a document (in its frame; in a workbook, the sheet on screen), the metadata and the lists. The box says which match of how many; `Enter` and `Shift+Enter` go to the next and the previous, **Aa** matches the case, `Esc` closes. In the bytes of a file `Ctrl+F` goes to the box that looks for bytes or text.
 - **Copy** (`Ctrl+C`) copies what is selected.
 - **Print** (`Ctrl+P`, **File ▸ Print…**, or the printer icon) prints a text as the tab shows it, a picture, the page of a snapshot, and a **document whole** (every sheet, every slide). **Save as PDF…** writes the same as a PDF. A ZIP's list, a PDF, a table and the bytes of a file cannot be printed yet.
 
 ## `.wsnp` files
+
+![A .wsnp snapshot open in a tab, with the integrity check in the status bar](images/snapshot.png)
 
 A `.wsnp` is a ZIP "photo" of a web page for offline reading: the page, every file it needs and a manifest. In Folder Browser it is **a file like the others** in the tree: a click shows its page in a preview tab, a double click keeps it, and **Open as ZIP** lists its entries. The page runs as the format says (carousels, menus), in a frame that has no network. Links in it open in a tab (a picture, a PDF, source, a ZIP as a list), or in your browser for a web address, only when you click. The **status bar** says what the check found, and the **Metadata** tab (from the tab's menu or the status bar) shows what the manifest says. Files inside a snapshot open from its links, from the metadata and from Go to File. For anything more (a tree of its files, exporting), use **Open With…** and hand it to [WSNP Viewer](https://github.com/asantos43/wsnp-viewer).
 
@@ -169,6 +203,8 @@ The file is checked when it opens, and again in the background: its **structure*
 The shortcuts work wherever the focus is, also inside a page or a document.
 
 ## Settings, Help and About
+
+![The Settings tab](images/settings.png)
 
 **Settings** (the gear in the activity bar, **File ▸ Preferences ▸ Settings**, or `Ctrl+,`) opens in a tab with a box that filters them: **Color Theme** (Dark+, Light+ or Auto), **Display Language** (English, Brazilian Portuguese or automatic), whether to **reopen what was open**, **Show hidden files**, and for source files **Word Wrap** and **Format source files**. The other choices (Markdown, SVG, CSV, the sort order) are made where they are used, and are kept too. Settings are kept on your computer, in the application's own folder, and nowhere else: see [`../PRIVACY.md`](../PRIVACY.md).
 
