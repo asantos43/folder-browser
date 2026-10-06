@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # The types follow the Node that runs the code (Electron 44 carries Node 24, and CI/release use 24): a newer major would describe APIs that are not there.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
       # Electron carries Chromium: its security fixes are taken on their own, and quickly.
       electron:
