@@ -5,14 +5,15 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, webFrameMain, type IpcMainInvokeEvent, type Session, type WebContents, type WebFrameMain } from 'electron'
-import type { AppInfo, IntegrityEvent, ListResult, OpenResult, OpenWithResult, PrintRequest, PrintResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
+import type { AppInfo, IntegrityEvent, ListResult, MediaOpen, OpenResult, OpenWithResult, PrintRequest, PrintResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
 import { extractSelection, type ExtractResult } from '../core/extract.ts'
 import { FRAME_SCRIPT } from '../core/frameScript.ts'
-import { BINARY_LIMIT, effectiveType, viewKind } from '../core/filekind.ts'
+import { BINARY_LIMIT, effectiveType, mediaKind, viewKind } from '../core/filekind.ts'
 import { imageDocument, textDocument } from '../core/printHtml.ts'
 import type { FavoriteFolders } from '../core/favorites.ts'
 import { isPageKeepZip } from '../core/convert/pagekeep.ts'
 import type { RecentFiles } from '../core/recent.ts'
+import { MediaFiles, serveFile } from '../core/media.ts'
 import { RootRegistry } from '../core/roots.ts'
 import type { SessionStore } from '../core/session-store.ts'
 import type { SignerStore } from '../core/signers.ts'
@@ -22,7 +23,7 @@ import { verifyContents } from '../core/validate/index.ts'
 import { launchWith, linuxChoices, makeDefault, openWithDefault, openWithSystem } from './open-with.ts'
 import { pdfOf, printContents, usingHtml } from './print.ts'
 import { removeStaged, removeStagedSync, stageFile, sweepStaged } from '../core/stage.ts'
-import { SCHEME, SnapshotView } from './snapshot-view.ts'
+import { MEDIA_SCHEME, SCHEME, SnapshotView } from './snapshot-view.ts'
 import { registerPlacesIpc } from './places-ipc.ts'
 import { UI_ORIGIN } from './ui-protocol.ts'
 
@@ -40,6 +41,8 @@ export class SnapshotHost {
   readonly registry = new SnapshotRegistry({ generator: { name: 'Folder Browser', version: app.getVersion() } })
   /** The folders and ZIP files opened to browse. */
   readonly roots = new RootRegistry()
+  /** The videos and sounds being played. */
+  private readonly media = new MediaFiles()
   /** Both, behind one set of calls: a snapshot's id and a root's are told apart here. */
   readonly sources = new Sources(this.registry, this.roots)
   /** Requests cancelled below the page, for the tests and the log. */
@@ -79,8 +82,17 @@ export class SnapshotHost {
       const body: BodyInit | null = res.body instanceof Readable ? (Readable.toWeb(res.body) as ReadableStream) : res.body ? new Uint8Array(res.body) : null
       return new Response(body, { status: res.status, headers: res.headers })
     })
+    ses.protocol.handle(MEDIA_SCHEME, (request) => {
+      const media = this.media.get(new URL(request.url).hostname)
+      if (!media) return new Response(null, { status: 404 })
+      const res = serveFile(media, request.headers.get('range'), request.method)
+      return new Response(res.body ? (Readable.toWeb(res.body) as ReadableStream) : null, { status: res.status, headers: res.headers })
+    })
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
       if (details.url.startsWith(`${UI_ORIGIN}/`) || /^(data|blob|devtools):/.test(details.url)) return callback({})
+      // A media element of the interface (never of a snapshot's page) plays what it was given a token for.
+      const token = /^fb-media:\/\/([^/]+)\//.exec(details.url)?.[1]
+      if (token && this.media.has(token) && details.resourceType === 'media' && (details.frame?.url ?? details.referrer ?? '').startsWith(`${UI_ORIGIN}/`)) return callback({})
       const wanted = /^wsnp:\/\/([^/]+)\//.exec(details.url)?.[1]
       if (wanted && this.registry.has(wanted)) {
         // For a frame's own navigation the requesting frame is the new frame (no address yet): its parent asked.
@@ -398,6 +410,37 @@ export class SnapshotHost {
     return outcome
   }
 
+  /**
+   * Makes a video or a sound of a root playable: a file of a folder is served as it is, an entry of a ZIP (which has no cheap seek) from a copy in a folder of its own.
+   * The interface gets a token (an address), never a path.
+   */
+  private async openMedia(id: string, name: string): Promise<MediaOpen> {
+    const kind = mediaKind(undefined, name)
+    if (!kind || !this.roots.has(id)) return { error: 'unsupported' }
+    let file = await this.roots.diskFile(id, name)
+    let scratch: string | undefined
+    if (!file) {
+      const staged = await stageFile(this.sources, id, name, os.tmpdir(), { maxBytes: 2 * 2 ** 30, prefix: 'fb-media-' }).catch(() => ({ error: 'no-file' as const }))
+      if ('error' in staged) return { error: staged.error === 'too-large' ? 'too-large' : 'no-file' }
+      file = staged.file
+      scratch = staged.dir
+      this.staged.add(staged.dir)
+    }
+    const stat = await fs.promises.stat(file).catch(() => undefined)
+    if (!stat?.isFile()) return { error: 'no-file' }
+    const mime = effectiveType(undefined, name)
+    const token = this.media.add({ file, mime, size: stat.size, ...(scratch ? { scratch } : {}) })
+    return { token, url: `${MEDIA_SCHEME}://${token}/`, kind, mime, size: stat.size }
+  }
+
+  private async releaseMedia(token: string): Promise<void> {
+    const media = this.media.release(token)
+    if (media?.scratch) {
+      this.staged.delete(media.scratch)
+      await removeStaged(media.scratch)
+    }
+  }
+
   /** The application picked in the viewer's own chooser: only one the chooser listed, and only for the copy made for it. */
   private async openWithApp(token: string, appId: string, always: boolean): Promise<OpenWithResult> {
     const choice = this.choosing.get(token)
@@ -425,6 +468,7 @@ export class SnapshotHost {
   cleanup(): void {
     for (const dir of this.staged) removeStagedSync(dir)
     this.staged.clear()
+    this.media.releaseAll()
   }
 
   /** At start: the copies an earlier session left (a crash), a day old or more. */
@@ -559,6 +603,8 @@ export class SnapshotHost {
     })
     handle('fb:save-converted', (win, id: unknown): Promise<SaveResult> | SaveResult => (typeof id === 'string' ? this.saveConverted(win, id) : { saved: false, reason: 'error' }))
     handle('fb:open-with', (_win, id: unknown, name: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof id === 'string' && typeof name === 'string' ? this.openWith(id, name) : { opened: false, reason: 'no-file' }))
+    handle('fb:media-open', (_win, id: unknown, name: unknown): Promise<MediaOpen> | MediaOpen => (typeof id === 'string' && typeof name === 'string' ? this.openMedia(id, name) : { error: 'no-file' }))
+    handle('fb:media-release', (_win, token: unknown) => (typeof token === 'string' ? this.releaseMedia(token) : undefined))
     handle('fb:open-default', (_win, id: unknown, name: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof id === 'string' && typeof name === 'string' ? this.openDefault(id, name) : { opened: false, reason: 'no-file' }))
     handle('fb:open-with-app', (_win, token: unknown, appId: unknown, always: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof token === 'string' && typeof appId === 'string' ? this.openWithApp(token, appId, always === true) : { opened: false, reason: 'no-file' }))
     handle('fb:open-with-cancel', (_win, token: unknown) => (typeof token === 'string' ? this.openWithCancel(token) : undefined))

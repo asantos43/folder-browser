@@ -586,7 +586,7 @@ export function Workbench() {
               <SideBar ws={ws} dispatch={dispatch} actions={sideBarActions} signers={signers} places={placesData} treeVersion={treeVersion} />
             </Allotment.Pane>
             <Allotment.Pane minSize={200}>
-              <EditorGroup zooms={zooms} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
+              <EditorGroup zooms={zooms} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onOpenWith={openWith} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
             </Allotment.Pane>
           </Allotment>
         </div>

@@ -1,4 +1,5 @@
 import type { DirEntry, ListResult } from '@core/api.ts'
+import { mediaKind } from '@core/filekind.ts'
 import { listingsAbove } from '@core/vpath.ts'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
@@ -59,7 +60,10 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
   // What was asked of the main process, so that a slow answer to an older question (before a refresh) is not taken for the newest.
   const generation = useRef(0)
   const asked = useRef(new Set<string>())
-  const { listDir } = actions
+  // The newest `listDir`, read when a listing is asked for: the one in `actions` is a new function at every render of the side bar, and a `load` that followed it would read
+  // everything again (and take the rows away for a moment) each time anything changed.
+  const listDir = useRef(actions.listDir)
+  listDir.current = actions.listDir
 
   const load = useCallback(
     (path: string) => {
@@ -67,7 +71,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
       asked.current.add(path)
       const mine = generation.current
       setListings((all) => ({ ...all, [path]: { state: 'loading' } }))
-      void listDir(path).then(
+      void listDir.current(path).then(
         (result) => {
           if (mine !== generation.current) return
           setListings((all) => ({ ...all, [path]: 'error' in result ? { state: 'error', error: result.error } : { state: 'ready', entries: result.entries, truncated: result.truncated } }))
@@ -75,7 +79,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
         () => mine === generation.current && setListings((all) => ({ ...all, [path]: { state: 'error', error: 'no-dir' } })),
       )
     },
-    [listDir],
+    [],
   )
 
   // The root is read when the tree appears, and everything that is open again when the user refreshes.
@@ -196,6 +200,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
         case 'addFavorite': return { id: action, label: t('tree.addFavorite'), run: () => actions.pin(entry.path) }
         case 'toggle': return { id: action, label: expanded ? t('tree.collapse') : t('tree.expand'), run: () => toggle(entry.path) }
         case 'refresh': return { id: action, label: t('tree.refresh'), run: () => { asked.current.delete(entry.path); load(entry.path) } }
+        case 'play': return { id: action, label: t('tree.play'), run: () => actions.open(entry, true) }
         case 'open': return { id: action, label: t('tree.open'), run: () => actions.open(entry, true) }
         case 'openAsList': return { id: action, label: t('tree.openAsList'), run: () => actions.open(entry, true) }
         case 'openAsZip': return { id: action, label: t('tree.openAsZip'), run: () => actions.open(entry, true) }
@@ -209,7 +214,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
         case 'properties': return { id: action, label: t('tree.properties'), run: () => actions.properties(entry) }
       }
     }
-    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), trashItem: trash && !entry.path.includes('/') }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
+    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), trashItem: trash && !entry.path.includes('/'), media: mediaKind(undefined, entry.name) !== null }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
   }
 
   const current = focused ?? entries[0]?.entry.path

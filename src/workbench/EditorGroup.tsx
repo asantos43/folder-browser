@@ -11,6 +11,7 @@ import type { Notice } from '@/state/messages.ts'
 import { describeIssue } from '@/state/messages.ts'
 import { invalidProblems, isHeldBack, isSnapshotTab, snapshotKey, type Action, type Workspace } from '@/state/workspace.ts'
 import { FileView } from '@/views/FileView.tsx'
+import { MediaView } from '@/views/MediaView.tsx'
 import { MetadataView } from '@/views/MetadataView.tsx'
 import { SettingsView } from '@/views/SettingsView.tsx'
 import type { ThemeSetting } from '@/theme/theme.ts'
@@ -26,7 +27,7 @@ import { TabStrip } from './TabStrip.tsx'
  * The editor group: the tab strip, the breadcrumbs and the area of the active tab. Every open snapshot keeps its `<iframe sandbox>`
  * (hidden while another tab shows), so its scroll and state stay as they were; a file tab shows the file.
  */
-export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, find, onCloseFind, ws, dispatch, onSaveFile, onReveal, onCopy, onOpenExternal, signers, onTrust, onForget, theme, setTheme }: { /** The zoom of each tab that has one. */ zooms: Readonly<Record<string, number>>; onSaveConverted: (snapshotId: string) => void; onViewEntry: (snapshotId: string, zipPath: string, entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; find: { open: boolean; token: number }; onCloseFind: () => void; theme: ThemeSetting; setTheme: (theme: ThemeSetting) => void; signers: Signers; onTrust: (fingerprint: string, name?: string) => void; onForget: (fingerprint: string) => void; ws: Workspace; dispatch: (a: Action) => void; onSaveFile: (snapshotId: string, path: string) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; onOpenExternal: (url: string) => void }) {
+export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, find, onCloseFind, ws, dispatch, onSaveFile, onOpenWith, onReveal, onCopy, onOpenExternal, signers, onTrust, onForget, theme, setTheme }: { /** The zoom of each tab that has one. */ zooms: Readonly<Record<string, number>>; onSaveConverted: (snapshotId: string) => void; onViewEntry: (snapshotId: string, zipPath: string, entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; find: { open: boolean; token: number }; onCloseFind: () => void; theme: ThemeSetting; setTheme: (theme: ThemeSetting) => void; signers: Signers; onTrust: (fingerprint: string, name?: string) => void; onForget: (fingerprint: string) => void; ws: Workspace; dispatch: (a: Action) => void; onSaveFile: (snapshotId: string, path: string) => void; onOpenWith: (snapshotId: string, path: string) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; onOpenExternal: (url: string) => void }) {
   const { t } = useI18n()
   const views = useMemo(() => describeTabs(ws, t), [ws, t])
   const active = ws.tabs.find((tab) => tab.key === ws.active)
@@ -37,6 +38,8 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
   const metadataTab = active?.view === 'metadata' ? active : undefined
   const heldBack = active && isSnapshotTab(active) && isHeldBack(ws, active.snapshotId) ? active : undefined
   const info = fileTab ? kindOf(ws, fileTab) : undefined
+  // A video or a sound keeps playing when another tab comes to the front: its player stays (hidden), as a snapshot's frame does.
+  const players = ws.tabs.filter((tab) => tab.path !== undefined && kindOf(ws, tab).kind === 'media')
 
   // What Find searches: the page of a snapshot (in its own frame, through the main process), the source editor or the PDF (they register
   // themselves), or the text of whatever else is shown (metadata, a ZIP's list, Settings).
@@ -86,7 +89,19 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
             onOpenFile={(path) => dispatch({ type: 'open-file', snapshotId: metadataTab.snapshotId, path, keep: false })}
           />
         ) : null}
-        {fileTab && info?.file ? (
+        {players.map((tab) => (
+          <div key={tab.key} hidden={ws.active !== tab.key} className="min-h-0 flex-1">
+            <MediaView
+              rootId={tab.snapshotId}
+              path={tab.path!}
+              size={tab.size ?? 0}
+              onOpenSibling={(path) => dispatch({ type: 'open-file', snapshotId: tab.snapshotId, path, keep: false })}
+              onOpenWith={() => onOpenWith(tab.snapshotId, tab.path!)}
+              onSave={() => onSaveFile(tab.snapshotId, tab.path!)}
+            />
+          </div>
+        ))}
+        {fileTab && info?.file && info.kind !== 'media' ? (
           <FileView key={fileTab.key} snapshotId={fileTab.snapshotId} path={fileTab.path!} kind={info.kind} mediaType={info.file.mediaType} size={info.file.size} onSave={() => onSaveFile(fileTab.snapshotId, fileTab.path!)} onViewEntry={(entry) => onViewEntry(fileTab.snapshotId, fileTab.path!, entry)} onNotify={onNotify} zoom={tabZoomOf(zooms, fileTab.key)} />
         ) : null}
         {!active ? (

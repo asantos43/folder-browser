@@ -1,4 +1,4 @@
-import { viewKind } from '@core/filekind.ts'
+import { mediaKind, viewKind } from '@core/filekind.ts'
 import { isInner } from '@core/vpath.ts'
 import type { Translate } from '@/i18n/index.ts'
 import { basename } from '@/lib/format.ts'
@@ -62,7 +62,7 @@ export const kindOf = (ws: Workspace, tab: Tab) => {
   if (ws.roots[tab.snapshotId] && tab.path) {
     const file: { path: string; size: number; mediaType?: string } = { path: tab.path, size: tab.size ?? 0 }
     // A `.wsnp` of a folder opened as a ZIP ("Open as ZIP") is listed like one.
-    return { file, kind: /\.wsnp$/i.test(tab.path) ? ('zip' as const) : viewKind(undefined, tab.path, file.size) }
+    return { file, kind: /\.wsnp$/i.test(tab.path) ? ('zip' as const) : mediaKind(undefined, tab.path) ? ('media' as const) : viewKind(undefined, tab.path, file.size) }
   }
   let file: { path: string; size: number; mediaType?: string } | undefined = ws.snapshots[tab.snapshotId]?.files.find((f) => f.path === tab.path)
   // An entry of a ZIP in the snapshot is not in the manifest: its type comes from its name and its size from the ZIP's list.

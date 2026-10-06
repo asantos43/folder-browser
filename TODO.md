@@ -41,11 +41,13 @@ code, its tests, its `CHANGELOG.md` lines and its docs are merged.
 - [x] A click on a place opens that folder as a root (the interface names roots by id; the main process never opens one on its own)
 
 ## Phase 1e: media playback
-- [ ] `filekind` gets `video` and `audio`; `MediaView` with play/pause, seek, volume, speed, loop, full screen, Next/Previous in the folder, Media Session keys
-- [ ] `fb-media://` protocol with Range (reuses `core/serve.ts`), only for authorised roots, by an id; `media-src` in the CSP
-- [ ] Entries of a ZIP: stored ones are streamed, deflated ones are played from a temporary copy (`core/stage.ts`, up to 2 GB)
-- [ ] Formats the Chromium cannot play (HEVC…) say why and offer Open With…
-- [ ] Tests: Range server (206, bad ranges, outside the roots), a synthetic `.wav`/`.webm` in e2e
+- [x] `mediaKind` in `core/filekind.ts` (video or audio, by type or name); `MediaView` with the browser's own player (play/pause, seek, volume, speed, full screen), Repeat, Next/Previous through the media files of the folder, a sound that ends goes on to the next, Media Session keys; the player keeps playing when another tab comes to the front
+- [x] `fb-media://<token>/` protocol with Range (`core/media.ts`, reuses `parseRange` of `core/serve.ts`), by an unguessable token the main process gives for a file of a root; `media-src fb-media:` in the CSP
+- [x] Entries of a ZIP are played from a temporary copy (`core/stage.ts` with `maxBytes`, up to 2 GB; removed when the tab closes and at quit); streaming stored entries straight from the ZIP is left for later
+- [x] Formats the Chromium cannot play (HEVC…) say why and offer Open With… and Save As
+- [x] Tests: Range server (206, 416, HEAD), tokens, `MediaView`, a synthetic `.wav` in e2e (plays, seeks, goes on in the background, from a ZIP, broken file)
+- [ ] Try a real mp4 (H.264), mp3, flac and an HEVC file by hand (the tests only have WAV and a broken file: no encoder here)
+- [ ] A snapshot's own media stays "saved, not played" (docs/VIEWER-GUIDELINES.md); decide whether it should play too
 
 ## Phase 2: change files on disk
 - [ ] Create file, create folder, **rename** (F2, inline), move (dialog and drag and drop), delete (to the trash, with confirmation)

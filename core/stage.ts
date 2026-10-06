@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { FileSource } from './sources.ts'
 
@@ -17,7 +18,7 @@ export function plainName(name: string): string {
   return clean || 'file'
 }
 
-export type Staged = { dir: string; file: string } | { error: 'no-file' | 'risky' }
+export type Staged = { dir: string; file: string } | { error: 'no-file' | 'risky' | 'too-large' }
 
 export const STAGE_PREFIX = 'wsnp-open-'
 
@@ -25,21 +26,37 @@ export const STAGE_PREFIX = 'wsnp-open-'
  * A copy of a file of a snapshot (or of an entry of a ZIP in it) in a folder of its own under `tempRoot`, read-only, for an application the user chose.
  * The caller removes the folder (`fs.rm(dir)`) when the application is done or at quit; `sweepStaged` removes what a crash left.
  */
-export async function stageFile(registry: FileSource, id: string, name: string, tempRoot: string): Promise<Staged> {
+export async function stageFile(registry: FileSource, id: string, name: string, tempRoot: string, options: { /** Refuse (and remove what was written) a file over this many bytes. */ maxBytes?: number; /** The prefix of the folder it is made in. */ prefix?: string } = {}): Promise<Staged> {
   const base = plainName(name)
   if (isRiskyName(base)) return { error: 'risky' }
   const stream = await registry.stream(id, name)
   if (!stream) return { error: 'no-file' }
-  const dir = await fs.promises.mkdtemp(path.join(tempRoot, STAGE_PREFIX))
+  const dir = await fs.promises.mkdtemp(path.join(tempRoot, options.prefix ?? STAGE_PREFIX))
   const file = path.join(dir, base)
   try {
-    await pipeline(stream, fs.createWriteStream(file, { mode: 0o600 }))
+    const out = fs.createWriteStream(file, { mode: 0o600 })
+    if (options.maxBytes === undefined) await pipeline(stream, out)
+    else await pipeline(stream, capped(options.maxBytes), out)
     await fs.promises.chmod(file, 0o400)
     return { dir, file }
   } catch (err) {
     await removeStaged(dir)
+    if (err instanceof TooLarge) return { error: 'too-large' }
     throw err
   }
+}
+
+class TooLarge extends Error {}
+/** Stops a stream that delivers more than it may. */
+const capped = (max: number) => {
+  let seen = 0
+  return new Transform({
+    transform(chunk: Buffer, _enc, done) {
+      seen += chunk.length
+      if (seen > max) done(new TooLarge('too large'))
+      else done(null, chunk)
+    },
+  })
 }
 
 /**

@@ -41,6 +41,16 @@ describe('treeMenuFor with a context', () => {
   })
 })
 
+describe('treeMenuFor for a video or a sound', () => {
+  it('plays it instead of opening it, and keeps the rest', () => {
+    const items = treeMenuFor({ kind: 'file' }, { media: true })
+    expect(items[0]).toBe('play')
+    expect(items).not.toContain('open')
+    expect(items).toEqual(expect.arrayContaining(['openWith', 'openDefault', 'save']))
+    expect(treeMenuFor({ kind: 'dir' }, { media: true })).not.toContain('play')
+  })
+})
+
 describe('locationOf', () => {
   it('writes the path of a folder root, of a file in a ZIP, and of an entry of a ZIP root', () => {
     expect(locationOf({ kind: 'folder', path: '/home/me/work' }, 'docs/a.txt', '/')).toBe('/home/me/work/docs/a.txt')

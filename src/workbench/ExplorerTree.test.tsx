@@ -38,6 +38,25 @@ describe('ExplorerTree', () => {
     expect(listDir).toHaveBeenCalledWith('')
     expect(screen.getByRole('tree').getAttribute('aria-label')).toBe('Files and folders')
   })
+  it('does not read anything again, nor take the rows away, when it is drawn again with new functions (as the side bar does at every change)', async () => {
+    const { listDir, view } = show()
+    await waitFor(() => expect(names()).toHaveLength(4))
+    const row = screen.getByRole('treeitem', { name: 'a.txt' })
+    const again = (listDir2: typeof listDir) =>
+      view.rerender(
+        <I18nProvider language="en">
+          <ExplorerTree rootId="r1" rootKind="folder" trash={false} showHidden={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn() }} />
+        </I18nProvider>,
+      )
+    const other = vi.fn(async () => ({ entries: [], truncated: false }) as ListResult)
+    again(other as unknown as typeof listDir)
+    again(other as unknown as typeof listDir)
+    expect(names()).toHaveLength(4)
+    // The very same row: a double click that straddles a redraw still lands on it.
+    expect(screen.getByRole('treeitem', { name: 'a.txt' })).toBe(row)
+    expect(listDir).toHaveBeenCalledTimes(1)
+    expect(other).not.toHaveBeenCalled()
+  })
   it('shows the hidden ones, dimmed, when the switch is on, without asking the main process again', async () => {
     const { listDir, again } = show()
     await waitFor(() => expect(names()).toHaveLength(4))

@@ -62,6 +62,9 @@ export interface AppInfo {
   notices: string
 }
 
+/** A video or a sound opened to be played: its address, for the media element, and what it is. */
+export type MediaOpen = { token: string; url: string; kind: 'video' | 'audio'; mime: string; size: number } | { error: 'no-file' | 'too-large' | 'unsupported' }
+
 export interface FbApi {
   platform: string
   /** The colours of the title bar (the native window buttons are drawn with them on Windows and Linux). */
@@ -76,6 +79,8 @@ export interface FbApi {
   openDialog(): Promise<OpenResult[]>
   /** The folder picker; opens the folder as a root of the tree. */
   openFolderDialog(): Promise<OpenResult[]>
+  /** Of a root: makes a file playable (`fb-media://`), by ranges. A file of the disk is served as it is; an entry of a ZIP is copied first, to a folder of its own (up to 2 GB). */
+  media: { open(id: string, path: string): Promise<MediaOpen>; release(token: string): Promise<void> }
   /** Opens a `.wsnp` of a folder (a file of the disk, by its path in the root) as a snapshot. */
   openInRoot(id: string, path: string): Promise<OpenResult[]>
   /** What is directly in a folder of a root, a ZIP of it, or a folder of that ZIP (`path` is relative to the root; `''` is the root itself). */

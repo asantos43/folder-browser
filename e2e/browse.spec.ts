@@ -62,9 +62,12 @@ test('a click opens a preview tab with the file, a double click keeps it, and a 
   await expect(item(page, 'readme.md')).toBeVisible()
   await item(page, 'a.txt').click()
   await expect(page.getByRole('tab', { selected: true })).toContainText('a.txt')
+  await expect(page.getByRole('tab', { selected: true }).locator('span.italic')).toHaveCount(1)
   await expect(page.locator('.cm-content')).toContainText('the ferry leaves at noon')
   await item(page, 'readme.md').dblclick()
   await expect(page.getByRole('tab', { selected: true })).toContainText('readme.md')
+  // Kept: not in italics, as a preview is.
+  await expect(page.getByRole('tab', { selected: true }).locator('span.italic')).toHaveCount(0)
   await expect(page.getByText('from the docs folder')).toBeVisible()
   // The preview of a.txt was replaced by the file that was kept.
   await expect(page.getByRole('tab')).toHaveCount(1)

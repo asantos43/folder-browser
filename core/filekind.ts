@@ -1,5 +1,5 @@
 /** How a file of a snapshot is shown in a tab (docs/VIEWER-GUIDELINES.md, "Files inside a snapshot"). */
-export type ViewKind = 'text' | 'image' | 'pdf' | 'font' | 'zip' | 'other'
+export type ViewKind = 'text' | 'image' | 'pdf' | 'font' | 'zip' | 'media' | 'other'
 
 /** Source in the viewer's colours, for these languages; anything else is plain text. */
 export type Language =
@@ -77,7 +77,10 @@ const BY_EXTENSION: Record<string, string> = {
   json: 'application/json', map: 'application/json', webmanifest: 'application/manifest+json', txt: 'text/plain', log: 'text/plain', md: 'text/markdown', markdown: 'text/markdown', yml: 'text/yaml', yaml: 'text/yaml',
   csv: 'text/csv', xml: 'application/xml', rss: 'application/xml', atom: 'application/xml', svg: 'image/svg+xml', vtt: 'text/vtt', srt: 'text/plain',
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp', ico: 'image/x-icon',
-  zip: 'application/zip', pdf: 'application/pdf', woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
+  zip: 'application/zip', pdf: 'application/pdf',
+  mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mkv: 'video/x-matroska', mov: 'video/quicktime', avi: 'video/x-msvideo',
+  mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/opus', wav: 'audio/wav', flac: 'audio/flac', weba: 'audio/webm',
+  woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
 }
 
 /** Source and configuration files with no colours of their own: plain text, read as such. */
@@ -114,6 +117,15 @@ const IMAGE = /^image\/(png|jpe?g|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon)
 const TEXT = /^(text\/.+|application\/(json|javascript|ecmascript|xml|xhtml\+xml|x-javascript|ld\+json|manifest\+json|sql|toml|x-toml|x-sh|x-shellscript|x-bash|x-httpd-php|x-php|php|x-perl|x-ruby|x-python|yaml|x-yaml)|.+\+(json|xml)|image\/svg\+xml)$/
 const ZIP = /^application\/(zip|x-zip|x-zip-compressed)$/
 const FONT = /^(font\/.+|application\/(font-woff2?|x-font-.+|vnd\.ms-fontobject))$/
+
+/**
+ * Whether a file is a video or a sound, by its type or its name: it is played in a tab. (Only for the files of a folder or a ZIP opened to browse: a snapshot's
+ * media is saved, not played, as docs/VIEWER-GUIDELINES.md says, so `viewKind` never answers `media`.)
+ */
+export function mediaKind(mediaType: string | undefined, name: string): 'video' | 'audio' | null {
+  const type = effectiveType(mediaType, name)
+  return /^video\/[a-z0-9.+-]+$/.test(type) ? 'video' : /^audio\/[a-z0-9.+-]+$/.test(type) ? 'audio' : null
+}
 
 /** What tab a file gets. office documents, audio, video and unknown types are `other`: they are saved, not shown. */
 export function viewKind(mediaType: string | undefined, name: string, size: number): ViewKind {

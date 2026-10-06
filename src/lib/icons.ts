@@ -10,6 +10,8 @@ export function fileIcon(mediaType: string | undefined, name: string): string {
   if (type === 'image/svg+xml') return 'symbol-misc'
   if (type === 'application/pdf') return 'file-pdf'
   if (/zip|compressed|tar|gzip|rar|7z/.test(type)) return 'file-zip'
+  if (/^video\//.test(type)) return 'device-camera-video'
+  if (/^audio\//.test(type)) return 'unmute'
   const kind = viewKind(type, name, 0)
   if (kind === 'image') return 'file-media'
   if (kind === 'font') return 'text-size'

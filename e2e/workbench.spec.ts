@@ -92,7 +92,7 @@ test('the interface reaches nothing outside itself', async () => {
   expect(attempts).toEqual(['refused', 'refused', 'refused'])
   // The window has no Node and offers only what the preload exposes.
   expect(await page.evaluate(() => typeof (globalThis as { require?: unknown }).require)).toBe('undefined')
-  expect(await page.evaluate(() => Object.keys((window as unknown as { fb: object }).fb).sort())).toEqual(['appInfo', 'clearFindInPage', 'close', 'copyFromPage', 'copyText', 'findInPage', 'listDir', 'onCommand', 'onIntegrity', 'onOpenFile', 'onOpened', 'onPageContext', 'onSaved', 'openDefault', 'openDialog', 'openExternal', 'openFolderDialog', 'openInRoot', 'openPaths', 'openWith', 'openWithApp', 'openWithCancel', 'pathForFile', 'places', 'platform', 'print', 'readFile', 'ready', 'recent', 'reveal', 'saveConverted', 'saveFileAs', 'savePdf', 'selectAllInPage', 'session', 'setTitleBar', 'signers', 'trash', 'verify', 'zipExtract', 'zipList'])
+  expect(await page.evaluate(() => Object.keys((window as unknown as { fb: object }).fb).sort())).toEqual(['appInfo', 'clearFindInPage', 'close', 'copyFromPage', 'copyText', 'findInPage', 'listDir', 'media', 'onCommand', 'onIntegrity', 'onOpenFile', 'onOpened', 'onPageContext', 'onSaved', 'openDefault', 'openDialog', 'openExternal', 'openFolderDialog', 'openInRoot', 'openPaths', 'openWith', 'openWithApp', 'openWithCancel', 'pathForFile', 'places', 'platform', 'print', 'readFile', 'ready', 'recent', 'reveal', 'saveConverted', 'saveFileAs', 'savePdf', 'selectAllInPage', 'session', 'setTitleBar', 'signers', 'trash', 'verify', 'zipExtract', 'zipList'])
 })
 
 test('Settings opens in a tab (Ctrl+, or the gear), changes the language at once and remembers it', async () => {

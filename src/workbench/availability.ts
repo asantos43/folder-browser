@@ -16,7 +16,7 @@ export function canFind(ws: Workspace): boolean {
   const { kind, file } = kindOf(ws, tab)
   // An SVG shown as a picture has no text to search.
   if (kind === 'text' && isSvg(file?.mediaType, tab.path) && svgView.get() === 'image') return false
-  return kind !== 'image' && kind !== 'font'
+  return kind !== 'image' && kind !== 'font' && kind !== 'media'
 }
 
 /** What can be printed: the page of a snapshot that is shown, a text, a picture. */
