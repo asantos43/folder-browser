@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Folder and ZIP browser and editor, with a viewer for WSNP (.wsnp) web page snapshots",
   "author": "Anderson Santos",
-  "license": "MIT",
+  "license": "MPL-2.0",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {

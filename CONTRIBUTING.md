@@ -30,3 +30,7 @@ npm run test:e2e
 - The tests live next to the code (`*.test.ts`) and in `e2e/` (they open windows: leave the computer alone while they run).
 - Test files are always synthetic (see `fixtures/`). Real captures come from private sites and are never committed.
 - Code is TypeScript in ES modules, formatted like the code around it, and linted with oxlint.
+
+## Licence
+
+Folder Browser is under the [Mozilla Public License 2.0](LICENSE). A contribution is under the same licence. Pull requests are taken from collaborators; anyone can open an issue.

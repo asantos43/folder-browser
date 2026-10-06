@@ -156,7 +156,7 @@ test('Help > About shows the version, the licence and the notices of the librari
   await expect(dialog).toBeVisible()
   const { version } = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')) as { version: string }
   await expect(dialog).toContainText(`Version ${version}`)
-  await expect(dialog).toContainText('MIT License')
+  await expect(dialog).toContainText('Mozilla Public License 2.0')
   await expect(dialog).toContainText('Electron')
   await dialog.getByRole('button', { name: /Show the notices/ }).click()
   const notices = dialog.getByLabel('Third-party notices')

@@ -458,7 +458,7 @@ export const ptBR: Record<MessageKey, string> = {
   'about.version': 'Versão {version}',
   'about.runsOn': 'Electron {electron}, Chromium {chrome}, Node {node}, {platform} {arch}',
   'about.licence': 'Licença',
-  'about.licenceText': 'Licença MIT. © 2026 Anderson Santos.',
+  'about.licenceText': 'Mozilla Public License 2.0. © 2026 Anderson Santos.',
   'about.notices': 'Avisos de terceiros',
   'about.noticesHint': 'As bibliotecas dentro do Folder Browser e as licenças delas.',
   'about.showNotices': 'Mostrar os avisos',
