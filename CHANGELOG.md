@@ -36,6 +36,7 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Fixed
 
+- A click on a `.wsnp` in the tree, when that snapshot was already open for good, jumped to it and took the side bar to its files. A click in the tree never changes what the side bar shows now: the page of the open snapshot comes to the front and the side bar stays on the folder. Only its entry in the list of open snapshots, or a double click on the file, takes the side bar to the snapshot.
 - A `.wsnp` asked for twice at once (a click and a double click) was opened twice by the main process; the second ask now gets the snapshot of the first.
 - Inherited from WSNP Viewer, and fixed there too (branch `fix-icon-sizes-and-list-markers`): the sizes given to icons (`text-[24px]`, `text-[96px]`…) were ignored, because the icon font's own 16 px was an unlayered rule that beats the layers of Tailwind (the activity bar, the big icon of a file that cannot be shown, the dialogs); the font is now imported in the `components` layer. The lists of a Markdown page had no bullets or numbers (the base styles took them away). A unit test that looked at the editor before it had its text.
 - The side bar: the heading of the first group of Places repeated the section's, the path in the status bar wrapped and was cut, Information and Integrity (of a snapshot) showed for a folder, and the empty Open Folders and Open Snapshots took a third of the height.

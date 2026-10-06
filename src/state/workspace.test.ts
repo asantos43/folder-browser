@@ -320,4 +320,21 @@ describe('the preview of a snapshot (a click on a .wsnp of a folder)', () => {
     const ws = run([file('r1', 'kept.txt', true), preview('a')], base())
     expect(ws.tabs.map((t) => [t.key, t.preview])).toEqual([['f:r1:kept.txt', false], ['s:a', true]])
   })
+
+  it('shows one that is open for good when it is previewed again, and leaves the side bar on the folder', () => {
+    let ws = run([{ type: 'snapshot-opened', snapshot: snap('a') }, { type: 'snapshot-opened', snapshot: snap('b') }, { type: 'select', snapshotId: 'r1' }], base())
+    expect(ws.selected).toBe('r1')
+    ws = reduce(ws, preview('a'))
+    expect(ws.active).toBe('s:a')
+    expect(ws.selected).toBe('r1')
+    expect(ws.tabs.find((t) => t.key === 's:a')?.preview).toBe(false)
+    expect(ws.tabs).toHaveLength(2)
+  })
+  it('goes to the files of the snapshot only when it is chosen in the list of open snapshots, or opened for good again', () => {
+    let ws = run([{ type: 'snapshot-opened', snapshot: snap('a') }, { type: 'select', snapshotId: 'r1' }], base())
+    ws = reduce(ws, { type: 'activate', key: 's:a' })
+    expect(ws.selected).toBe('a')
+    ws = run([{ type: 'select', snapshotId: 'r1' }, { type: 'snapshot-opened', snapshot: snap('a') }], ws)
+    expect(ws.selected).toBe('a')
+  })
 })

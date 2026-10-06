@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { writeViewerWsnp } from '../fixtures/build.ts'
+import { writeSampleWsnp, writeViewerWsnp } from '../fixtures/build.ts'
 import { zipSync } from '../fixtures/zip.ts'
 
 // End-to-end: a folder or a ZIP file opened to browse: the tree that reads a level at a time, the hidden files, files in tabs, ZIP files as folders.
@@ -209,6 +209,42 @@ test('the files can be ordered by name, by date and by size, either way, from th
   page = await launch(work)
   await expect.poll(() => names(page)).toEqual(['docs', 'a.txt', 'pack.zip', 'harbor.wsnp'])
   await expect(sortButton()).toHaveAttribute('title', 'Sort: Date Modified, ascending')
+})
+
+test('clicking in the folder never takes the side bar to a snapshot, even for one that is open already; only its entry in the list of open snapshots does', async () => {
+  await writeSampleWsnp(path.join(work, 'second.wsnp'), { title: 'Second page', url: 'https://second.example/' })
+  const page = await launch(work)
+  const heading = () => page.getByText(/^Files — /).first()
+  const snapshots = page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')
+  const folder = () => page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option', { name: 'work' }).click()
+  await item(page, 'harbor.wsnp').dblclick()
+  await expect(heading()).toHaveText('Files — harbor.wsnp')
+  await folder()
+  await expect(heading()).toHaveText('Files — work')
+  // Another snapshot: only previewed, the side bar stays on the folder, and the one that is open stays where it is.
+  await item(page, 'second.wsnp').click()
+  await expect(page.getByRole('tab', { selected: true })).toContainText('Second page')
+  await expect(heading()).toHaveText('Files — work')
+  await expect(snapshots).toHaveText(['Harbor Times'])
+  // The one that is open already: its page comes to the front (it is the same snapshot), and the side bar still stays on the folder.
+  await item(page, 'harbor.wsnp').click()
+  await expect(page.getByRole('tab', { selected: true })).toContainText('Harbor Times')
+  await expect(heading()).toHaveText('Files — work')
+  await expect(page.getByRole('tab')).toHaveCount(1 + 1)
+  await expect(snapshots).toHaveCount(1)
+  // A plain file after that: previewed too, the side bar still on the folder.
+  await item(page, 'a.txt').click()
+  await expect(page.getByRole('tab', { selected: true })).toContainText('a.txt')
+  await expect(heading()).toHaveText('Files — work')
+  // The list of open snapshots is what changes to the view of a snapshot.
+  await snapshots.filter({ hasText: 'Harbor Times' }).click()
+  await expect(heading()).toHaveText('Files — harbor.wsnp')
+  await expect(page.getByRole('tab', { selected: true })).toContainText('Harbor Times')
+  // And a double click on a file of the folder that is open already does take it there.
+  await folder()
+  await expect(heading()).toHaveText('Files — work')
+  await item(page, 'harbor.wsnp').dblclick()
+  await expect(heading()).toHaveText('Files — harbor.wsnp')
 })
 
 test('a .wsnp of the folder can be opened as a ZIP: its entries are listed, not shown as a page', async () => {

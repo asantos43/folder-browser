@@ -88,10 +88,11 @@ const arranged = (tabs: Tab[]): Tab[] => [...tabs.filter((t) => t.pinned), ...ta
 /** The page of a snapshot that is only being previewed: it is not what the side bar shows, so coming to its tab does not change the side bar. */
 const isPreviewedSnapshot = (tab: Tab | undefined): boolean => tab !== undefined && isSnapshotTab(tab) && tab.preview
 
-function withActive(ws: Workspace, key: string | null, touch = true): Workspace {
+/** `follow` false: the tab comes to the front but the side bar stays on what it shows (a click on a file of the tree is not a choice of what the side bar is about). */
+function withActive(ws: Workspace, key: string | null, touch = true, follow = true): Workspace {
   if (key === null) return { ...ws, active: null }
   const tab = ws.tabs.find((t) => t.key === key)
-  const follows = tab?.snapshotId && !isPreviewedSnapshot(tab)
+  const follows = follow && tab?.snapshotId && !isPreviewedSnapshot(tab)
   return { ...ws, active: key, selected: follows ? tab!.snapshotId : ws.selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
 }
 
@@ -133,7 +134,9 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       if (existing) {
         // Opened for good what was only previewed (a double click): it is kept and the side bar goes to it. A preview of what is open already changes nothing.
         const tabs = existing.preview && !action.preview ? ws.tabs.map((t) => (t.key === key ? { ...t, preview: false } : t)) : ws.tabs
-        return withActive({ ...ws, snapshots, tabs }, key)
+        // A mere preview (a click on its file in the tree) of one that is open already brings its tab to the front and leaves the side bar on the folder: only the list of
+        // open snapshots, or opening it for good, takes the side bar to a snapshot.
+        return withActive({ ...ws, snapshots, tabs }, key, true, action.preview !== true)
       }
       const tab: Tab = { key, snapshotId: id, preview: action.preview === true, pinned: false }
       if (!tab.preview) return withActive({ ...ws, snapshots, tabs: arranged([...ws.tabs, tab]) }, key)
