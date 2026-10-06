@@ -908,10 +908,15 @@ export function Workbench() {
     const [a, b] = [dragged, target].map((key) => wsNow.current.tabs.find((tab) => tab.key === key))
     if (a?.path !== undefined && b?.path !== undefined) setPair({ left: { rootId: a.snapshotId, path: a.path, size: a.size ?? 0 }, right: { rootId: b.snapshotId, path: b.path, size: b.size ?? 0 } })
   }
+  // A file of the tree dropped on a text tab, or on the middle of the editor that shows one: the same question as for two tabs (the file dragged is the left side).
+  const dropFileOnTab = (file: DraggedFile, target: string) => {
+    const tab = wsNow.current.tabs.find((candidate) => candidate.key === target)
+    if (tab?.path !== undefined) setPair({ left: { rootId: file.rootId, path: file.path, size: file.size }, right: { rootId: tab.snapshotId, path: tab.path, size: tab.size ?? 0 } })
+  }
   const dropFile = (file: DraggedFile, group: GroupId) => dispatch({ type: 'open-file', snapshotId: file.rootId, path: file.path, keep: true, size: file.size, group })
   /** One of the editor groups; both get the same props and each shows its own tabs. */
   const renderGroup = (group: GroupId) => (
-    <EditorGroup group={group} onDropOnTab={dropOnTab} onDropFile={dropFile} reloads={reloads} onSaveTab={(key) => void saveKey(key)} onSaveBufferAs={saveBufferAs} onSaveBytesAs={saveBytesAs} onChanged={(key, changed) => {
+    <EditorGroup group={group} onDropOnTab={dropOnTab} onDropFileOnTab={dropFileOnTab} onDropFile={dropFile} reloads={reloads} onSaveTab={(key) => void saveKey(key)} onSaveBufferAs={saveBufferAs} onSaveBytesAs={saveBytesAs} onChanged={(key, changed) => {
         rawDispatch({ type: 'dirty', key, dirty: changed })
         const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
         if (changed && api && tab?.path !== undefined) touchDraft(api, key, tab.snapshotId, tab.path)

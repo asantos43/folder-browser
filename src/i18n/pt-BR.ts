@@ -704,6 +704,7 @@ export const ptBR: Record<MessageKey, string> = {
   'tabs.moveToLeft': 'Mover para o grupo da esquerda',
   'drop.title': 'Abrir os dois arquivos',
   'drop.message': '{left} e {right}: o que você quer fazer?',
+  'drop.compareHint': 'Solte aqui para comparar, ou para abrir lado a lado',
   'drop.sideBySide': 'Abrir lado a lado',
   'drop.compare': 'Comparar (Diff)',
   'tree.selectForCompare': 'Selecionar para comparar',

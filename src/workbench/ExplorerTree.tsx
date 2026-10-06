@@ -631,7 +631,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
                 if (entry.kind === 'file' && group.length === 1) {
                   draggedFile.current = { rootId, path: entry.path, name: entry.name, size: entry.size }
                   e.dataTransfer.setData(FILE_DRAG, JSON.stringify(draggedFile.current))
-                  dragStore.start('file')
+                  dragStore.start('file', undefined, draggedFile.current)
                 }
                 if (pinnable(entry) && group.length === 1) e.dataTransfer.setData(FOLDER_DRAG, JSON.stringify({ rootId, path: entry.path }))
                 if (move) e.dataTransfer.setData(ENTRY_DRAG, JSON.stringify({ rootId, path: entry.path, paths: group.map((g) => g.path) }))

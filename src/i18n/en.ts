@@ -702,6 +702,7 @@ export const en = {
   'tabs.moveToLeft': 'Move to Left Group',
   'drop.title': 'Open the two files',
   'drop.message': '{left} and {right}: what do you want to do?',
+  'drop.compareHint': 'Drop here to compare, or to open side by side',
   'drop.sideBySide': 'Open Side by Side',
   'drop.compare': 'Compare (Diff)',
   'tree.selectForCompare': 'Select for Compare',
