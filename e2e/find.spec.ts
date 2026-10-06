@@ -204,17 +204,18 @@ test.describe('Copy', () => {
 test.describe('Print and the activity bar', () => {
   const pdfAt = (file: string) => expect.poll(() => (fs.existsSync(file) ? fs.readFileSync(file).subarray(0, 5).toString() : ''), { timeout: 15000 }).toBe('%PDF-')
 
-  test('the two icons: Open File opens what the dialog answers, Print is off until there is something to print', async () => {
+  test('the icons: Open Folder is there and Open File is not (Ctrl+O opens what the dialog answers); Print is off until there is something to print', async () => {
     const page = await launch()
     const bar = page.getByRole('navigation', { name: 'Activity Bar' })
-    await expect(bar.getByRole('button', { name: 'Open File…' })).toBeVisible()
+    await expect(bar.getByRole('button', { name: 'Open Folder' })).toBeVisible()
+    await expect(bar.getByRole('button', { name: 'Open File…' })).toHaveCount(0)
     await expect(bar.getByRole('button', { name: 'Print…' })).toBeEnabled()
     const second = path.join(dir, 'second.wsnp')
     await writeSampleWsnp(second, { title: 'Second page', url: 'https://second.example/' })
     await app!.evaluate(({ dialog }, file) => {
       dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [file] })) as unknown as typeof dialog.showOpenDialog
     }, second)
-    await bar.getByRole('button', { name: 'Open File…' }).click()
+    await page.keyboard.press('ControlOrMeta+o')
     await expect(page.getByRole('tab', { selected: true })).toContainText('Second page')
     await page.keyboard.press('ControlOrMeta+w')
     await page.keyboard.press('ControlOrMeta+w')

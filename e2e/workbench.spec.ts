@@ -36,7 +36,7 @@ test('the window is the workbench: title bar, menu, activity bar, side bar, edit
   await expect(page.getByRole('navigation', { name: 'Activity Bar' })).toBeVisible()
   await expect(page.getByRole('complementary', { name: 'Explorer' })).toBeVisible()
   await expect(page.getByRole('main')).toBeVisible()
-  await expect(page.getByRole('contentinfo')).toContainText('No snapshot open')
+  await expect(page.getByRole('contentinfo')).toContainText('No folder open')
   const bar = await page.getByTestId('titlebar').boundingBox()
   expect(bar?.height).toBe(30)
   expect(await page.getByRole('contentinfo').boundingBox().then((b) => b?.height)).toBe(22)
@@ -79,7 +79,7 @@ test('the theme can be chosen, changes the colours, and is remembered', async ()
 test('the interface follows the system language: Brazilian Portuguese', async () => {
   const page = await launch('--lang=pt-BR')
   if (htmlMenu) await expect(page.getByRole('menubar').getByRole('menuitem')).toHaveText(['Arquivo', 'Editar', 'Exibir', 'Ir', 'Ajuda'])
-  await expect(page.getByRole('contentinfo')).toContainText('Nenhum snapshot aberto')
+  await expect(page.getByRole('contentinfo')).toContainText('Nenhuma pasta aberta')
   await expect(page.getByRole('button', { name: 'Gerenciar' })).toBeVisible()
 })
 

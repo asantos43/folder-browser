@@ -119,20 +119,25 @@ test('closing the folder takes its tabs with it', async () => {
   await expect(page.getByText('No folder is open.')).toBeVisible()
 })
 
-test('a .wsnp of the folder opens as a snapshot with a double click, as the viewer shows it, and the folder stays', async () => {
+test('a .wsnp of the folder is a file like the others: a click shows it as a snapshot, as the viewer does, and the folder stays; nothing of snapshots was on screen before', async () => {
   const page = await launch(work)
   await expect(item(page, 'harbor.wsnp')).toBeVisible()
+  // No icon of its own, and no section of snapshots until one is open.
+  await expect(item(page, 'harbor.wsnp').locator('.codicon-browser')).toHaveCount(0)
+  await expect(page.getByRole('listbox', { name: 'Open Snapshots' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Open File/ })).toHaveCount(0)
   await item(page, 'harbor.wsnp').click()
-  await expect(page.getByRole('tab')).toHaveCount(0)
-  await item(page, 'harbor.wsnp').dblclick()
   await expect(page.getByRole('tab', { selected: true })).toContainText('Harbor Times')
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
   await expect(page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option')).toHaveCount(1)
   await expect(page.frameLocator('iframe[title="Snapshot: Harbor Times"]').locator('#ext')).toBeVisible()
   // Opened again, it is the same snapshot: its tab comes to the front, no second one.
   await page.getByRole('listbox', { name: 'Open Folders' }).getByRole('option', { name: 'work' }).click()
-  await item(page, 'harbor.wsnp').dblclick()
+  await item(page, 'harbor.wsnp').click()
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(1)
+  // The section goes with the last snapshot.
+  await page.getByRole('tab', { selected: true }).getByRole('button', { name: /Close/ }).click()
+  await expect(page.getByRole('listbox', { name: 'Open Snapshots' })).toHaveCount(0)
 })
 
 test('a .wsnp of the folder can be opened as a ZIP: its entries are listed, not shown as a page', async () => {

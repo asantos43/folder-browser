@@ -114,8 +114,6 @@ export function EditorGroup({ zooms, onSaveConverted, onViewEntry, onNotify, fin
             <dl className="m-0 grid grid-cols-[auto_auto] gap-x-6 gap-y-2 text-[13px]">
               <dt className="text-right">{t('editor.hintOpenFolder')}</dt>
               <dd className="m-0"><kbd className="rounded-sm border border-group-border px-1.5 font-sans">{shortcut('Ctrl+Shift+O')}</kbd></dd>
-              <dt className="text-right">{t('editor.hintOpen')}</dt>
-              <dd className="m-0"><kbd className="rounded-sm border border-group-border px-1.5 font-sans">{shortcut('Ctrl+O')}</kbd></dd>
               <dt className="text-right">{t('editor.hintPalette')}</dt>
               <dd className="m-0"><kbd className="rounded-sm border border-group-border px-1.5 font-sans">{shortcut('Ctrl+Shift+P')}</kbd></dd>
             </dl>

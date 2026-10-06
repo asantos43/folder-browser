@@ -24,6 +24,7 @@ function fakeApi(initial: OpenResult[] = []) {
     pathForFile: vi.fn((file: File) => `/dropped/${file.name}`),
     ready: vi.fn(async () => initial),
     openDialog: vi.fn(async (): Promise<OpenResult[]> => []),
+    openFolderDialog: vi.fn(async (): Promise<OpenResult[]> => []),
     openPaths: vi.fn(async (): Promise<OpenResult[]> => []),
     onOpened: (l: (r: OpenResult[]) => void) => (listeners.opened.add(l), () => void listeners.opened.delete(l)),
     close: vi.fn(async (_id: string) => {}),
@@ -134,13 +135,13 @@ describe('the workbench with snapshots', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(1)
     expect(document.querySelectorAll('iframe')).toHaveLength(1)
   })
-  it('opens the picker from the menu, the shortcut and the button', async () => {
+  it('opens the picker from the menu and the shortcut; there is no button for it in the side bar or the activity bar (folders are what the application is for)', async () => {
     const { api } = show()
+    expect(screen.queryByRole('button', { name: /^Open File/ })).toBeNull()
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }))
     fireEvent.click(screen.getByRole('menuitem', { name: /Open File/ }))
     fireEvent.keyDown(window, { key: 'o', ctrlKey: true })
-    fireEvent.click(screen.getByRole('button', { name: 'Open File' }))
-    await waitFor(() => expect(api.openDialog).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(api.openDialog).toHaveBeenCalledTimes(2))
   })
   it('opens a recent file from the File menu', async () => {
     const { api } = show()
@@ -482,13 +483,14 @@ describe('Copy, Find and Print', () => {
     selection.mockRestore()
   })
 
-  it('has Open File and Print on the activity bar; Print is off with nothing to print', async () => {
+  it('has Open Folder and Print on the activity bar; Print is off with nothing to print', async () => {
     const { api } = show()
     await waitFor(() => expect(api.recent.list).toHaveBeenCalled())
     const bar = screen.getByRole('navigation', { name: 'Activity Bar' })
     expect((within(bar).getByRole('button', { name: 'Print…' }) as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.click(within(bar).getByRole('button', { name: 'Open File…' }))
-    await waitFor(() => expect(api.openDialog).toHaveBeenCalled())
+    expect(within(bar).queryByRole('button', { name: 'Open File…' })).toBeNull()
+    fireEvent.click(within(bar).getByRole('button', { name: 'Open Folder' }))
+    await waitFor(() => expect(api.openFolderDialog).toHaveBeenCalled())
   })
 
   it('prints the page of the snapshot from the activity bar, the menu and Ctrl+P', async () => {

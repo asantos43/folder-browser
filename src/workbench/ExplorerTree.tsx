@@ -204,7 +204,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
         case 'open': return { id: action, label: t('tree.open'), run: () => actions.open(entry, true) }
         case 'openAsList': return { id: action, label: t('tree.openAsList'), run: () => actions.open(entry, true) }
         case 'openAsZip': return { id: action, label: t('tree.openAsZip'), run: () => actions.open(entry, true) }
-        case 'openSnapshot': return { id: action, label: t('tree.openSnapshot'), run: () => actions.openSnapshot(entry) }
+        case 'openSnapshot': return { id: action, label: t('tree.open'), run: () => actions.openSnapshot(entry) }
         case 'openWith': return { id: action, label: t('tree.openWith'), run: () => actions.openWith(entry.path) }
         case 'openDefault': return { id: action, label: t('tree.openDefault'), run: () => actions.openDefault(entry.path) }
         case 'save': return { id: action, label: t('menu.saveAs'), run: () => actions.save(entry.path) }
@@ -244,7 +244,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
               aria-selected={selected}
               tabIndex={entry.path === current ? 0 : -1}
               onFocus={() => setFocused(entry.path)}
-              onClick={() => (expandable ? toggle(entry.path) : entry.kind === 'wsnp' ? setFocused(entry.path) : actions.open(entry, false))}
+              onClick={() => (expandable ? toggle(entry.path) : entry.kind === 'wsnp' ? actions.openSnapshot(entry) : actions.open(entry, false))}
               onDoubleClick={() => (entry.kind === 'wsnp' ? actions.openSnapshot(entry) : !expandable && actions.open(entry, true))}
               draggable={pinnable(entry)}
               onDragStart={(e) => {
@@ -258,7 +258,7 @@ export function ExplorerTree({ rootId, rootKind, trash, activePath, showHidden, 
               className={`flex h-[22px] cursor-pointer items-center gap-1 pr-2 outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus ${entry.hidden ? 'opacity-60' : ''} ${selected ? 'bg-list-inactive focus-within:bg-list-active focus-within:text-list-active-fg' : 'hover:bg-list-hover'}`}
             >
               <span className="flex w-4 shrink-0 justify-center">{expandable ? <Icon name={expanded ? 'chevron-down' : 'chevron-right'} className="text-[16px]" /> : null}</span>
-              <Icon name={entry.kind === 'dir' ? (expanded ? 'folder-opened' : 'folder') : entry.kind === 'zip' ? 'file-zip' : entry.kind === 'wsnp' ? 'browser' : fileIcon(undefined, entry.name)} className="shrink-0 text-[16px]" />
+              <Icon name={entry.kind === 'dir' ? (expanded ? 'folder-opened' : 'folder') : entry.kind === 'zip' ? 'file-zip' : fileIcon(undefined, entry.name)} className="shrink-0 text-[16px]" />
               <span className="truncate">{entry.name}</span>
             </div>
           )

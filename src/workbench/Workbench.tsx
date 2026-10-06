@@ -575,7 +575,6 @@ export function Workbench() {
           theme={setting}
           setTheme={setSetting}
           onOpenSettings={() => run('openSettings')}
-          onOpenFile={() => run('openFile')}
           onOpenFolder={() => run('openFolder')}
           onPrint={() => run('print')}
           canPrint={canPrint(ws)}

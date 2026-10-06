@@ -128,15 +128,8 @@ export function SideBar({ ws, dispatch, actions, signers, places, treeVersion }:
             </div>
           )}
         </Section>
-        <Section
-          title={t('sidebar.openSnapshots')}
-          actions={
-            <button type="button" title={t('menu.openFile')} aria-label={t('menu.openFile')} onClick={actions.openFile} className="mr-1 flex h-[22px] w-[22px] items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-toolbar-hover focus-visible:opacity-100">
-              <Icon name="new-folder" className="text-[16px]" />
-            </button>
-          }
-        >
-          {ids.length ? (
+        {ids.length ? (
+          <Section title={t('sidebar.openSnapshots')}>
             <ul role="listbox" aria-label={t('sidebar.openSnapshots')} className="m-0 list-none p-0 py-0.5">
               {ids.map((id) => (
                 <li
@@ -167,15 +160,8 @@ export function SideBar({ ws, dispatch, actions, signers, places, treeVersion }:
                 </li>
               ))}
             </ul>
-          ) : (
-            <div className="px-5 py-1.5" title={t('sidebar.openSnapshotsHint')}>
-              <p className="m-0 mb-1.5 text-fg-muted">{t('sidebar.noSnapshot')}</p>
-              <button type="button" onClick={actions.openFile} className="h-[26px] w-full rounded-sm bg-button px-3 text-[13px] text-button-fg hover:bg-button-hover">
-                {t('sidebar.openFile')}
-              </button>
-            </div>
-          )}
-        </Section>
+          </Section>
+        ) : null}
         <Section
           title={root ? `${t('sidebar.files')} — ${root.name}` : selected ? `${t('sidebar.files')} — ${basename(selected.path)}` : t('sidebar.files')}
           actions={

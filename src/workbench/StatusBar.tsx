@@ -81,7 +81,7 @@ export function StatusBar({ zoom, showZoom, onResetZoom, onZoom, ws, signers, on
   ) : (
     <span className={item}>
       <Icon name="file-zip" className="text-[16px]" />
-      {t('status.noSnapshot')}
+      {t('status.nothingOpen')}
     </span>
   )
   return (

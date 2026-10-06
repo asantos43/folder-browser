@@ -86,7 +86,7 @@ test('Save as .wsnp writes a file that passes the checks of the format and opens
   expect(fs.readdirSync(dir).filter((n) => n.endsWith('.part'))).toEqual([])
   // And the new file opens by itself: no bar, the same page.
   await answer({ open: [target] })
-  await page.getByRole('navigation', { name: 'Activity Bar' }).getByRole('button', { name: 'Open File…' }).click()
+  await page.keyboard.press('ControlOrMeta+o')
   await expect(page.getByRole('tab')).toHaveCount(2)
   await expect(page.getByRole('region', { name: 'Details' })).toHaveCount(0)
 })
