@@ -31,6 +31,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 - Five end-to-end specs inherited from WSNP Viewer that had gone stale (the language of a file is named twice on screen, and Markdown opens formatted); the same fix is in wsnp-viewer (branch `fix-stale-e2e-specs`). No change to the application.
 
+### Fixed
+
+- The tree of a folder read its folders again (and took its rows away for a moment) every time the side bar was drawn again, which was at every change of tab: a double click that straddled one missed its row, so it did not keep the tab. It now reads only when asked.
+
 ### Changed
 
 - A ZIP that is not a PageKeep ZIP opens to be browsed, instead of being refused as a `.wsnp`. The side bar is called **Explorer**.
