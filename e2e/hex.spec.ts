@@ -28,7 +28,7 @@ test.beforeEach(() => {
   fs.mkdirSync(work)
   fs.writeFileSync(path.join(work, 'libdemo.so'), elfFile(4096))
   fs.writeFileSync(path.join(work, 'blob.xyz'), Buffer.from([1, 2, 0, 3, 4, 0xff]))
-  fs.writeFileSync(path.join(work, 'report.docx'), zipSync([{ name: '[Content_Types].xml', data: '<x/>' }]))
+  fs.writeFileSync(path.join(work, 'report.pages'), zipSync([{ name: '[Content_Types].xml', data: '<x/>' }]))
   // Text, but too large to open in a tab: it is not shown, and can be seen as bytes.
   fs.writeFileSync(path.join(work, 'huge.log'), 'line of a log\n'.repeat(450_000))
   fs.writeFileSync(path.join(work, 'notes.txt'), 'text stays text')
@@ -86,10 +86,10 @@ test('a file of an unknown type that is not text opens in hexadecimal, and a tex
   await expect(page.locator('.cm-content')).toContainText('text stays text')
 })
 
-test('a document of an unknown type is shown in hexadecimal, and a text file too large to open offers "View as hex"', async () => {
+test('a file of an unknown type that is a ZIP is shown in hexadecimal, and a text file too large to open offers "View as hex"', async () => {
   const page = await launch(work)
-  await item(page, 'report.docx').dblclick()
-  await expect(grid(page, 'report.docx')).toBeVisible()
+  await item(page, 'report.pages').dblclick()
+  await expect(grid(page, 'report.pages')).toBeVisible()
   await expect(page.getByText('ZIP archive')).toBeVisible()
   await item(page, 'huge.log').dblclick()
   await expect(page.getByText('This kind of file is not shown here.')).toBeVisible()

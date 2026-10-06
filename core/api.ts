@@ -16,6 +16,8 @@ export type OpenResult =
 export type ReadResult = { bytes: Uint8Array } | { error: 'no-snapshot' | 'no-file' | 'too-large' }
 /** A window of a file's bytes, and the whole file's size. */
 export type RangeResult = { bytes: Uint8Array; size: number } | { error: 'no-snapshot' | 'no-file' | 'too-large' }
+/** A document of a root, ready to be drawn in a frame at `url` (`fb-doc://<token>/`): by the library `flavour` (core/docs.ts). */
+export type DocOpen = { token: string; url: string; flavour: 'docx' | 'pptx' | 'odf' } | { error: 'no-file' | 'too-large' | 'unsupported' }
 export type SaveResult = { saved: true; path: string } | { saved: false; reason: 'cancelled' | 'error'; message?: string }
 export type IntegrityEvent = { id: string; state: 'running'; done: number; total: number } | { id: string; state: 'done'; report: IntegrityReport }
 
@@ -83,6 +85,8 @@ export interface FbApi {
   openFolderDialog(): Promise<OpenResult[]>
   /** Of a root: makes a file playable (`fb-media://`), by ranges. A file of the disk is served as it is; an entry of a ZIP is copied first, to a folder of its own (up to 2 GB). */
   media: { open(id: string, path: string): Promise<MediaOpen>; release(token: string): Promise<void> }
+  /** An office document of a root or a snapshot (docx, pptx, odt, ods, odp, xlsx, xls…): makes its page, which draws it in a sandboxed frame with no network. The token lives as long as the tab. */
+  docs: { open(id: string, path: string): Promise<DocOpen>; release(token: string): Promise<void> }
   /** Opens a `.wsnp` of a folder (a file of the disk, by its path in the root) as a snapshot. */
   openInRoot(id: string, path: string): Promise<OpenResult[]>
   /** What is directly in a folder of a root, a ZIP of it, or a folder of that ZIP (`path` is relative to the root; `''` is the root itself). */

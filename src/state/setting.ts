@@ -36,6 +36,8 @@ const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean'
 export const wordWrap = createSetting('wordWrap', false, isBoolean)
 /** An SVG file is shown as a picture or as its source: the last choice is kept (as a picture at first). */
 export const svgView = createSetting<'image' | 'code'>('svgView', 'image', (v): v is 'image' | 'code' => v === 'image' || v === 'code')
+/** A CSV or TSV file is shown as a table or as its text: the last choice is kept (as a table at first). */
+export const csvView = createSetting<'table' | 'text'>('csvView', 'table', (v): v is 'table' | 'text' => v === 'table' || v === 'text')
 /** A Markdown file is shown formatted or as its text: the last choice is kept (formatted at first). */
 export const markdownView = createSetting<'formatted' | 'text'>('markdownView', 'formatted', (v): v is 'formatted' | 'text' => v === 'formatted' || v === 'text')
 /** A Markdown page is as wide as the window, not the reading column of 880 px (so that a code block or a table needs no scroll bar). Off by default. */

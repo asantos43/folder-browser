@@ -1,14 +1,16 @@
-import { canProbe, effectiveType, isSvg, languageOf, looksLikeText, type ViewKind } from '@core/filekind.ts'
+import { canProbe, effectiveType, isDelimited, isSvg, languageOf, looksLikeText, type ViewKind } from '@core/filekind.ts'
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import { basename } from '@/lib/format.ts'
 import { fileLanguage, shownSource } from '@/state/fileLanguage.ts'
-import { markdownView, svgView } from '@/state/setting.ts'
+import { csvView, markdownView, svgView } from '@/state/setting.ts'
 import { MarkdownToggle, MarkdownView } from './MarkdownView.tsx'
 import { SvgToggle } from './SvgToggle.tsx'
 import { TextView } from './TextView.tsx'
 import { FontView } from './FontView.tsx'
 import { ImageView } from './ImageView.tsx'
+import { CsvToggle, CsvView } from './CsvView.tsx'
+import { DocumentView } from './DocumentView.tsx'
 import { OtherView } from './OtherView.tsx'
 import { HEX_WHOLE_LIMIT, HexView, RangeHexView } from './HexView.tsx'
 import { PdfView } from './PdfView.tsx'
@@ -79,7 +81,7 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   // Over the limit it is read a window at a time instead (a file of a folder only).
   const windowed = hex && size > HEX_WHOLE_LIMIT
   const [loaded, setLoaded] = useState<Loaded>(() => {
-    const bytes = (kind === 'other' && !probe) || kind === 'zip' || (kind === 'hex' && size > HEX_WHOLE_LIMIT) ? undefined : recall(key)
+    const bytes = (kind === 'other' && !probe) || kind === 'zip' || (kind === 'document' && !hexed) || ((kind === 'hex' || kind === 'document') && size > HEX_WHOLE_LIMIT) ? undefined : recall(key)
     return bytes ? { state: 'ready', bytes } : { state: 'loading' }
   })
   const late = useLate(150)
@@ -87,6 +89,8 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   const svg = kind === 'text' && isSvg(mediaType, path)
   const svgAs = svgView.use()
   const markdownAs = markdownView.use()
+  const csvAs = csvView.use()
+  const delimited = kind === 'text' && isDelimited(mediaType, path)
   // The language the viewer detects, unless the user picked another one for this file (the status bar's Select Language Mode).
   const detected = languageOf(mediaType, path)
   const language = fileLanguage.use(key) ?? detected
@@ -96,7 +100,7 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   }, [sourceShown, key, language, detected])
 
   useEffect(() => {
-    if ((kind === 'other' && !probe && !hexed) || kind === 'zip' || windowed) return
+    if ((kind === 'other' && !probe && !hexed) || kind === 'zip' || (kind === 'document' && !hexed) || windowed) return
     let alive = true
     const again = recall(key)
     if (again) {
@@ -124,6 +128,8 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
 
   // A ZIP is listed by the main process, which keeps it: nothing is read into the interface.
   if (kind === 'zip') return <ZipView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} onView={onViewEntry} onNotify={onNotify} />
+  // An office document is drawn by a page of its own, in a frame that reaches nothing; the bytes are there for the hexadecimal view only.
+  if (kind === 'document' && !hexed) return <DocumentView snapshotId={snapshotId} path={path} name={name} mediaType={mediaType} size={size} onSave={onSave} onHex={() => setHexed(true)} />
   if (windowed) return <RangeHexView snapshotId={snapshotId} path={path} name={name} size={size} onSave={onSave} fallback={() => <OtherView name={name} mediaType={mediaType} size={size} reason="tooLarge" onSave={onSave} />} />
   if (kind === 'other' && !probe && !hexed) return <OtherView name={name} mediaType={mediaType} size={size} onSave={onSave} onHex={() => setHexed(true)} />
   // A moment of nothing, not of a message that flashes: "Loading…" appears only when the file is slow.
@@ -132,9 +138,11 @@ export function FileView({ snapshotId, path, kind: declaredKind, mediaType, size
   if (hex) return <HexBytes name={name} bytes={loaded.bytes} onSave={onSave} />
   // An SVG is a picture and its source: the toolbar of either has the switch to the other.
   if (svg && svgAs === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType="image/svg+xml" name={name} onSave={onSave} leading={<SvgToggle />} />
+  // A CSV or a TSV file is a table and its text: the toolbar of either has the switch to the other.
+  if (delimited && csvAs === 'table') return <CsvView text={text} name={name} tab={/\.tsv$/i.test(path)} onSave={onSave} zoom={zoom} />
   // A Markdown file is a page and its text: the toolbar of either has the switch to the other.
   if (kind === 'text' && language === 'markdown' && markdownAs === 'formatted') return <MarkdownView text={text} onSave={onSave} zoom={zoom} />
-  if (kind === 'text') return <TextView text={text} language={language} size={size} onSave={onSave} zoom={zoom} leading={svg ? <SvgToggle /> : language === 'markdown' ? <MarkdownToggle /> : undefined} />
+  if (kind === 'text') return <TextView text={text} language={language} size={size} onSave={onSave} zoom={zoom} leading={svg ? <SvgToggle /> : language === 'markdown' ? <MarkdownToggle /> : delimited ? <CsvToggle /> : undefined} />
   if (kind === 'image') return <ImageView id={`${snapshotId}:${path}`} bytes={loaded.bytes} mediaType={effectiveType(mediaType, path)} name={name} onSave={onSave} />
   if (kind === 'pdf') return <PdfView id={`${snapshotId}:${path}`} bytes={loaded.bytes} name={name} onSave={onSave} />
   return <FontView bytes={loaded.bytes} />

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AppInfo, ExtractResult, IntegrityEvent, OpenResult, ListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
+import type { AppInfo, DocOpen, ExtractResult, IntegrityEvent, OpenResult, ListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
 
 /** What the interface may ask of the main process: nothing else crosses the boundary (core/api.ts). */
 const on = <T>(channel: string, listener: (value: T) => void) => {
@@ -19,6 +19,10 @@ const api: FbApi = {
   media: {
     open: (id, path) => ipcRenderer.invoke('fb:media-open', id, path) as Promise<MediaOpen>,
     release: (token) => ipcRenderer.invoke('fb:media-release', token) as Promise<void>,
+  },
+  docs: {
+    open: (id, path) => ipcRenderer.invoke('fb:doc-open', id, path) as Promise<DocOpen>,
+    release: (token) => ipcRenderer.invoke('fb:doc-release', token) as Promise<void>,
   },
   openInRoot: (id, path) => ipcRenderer.invoke('fb:open-in-root', id, path) as Promise<OpenResult[]>,
   listDir: (id, path) => ipcRenderer.invoke('fb:list-dir', id, path) as Promise<ListResult>,

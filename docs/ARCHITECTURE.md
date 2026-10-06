@@ -66,6 +66,14 @@ validated. New: `list-dir`, `stat`, `read-file`, `write-file`, `create-file`, `c
 The side bar starts with a **Places** section: Home, Desktop, Documents, Downloads, Music, Pictures, Videos, Trash, Computer, mounted volumes, **Recent Folders** and the folders the user pinned (**Favourites**). A click is the user's choice, so
 the folder becomes an authorised root; the app never authorises a folder on its own. Dragging files onto a place moves them there. Favourites and recent folders are kept in `favorites.json` and `recent-folders.json` in the app's folder (written whole, then renamed, like `session.json`).
 
+## Office documents
+
+*(Built in phase 1n: `core/docs.ts`, `electron/doc-protocol.ts`, `src/docs/`, `src/views/DocumentView.tsx`.)* Word, PowerPoint, OpenDocument and Excel files are drawn by libraries that exist already and have licences that allow it, not by code of ours: **docx-preview** (Apache-2.0) for `.docx`, **pptx-renderer** (Apache-2.0) for `.pptx`, **odr-core** (MPL-2.0, C++ compiled to WebAssembly) for `.odt`, `.ods`, `.odp`, `.odg`, `.xlsx`, `.xls`, `.doc`, `.ppt`. The services Gmail and Outlook use are not libraries (they run on the provider's servers) and would send the file away, which `PRIVACY.md` forbids.
+
+A document is hostile input, so nothing is drawn in the interface's own page. `fb:doc-open` reads the file (up to 48 MB) and gives it an unguessable token; `fb-doc://<token>/` serves a page whose script (`/_v/<flavour>.js`, one per library, built by `vite.docs.config.ts`) fetches `/_file` and draws it. The interface shows that page in `<iframe sandbox="allow-scripts">` (an opaque origin: no `window.fb`, no storage, no access to the parent), and the page's own policy (`DOC_CSP`) is `default-src 'none'`, scripts of its own address only, `connect-src 'self' data:`, images and fonts from `data:`/`blob:`: no network. The session's request filter lets through only the frame the interface makes and what that frame asks of its own token. The page tells the interface how it went with `postMessage` (the interface listens to the message of that frame's window only). For a workbook, odr-core's first view is every sheet stacked with no names, so the page draws the sheets one at a time with a bar. What is not done: zoom, Find and Print inside the frame, and keeping the drawing when the tab is not in front (TODO phase 1m).
+
+CSV and TSV are a table drawn by the interface itself from text it parsed (`core/csv.ts`): a cell is only ever a text node.
+
 ## Media
 
 *(Built in phase 1e: `core/media.ts`, `electron/snapshot-host.ts` (`fb:media-open`), `src/views/MediaView.tsx`.)* A video or a sound of a **snapshot** is played too (decided by the developer; WSNP Viewer only offers it with Save As): the type is the one its manifest declares, the file is copied for the tab like an entry of a ZIP, and Previous/Next are not offered there (a snapshot has no folder listing).

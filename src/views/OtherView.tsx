@@ -4,9 +4,9 @@ import { formatBytes } from '@/lib/format.ts'
 import { fileIcon } from '@/lib/icons.ts'
 
 /** A file that cannot be shown here (a PDF, a ZIP, a document, a file too large): it can be saved to disk. */
-export function OtherView({ name, mediaType, size, reason, onSave, onHex }: { name: string; mediaType: string | undefined; size: number; reason?: 'tooLarge' | 'readError'; onSave: () => void; /** Offered when the bytes of the file can be shown in hexadecimal. */ onHex?: () => void }) {
+export function OtherView({ name, mediaType, size, reason, detail, onSave, onHex }: { name: string; mediaType: string | undefined; size: number; reason?: 'tooLarge' | 'readError' | 'notDrawn'; /** What went wrong, for a document that could not be drawn. */ detail?: string; onSave: () => void; /** Offered when the bytes of the file can be shown in hexadecimal. */ onHex?: () => void }) {
   const { t } = useI18n()
-  const notice = reason === 'tooLarge' ? t('file.tooLarge') : reason === 'readError' ? t('file.readError') : t('file.other')
+  const notice = reason === 'tooLarge' ? t('file.tooLarge') : reason === 'readError' ? t('file.readError') : reason === 'notDrawn' ? t('doc.failed', { message: detail ?? '' }) : t('file.other')
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-4 bg-editor text-editor-fg select-text">
       <Icon name={fileIcon(mediaType, name)} className="text-[64px] text-fg-muted" />

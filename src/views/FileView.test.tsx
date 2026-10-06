@@ -3,7 +3,7 @@ import type { FbApi } from '@core/api.ts'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
-import { markdownView, markdownWide, markdownWrapCode, svgView } from '@/state/setting.ts'
+import { csvView, markdownView, markdownWide, markdownWrapCode, svgView } from '@/state/setting.ts'
 import { FileView, forgetReads } from './FileView.tsx'
 import { ImageView } from './ImageView.tsx'
 
@@ -243,6 +243,60 @@ describe('FileView: hexadecimal', () => {
     )
     await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of disk.iso' })).toBeTruthy())
     expect(readFile).not.toHaveBeenCalled()
+  })
+})
+
+describe('FileView: office documents', () => {
+  it('is drawn by the document view, and its bytes are not read into the interface', async () => {
+    const readFile = vi.fn()
+    const open = vi.fn(async () => ({ token: 'dx', url: 'fb-doc://dx/', flavour: 'docx' as const }))
+    window.fb = { readFile, docs: { open, release: vi.fn(async () => {}) } } as unknown as FbApi
+    render(
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path="report.docx" kind="document" mediaType={undefined} size={1200} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(screen.getByTitle('Document: report.docx').getAttribute('src')).toBe('fb-doc://dx/'))
+    expect(open).toHaveBeenCalledWith('s1', 'report.docx')
+    expect(readFile).not.toHaveBeenCalled()
+  })
+  it('falls back to its bytes in hexadecimal when it cannot be drawn and the user asks', async () => {
+    window.fb = {
+      readFile: vi.fn(async () => ({ bytes: new Uint8Array([0x50, 0x4b, 3, 4]) })),
+      docs: { open: vi.fn(async () => ({ error: 'unsupported' as const })), release: vi.fn(async () => {}) },
+    } as unknown as FbApi
+    render(
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path="report.docx" kind="document" mediaType={undefined} size={4} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'View as hex' }))
+    await waitFor(() => expect(screen.getByRole('grid', { name: 'Hexadecimal view of report.docx' })).toBeTruthy())
+  })
+})
+
+describe('FileView: CSV', () => {
+  const csv = (path: string, body: string) => {
+    window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(body) })) } as unknown as FbApi
+    render(
+      <I18nProvider language="en">
+        <FileView snapshotId="s1" path={path} kind="text" mediaType={undefined} size={body.length} onSave={() => {}} onViewEntry={() => {}} onNotify={() => {}} />
+      </I18nProvider>,
+    )
+  }
+  it('is a table at first, and its text when the user switches', async () => {
+    csvView.set('table')
+    csv('boats.csv', 'Boat,Seats\nGull,12\n')
+    await waitFor(() => expect(screen.getByRole('table', { name: 'Table of boats.csv' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Show the file as text' }))
+    await waitFor(() => expect(document.querySelector('.cm-content')?.textContent).toContain('Gull,12'))
+    expect(screen.getByRole('button', { name: 'Show the file as a table' })).toBeTruthy()
+    csvView.set('table')
+  })
+  it('reads a TSV by its tabs', async () => {
+    csvView.set('table')
+    csv('boats.tsv', 'Boat\tSeats\nGull\t12\n')
+    await waitFor(() => expect(screen.getByRole('cell', { name: '12' })).toBeTruthy())
   })
 })
 

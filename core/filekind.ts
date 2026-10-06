@@ -1,5 +1,5 @@
 /** How a file of a snapshot is shown in a tab (docs/VIEWER-GUIDELINES.md, "Files inside a snapshot"). */
-export type ViewKind = 'text' | 'image' | 'pdf' | 'font' | 'zip' | 'media' | 'hex' | 'other'
+export type ViewKind = 'text' | 'image' | 'pdf' | 'font' | 'zip' | 'media' | 'hex' | 'document' | 'other'
 
 /** Source in the viewer's colours, for these languages; anything else is plain text. */
 export type Language =
@@ -69,13 +69,15 @@ const LANGUAGE_OF_TYPE = new Map<string, Language>([...SOURCE_LANGUAGES.map(([la
 export const TEXT_LIMIT = 5 * 2 ** 20
 /** A picture or a font bigger than this is not read into the interface either. */
 export const BINARY_LIMIT = 64 * 2 ** 20
+/** An office document is read whole into the page that draws it: a bigger one is only offered with Save As (and hex). */
+export const DOCUMENT_LIMIT = 48 * 2 ** 20
 /** A ZIP inside a snapshot is opened in memory to list and extract it: a bigger one is only offered with Save As. */
 export const ZIP_LIMIT = 256 * 2 ** 20
 
 const BY_EXTENSION: Record<string, string> = {
   html: 'text/html', htm: 'text/html', xhtml: 'application/xhtml+xml', css: 'text/css', js: 'text/javascript', mjs: 'text/javascript', cjs: 'text/javascript', jsx: 'text/jsx', ts: 'text/typescript', tsx: 'text/tsx',
   json: 'application/json', map: 'application/json', webmanifest: 'application/manifest+json', txt: 'text/plain', log: 'text/plain', md: 'text/markdown', markdown: 'text/markdown', yml: 'text/yaml', yaml: 'text/yaml',
-  csv: 'text/csv', xml: 'application/xml', rss: 'application/xml', atom: 'application/xml', svg: 'image/svg+xml', vtt: 'text/vtt', srt: 'text/plain',
+  csv: 'text/csv', tsv: 'text/tab-separated-values', xml: 'application/xml', rss: 'application/xml', atom: 'application/xml', svg: 'image/svg+xml', vtt: 'text/vtt', srt: 'text/plain',
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp', ico: 'image/x-icon',
   zip: 'application/zip', pdf: 'application/pdf',
   mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mkv: 'video/x-matroska', mov: 'video/quicktime', avi: 'video/x-msvideo',
@@ -89,9 +91,44 @@ const BY_EXTENSION: Record<string, string> = {
   deb: 'application/vnd.debian.binary-package', rpm: 'application/x-rpm', appimage: 'application/x-executable', sqlite: 'application/vnd.sqlite3', sqlite3: 'application/vnd.sqlite3', db: 'application/vnd.sqlite3',
 }
 
+// Office documents: drawn by a library of their own (core/docs.ts says which).
+const WORD = /^application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.[a-z0-9.]+$|^application\/vnd\.ms-word\.[a-z0-9.]+$/
+const SLIDES = /^application\/vnd\.openxmlformats-officedocument\.presentationml\.[a-z0-9.]+$|^application\/vnd\.ms-powerpoint\.[a-z0-9.]+$/
+const OTHER =
+  /^application\/(vnd\.openxmlformats-officedocument\.spreadsheetml\.[a-z0-9.]+|vnd\.ms-excel(\.[a-z.0-9]+)?|vnd\.oasis\.opendocument\.(text|presentation|spreadsheet|graphics)(-template)?|msword|vnd\.ms-powerpoint)$/
+
+/** The media types of the documents the viewer draws, by file name when the declared type says nothing (`effectiveType`). */
+export const DOCUMENT_TYPES: Record<string, string> = {
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  docm: 'application/vnd.ms-word.document.macroenabled.12',
+  dotx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.template',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  pptm: 'application/vnd.ms-powerpoint.presentation.macroenabled.12',
+  ppsx: 'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
+  potx: 'application/vnd.openxmlformats-officedocument.presentationml.template',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  xlsm: 'application/vnd.ms-excel.sheet.macroenabled.12',
+  xltx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.template',
+  doc: 'application/msword',
+  xls: 'application/vnd.ms-excel',
+  ppt: 'application/vnd.ms-powerpoint',
+  odt: 'application/vnd.oasis.opendocument.text',
+  ott: 'application/vnd.oasis.opendocument.text-template',
+  ods: 'application/vnd.oasis.opendocument.spreadsheet',
+  ots: 'application/vnd.oasis.opendocument.spreadsheet-template',
+  odp: 'application/vnd.oasis.opendocument.presentation',
+  otp: 'application/vnd.oasis.opendocument.presentation-template',
+  odg: 'application/vnd.oasis.opendocument.graphics',
+}
+
+/** Whether a media type is one of an office document the viewer draws. */
+export const isDocumentType = (type: string): boolean => WORD.test(type) || SLIDES.test(type) || OTHER.test(type)
+
+for (const [ext, type] of Object.entries(DOCUMENT_TYPES)) BY_EXTENSION[ext] ??= type
+
 /** Source and configuration files with no colours of their own: plain text, read as such. */
 const PLAIN_EXTENSIONS = [
-  'bat', 'cmd', 'm', 'graphql', 'tex', 'bib', 'rst', 'adoc', 'org', 'tsv', 'lock', 'gitattributes', 'dockerignore', 'gitignore', 'prettierrc', 'eslintrc', 'nvmrc', 'vue', 'svelte', 'tf', 'hcl', 'ipynb', 'ics', 'vcf', 'gpx', 'pm6',
+  'bat', 'cmd', 'm', 'graphql', 'tex', 'bib', 'rst', 'adoc', 'org', 'lock', 'gitattributes', 'dockerignore', 'gitignore', 'prettierrc', 'eslintrc', 'nvmrc', 'vue', 'svelte', 'tf', 'hcl', 'ipynb', 'ics', 'vcf', 'gpx', 'pm6',
 ]
 /** Files known by their whole name (no extension). */
 const PLAIN_NAMES = ['readme', 'license', 'licence', 'copying', 'notice', 'authors', 'contributors', 'changelog', 'changes', 'contributing', 'makefile', 'procfile', 'todo', 'version', 'codeowners', 'install', 'news', 'history']
@@ -115,7 +152,7 @@ export function effectiveType(mediaType: string | undefined, name: string): stri
   const key = extensionKey(name)
   let byName = Object.hasOwn(BY_EXTENSION, key) ? BY_EXTENSION[key] : undefined
   // A file called `bin` or `a` is not a binary because of its name: the extensions of binaries mean something only after a dot.
-  if (byName && BINARY.test(byName) && !/\.[a-z0-9]+$/i.test(name)) byName = undefined
+  if (byName && (BINARY.test(byName) || isDocumentType(byName)) && !/\.[a-z0-9]+$/i.test(name)) byName = undefined
   const weak = declared === '' || declared === 'application/octet-stream' || declared === 'text/plain'
   if (weak && byName) return byName
   return declared || 'application/octet-stream'
@@ -145,6 +182,7 @@ export function viewKind(mediaType: string | undefined, name: string, size: numb
   if (type === 'application/pdf') return size <= BINARY_LIMIT ? 'pdf' : 'other'
   if (FONT.test(type)) return size <= BINARY_LIMIT ? 'font' : 'other'
   if (ZIP.test(type)) return size <= ZIP_LIMIT ? 'zip' : 'other'
+  if (isDocumentType(type)) return size <= DOCUMENT_LIMIT ? 'document' : 'other'
   if (BINARY.test(type)) return 'hex'
   return 'other'
 }
@@ -168,6 +206,9 @@ export function looksLikeText(bytes: Uint8Array): boolean {
     return false
   }
 }
+
+/** A CSV or TSV file: text, and a table too (the viewer lets the user switch between the two). */
+export const isDelimited = (mediaType: string | undefined, name: string): boolean => /^text\/(csv|tab-separated-values)$/.test(effectiveType(mediaType, name))
 
 /** An SVG picture: it is text (source), and a picture too, and the viewer lets the user switch between the two. */
 export const isSvg = (mediaType: string | undefined, name: string): boolean => effectiveType(mediaType, name) === 'image/svg+xml'
