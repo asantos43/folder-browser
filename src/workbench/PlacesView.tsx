@@ -64,7 +64,7 @@ export function PlacesView({ data, activePath, actions }: { data: PlacesData | n
       </button>
     </li>
   )
-  const group = (title: MessageKey, places: Place[], extra?: { drop?: boolean; empty?: MessageKey }) => {
+  const group = (title: MessageKey, places: Place[], extra?: { drop?: boolean; empty?: MessageKey; /** The section's own title says it already. */ untitled?: boolean }) => {
     if (!places.length && !extra?.drop) return null
     return (
       <div
@@ -91,7 +91,7 @@ export function PlacesView({ data, activePath, actions }: { data: PlacesData | n
         }}
         className={extra?.drop && over ? 'bg-list-hover outline-1 -outline-offset-1 outline-focus' : ''}
       >
-        <h3 className="m-0 flex h-[20px] items-center pl-5 text-[11px] font-normal uppercase text-sidebar-title">{t(title)}</h3>
+        {extra?.untitled ? null : <h3 className="m-0 flex h-[20px] items-center pl-5 text-[11px] font-normal uppercase text-sidebar-title">{t(title)}</h3>}
         {places.length ? (
           <ul role="listbox" aria-label={t(title)} className="m-0 list-none p-0">
             {places.map((p, i) => row(p, i, places))}
@@ -105,7 +105,7 @@ export function PlacesView({ data, activePath, actions }: { data: PlacesData | n
 
   return (
     <div className="pb-1">
-      {group('places.title', data.places)}
+      {group('places.title', data.places, { untitled: true })}
       {group('places.favorites', data.favorites, { drop: true, empty: 'places.dropHint' })}
       {group('places.recent', data.recent)}
       {group('places.devices', data.volumes)}

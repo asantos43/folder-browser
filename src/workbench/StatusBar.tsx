@@ -74,9 +74,9 @@ export function StatusBar({ zoom, showZoom, onResetZoom, onZoom, ws, signers, on
       ) : null}
     </>
   ) : root ? (
-    <span className={item} title={root.path}>
-      <Icon name={root.kind === 'zip' ? 'file-zip' : 'folder'} className="text-[16px]" />
-      {t('status.folder', { path: root.path })}
+    <span className={`${item} min-w-0`} title={root.path}>
+      <Icon name={root.kind === 'zip' ? 'file-zip' : 'folder'} className="shrink-0 text-[16px]" />
+      <span className="truncate">{t('status.folder', { path: root.path })}</span>
     </span>
   ) : (
     <span className={item}>

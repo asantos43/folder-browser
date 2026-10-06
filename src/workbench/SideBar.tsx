@@ -120,12 +120,11 @@ export function SideBar({ ws, dispatch, actions, signers, places, treeVersion }:
               ))}
             </ul>
           ) : (
-            <div className="px-5 py-2">
-              <p className="m-0 mb-3 text-fg-muted">{t('sidebar.noFolder')}</p>
+            <div className="px-5 py-1.5" title={t('sidebar.openFolderHint')}>
+              <p className="m-0 mb-1.5 text-fg-muted">{t('sidebar.noFolder')}</p>
               <button type="button" onClick={actions.openFolder} className="h-[26px] w-full rounded-sm bg-button px-3 text-[13px] text-button-fg hover:bg-button-hover">
                 {t('sidebar.openFolder')}
               </button>
-              <p className="m-0 mt-3 text-[12px] text-fg-muted">{t('sidebar.openFolderHint')}</p>
             </div>
           )}
         </Section>
@@ -169,12 +168,11 @@ export function SideBar({ ws, dispatch, actions, signers, places, treeVersion }:
               ))}
             </ul>
           ) : (
-            <div className="px-5 py-2">
-              <p className="m-0 mb-3 text-fg-muted">{t('sidebar.noSnapshot')}</p>
+            <div className="px-5 py-1.5" title={t('sidebar.openSnapshotsHint')}>
+              <p className="m-0 mb-1.5 text-fg-muted">{t('sidebar.noSnapshot')}</p>
               <button type="button" onClick={actions.openFile} className="h-[26px] w-full rounded-sm bg-button px-3 text-[13px] text-button-fg hover:bg-button-hover">
                 {t('sidebar.openFile')}
               </button>
-              <p className="m-0 mt-3 text-[12px] text-fg-muted">{t('sidebar.openSnapshotsHint')}</p>
             </div>
           )}
         </Section>
@@ -227,12 +225,14 @@ export function SideBar({ ws, dispatch, actions, signers, places, treeVersion }:
             <p className="m-0 px-5 py-2 text-fg-muted">{t('sidebar.noSelection')}</p>
           )}
         </Section>
+        {root ? null : <>
         <Section title={t('sidebar.information')} defaultOpen={false}>
           <div className="px-5 py-2">{selected ? <InfoPanel snapshot={selected} signers={signers} onOpenExternal={actions.openExternal} onShowAll={() => actions.showMetadata(selected.id)} /> : <p className="m-0 text-fg-muted">{t('sidebar.noSelection')}</p>}</div>
         </Section>
         <Section title={t('sidebar.integrity')} defaultOpen={false}>
           <div className="px-5 py-2 text-[13px]">{selected ? <IntegrityPanel state={ws.integrity[selected.id]} onOpenFile={(path) => actions.openTreeFile(selected.id, path, false)} /> : <p className="m-0 text-fg-muted">{t('sidebar.noSelection')}</p>}</div>
         </Section>
+        </>}
       </div>
     </aside>
   )

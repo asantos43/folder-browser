@@ -34,6 +34,8 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Fixed
 
+- Inherited from WSNP Viewer, and fixed there too (branch `fix-icon-sizes-and-list-markers`): the sizes given to icons (`text-[24px]`, `text-[96px]`…) were ignored, because the icon font's own 16 px was an unlayered rule that beats the layers of Tailwind (the activity bar, the big icon of a file that cannot be shown, the dialogs); the font is now imported in the `components` layer. The lists of a Markdown page had no bullets or numbers (the base styles took them away). A unit test that looked at the editor before it had its text.
+- The side bar: the heading of the first group of Places repeated the section's, the path in the status bar wrapped and was cut, Information and Integrity (of a snapshot) showed for a folder, and the empty Open Folders and Open Snapshots took a third of the height.
 - The tree of a folder read its folders again (and took its rows away for a moment) every time the side bar was drawn again, which was at every change of tab: a double click that straddled one missed its row, so it did not keep the tab. It now reads only when asked.
 
 ### Changed

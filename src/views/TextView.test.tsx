@@ -28,7 +28,8 @@ describe('TextView: formatting', () => {
   it('shows minified JSON laid out, says so, and counts the lines it now has', async () => {
     show(MIN_JSON, 'json')
     await waitFor(() => expect(screen.getByText('Formatted')).toBeTruthy())
-    expect(content()).toContain('"name": "harbor",')
+    // (The label comes before the editor has the new text: wait for the text too.)
+    await waitFor(() => expect(content()).toContain('"name": "harbor",'))
     expect(screen.getByText(/\d+ lines/).textContent).not.toBe('1 lines')
     expect(screen.getByText('JSON')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Show the file laid out/ }).getAttribute('aria-pressed')).toBe('true')
