@@ -40,6 +40,7 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Changed
 
+- **Folders first** (interface adjustments): a `.wsnp` in the tree is a file like the others: no icon of its own, and a click (or Enter) shows it as a snapshot, as WSNP Viewer does; **Open as ZIP** stays in its menu. The activity bar has no Open File icon (Open Folder is there; File ▸ Open File… and `Ctrl+O` remain). The **Open Snapshots** section appears only while a snapshot is open, and has no Open File button; with nothing open the status bar says "No folder open" and the empty editor says "Open a folder to start".
 - A ZIP that is not a PageKeep ZIP opens to be browsed, instead of being refused as a `.wsnp`. The side bar is called **Explorer**.
 - Names: the app is **Folder Browser** (`folder-browser`, appId `io.github.asantos43.folder-browser`); the interface scheme is `fb-ui://`, the preload exposes `window.fb` and the IPC channels start with `fb:`. The `.wsnp` format, its `wsnp://` scheme for snapshots and the file association are unchanged.
 - `scripts/format-sync.mjs` now checks the copies of `docs/FORMAT.md` and `docs/MANIFEST-SIGNING.md` against wsnp-viewer's (the source of truth), not against PageKeep.
