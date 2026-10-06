@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 It was **started from `~/Dev/AI/projetos/github/wsnp-viewer` 0.1.0** (a copy, not a fork: the history is not shared). The plan is in `TODO.md`; the design in `docs/ARCHITECTURE.md`. Releases: `.exe`, universal `.dmg`, `.deb`, `.rpm` (electron-builder; no AppImage).
 
-**Status:** phase 0 (scaffold), phase 1 (browse a folder or a ZIP, hidden files), 1b (`.wsnp` in the tree), 1c (right-click menu, Open With…) and 1d (Places, favourites, trash) and 1e (video and sound) are done, each on its own branch (`phase-1-browse`, `phase-1b-wsnp`, `phase-1c-context-menu`, `phase-1d-places`, `phase-1e-media`, stacked: each is made on the one before); file operations on disk (phase 2) are done; the editor, the diff and ZIP editing are not written yet. Read `TODO.md` for what is next.
+**Status:** done and merged into `main`: phases 0 to 1p (scaffold, browsing, `.wsnp`, right-click menu, Places, media, hex view, office documents, tables as read-only), 2 (file operations on disk), 3 (text editor), 3a (unsaved changes kept, bytes editing in the hex view) and 3b (tables: sort, filter, search, SQL query, cell editing); GitHub Actions is manual (macOS `.dmg` only). **Not written yet:** phase 4 (diff of two text files), phase 5 (edit inside a ZIP), phase 6 (finish, first release). Read `TODO.md` for what is next.
 
 ## Workflow
 
