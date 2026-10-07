@@ -6,7 +6,7 @@ Status: **a sketch, not built.** The plan and its boxes are in `TODO.md`, "Exten
 
 1. **Deny by default.** An extension can do nothing it did not declare, and the user saw and accepted what it declared.
 2. **Data before code.** Most of what people want (themes, keys, languages, commands that start a program the user confirmed) is **data**. Data is validated against a schema and never runs.
-3. **Code only in a box.** An extension with code (later) runs with **no Node, no direct IPC, no network**, in a Web Worker, a sandboxed frame or a WebAssembly module, and reaches the application only through a **brokered API** whose every call is validated as untrusted input by the main process, with the same checks as every other operation (open roots only, `resolveInside`, no link out).
+3. **Code in a box first, and power as a visible, deliberate choice.** An extension with code at **level 1** runs with **no Node, no direct IPC, no network**, in a Web Worker, a sandboxed frame or a WebAssembly module, and reaches the application only through a **brokered API** whose every call is validated as untrusted input by the main process, with the same checks as every other operation (open roots only, `resolveInside`, no link out). **All levels are supported** (the user asked for it), so **level 2** exists too: Node code in a **process of its own**, **off by default behind a setting**, with **enforced** permissions where the platform can enforce them and an **explicit, typed confirmation** where it cannot (§4b). More power always means more friction, more review and more visibility.
 4. **Nothing leaves the computer by default.** The application's promise stays. The **online catalog is opt-in**, one small read, no identifier; downloads happen on a click.
 5. **Trust is a chain of signatures, not of addresses.** A download host is never trusted; a package is accepted only if its hash is pinned by a signed catalog entry (or the user chose to trust its publisher), and its contents match its signed file list.
 6. **Everything can be switched off.** A safe mode starts the application with no extension; an extension can be disabled, removed or **revoked** (a signed blocklist) without a new release of the application.
@@ -18,7 +18,7 @@ Status: **a sketch, not built.** The plan and its boxes are in `TODO.md`, "Exten
 | --- | --- | --- | --- | --- |
 | **0, declarative** | themes, key schemes, language packs, file-type to language, snippets, **Open With entries and commands that start a program** (run by the application, never by the extension), menu entries | no | no | yes |
 | **1, boxed code** | viewers and exporters (a sandboxed frame), converters and readers of formats (WebAssembly in a worker), commands that compute, panels | yes, isolated | only through the broker, read-only to begin with, per permission | later, one extension point at a time |
-| **2, full trust** | arbitrary code in a process of its own | yes | whatever the user has | **not planned** |
+| **2, process** | Node code in a **utility process of its own** (its own memory; it can crash alone), started only when needed | yes | **restricted**: the permissions it declared, **enforced by Node's permission model** (read and write allow-lists of folders, no child processes, no network unless granted) plus the broker for the application's own features; **unrestricted** (`"trust": "full"`): whatever the user can, behind a typed confirmation (§4b) | phase 4, **off by default** behind a setting |
 
 ## 3. The package: `.fbplugin`
 
@@ -84,6 +84,18 @@ An update that asks for **more** permissions is **not** applied silently: the us
 - Quotas: wall time per call, total CPU share, memory, number of messages; over a limit the extension is **stopped and marked**, with a notice, and a crash never takes the window down.
 - **Safe mode**: a menu item and a command-line flag start the application with every extension off; it is offered after a crash at start-up.
 
+## 4b. Level 2: extensions that run as a process
+
+For what a box cannot do: a tool that needs the file system beyond the open roots, a native helper (an archive or video tool), a language server, a converter that starts a program. It exists because the user wants **every level** supported, and it is built **last and most carefully**.
+
+- **Off by default**: Settings ▸ Extensions ▸ **Allow extensions that run as a process** (a plain warning: such an extension is a program on your computer). Without it, a level 2 package cannot be enabled, and importing settings can **never** turn it on.
+- **A process of its own** (`utilityProcess`), started on activation, with no access to the interface's window, its IPC or `window.fb`; it talks to the application only through the broker (a message port), which validates every call as untrusted input, rate-limits it and logs it. A crash or a hang is the extension's own: a notice, a restart button, never the window.
+- **Two modes**, written in the manifest and shown at install:
+  - **Restricted** (`"trust": "sandboxed"`): the process starts with **Node's permission model** (`--permission`) and an **allow-list** made from the permissions the user granted: folders it may read, folders it may write (its own data folder, and per-root grants), **no child processes, no worker threads of its own, no native addons, no WASI, no network** unless `network:<host>` was granted. The platform enforces it, not the extension's good will. (To be proved by a **spike** on the Electron and Node versions in use, with the findings written here: which flags a `utilityProcess` accepts, whether the model holds on Windows and macOS, and what an OS-level sandbox adds; if it cannot be enforced on a system, the restricted mode is **not offered there** and the extension falls to unrestricted with its warning.)
+  - **Unrestricted** (`"trust": "full"`): no enforcement beyond the process boundary; it can do what the user can. It needs a **signature** (never unsigned), a **typed confirmation** that names the extension and its publisher fingerprint and says what it means, is **never "Reviewed" without a human security review** of its source and build, is shown with a **permanent mark in the status bar** while any is enabled, is **off in safe mode**, and **cannot be installed by a drag, a double click or an import without the confirmation**.
+- **No access to what it was not given**: a restricted extension gets a **folder of its own** (`userData/extension-data/<id>/`, quota) and a handle to the roots the user granted; reading outside them is refused by the process's permission model **and** the broker.
+- **Reviewed level 2** needs a human review of the source, a reproducible or inspectable build, a pinned hash, no obfuscation, and a record in the catalog; the catalog shows level 2 in its own section with the warning; the **revocation** list disables a level 2 extension at once and **kills its process**.
+
 ## 5. Installing
 
 - **Side load**: File ▸ Install Extension from File…, a `.fbplugin` dropped on the Extensions page, or a double click (if registered). The same checks as an online install, with a clear label **"From a file: not reviewed by anyone"** unless the publisher's key is trusted.
@@ -99,6 +111,7 @@ An update that asks for **more** permissions is **not** applied silently: the us
 | **Reviewed** | in the catalog, whose entry pins this package's hash, signed by the catalog key (reviewed by the project; level 1 gets a human review) |
 | **Signed by a publisher you trust** | signed by a key the user trusted before (the same store of trusted signers as for snapshots, `core/signers.ts`) |
 | **Signed, unknown publisher** | valid signature, unknown key: the fingerprint is shown and trust is a conscious choice (trust on first use) |
+| **Process (level 2)** | an extra label on any of the above: *Restricted* or *Full trust*, in red for the second, always shown beside the name |
 | **Unsigned** | level 0 only, only from a file, only after a warning; **never** level 1 |
 
 ## 6. The online catalog (the sketch)
@@ -169,7 +182,10 @@ packages are release assets of the extension's own repository or of the catalog'
 | A compromised publisher key | the signed blocklist disables it; keys are per publisher, so one leak is bounded |
 | Typosquatting, impersonation, a look-alike name | the namespace rule, a visible publisher fingerprint, "Reviewed" shown only for catalog entries |
 | An update that adds permissions | refused until accepted again, with the difference shown |
-| An extension that reads files it should not | the broker only, per-root grants, `resolveInside`, a read-only copy of the extension, an activity log |
+| An extension that reads files it should not | the broker only, per-root grants, `resolveInside`, a read-only copy of the extension, an activity log; for level 2 also Node's permission allow-list |
+| A level 2 extension that starts programs, loads native code or opens sockets | restricted mode denies child processes, native addons and the network at the process level; unrestricted mode needs the typed confirmation, a signature and a status-bar mark, and is never reviewed without its source being read |
+| A level 2 extension installed by trickery (a dropped file, an imported settings file, a link) | it cannot be enabled unless the setting is on, and the install needs the confirmation each time; a settings import never changes that setting |
+| A level 2 process that outlives its need, leaks or spins | started on activation and stopped when idle, quotas on memory and CPU time, a kill switch, revocation kills the process |
 | Exfiltration | no network permission in version 1; CSP `default-src 'none'`; every other request cancelled; no clipboard read; clipboard write only after a gesture |
 | A busy loop, a memory bomb | quotas, a kill switch, a safe mode |
 | UI spoofing (a panel that looks like the application's own dialog) | a frame the extension cannot draw outside, always labelled with its name and a "from an extension" mark; no access to the application's dialogs |
@@ -181,4 +197,4 @@ packages are release assets of the extension's own repository or of the catalog'
 
 ## 8. What it does not do (version 1)
 
-Full-trust code, Node in an extension, a network permission, writing files, starting programs from extension code, dependencies between extensions, accounts, payments, ratings or comments, telemetry, automatic updates, installing from a URL typed by the user.
+A network permission and writing files for **level 1** (level 2 has them, with its own safeguards, in phase 4), starting programs from level 1 code, dependencies between extensions, accounts, payments, ratings or comments, telemetry, automatic updates, installing from a URL typed by the user. **Level 2 is planned (phase 4), not part of the first versions.**
