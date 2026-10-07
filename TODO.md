@@ -30,6 +30,7 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 - **Compress and Extract for ZIP** (M, "Archives", group 1)
 - **Find and Replace** (M, "Text tools", group 2) and **Search folders**, names and extensions (M, "Search folders", group 1)
 - **Playlists** M3U/M3U8, reading and playing, then editing (M to L, "Playlists", groups 1 and 2)
+- **Copy the path and Open in Terminal** (S, "Copy the path, and open a shell on a folder")
 - **Accessibility pass** (M), **opt-in update check** (S), a **fuzzing harness** for the parsers (M), **drag files out** (S), **named workspaces** (S) ("Quality of the product", "Browsing")
 
 **Later** (each a project; the order is a guess)
@@ -43,7 +44,7 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 - **More languages** with a translation flow (S, then continuing)
 
 **Maybe**
-- Open a terminal here (S), tags and colour labels on files (M), `ffmpeg` of the computer for what the browser cannot play and a WebAssembly audio decoder (L, "Video", group 3), clone document, map of the document, function list, macros (Text tools, group 6), a tag editor for sound (not planned today)
+- Tags and colour labels on files (M), `ffmpeg` of the computer for what the browser cannot play and a WebAssembly audio decoder (L, "Video", group 3), clone document, map of the document, function list, macros (Text tools, group 6), a tag editor for sound (not planned today)
 
 # Open work, by area
 
@@ -65,6 +66,23 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 - [ ] Paste between two open folders (and between the disk and a ZIP), and paste what another application copied (files from the file manager); put the names of the copied rows on the system clipboard as text
 - [ ] Mark with the pointer (a rubber band), and **Extract** for several rows
 - [ ] Try the clipboard keys on **macOS** (the Edit menu roles Cut and Paste were added, as Copy already was) and Windows: tried on Linux only
+
+### Copy the path, and open a shell on a folder (after 0.1.3; priority Next, size S)
+Two small commands in the right-click menu of the tree (and of a tab, and in Properties), for a row or for **several marked rows**. Today a tab's menu has **Copy Path** (the path inside its folder or snapshot) and the tree has **Reveal in File Manager**; the tree has no way to copy a path, and no way to start a shell in a folder.
+
+Copy the path
+- [ ] **Copy Path** (the full path of the disk, with the system's separators: `/home/me/work/a.txt`, `C:\Users\me\work\a.txt`), **Copy Relative Path** (from the folder that was opened: `docs/a.txt`), **Copy Name**, and **Copy as `file://` Address** (percent-encoded, for a browser or a document), each in the row's right-click menu and as keys (`Shift+Alt+C` for the path and `Ctrl+K Ctrl+Shift+C`-style relative path are VS Code's; the keys of Cut, Copy and Paste stay the file clipboard's), in the **tab's menu** and as a **Copy** button beside Location in Properties; a notice says what was copied ("Path copied")
+- [ ] **Several rows**: one path **per line**, in the order of the tree; a **Copy as Quoted Path** variant (`'…'` on Linux and macOS with the quote inside the name escaped, `"…"` on Windows) so that a name with spaces or an apostrophe can be pasted into a shell as one word
+- [ ] **Inside a ZIP or a snapshot**: the path of the file that holds it, then `!/` and the entry (`/home/me/pack.zip!/docs/a.txt`, nested as `a.zip!/b.zip!/c`: the same notation the application uses everywhere), and Copy Name and Copy Relative Path as above; the full path of a **real** file is given only when there is one (an entry has none: said in the menu's label, not left to fail)
+- [ ] Written by the existing `copyText` call; nothing is read from the disk, and **nothing is resolved by the interface** (the full path is made by the main process from the root and the relative path, so the interface never builds a path of the disk), costing nothing
+
+Open a shell on a folder
+- [ ] **Open in Terminal** in the menu of a **folder** (and of the Files title, for the root, and **Open in Terminal Here** for a file: its folder), starting the system's **terminal with its shell already in that folder**; the shell is a **real program of the user's computer**, so it is opened only on a **real folder of an open root**, never on an entry of a ZIP or a snapshot (the item is greyed there, with the reason) and never on a path outside the roots (the path is resolved with the same checks as every operation: `resolveInside`, `realpath`, a link that leaves the root does not pass)
+- [ ] **Which terminal**: a **list by system tried in order** and the first found is used: **Linux** `$TERMINAL`, `x-terminal-emulator`, then `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty`, `wezterm`, `foot`, `xterm` (each with its own working-directory option); **Windows** Windows Terminal (`wt -d <folder>`), else PowerShell, else `cmd`; **macOS** the Terminal (`open -a Terminal <folder>`), or iTerm when it is installed and chosen; the choice and a **custom command** (a program and arguments with `{path}`, confirmed once, see "Settings") can be set in Settings ▸ System, and the **shell** is the user's own (their login shell, `$SHELL`, `COMSPEC`)
+- [ ] **How it is started** (the security point): **no shell is used to start the terminal** (an argument list through `child_process.spawn`, `detached`, `stdio: 'ignore'`, `unref()`), the folder is passed as an **argument or as the process's `cwd`** and **never glued into a command string** (a name with a quote, a `$(…)`, a backtick, `&` or a leading `-` is data: a `--` before it where the program takes one), the environment is the application's own with nothing added from the file system, and a folder whose name is odd is tested; the application does not type anything into the shell
+- [ ] If **no terminal is found** the item says so and points to Settings (the list of what was tried is shown); if the program **fails to start** a notice says which and why in plain words
+- [ ] The old idea "Open a terminal here" under "Browsing" is **this item**; an integrated terminal inside the application (a pty and a view) is **not** planned (a native dependency, and the user's terminal does it better)
+- [ ] Tests: the **choice of the program and its arguments as a pure function** (the platform, what exists, the folder, a custom command) for each system and each terminal, with names that have spaces, quotes, `$`, `&`, accents and a leading `-`; the copy variants for a file, a folder, several rows, an entry of a ZIP and a nested one, on both separator styles; the item greyed in a ZIP; a path outside the root refused; and an end-to-end spec in which a **made-up terminal program** (a script that writes its arguments and its working directory to a file, found through the setting or the `PATH`, as the Open With… specs do with `gio`) is started and the file is checked. Performance: the menu opens at once (the search for a terminal is made once, in the background, and kept), and starting it does not block the interface
 
 ### Sizes and counts of folders (after 0.1.3)
 Today **Properties** shows a file's size in bytes, and a folder shows none: the tree knows only the files of a folder it has listed, not what is below. A total is a walk of the whole folder, so it is made **on demand, in the background, and never by the interface's thread**; what the tree already knows costs nothing and is shown at once.
@@ -167,7 +185,7 @@ Live refresh
 - [ ] **Quick Look** (priority Later, size S to M): `Space` on a row of the tree shows a **floating preview** (a picture, a text, the first page of a PDF, a sound's cover with its play button) without opening a tab, `Space` or `Esc` closes it, the arrow keys go to the next row's preview; the preview uses the viewers that exist, cheap to open and to dismiss
 - [ ] **Drag files out of the application** (priority Next, size S): a row, or the marked rows, dragged to the desktop, a file manager, an e-mail window or a browser's upload box (`webContents.startDrag`, with an icon and, for an entry of a ZIP, a copy made first into a scratch folder that is removed later); and the **system clipboard** gets the file list when Copy is used, so a paste in another program works (the open item under "Files")
 - [ ] **Named workspaces** (priority Next, size S): **Save Workspace…** keeps a name for the open folders and ZIP files, the tabs, the groups and the sizes; **Open Workspace…** (and the Recent list) restores them, and the last one is reopened as the session is today; kept in the application's own folder, never touching the files
-- [ ] **Open a terminal here** (priority Maybe, size S): in a folder's menu, starts the system's terminal in it (a list by system, a setting for another command), started without a shell with an argument list; **tags and colour labels** on files and folders (priority Maybe, size M), kept by the application by path and id (not in the files) with a filter and a search by tag
+- [ ] **Open a terminal here** is now its own item (priority Next, size S): see "Copy the path, and open a shell on a folder" under Files; **tags and colour labels** on files and folders (priority Maybe, size M), kept by the application by path and id (not in the files) with a filter and a search by tag
 - [ ] Performance and tests: the gallery's budgets (time to the first screen, frames while scrolling, memory of the cache and of the decoded bitmaps, a bounded number of decodes at once) measured on a synthetic folder of 20,000 small pictures; the drag-out test with a fake target; the workspace file round trip
 
 ## Git: read only (after 0.1.3; priority Later, size M)
