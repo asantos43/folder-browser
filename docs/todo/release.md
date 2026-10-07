@@ -10,7 +10,7 @@ Part of the plan in [`TODO.md`](../../TODO.md) (the index, the performance rule 
 - [ ] Mark v0.1.0 and v0.1.1 as superseded on their release pages
 
 ## Ideas for later
-- Hidden attribute of Windows (today only names that start with a dot)
+- Hidden attribute of Windows (today only names that start with a dot): see "Permissions, owner, group and visibility" in `docs/todo/files.md`
 - ZIP64 and other encodings than UTF-8
 - Search inside files (see "Text tools", group 5); a terminal here
 - External subtitles (`.srt`, `.vtt`) beside a video (see "Video: warnings, tracks, subtitles…"); a playlist that survives closing the tab (see "Playlists")
