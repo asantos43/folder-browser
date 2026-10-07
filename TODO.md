@@ -174,6 +174,29 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [ ] A ZIP with a password (ZIP-level encryption: traditional ZipCrypto and WinZip AES): today its entries are listed as protected and cannot be opened, and the ZIP is read-only (`core/archive/reader.ts` and `core/zip.ts` refuse them; yauzl does not decrypt, so it needs a decryptor for the entry's stream, a password box like the PDF's, and `core/archive/edit.ts` must keep the encrypted entries as they are when it writes the ZIP back)
 - [ ] Change or remove a PDF's password: pdf.js only reads (it cannot write a PDF with other encryption), so this needs another library or a tool such as qpdf
 
+## Image editing (a simple Paint, after 0.1.3)
+Idea, not started: the features of the Paint of Windows 7/8, with no layers, but with undo and redo, and **built for speed as much as for features**. A canvas 2D editor in the interface (no heavy library), saving through the existing `saveBytes` (temporary file, rename, version check) and Save As. Formats edited: PNG, JPEG, BMP, WebP (GIF and ICO stay read-only: frames and sizes would be lost); JPEG warns about the loss at each save and offers Save as PNG; EXIF rotation is applied on opening, metadata is lost on saving (say so).
+
+Phase A: the editor
+- [ ] **Edit** on the toolbar of an image; pencil/freeform, brush with a line width, eraser, colour picker, fill bucket, colours and a palette
+- [ ] Line, rectangle, rounded rectangle, ellipse, each empty, filled or both, with a line width; Shift for a square or a circle
+- [ ] Undo and redo (`Ctrl+Z`, `Ctrl+Shift+Z`/`Ctrl+Y`), the tab's dirty mark, a draft for the next start like the other editors, Save, Save As
+- [ ] A new image (File ▸ New Image, `Ctrl+Shift+N`; a size, a background) that exists only in the window until saved, like a new text
+
+Phase B: selection and the clipboard
+- [ ] Rectangular and free-form selection; move it, crop to it, delete it; the selection floats until it is confirmed
+- [ ] Copy, Cut, Paste (`Ctrl+C/X/V`) with the system clipboard as PNG (`clipboard.readImage/writeImage` in the main process, a new validated `fb:` channel), **Paste into a new image**
+- [ ] Resize (pixels and percent, keep the ratio), rotate 90°, flip, canvas size
+- [ ] Polygon and curve; text (a text box, font, size: the costly one, last)
+
+Performance (a requirement of every item above, not a later polish)
+- [ ] Draw outside React: the canvas is driven by pointer events directly, never by a state change per move; a stroke is batched per animation frame and uses `getCoalescedEvents()` so a fast mouse leaves no gaps; a `desynchronized` 2D context for low latency where the platform allows it
+- [ ] Undo by **changed region** (a rectangle, kept as an `ImageBitmap` or compressed bytes), never a copy of the whole image per step; a memory budget (about 256 MB) that drops the oldest steps and says so; a 12 MP photo is 48 MB per full copy
+- [ ] Heavy work off the main thread: decode with `createImageBitmap`, and flood fill (iterative scanline, never recursive), resize, rotate, crop and encode (`OffscreenCanvas.convertToBlob`) in a worker, with the interface staying responsive and a cancellable progress for the slow ones
+- [ ] Big images: a limit for editing lower than for viewing (about 50 megapixels, said in plain words), the view drawing only what is on screen at the zoom (a pixelated look at 400% and over, `image-rendering`), the pointer mapped between screen and image with the zoom and the pixel density
+- [ ] Preview shapes on a second canvas laid over the image, so dragging a shape never redraws the picture
+- [ ] A budget measured by the end-to-end tests (Chromium is real there): the time of a stroke's frame, of a fill on a 4000 × 3000 image, and of an undo, with a limit that fails the test; unit tests for the history, the regions and the coordinate maths (happy-dom has no canvas)
+
 ## Ideas for later
 - Hidden attribute of Windows (today only names that start with a dot)
 - ZIP64 and other encodings than UTF-8
