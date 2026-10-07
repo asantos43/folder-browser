@@ -25,9 +25,17 @@ It was **started from `~/Dev/AI/projetos/github/wsnp-viewer` 0.1.0** (a copy, no
 
 - The repository is `asantos43/folder-browser`. Each piece of work of `TODO.md` (open work is listed by area, delivered work by phase) is developed on its own branch and delivered as a pull request against `main`; never push implementation work directly to `main`. **Do not push, or create the remote repository, without asking.**
 - **Performance is a priority of every new feature** (the rule at the top of `TODO.md`): a budget stated before the code (time, frames, memory, the size of the input), no heavy work on the interface's thread, streaming and virtual lists, batched and throttled IPC, cancellation, bounded memory, no slower start, and a test that fails when the budget is exceeded, with the measured numbers in the pull request.
-- **Reviews** (plugins installed for the user, see "Development process" in `TODO.md`): `/pr-review-toolkit:review-pr` before the merge of every pull request that changes application code, and `/claude-security` (scan changes, effort `high`) when it touches a parser, a writer, an IPC channel, file-system paths, a started process or the CSP; their agents run in parallel; the cost is told to the user first.
+- **Reviews** (plugins installed for the user, see "Development process" in `TODO.md`): `/pr-review-toolkit:review-pr` before the merge of every pull request that changes application code, and `/claude-security` (scan changes, effort `high`) when it touches a parser, a writer, an IPC channel, file-system paths, a started process or the CSP; their agents run in parallel; the cost is told to the user first, and **they are never run unless the user asks for it in that message** (the weekly usage limit matters to the user: see "Light use" below).
 - A change is complete only with its tests (same pull request), its lines in `CHANGELOG.md` under `[Unreleased]`, its boxes in `TODO.md`, and the docs it affects (the README in both languages, the user guides in both).
 - Test files are synthetic (`fixtures/`); real `.wsnp`/ZIP files from `~/Downloads` come from private sites and never enter the repository.
+
+## Light use: how to work while the usage limit is a concern
+The user's weekly limit is finite, and they want room for light use. Unless told otherwise, work this way:
+- **Never start a token-heavy run on my own**: `/claude-security` (any scan), `/pr-review-toolkit:review-pr`, `/code-review ultra`, or any other review with many agents. The plugins only *suggest* a scan after a push or a pull request: that is not a reason to run one. When a review is wanted, **ask first and say what it costs**; then the lightest useful form: a scan of **this branch's changes at `medium` effort** (not the whole repository, not `high`), a review of one pull request at a time.
+- **Prefer the cheap local checks**: `npm run lint`, `npm run typecheck`, the unit tests of the areas changed (`npx vitest run <paths>`) and only the end-to-end specs of those areas while developing; the whole suite once before the pull request, as `CLAUDE.md` says. The release is the only place for the full set (`release-local.mjs --e2e`).
+- **Keep sessions small**: read only the parts of a file that are needed, search with a narrow pattern, do not paste large outputs, write plans in `TODO.md` rather than re-deriving them, and finish one piece of work (one branch, one pull request) before opening the next.
+- **No agents or sub-sessions for work that can be done directly**; batch independent tool calls in one step; do not re-run a check that already passed on the same code.
+- **When the limit is near**: stop starting new work, finish and merge what is open (or leave a clean branch with a note in `TODO.md`), and say what is left.
 
 ## Commands
 
