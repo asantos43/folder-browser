@@ -49,7 +49,9 @@ function errorOf(err: unknown): OpError {
 /** A folder of the disk inside the root, by its path relative to it (`''` is the root): its real path, or why not. */
 async function folderAt(root: string, relative: string): Promise<{ real: string } | { error: OpError }> {
   if (relative.includes(INNER)) return { error: 'unsupported' }
-  const real = await resolveInside(root, relative)
+  // The root itself is given as it is spelled (`resolveInside` answers it unchanged), but everything else here is a real path: a root that is, or is under, a symbolic link
+  // (macOS: the temporary folder is /var, a link to /private/var) would never be seen to contain what is in it, and a folder could be "moved into itself" as far as the check goes.
+  const real = relative === '' ? await fsp.realpath(root).catch(() => null) : await resolveInside(root, relative)
   if (!real) {
     // Not there at all is one answer; there, but out of the root (a `..`, a link that leaves it), another.
     const lexical = !relative.includes('\\') && !relative.startsWith('/') && !relative.split('/').some((p) => p === '..' || p === '.')

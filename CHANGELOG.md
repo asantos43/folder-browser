@@ -8,6 +8,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+### Fixed
+
+- **On macOS, `core/fs/ops.ts` did not see a root that is (or is under) a symbolic link as containing what is in it** (the temporary folder is `/var`, a link to `/private/var`): moving or copying a folder into itself answered `failed` instead of `into-itself`. The application itself was not affected (it gives these functions the real path of the root), but the unit tests were run on a Mac for the first time by the `.dmg` workflow and failed there. The root is now resolved like everything else, and three tests use a root named through a link.
+
 ## [0.1.0] - 2026-10-06
 
 ### First release

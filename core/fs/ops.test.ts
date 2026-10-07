@@ -50,6 +50,32 @@ describe('createEntry', () => {
   })
 })
 
+describe('a root named through a symbolic link (on macOS the temporary folder is /var, a link to /private/var)', () => {
+  // The root is given as it is spelled; what is compared with it is its real path: the two must meet.
+  let linked: string
+  beforeEach(() => {
+    linked = path.join(base, 'linked-root')
+    fs.symlinkSync(root, linked)
+  })
+  it('still never puts a folder inside itself or inside what is in it, moving and copying, and says so', async () => {
+    expect(await moveEntry(linked, 'docs', 'docs')).toEqual({ ok: false, error: 'into-itself' })
+    expect(await moveEntry(linked, 'docs', 'docs/deep')).toEqual({ ok: false, error: 'into-itself' })
+    expect(await copyEntry(linked, 'docs', 'docs')).toEqual({ ok: false, error: 'into-itself' })
+    expect(await copyEntry(linked, 'docs', 'docs/deep')).toEqual({ ok: false, error: 'into-itself' })
+    expect(fs.existsSync(at('docs', 'deep', 'n.json'))).toBe(true)
+  })
+  it('still says an item is already in the folder it is moved to (the root too)', async () => {
+    expect(await moveEntry(linked, 'a.txt', '')).toEqual({ ok: false, error: 'same-place' })
+    expect(await moveEntry(linked, 'docs/readme.md', 'docs')).toEqual({ ok: false, error: 'same-place' })
+  })
+  it('still makes, renames and moves, with the paths relative to the root', async () => {
+    expect(await createEntry(linked, '', 'n.txt', 'file')).toEqual({ ok: true, path: 'n.txt' })
+    expect(await renameEntry(linked, 'n.txt', 'm.txt')).toEqual({ ok: true, path: 'm.txt' })
+    expect(await moveEntry(linked, 'm.txt', 'docs')).toEqual({ ok: true, path: 'docs/m.txt' })
+    expect(fs.existsSync(at('docs', 'm.txt'))).toBe(true)
+  })
+})
+
 describe('renameEntry', () => {
   it('renames a file and a folder, and keeps what is in the folder', async () => {
     expect(await renameEntry(root, 'a.txt', 'z.txt')).toEqual({ ok: true, path: 'z.txt' })
