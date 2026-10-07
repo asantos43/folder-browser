@@ -2,10 +2,7 @@
 
 <img src="build/icon.png" alt="Folder Browser icon: a folder closed by a zipper, with a page, a pencil, a play button and a lens" width="96" align="right">
 
-A desktop app to **browse folders and ZIP files**, change what is in them, and read **WSNP** snapshots. Pick a folder or a `.zip`, see its files
-(hidden ones on request), create, rename, move, delete and **edit** text files (HTML, TXT, JSON, source code…) in the folder or **inside the ZIP**, put
-two text files side by side in a **diff**, and open `.wsnp` files (web pages saved for offline reading) exactly as
-[WSNP Viewer](https://github.com/asantos43/wsnp-viewer) shows them.
+**The file manager that understands your files.** A desktop app to browse folders and ZIP files and to **see and handle what is in them, right where they are**: read documents, pictures, PDFs, tables, media and bytes; edit text and fix a file even **inside a ZIP**; put two files side by side in a **diff**; open `.wsnp` snapshots (web pages saved for offline reading) exactly as [WSNP Viewer](https://github.com/asantos43/wsnp-viewer) shows them. The plan is to grow it, with extensions, into the tool you reach for first for the **small tasks** of the day (crop a picture, rotate or merge the pages of a PDF, check that a YAML or a Dockerfile is valid) instead of opening a different program for each.
 
 It runs on Linux, Windows and macOS, is built with Electron and TypeScript, and looks and behaves like Visual Studio Code's Dark+ and Light+. English and
 Brazilian Portuguese, following the system language. [Português do Brasil](README.pt-BR.md).
@@ -14,8 +11,22 @@ Brazilian Portuguese, following the system language. [Português do Brasil](READ
 
 The [user guide](docs/USER-GUIDE.md) shows each feature, with pictures, and how to use it; it is also inside the application: **Help ▸ User Guide** (`F1`), in English or Portuguese, with no network.
 
-> **Status: first release (0.1.0).** Browsing folders and ZIP files, the tree with several rows marked, Cut/Copy/Paste, editing text (also inside a ZIP), tables, diff, two editor groups,
-> media, office documents, the hex view and `.wsnp` snapshots work; what is left is in [`TODO.md`](TODO.md).
+> **Status: early (0.1.3).** What is under [What it does](#what-it-does) works today; what is under [Where it is going](#where-it-is-going) is **planned and not built yet** (the plan is in [`TODO.md`](TODO.md) and `docs/todo/`). It has been used on Linux so far: the Windows and macOS packages are built and checked, but no person has used them yet.
+
+## The idea
+
+File managers are good at names, sizes and dates, and hand everything else to other programs. But **most of what we do with a file is small**: crop a picture, change a line, rotate a page of a PDF, merge two PDFs, split pages, compare two versions, look inside an archive, check that a configuration is valid. Each of those today means finding and opening a different program, and on Linux there is often no good, up-to-date alternative for one of them. For people who work in IT or software it means reaching for Notepad++ or VS Code for the most basic things.
+
+Folder Browser starts from another idea: **the file manager should be the place where you see a file and do the quick task with it.** Its principles:
+
+- **Understand the file.** Every kind of file gets a real viewer, drawn without running anything.
+- **Do the small task in place.** Edit, fix, compare, rotate, merge, convert, validate, even inside a ZIP, and go back to what you were doing.
+- **Safe by default.** Files from anywhere are shown in isolated frames with no network; every write is atomic and checked; a history to undo is planned.
+- **Local and private.** Nothing leaves the computer unless you ask.
+- **Fast to open.** A quick task must not cost more than starting a bigger program.
+- **Extensible.** Extensions (planned, designed security-first: signed packages and an optional signed catalog) teach it new kinds of files and tasks, the way plugins extend a program, so it can grow without becoming heavy.
+
+It is **not** meant to replace an editor or an IDE for a whole project: for that, hand the folder to VS Code (**Open With…**).
 
 ## What it does
 
@@ -34,6 +45,19 @@ The [user guide](docs/USER-GUIDE.md) shows each feature, with pictures, and how 
 | **WSNP** | `.wsnp` files open as snapshots, isolated, checked (SHA-256, signature) and with no network, as in WSNP Viewer. They are read-only. |
 
 Nothing leaves the computer: no account, no analytics, no network use except a web link you click.
+
+## Where it is going
+
+Planned, not built yet, in rough order of value (each with its design, budget and tests in [`TODO.md`](TODO.md) and [`docs/todo/`](docs/todo/); the extension system in [`docs/EXTENSIONS-DESIGN.md`](docs/EXTENSIONS-DESIGN.md)):
+
+- **PDF**: bookmarks, links, forms you can fill and save, annotations, and **rotate, delete, reorder, split and merge pages**.
+- **Pictures**: crop, rotate, resize, draw shapes, copy and paste, with undo and redo; read and edit **EXIF**; save as another format and quality.
+- **Files that understand their content** (for people in IT and software): open a Dockerfile, a Kubernetes manifest, a CI workflow or a `docker-compose.yml` and see **problems, a validation against its schema, an outline and a formatted version**; decode a certificate, a JWT or a cron line; convert between JSON, YAML and TOML.
+- **Text tools** of a good editor: change case, sort and clean lines, find and replace with regular expressions, several cursors.
+- **Compare** folders, pictures, PDFs and archives, not only text.
+- **Safety nets**: a local history to undo any save, hidden data (GPS, author) shown and removable, real redaction, an inspect-only mode, a triage of risky files.
+- **Archives**: compress and extract, `tar`, `tar.gz`, `7z`; **SQLite** and other data files; playlists; a gallery.
+- **Extensions** with a signed catalog, and distribution through the package repositories and stores people already use.
 
 ## Install
 

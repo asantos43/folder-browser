@@ -23,6 +23,7 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 7. **Settings framework** (M, "Settings"): a registry the page is made from, a file the application owns, JSON, export and import, and the first options: it makes every option after it cheap
 
 **Next**
+- **File intelligence** (M to L, "Files that understand their content"): the Problems panel, schema validation and the DevOps pack as the proof of the vision, then the inspectors; the pillar of the positioning
 - **The three scenarios and the distribution channels** (S to M, "Positioning, distribution and adoption"): signed apt and dnf repositories, winget, Flathub and Homebrew, signing, a site, a first-run tour, shell integration and a command line: what gets people to the application
 - **File safety triage** (M, "Safety and privacy tools") and **Share Safely** (M, after the first metadata work), **Inspect Only mode and the activity log** (S to M)
 - **Compare two folders** and **large text diffs** with a patch export (M and S, "Compare more than text"; code to port from `mdiff`)
@@ -71,6 +72,7 @@ Section names used in the roadmap and in the texts (for example "Settings", "Tex
 | [`images.md`](docs/todo/images.md) | viewing and a simple image editor; EXIF; quality of the formats |
 | [`pdf.md`](docs/todo/pdf.md) | PDFs: bookmarks, links, forms, annotations, pages, merge |
 | [`media.md`](docs/todo/media.md) | snapshots; media, documents and binary files; video (tracks, subtitles, chapters); playlists |
+| [`file-intelligence.md`](docs/todo/file-intelligence.md) | files that understand their content: detecting the type, the Problems panel, schema validation (Dockerfile, Kubernetes, CI), inspectors (certificate, JWT, cron), local tools, secrets, and the packs |
 | [`positioning.md`](docs/todo/positioning.md) | positioning, the three scenarios to show, distribution channels (repositories, Flathub, Homebrew, winget…), code signing, a site, a first-run tour, shell integration and a command line, portable mode |
 | [`safety.md`](docs/todo/safety.md) | safety and privacy tools: file safety triage, Share Safely (hidden data), real redaction, Inspect Only mode and an activity log, repair of damaged files |
 | [`compare.md`](docs/todo/compare.md) | comparing more than text: folders, pictures, PDFs, archives, structured data, three-way |
