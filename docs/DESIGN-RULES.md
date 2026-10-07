@@ -1,0 +1,81 @@
+# Design rules by area (read the section before you touch that area)
+
+Moved out of `CLAUDE.md` to keep what every session loads small. The **invariants that always apply** (the authorised roots, safe writes, the trash, a snapshot is a page, and the like) stay in `CLAUDE.md`; the rules of each feature are here, with the files and functions they name. Read the section of the area you change; they are exact, and several are there because something broke.
+
+## Office documents
+
+An office document is drawn by `src/docs/{docx,pptx,odf}.ts`, built by `vite.docs.config.ts` into `dist/docs/` (one classic script each; `npm run build` runs `build:docs`). The main process gives each open document a token and serves `fb-doc://<token>/` (the page, `/_file`, `/_v/<flavour>.js`; `electron/doc-protocol.ts`) with a CSP that has `sandbox allow-scripts`, `default-src 'none'` and no network; the interface shows it in `<iframe sandbox="allow-scripts">`, which has an opaque origin and cannot reach `window.fb`. The page tells the interface how it went with `postMessage` (`DocMessage`). A new library or format means a new flavour in `core/docs.ts`, never a script in the interface itself. The odr-core build defines `import.meta.url` (`vite.docs.config.ts`) and needs `connect-src data:` for the WebAssembly it carries inside.
+
+## Zoom, Find and Print of a document
+
+The zoom of a document is the same as a snapshot page's (the frame is laid out at 1/zoom and scaled); keys and wheel inside it come as `DocReport` messages (`wheel`, `zoom`) and only the tab in front is obeyed; Find registers the document's frame as `fileTarget`; Print opens a hidden window on `fb-doc://<token>/?print=1`. The hex view reads `findToken` (Ctrl+F focuses its own box; `EditorGroup` shows no `FindBar` for it).
+
+## A file shown as its bytes (Open as Hex)
+
+A file can be shown as its bytes by choice: `Tab.as = 'hex'` (key `x:<id>:<path>`, `hexKey`), opened by `open-file` with `as: 'hex'` (tree menu **Open as Hex**, **View as hex** on the card of a file that is not shown); `kindOf` answers `hex` for it, and the session keeps it. `FileView` has no state for this: it asks (`onHex`) and the workspace opens the tab. Documents are kept mounted by `EditorGroup` (not by `FileView`), drawn on first view.
+
+## Changing the disk (`core/fs/ops.ts`)
+
+Changing the disk (`core/fs/ops.ts`) is done by the main process on a root and a relative path; the parent is resolved and the item is `lstat`ed, so a symbolic link is the link; nothing is replaced (a copy takes a free numbered name); the root, a ZIP's entries (the registry sends those to `core/archive/edit.ts`), a ZIP root and the trash are `unsupported` in `ops.ts` itself. The renderer has no `process`: a `core/` module that the interface imports (`names.ts`) must not read it at module level or by default without a guard (the interface passes `window.fb.platform`). The tree's inline field, the delete and move dialogs and the reducer's `path-changed` / `path-removed` are the interface's side; a new operation means a new `fb:fs-*` channel validated as `unknown`, a result `OpResult`, and a test that a path leaving the root is refused.
+
+## Editing text (phase 3)
+
+Editing (phase 3): the text of an editor tab lives in `src/state/editors.ts` (`EditorBuffer`, by tab key), not in the component; `saveBuffer` is the one way to write it; the reducer's `dirty` is what the tab, the close guard and the window read; `Workbench`'s `dispatch` is a guard for the actions that close tabs (use `rawDispatch` for what must not ask). A window with tabs that have changes does not close until the interface answers (`fb:unsaved`, `fb:close-requested`, `fb:leave`): an e2e spec must `destroy()` its windows in `afterEach` or it hangs. Never write a file from the renderer's text without `saveEdited` (temporary file, rename, version check).
+
+## Unsaved changes and hot exit (phase 3a)
+
+Unsaved changes (phase 3a, hot exit): `src/state/drafts.ts` writes a draft (`core/drafts.ts`, `userData/drafts/`) 1.2 s after a tab's last change and deletes it when the tab is no longer dirty; `restoreDrafts` reopens the tabs at start and `EditView`/`HexEditView` build their buffer from the draft (the disk content is the saved state, the draft's `base` is the version, so Save still detects a changed file). With the `hotExit` setting on the window closes without asking after `flushDrafts`. Hex editing (`core/hexEdit.ts`, `HexEditView`) is for folder-root files up to 16 MiB and saves through `saveEditedBytes`; the buffers live in `src/state/hexBuffers.ts`, reached through the facade `src/state/buffers.ts`.
+
+## Tables (phase 3b)
+
+Tables (phase 3b): a CSV is drawn by `TableView` (a window of the rows; `core/table.ts` makes `order`, never moves a row) and edited through the **text buffer**: `TableEditView` uses `loadEditorBuffer` and applies `TextChange`s from `core/csvEdit.ts` (one `isolateHistory` transaction per action) to `buffer.state`, then calls `onChanged`; never keep a second copy of the cells. The parser must be called with `spans: true` to edit. The query box is sql.js in `src/workers/sql.worker.ts` through `SqlSession`: one `SELECT`/`WITH` (`checkQuery`), `PRAGMA query_only = ON`, a worker ended after 10 s; no `eval` (AlaSQL is not an option). A `TableView` test that needs the worker mocks `@/state/sqlSession.ts`.
+
+## Diff (phase 4)
+
+Diff (phase 4): a comparison is a tab with `view: 'diff'` and `diff: { left, right }` (`DiffSide` = root id + path; `snapshotId` is the left root), key `diffKey`; never give it a `path`, many places read `tab.path !== undefined` as "a file" (the session skips it on purpose). Anything that follows a path (`path-changed`, `path-removed`) or a root (`root-closed`) must look at both sides: `touches` in `workspace.ts`. The two sides are read with `fb:read-file` and decoded by `core/diff.ts` (`decodeSide`: strict UTF-8, `\n` everywhere, never compared on line endings); `DiffView` makes the `MergeView` (or the unified editor) again when the files, the layout, the swap or the folding change, and only reconfigures word wrap and zoom. The choice for Compare with Selected lives in `Workbench` (`compareChosen`), not in the tree. The colours are `--wsnp-diff-*` tokens applied in `index.css` under `.fb-diff` with `!important` (merge's own light/dark rules are more specific).
+
+## Editor groups (phase 4)
+
+Editor groups (phase 4): at most two. `Tab.group` is absent for the left group and `1` for the right; `Workspace.active` is the tab in front of the **focused** group and `other` the one in front of the other (so code that reads `ws.active` is right for the group the user is in); every reducer path that removes or moves tabs ends in `normalize` (the second group exists only while it has tabs). `EditorGroup` is rendered once per group on `groupView(ws, group)` and `TabStrip` takes the whole `ws` plus a group (its `move` indexes are global). A view that registers itself for the whole application (`fileTarget`, `shownText`, `shownSource`) does it for its group (`useGroup()`, `createGroupSlot`) and the workbench says which group has the focus (`focusedGroup`); a new such singleton must be a group slot too. Drags (`src/workbench/dnd.ts`): the drop zone of the editor listens to the **window** (the first move of a drag counts, and a frame cannot keep the events) and a layer is drawn over each group while dragging; the tree's file drag (`FILE_DRAG`) is set for every file, and a text dropped on another text asks (`ChoiceDialog`) instead of moving, unless Shift is held.
+
+## Editing inside a ZIP (phase 5)
+
+Editing inside a ZIP (phase 5): `RootRegistry`'s `create`/`rename`/`move`/`copy`/`remove`/`edit`/`saveEdit` look at the path first (`zipSpot`: the **real** ZIP file through `resolveInside`, the `chain` of ZIPs inside it, the `entry`) and send a path in a ZIP to `editZip` (`core/archive/edit.ts`: one pass over the old ZIP into a temporary file next to it, `fsync`, the old ZIP looked at again, rename; the untouched entries are lazy streams, so their method, date, mode and order are kept). A ZIP that cannot be written back faithfully (ZIP64, encryption, other methods, unsafe or repeated names, over 100,000 entries) is `read-only`: refuse it before anything is written. Changes to one ZIP file go through `queued`, and every change makes the registry forget its in-memory ZIPs. An entry's `FileVersion` has a `crc32` (the entry is compared by size and CRC, never by the ZIP's date: it has two seconds of resolution, and another entry changing is not a conflict); the names of a ZIP are decoded exactly as `core/zip.ts` decodes them (`decodeName`) so the listing and the edit agree. No move or copy between the disk and a ZIP or two ZIPs (`sameZip`); an entry has no trash (`remove` with `trash` is `trash-failed`, and the interface asks for the permanent delete at once); the hex view edits only files of a folder (`edit.hexEditable`). In an e2e spec, press `F2`/`Delete` on a row you `focus()`ed, not `click()`ed: a click opens a preview tab whose editor takes the focus later and cancels the name field.
+
+## A new text file (Untitled)
+
+A new text file (after 0.1.2, `File ▸ New Text File`, `Ctrl+N`): a tab with `view: 'untitled'`, key `u:<n>` (`untitledKey`), `snapshotId: ''` and **no `path`**; its text is an `EditorBuffer` in `editorBuffers` made by `newUntitledBuffer` (`src/state/untitled.ts`; `saved` is the empty text, so any text is a change) and shown by `UntitledView`. Save is Save As (`saveKey` asks `edit.saveAs`, then marks it clean; the tab stays a new text). A comparison side for it is `{ rootId: UNTITLED_ROOT ('@untitled'), path: <tab key> }` (`core/diff.ts`), read by `DiffView` from the buffer when the tab opens, and `without()` closes the comparisons that have it; `sideOfTab`/`sideName` (`tabInfo.ts`) name a side, and `isTextTab` is true for it so the drags that ask (side by side / diff) work. It is kept between starts as a draft under the name `@untitled` (the draft handlers take `UNTITLED_ROOT` as a root; `restoreDrafts` opens `open-untitled` with the old key). Code that reads `tab.path === undefined` as "a snapshot's page" must use `isSnapshotTab` (a new text has a `view`).
+
+## Several rows and the file clipboard
+
+Several rows and the file clipboard (between phases 5 and 6): `ExplorerTree` keeps `marked` (a set of paths) and an `anchor` (the row clicked or reached last: where a range and a Ctrl+click start; **not** `focused`, which is already the clicked row when `click` arrives). Marks are cleared by a plain click, a plain arrow, Esc and a drag of an unmarked row, and pruned when their row leaves the screen. Every tree action takes a **list**: `move(paths, folder)`, `copyTo(paths, folder)`, `moveTo(entries)`, `remove(entries, forever)`, `paste(folder)`; `Workbench`'s `doMove`/`doCopy`/`doDelete` work through `topmost(paths)` (a folder and something in it: the folder alone), one after the other, with **one notice for a batch** (a single item keeps its own words). The drag payload `ENTRY_DRAG` has `path` (the row dragged) and `paths` (all of them). Cut/Copy/Paste is `src/workbench/fileClipboard.ts` (the app's own, module level, `useFileClip`), reached by keys (`Ctrl/⌘+X/C/V` in the tree's `onKeyDown`, left alone when there is nothing to do or the focus is in a name field) and by the DOM `copy`/`cut`/`paste` events (the macOS Edit menu roles); a cut is moved once and cleared; a clip from another root is refused (`fs.pasteOtherRoot`). `aria-selected` is the active file **or** a marked row: tests count `data-marked`. In an e2e spec press keys on a row you `focus()`ed (a click that opens a file moves the focus to its editor a moment later), and `Escape` before a key that must act on one row when marks are left.
+
+## The hex view
+
+The hex view draws only the rows in view (a file of 4 GiB has 268 million rows: `scrollMetrics` scales the scroll) and keeps 64 KiB chunks; a bigger-than-16-MiB file of a ZIP or a snapshot is not read that way (only files of a folder), and says so with the plain card. `viewKind` answers `hex` for the extensions of programs and the like, only after a dot (a file called `bin` is still looked at as text).
+
+## Playing video and sound
+
+A video or a sound is played from `fb-media://<token>/`: the token comes from `fb:media-open`, which resolves a file of a root (or makes a copy of an entry of a ZIP); `MediaView`s stay mounted (hidden) so that a sound goes on playing. Do not let a `useCallback`/`useEffect` of the tree depend on a function that the side bar makes anew at every render (the tree read everything again and lost its rows).
+
+## Open With…
+
+Open With… hands an application a copy (entries of a ZIP) or the file; the command is run without a shell, with `Exec` parsed from the `.desktop` file; the names that could run as programs are refused (`core/stage.ts`).
+
+## Gotchas inherited from wsnp-viewer
+
+- A hidden view must be created with `offscreen: true` to be photographed. Closing the last hidden window must not quit the app (`window-all-closed`).
+- yauzl closes the file itself when the last stream ends: never `closeSync` a descriptor yauzl opened. ZIP64, ZIP encryption and methods other than stored/deflate are refused (so such a ZIP is read-only).
+- The interface may import from `core/` only types and pure modules (`@core/…`): importing `core/validate/index.ts` would bundle Node modules into the renderer (use `core/validate/issues.ts`).
+- PDFs are drawn by pdf.js in the interface: the build copies its data into `dist/pdfjs/` (`vite.config.ts`), the CSP allows `worker-src 'self'` and `'wasm-unsafe-eval'`, and the `fb-ui` scheme needs `supportFetchAPI`.
+- Extraction goes through `safeRelative` and `extractEntries` (never write a ZIP name as it is). The interface keeps no ZIP: the main process holds the last two in memory.
+- Find and Copy act on the tab on screen: the page of a snapshot is another process (`fb:page-find`, `fb:page-copy`); a menu press must not move the selection (`onMouseDown` preventDefault); do not give the `FindBar` a `key`.
+- An effect must return nothing or a function: `useEffect(() => node?.scrollIntoView?.())` returns what `scrollIntoView` returns and React calls it as the clean-up; write the body in braces.
+- A ZIP saved by PageKeep opens converted into a temporary `.wsnp` (`OpenSnapshot.file`; `path` stays the ZIP's).
+- Right clicks in the page of a snapshot reach the main process as `context-menu` and are drawn by the interface (`fb:page-context`).
+- Linux **Open With…** is our own dialog (`OpenWithDialog`, `core/apps.ts`, `electron/open-with.ts`): the desktop's chooser opens behind the window on Wayland. The e2e tests give `gio` a made-up desktop through `XDG_DATA_HOME`, `XDG_DATA_DIRS`, `XDG_CONFIG_HOME`.
+- **Zoom is per tab**: never zoom the window. The wheel and zoom keys inside a snapshot reach the interface only through `core/frameScript.ts`.
+- An `<iframe>` moved in the DOM reloads: the snapshot frames keep the order the snapshots were opened in.
+- Electron has no DevTools `Page.printToPDF`: use `webContents.printToPDF`.
+- `::highlight()` makes Vite print two CSS warnings: harmless.
+- Details of the inherited design and its measurements: `docs/WSNP-VIEWER-ARCHITECTURE.md`; the history: `docs/WSNP-VIEWER-HISTORY.md`.
