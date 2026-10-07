@@ -23,7 +23,8 @@
   --vscode-icon-foreground: #c5c5c5;
   --vscode-widget-shadow: #0000005c;
 
-  --vscode-editor-background: #1e1e1e;
+  /* Black behind the Explorer and everything that shows a file (the editors, the diff, the tables, the bytes, the guide, Settings): not VS Code's #1e1e1e / #252526, by the user's choice. */
+  --vscode-editor-background: #000000;
   --vscode-editor-foreground: #d4d4d4;
   --vscode-editorGroup-border: #444444;
   --vscode-editorGroupHeader-tabsBackground: #252526;
@@ -32,7 +33,7 @@
   --vscode-breadcrumb-foreground: #ccccccb3;
   --vscode-breadcrumb-focusForeground: #e0e0e0;
 
-  --vscode-tab-activeBackground: #1e1e1e;
+  --vscode-tab-activeBackground: #000000;
   --vscode-tab-inactiveBackground: #2d2d2d;
   --vscode-tab-activeForeground: #ffffff;
   --vscode-tab-inactiveForeground: #a6a6a6;
@@ -50,7 +51,7 @@
   --vscode-activityBarBadge-background: #007acc;
   --vscode-activityBarBadge-foreground: #ffffff;
 
-  --vscode-sideBar-background: #252526;
+  --vscode-sideBar-background: #000000;
   --vscode-sideBar-foreground: #cccccc;
   --vscode-sideBarTitle-foreground: #bbbbbb;
   --vscode-sideBarSectionHeader-background: #00000000;

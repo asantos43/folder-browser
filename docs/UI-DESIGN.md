@@ -12,7 +12,7 @@ showing a JSON file. It is not committed (it shows a private project), so it is 
   back and forward arrows, a centred "command center" box with the project name, layout buttons at the right, window controls.
 - **Activity bar**, a 48 px column of icons at the far left, `#333333`; the active icon has a light bar on its left edge; settings and
   account at the bottom.
-- **Side bar**, `#252526`: a title ("Explorer") with action icons, a file tree (chevrons, coloured file-type icons, the
+- **Side bar**, black (`#000000`) in Dark+ (VS Code's is `#252526`; the editors, the diff, the tables and the other views of a file are black too, and so is the active tab): a title ("Explorer") with action icons, a file tree (chevrons, coloured file-type icons, the
   selected row highlighted in blue), and collapsed sections at the bottom ("Outline", "Timeline").
 - **Editor group**: tabs (icon, name, a close button on the active one, a highlighted active tab), **breadcrumbs**
   (`folder › folder › file › …`), the editor itself with line numbers, indent guides, coloured brackets and a **minimap**, and a

@@ -10,6 +10,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Changed
 
+- The pictures of the guides are made again (the Dark+ one shows the black Explorer and editors).
+
+- **Dark+ is black behind the Explorer and the editors**: the side bar, the editors, the diff, the tables, the bytes, Settings, the user guide and the active tab are `#000000` (they were `#252526` and `#1e1e1e`). The menus, dialogs, the find box, the tab bar and the other bars keep their greys, so they stand out from the black. Light+ is as it was.
+
 - **Go to File (`Ctrl+E`, and the box in the title bar) finds the files of the open folders and ZIP files**, not only of snapshots: a click on the box did nothing when only a folder was open (the command asked for a snapshot, as WSNP Viewer's did). `RootRegistry.listFiles` (`fb:list-files`) lists every file of a root, near the top first, cut at 50,000, without `node_modules`, `.git` and, unless hidden files are shown, what starts with a dot; symbolic links to folders are not followed. The file opens with its size from its folder's listing.
 - **The tabs that do not fit have a thin scroll bar**, as VS Code's (it was hidden, and only the wheel moved them); the wheel still does, and a tab that comes to the front is brought into view.
 

@@ -71,8 +71,9 @@ test('the theme can be chosen, changes the colours, and is remembered', async ()
   await page.getByRole('button', { name: 'Manage' }).click()
   await page.getByRole('menuitemcheckbox', { name: 'Dark+' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  expect(await background(page, 'main')).toBe('rgb(30, 30, 30)')
-  expect(await background(page, 'aside')).toBe('rgb(37, 37, 38)')
+  // (Black behind the editors and the Explorer in Dark+.)
+  expect(await background(page, 'main')).toBe('rgb(0, 0, 0)')
+  expect(await background(page, 'aside')).toBe('rgb(0, 0, 0)')
   expect(await background(page, '[data-testid=titlebar]')).toBe('rgb(60, 60, 60)')
 })
 
@@ -92,7 +93,7 @@ test('the interface reaches nothing outside itself', async () => {
   expect(attempts).toEqual(['refused', 'refused', 'refused'])
   // The window has no Node and offers only what the preload exposes.
   expect(await page.evaluate(() => typeof (globalThis as { require?: unknown }).require)).toBe('undefined')
-  expect(await page.evaluate(() => Object.keys((window as unknown as { fb: object }).fb).sort())).toEqual(['appInfo', 'clearFindInPage', 'close', 'copyFromPage', 'copyText', 'docs', 'drafts', 'edit', 'findInPage', 'fs', 'leave', 'listDir', 'media', 'onCloseRequested', 'onCommand', 'onIntegrity', 'onOpenFile', 'onOpened', 'onPageContext', 'onSaved', 'openDefault', 'openDialog', 'openExternal', 'openFolderDialog', 'openInRoot', 'openPaths', 'openWith', 'openWithApp', 'openWithCancel', 'openZipDialog', 'pathForFile', 'places', 'platform', 'print', 'readFile', 'readRange', 'ready', 'recent', 'reveal', 'saveConverted', 'saveFileAs', 'savePdf', 'selectAllInPage', 'session', 'setTitleBar', 'setUnsaved', 'signers', 'trash', 'verify', 'zipExtract', 'zipList'])
+  expect(await page.evaluate(() => Object.keys((window as unknown as { fb: object }).fb).sort())).toEqual(['appInfo', 'clearFindInPage', 'close', 'copyFromPage', 'copyText', 'docs', 'drafts', 'edit', 'findInPage', 'fs', 'leave', 'listDir', 'listFiles', 'media', 'onCloseRequested', 'onCommand', 'onIntegrity', 'onOpenFile', 'onOpened', 'onPageContext', 'onSaved', 'openDefault', 'openDialog', 'openExternal', 'openFolderDialog', 'openInRoot', 'openPaths', 'openWith', 'openWithApp', 'openWithCancel', 'openZipDialog', 'pathForFile', 'places', 'platform', 'print', 'readFile', 'readRange', 'ready', 'recent', 'reveal', 'saveConverted', 'saveFileAs', 'savePdf', 'selectAllInPage', 'session', 'setTitleBar', 'setUnsaved', 'signers', 'trash', 'verify', 'zipExtract', 'zipList'])
 })
 
 test('Settings opens in a tab (Ctrl+, or the gear), changes the language at once and remembers it', async () => {
