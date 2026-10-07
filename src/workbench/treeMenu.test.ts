@@ -109,3 +109,12 @@ describe('treeMenuFor: comparing', () => {
     items.forEach((item, i) => item === 'separator' && expect(items[i + 1]).not.toBe('separator'))
   })
 })
+
+describe('treeMenuFor: open as the root of the Files', () => {
+  it('offers it for a folder and a ZIP file of the disk, after Expand and Refresh (Open as List), and for nothing else', () => {
+    expect(treeMenuFor({ kind: 'dir' }, { canRoot: true }).slice(0, 3)).toEqual(['toggle', 'refresh', 'openAsRoot'])
+    expect(treeMenuFor({ kind: 'zip' }, { canRoot: true })).toContain('openAsRoot')
+    for (const kind of ['file', 'wsnp'] as const) expect(treeMenuFor({ kind }, { canRoot: true }), kind).not.toContain('openAsRoot')
+    for (const kind of ['dir', 'zip'] as const) expect(treeMenuFor({ kind }), kind).not.toContain('openAsRoot')
+  })
+})

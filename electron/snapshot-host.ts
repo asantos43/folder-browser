@@ -618,6 +618,14 @@ export class SnapshotHost {
       for (const file of picked.filePaths) results.push(await this.openRoot(file))
       return results
     })
+    // A folder of an open folder, or a ZIP file in it, made a root of its own (the Files of the Explorer start in it): the interface names the root and a path in it, and the main process
+    // resolves it inside that root (`diskDir`, `diskFile`: a path that leaves it, or an entry of a ZIP, is not found).
+    handle('fb:open-as-root', async (_win, id: unknown, name: unknown): Promise<OpenResult[]> => {
+      if (typeof id !== 'string' || typeof name !== 'string' || id.length > 4096 || name.length > 4096) return []
+      const target = (await this.roots.diskDir(id, name)) ?? (/\.zip$/i.test(name) ? await this.roots.diskFile(id, name) : null)
+      if (!target) return [{ ok: false, path: name, issues: [{ code: 'read-error', path: path.basename(name) || name, detail: 'It is not a folder or a ZIP file of the folder that is open.' }], omitted: 0 }]
+      return [await this.openRoot(target)]
+    })
     handle('fb:open-in-root', async (_win, id: unknown, name: unknown): Promise<OpenResult[]> => {
       // Only a `.wsnp` of a folder, by its path in the root: the interface never names a path of the disk.
       const file = typeof id === 'string' && typeof name === 'string' && /\.wsnp$/i.test(name) ? await this.roots.diskFile(id, name) : null

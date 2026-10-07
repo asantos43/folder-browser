@@ -24,7 +24,7 @@ const disk: Record<string, ListResult> = {
 
 function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false, writable = false, sortKey = 'name', sortDescending = false, createRequest, compare }: { compare?: ExplorerActions['compare']; writable?: boolean; createRequest?: { kind: 'file' | 'dir'; token: number }; showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean; sortKey?: SortKey; sortDescending?: boolean } = {}) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
-  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), paste: vi.fn(), remove: vi.fn(), ...(compare ? { compare } : {}) }
+  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), openAsRoot: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), paste: vi.fn(), remove: vi.fn(), ...(compare ? { compare } : {}) }
   type Props = { showHidden: boolean; activePath?: string; refreshToken: number; sortKey: SortKey; sortDescending: boolean }
   const tree = (props: Props) => (
     <I18nProvider language="en">
@@ -52,7 +52,7 @@ describe('ExplorerTree', () => {
     const again = (listDir2: typeof listDir) =>
       view.rerender(
         <I18nProvider language="en">
-          <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={false} showHidden={false} sortKey="name" sortDescending={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(), rename: vi.fn(), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), paste: vi.fn(), remove: vi.fn() }} />
+          <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={false} showHidden={false} sortKey="name" sortDescending={false} refreshToken={0} actions={{ listDir: listDir2, open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), openAsRoot: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(), rename: vi.fn(), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), paste: vi.fn(), remove: vi.fn() }} />
         </I18nProvider>,
       )
     const other = vi.fn(async () => ({ entries: [], truncated: false }) as ListResult)
@@ -235,7 +235,7 @@ describe('ExplorerTree', () => {
     show()
     await waitFor(() => expect(names()).toHaveLength(4))
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'docs' }))
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Expand', 'Refresh', 'Add to Favorites', 'Reveal in File Manager', 'Copy Path', 'Copy Name', 'Properties'])
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Expand', 'Refresh', 'Open as Explorer Root', 'Add to Favorites', 'Reveal in File Manager', 'Copy Path', 'Copy Name', 'Properties'])
   })
   it('pins a folder from its menu, and a folder of a ZIP, or of a ZIP root, cannot be pinned', async () => {
     const { pin } = show()
@@ -914,5 +914,51 @@ describe('ExplorerTree: cut, copy and paste', () => {
     fireEvent.contextMenu(row('a.txt'))
     expect(screen.queryByRole('menuitem', { name: /^Cut/ })).toBeNull()
     expect(screen.queryByRole('menuitem', { name: /^Paste/ })).toBeNull()
+  })
+})
+
+describe('ExplorerTree: open as the root of the Files', () => {
+  const lists: Record<string, ListResult> = {
+    '': { entries: [entry('docs', 'dir'), entry('a.txt', 'file'), entry('pack.zip', 'zip')], truncated: false },
+    docs: { entries: [entry('readme.md', 'file', 'docs')], truncated: false },
+    'pack.zip': { entries: [entry('inner', 'dir', 'pack.zip!', { path: 'pack.zip!/inner' })], truncated: false },
+  }
+  const row = (name: string) => screen.getByRole('treeitem', { name })
+  const rightClick = (name: string) => fireEvent.contextMenu(row(name))
+  const menuItem = (name: string | RegExp) => screen.getByRole('menuitem', { name })
+  const ready = async (options: Parameters<typeof show>[0] = {}) => {
+    const shown = show({ lists, ...options })
+    await waitFor(() => expect(names()).toHaveLength(3))
+    return shown
+  }
+
+  it('is in the menu of a folder and of a ZIP file of the disk, and makes it the root of the Files', async () => {
+    const { openAsRoot } = await ready()
+    rightClick('docs')
+    fireEvent.click(menuItem('Open as Explorer Root'))
+    expect(openAsRoot).toHaveBeenLastCalledWith('docs')
+    rightClick('pack.zip')
+    fireEvent.click(menuItem('Open as Explorer Root'))
+    expect(openAsRoot).toHaveBeenLastCalledWith('pack.zip')
+  })
+
+  it('is not in the menu of a file, of a folder inside a ZIP, of a tree that is a ZIP, or of the trash', async () => {
+    await ready()
+    rightClick('a.txt')
+    expect(screen.queryByRole('menuitem', { name: 'Open as Explorer Root' })).toBeNull()
+    cleanup()
+    await ready()
+    fireEvent.click(row('pack.zip'))
+    await waitFor(() => expect(screen.getByRole('treeitem', { name: 'inner' })).toBeTruthy())
+    rightClick('inner')
+    expect(screen.queryByRole('menuitem', { name: 'Open as Explorer Root' })).toBeNull()
+    cleanup()
+    await ready({ kind: 'zip' })
+    rightClick('docs')
+    expect(screen.queryByRole('menuitem', { name: 'Open as Explorer Root' })).toBeNull()
+    cleanup()
+    await ready({ trash: true })
+    rightClick('docs')
+    expect(screen.queryByRole('menuitem', { name: 'Open as Explorer Root' })).toBeNull()
   })
 })

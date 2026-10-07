@@ -17,7 +17,7 @@ import { flushDrafts, setDraftsEnabled, syncDrafts, touchDraft } from '@/state/d
 import type { MessageKey } from '@/i18n/index.ts'
 import { emptyHistory, step, visit, type History } from '@/state/history.ts'
 import { isSession, keyOfEntry, sessionOf, type Session } from '@/state/session.ts'
-import { hotExit, reopenSession, showHidden, sortDescending, sortKey, svgView } from '@/state/setting.ts'
+import { dividerColour, hotExit, reopenSession, showHidden, sortDescending, sortKey, svgView } from '@/state/setting.ts'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { shownSource } from '@/state/fileLanguage.ts'
 import { LanguagePicker } from './LanguagePicker.tsx'
@@ -61,6 +61,12 @@ export function Workbench() {
   const { setting, setSetting } = useTheme()
   svgView.use()
   const hiddenShown = showHidden.use()
+  // The colour the user chose for the line between the Explorer and the editors replaces the theme's (the empty choice is the theme's own).
+  const divider = dividerColour.use()
+  useEffect(() => {
+    if (divider) document.documentElement.style.setProperty('--wsnp-divider', divider)
+    else document.documentElement.style.removeProperty('--wsnp-divider')
+  }, [divider])
   const sortBy = sortKey.use()
   const sortBackwards = sortDescending.use()
   const { notifications, notify, dismiss } = useNotifications()
@@ -830,6 +836,7 @@ export function Workbench() {
     () => ({
       openFolder: () => run('openFolder'),
       openZip: () => run('openZip'),
+      openAsRoot: (id: string, path: string) => void api?.openAsRoot(id, path).then(handleResults),
       listDir: (id: string, path: string) => api!.listDir(id, path),
       openRootFile: (id: string, entry: { path: string; size: number }, keep: boolean, as?: 'hex') => dispatch({ type: 'open-file', snapshotId: id, path: entry.path, keep, size: entry.size, ...(as ? { as } : {}) }),
       reveal: (id: string, path: string) => void api?.reveal(id, path),

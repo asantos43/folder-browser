@@ -82,7 +82,7 @@ body {
 /* Sashes as VS Code draws them: 4 px, lit with the focus colour on hover. */
 :root {
   --focus-border: var(--vscode-focusBorder);
-  --separator-border: transparent;
+  --separator-border: var(--wsnp-divider);
   --sash-size: 4px;
   --sash-hover-size: 4px;
 }
