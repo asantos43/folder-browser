@@ -35,6 +35,7 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 - **Accessibility pass** (M), **opt-in update check** (S), a **fuzzing harness** for the parsers (M), **drag files out** (S), **named workspaces** (S) ("Quality of the product", "Browsing")
 
 **Later** (each a project; the order is a guess)
+- **Extension-first** (a rule for every complex item below: see "Extension-first", tags `[core]`/`[ext L0-L2]`)
 - **Extensions** (plugins), **all levels**: the package, side load and level 0, then the signed online catalog, then code in a box, then extensions that run as a process, off by default (L, "Extensions", `docs/EXTENSIONS-DESIGN.md`); after the registries of Settings, commands and keys exist
 - **Image editor**, phase A and B, with EXIF editing in place and the Save options (L, "Images")
 - **PDF** annotations, pages (select, rotate, delete, reorder) and merge (L, "PDFs")
@@ -193,6 +194,14 @@ Phase 4: level 2, extensions that run as a process (priority Later, after phase 
 - [ ] Tests: the permission model's allow-list **checked as data and by an attack** (an extension that reads `/etc/passwd`, writes outside its folder, follows a symlink out, spawns `sh`, loads a `.node` file, opens a socket: all fail in restricted mode); the unrestricted flow's confirmation (wrong text refused, no way around by drag or import); the setting off refusing to enable; a crash, a hang and a memory bomb contained; the kill on revocation; and an end-to-end spec with a made-up level 2 extension. Performance: a level 2 process costs nothing until activated, and a call through the broker stays under a few milliseconds
 - The **security scan** (`/claude-security`, only when the user asks) of the process host and the broker before this phase ships
 
+Phase 5: the authoring guide and kit (priority Later; written **after phases 1 to 3 are implemented**, so it describes what exists; size M)
+- [ ] **`docs/EXTENSIONS.md`**, the one document a programmer **or an AI agent** reads to make an extension (the outline is in `docs/EXTENSIONS-DESIGN.md`, section 10): start here and the five-minute path, the manifest field by field, the host API reference per level (**generated from the TypeScript types** so it cannot drift), recipes, the security rules as a checklist, testing, publishing, and a chapter for agents; in English and Brazilian Portuguese
+- [ ] **JSON Schemas** (`docs/schema/*.json`) for the manifest, the catalog index and the blocklist, used by the validator, the catalog CI and any tool; the guide's examples are **run by a test** (a broken example fails the build)
+- [ ] **The `fb-extension` tool** (`init`, `validate`, `pack`, `sign`, `verify`, `test`, `docs`), offline, with **`--json` output and stable error codes** (each with a one-line fix) so an agent can loop on it; the **test host** (a fake broker, a virtual file system, a clock, budgets for activation, memory and call latency)
+- [ ] **For agents**: `AGENTS.md` in every template (what to read first, the commands, the definition of done, the rules: never request an unused permission, never fetch or evaluate code at run time, stop and ask the person before publishing), an `llms.txt`-style index of the guide, and the **conformance checklist** that the catalog's CI runs, runnable locally first
+- [ ] **Templates**: one repository per kind (theme, key scheme, language pack, command, viewer, WebAssembly converter, process tool) with tests, a `README` and a release workflow that builds, packs and signs reproducibly
+- [ ] Tests: a sample extension of each kind is built from its template by CI and installed in an end-to-end spec; the guide's code blocks run; the schemas accept every example and reject the hostile ones; `fb-extension validate --json` gives the same codes the install screen shows
+
 Performance and security (a requirement of every phase, per the rule at the top)
 - [ ] The start of the application does not wait for extensions (a small index, activation on demand, contributions compiled at install); the catalog fetch is background, small and cancellable; quotas bound every extension; the **activity log and the permissions page** are the user's way to see what an extension does; the **security scan** (`/claude-security`, when the user asks, see "Light use" in `CLAUDE.md`) is run on the extension host and the package reader before each phase is released
 
@@ -205,6 +214,41 @@ Decisions to make before this is started
 - **Publisher identity**: the namespace rule by the owner of the repository on GitHub (the recommendation), or by a verified e-mail
 - **Third-party catalogs**: not in version 1 (the recommendation), or allowed in developer mode with their own key
 - **The API's stability policy** (semver of `api`, a deprecation period of one minor release) before any level 1 extension is accepted
+
+## Extension-first: building the complex items of this file on the extension model (after 0.1.3; priority: a rule for every item below)
+Decided in principle: the complex features of this file are built **as extensions** when they fit (see `docs/EXTENSIONS-DESIGN.md`, section 9), because it keeps the core small and fast, isolates the riskiest parsers in a box, keeps a dependency with another licence out of the core, lets a feature be installed, disabled or revoked without a release, and proves the API by real use. **The near-term items do not wait for the system**: until the extension points exist each is written **extension-shaped** (its own `extensions/<id>/` folder with a `plugin.json` that already names its level and permissions, code that reaches the application only through an **internal host interface shaped like the future broker**, its dependencies and data its own, tests against a **fake host**), so moving it into the box is a build step, not a rewrite.
+- [ ] **The decision for each new complex item** is made in its first pull request and written in its TODO line with a tag: **`[core]`**, or **`[ext L0]`**, **`[ext L1]`**, **`[ext L2]`**. *Core* when it is a security boundary (roots, safe writes, the broker), a safety net (Local History), the performance-critical interface (tree, tabs, editors, hex view) or a foundation (settings, commands, keys). *Extension* when it is a reader, writer, codec, viewer, tool or panel that can work through the broker, pulls a heavy or differently-licensed dependency, or is not needed on the first run
+- [ ] **First-party extensions are signed by the project** and are either **Built in** (inside the installer, enabled by default, can be turned off; for what nearly everyone needs) or **Official** (an entry of the catalog, installed on demand; for what is large or rare); the same page, the same permissions screen, the same revocation
+- [ ] **A point is added to the API only when a first-party extension needs it** (the API grows from use, not from guesses), each with its example in the guide
+- [ ] Where a built-in feature moves into the box, it does **not** lose its tests or its budget: the same specs run against the extension
+
+How the items of this file map (the tag is a recommendation, to be confirmed when each item starts)
+| Item | Tag | Why |
+| --- | --- | --- |
+| Settings, commands, keys, themes, translations (the foundations) | `[core]` / `[ext L0]` for the contributed data | the base the system stands on; a theme, a key scheme and a language pack are data |
+| Notepad++ key scheme, more themes, more languages | `[ext L0]` | pure data |
+| Open in Terminal, custom Open With commands | `[core]` for the runner, entries `[ext L0]` | the application starts the program, the entry is data |
+| Text tools (case, sort, trim, join…) | `[ext L1]`, the **first built through the extension point** | pure functions on text |
+| Find and Replace, Find in Files engine | `[core]` for the bar and the safety, the **search engine `[ext L2]`** if `ripgrep` is chosen (a helper program per system) | a helper binary is exactly what level 2 is for |
+| tar, tar.gz readers | `[core]` (the neutral archive layer) with `[ext L1]` readers | small, but the layer must be neutral |
+| **7z, bz2, xz, zstd, RAR (read)** | **`[ext L1]` (WebAssembly) or `[ext L2]` (the 7-Zip program)**, Official | LGPL and size stay out of the core; the riskiest parser runs boxed |
+| Image editor | `[core]` (the canvas, the history, the safe save) | performance-critical interface |
+| BMP, GIF, ICO writers; AVIF, TIFF, HEIC decoders; mozjpeg and libwebp encoders | `[ext L1]` (WebAssembly or a worker) | codecs with heavy dependencies |
+| Metadata readers: EXIF, ID3, MP4, Matroska; `mediainfo.js` | EXIF reader `[core]` (shared by the editor); the others `[ext L1]` | untrusted parsing belongs in a box |
+| PDF reading, forms, annotations, pages | `[core]` (pdf.js is the viewer) | the viewer itself |
+| Video player with tracks, subtitles, chapters | `[core]` (the player UI); **ASS renderer, AC3/DTS decoder, MKV demuxer `[ext L1]`**, the `ffmpeg` helper `[ext L2]` | the codecs and renderers are the heavy, risky, licence-bound parts |
+| Playlists: M3U/M3U8 and the player | `[core]` | the player's own feature |
+| Playlists: PLS, XSPF, WPL, ASX, CUE | `[ext L1]` | small readers of other formats |
+| SQLite viewer; JSON, YAML, XML tools | `[ext L1]` (viewer frame, sql.js in WebAssembly) | a viewer for a file type |
+| Git view (status marks, compare with HEAD, history) | `[ext L2]`, restricted: runs `git`, reads the open roots | needs a process; permissions enforced |
+| Duplicates finder, bulk rename, disk usage map, checksums | `[ext L1]` (they need `files.read` and compute) | tools on selected files |
+| Gallery view, Quick Look | `[core]` | performance-critical interface |
+| Local History, live refresh of the tree, safe writes | `[core]` | safety net and foundation |
+| Extensions manager, catalog client | `[core]` | it is the security boundary |
+| Update check | `[core]` | opt-in and tiny |
+
+- [ ] **A migration plan** per item that ships in-tree first: when its extension point is real the feature moves, with the same tests and budget, and the installer is measured before and after (the performance rule's "cost of arriving")
+- [ ] **Decisions**: which first-party extensions are **Built in** and which **Official**; whether a built-in extension may be **uninstalled** or only disabled; whether level 2 first-party extensions (Git, the `7z` and `ffmpeg` helpers) are **bundled** at all or only Official; and whether the first extension point to build is the **text tools** (recommended: pure, small, high value)
 
 ## Safety net: local history and a tree that follows the disk (after 0.1.3; priority Now, size M each)
 Two things that make every other feature safer. **Local History**: the application writes over originals (text, a ZIP, and soon PDFs and pictures), and a save that goes wrong or is regretted has no way back except the trash. **Live refresh**: the tree does not notice a file that is created, renamed, changed or deleted by another program (there is no watcher today), and several plans (search folders, "changed on disk", logs) need to.
