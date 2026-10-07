@@ -17,6 +17,7 @@ const api: FbApi = {
   openDialog: () => ipcRenderer.invoke('fb:open-dialog') as Promise<OpenResult[]>,
   openFolderDialog: () => ipcRenderer.invoke('fb:open-folder-dialog') as Promise<OpenResult[]>,
   openZipDialog: () => ipcRenderer.invoke('fb:open-zip-dialog') as Promise<OpenResult[]>,
+  openAsRoot: (id, path) => ipcRenderer.invoke('fb:open-as-root', id, path) as Promise<OpenResult[]>,
   media: {
     open: (id, path) => ipcRenderer.invoke('fb:media-open', id, path) as Promise<MediaOpen>,
     release: (token) => ipcRenderer.invoke('fb:media-release', token) as Promise<void>,

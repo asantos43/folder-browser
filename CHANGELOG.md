@@ -10,6 +10,9 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Changed
 
+- **The line between the Explorer and the editors has a colour of its own, and Settings choose it.** With the black Dark+ the line (which was only the difference between two greys) was gone. `--wsnp-divider` (`#3c3c3c` in Dark+, none in Light+) is what the sashes draw (`--separator-border`), between the Explorer and the editors and between two editor groups, and **Settings ▸ Divider Line Colour** takes another colour (kept on this computer, with a button to give the theme's colour back).
+- **Open as Explorer Root** in the menu of a folder or a ZIP file of the disk: it is opened as a root of its own (`fb:open-as-root`, resolved inside the root it is in) and chosen, so the Files of the Explorer start in it; the folder you were in stays in Open Folders.
+
 - The pictures of the guides are made again (the Dark+ one shows the black Explorer and editors).
 
 - **Dark+ is black behind the Explorer and the editors**: the side bar, the editors, the diff, the tables, the bytes, Settings, the user guide and the active tab are `#000000` (they were `#252526` and `#1e1e1e`). The menus, dialogs, the find box, the tab bar and the other bars keep their greys, so they stand out from the black. Light+ is as it was.

@@ -109,6 +109,8 @@
   --wsnp-line-number-active: #c6c6c6;
   --wsnp-line-highlight: #ffffff0a;
   --wsnp-selection: #264f78;
+  /* The line between the Explorer and the editors, and between two editor groups (the Settings choose another colour). Visible on the black of Dark+. */
+  --wsnp-divider: #3c3c3c;
   --wsnp-find-match: #ea5c0055;
   --wsnp-find-current: #515c6a;
   --wsnp-match-bracket: #0064001a;
@@ -216,6 +218,7 @@
   --wsnp-line-number-active: #0b216f;
   --wsnp-line-highlight: #0000000a;
   --wsnp-selection: #add6ff;
+  --wsnp-divider: transparent;
   --wsnp-find-match: #ea5c0055;
   --wsnp-find-current: #a8ac94;
   --wsnp-match-bracket: #b9b9b94d;

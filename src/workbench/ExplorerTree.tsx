@@ -56,6 +56,8 @@ export interface ExplorerActions {
   save: (path: string) => void
   /** Pins a folder to the favourites. */
   pin: (path: string) => void
+  /** Makes a folder (or ZIP file) of the disk the root of the Explorer's Files: it is opened as a root of its own, and chosen. */
+  openAsRoot: (path: string) => void
   /** Puts a top-level row of the trash back. */
   restore: (path: string) => void
   copy: (text: string) => void
@@ -435,6 +437,8 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
   }
 
   /** A folder of the disk (not one inside a ZIP, nor of a ZIP root) can be pinned. */
+  /** A folder or a ZIP file of the disk can be made the root of the Files (not an entry of a ZIP, not in the trash). */
+  const rootable = (entry: DirEntry) => (entry.kind === 'dir' || entry.kind === 'zip') && rootKind === 'folder' && !trash && !entry.path.includes('!/')
   const pinnable = (entry: DirEntry) => entry.kind === 'dir' && rootKind === 'folder' && !entry.path.includes('!/')
   const contextMenu = (event: MouseEvent, entry: DirEntry) => {
     event.preventDefault()
@@ -459,6 +463,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         case 'cut': return { id: action, label: t('tree.cut'), shortcut: shortcut('Ctrl+X'), run: () => takeToClip('cut', [entry]) }
         case 'copyItems': return { id: action, label: t('tree.copyItems'), shortcut: shortcut('Ctrl+C'), run: () => takeToClip('copy', [entry]) }
         case 'paste': return { id: action, label: t('tree.paste'), shortcut: shortcut('Ctrl+V'), run: () => pasteInto(pasteFolderFor(entry)) }
+        case 'openAsRoot': return { id: action, label: t('tree.openAsRoot'), run: () => actions.openAsRoot(entry.path) }
         case 'newFile': return { id: action, label: t('tree.newFile'), run: () => startNew(entry.path, 'file') }
         case 'newFolder': return { id: action, label: t('tree.newFolder'), run: () => startNew(entry.path, 'dir') }
         case 'rename': return { id: action, label: t('tree.rename'), shortcut: 'F2', run: () => { setProblem(null); setEditing({ mode: 'rename', path: entry.path }) } }
@@ -485,7 +490,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         case 'properties': return { id: action, label: t('tree.properties'), run: () => actions.properties(entry) }
       }
     }
-    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), trashItem: trash && !entry.path.includes('/'), canPaste: canChange && clip !== null, media: mediaKind(undefined, entry.name) !== null, writable: canChange, comparable: actions.compare !== undefined && entry.kind === 'file' && comparable(entry.name, entry.size), compareWithSelected: Boolean(selectedForCompare) && !(selectedForCompare!.rootId === rootId && selectedForCompare!.path === entry.path) }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
+    setMenu({ x: event.clientX, y: event.clientY, label: entry.name, entries: treeMenuFor(entry, { canPin: pinnable(entry), canRoot: rootable(entry), trashItem: trash && !entry.path.includes('/'), canPaste: canChange && clip !== null, media: mediaKind(undefined, entry.name) !== null, writable: canChange, comparable: actions.compare !== undefined && entry.kind === 'file' && comparable(entry.name, entry.size), compareWithSelected: Boolean(selectedForCompare) && !(selectedForCompare!.rootId === rootId && selectedForCompare!.path === entry.path) }).map((i): MenuEntry => (i === 'separator' ? { separator: true } : item(i))) })
   }
 
   // The item that was just named takes the focus once the listing that has it is in.

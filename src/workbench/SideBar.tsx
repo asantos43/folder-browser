@@ -53,6 +53,8 @@ function SortButton({ by, descending }: { by: SortKey; descending: boolean }) {
 export interface SideBarActions {
   openFolder: () => void
   openZip: () => void
+  /** Makes a folder or ZIP file of a root the root of the Files. */
+  openAsRoot: (rootId: string, path: string) => void
   listDir: (rootId: string, path: string) => Promise<ListResult>
   openRootFile: (rootId: string, entry: Pick<DirEntry, 'path' | 'size'>, keep: boolean, as?: 'hex') => void
   reveal: (rootId: string, path: string) => void
@@ -230,6 +232,7 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
                 move: (paths, toFolder) => actions.moveEntry(root.id, paths, toFolder),
                 copyTo: (paths, toFolder) => actions.copyEntry(root.id, paths, toFolder),
                 moveTo: (entries) => actions.moveEntryTo(root.id, entries),
+                openAsRoot: (path) => actions.openAsRoot(root.id, path),
                 paste: (toFolder) => actions.pasteEntries(root.id, toFolder),
                 remove: (entries, forever) => actions.removeEntry(root.id, entries, forever),
                 compare: { selected: actions.compare.selected, select: (entry) => actions.compare.select(root.id, entry), with: (entry) => actions.compare.with(root.id, entry), pair: (left, right) => actions.compare.pair(root.id, left, right), drop: (dragged, entry) => actions.compare.drop(root.id, dragged, entry) },
