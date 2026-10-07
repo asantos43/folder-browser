@@ -3,7 +3,7 @@ import type { Draft } from './drafts.ts'
 import type { EditBytesOpen, EditError, EditOpen, EditSave, FileVersion, LineEnding } from './fs/edit.ts'
 import type { ExtractResult } from './extract.ts'
 import type { PlacesData } from './places.ts'
-import type { ListResult, RootInfo } from './roots.ts'
+import type { FileListResult, ListResult, RootInfo } from './roots.ts'
 import type { RestoreResult } from './trash.ts'
 import type { SnapshotInfo } from './snapshots.ts'
 import type { ZipEntryInfo } from './zip.ts'
@@ -36,7 +36,7 @@ export type SaveResult = { saved: true; path: string } | { saved: false; reason:
 export type IntegrityEvent = { id: string; state: 'running'; done: number; total: number } | { id: string; state: 'done'; report: IntegrityReport }
 
 export type ZipList = { entries: ZipEntryInfo[]; truncated: boolean } | { error: 'no-snapshot' | 'no-file' | 'too-large' | 'not-zip' }
-export type { DirEntry, ListResult, RootInfo } from './roots.ts'
+export type { DirEntry, FileListResult, ListResult, RootInfo } from './roots.ts'
 export type { Place, PlacesData, PlaceKind } from './places.ts'
 export type { RestoreResult } from './trash.ts'
 export type { ExtractResult, ZipEntryInfo }
@@ -144,6 +144,8 @@ export interface FbApi {
   openInRoot(id: string, path: string): Promise<OpenResult[]>
   /** What is directly in a folder of a root, a ZIP of it, or a folder of that ZIP (`path` is relative to the root; `''` is the root itself). */
   listDir(id: string, path: string): Promise<ListResult>
+  /** Every file of a folder or ZIP that is open, by relative path, for Go to File (`hidden`: the ones that start with a dot too). */
+  listFiles(id: string, hidden: boolean): Promise<FileListResult>
   openPaths(paths: string[]): Promise<OpenResult[]>
   /** Files the system asked for while the app runs (double-click, a second launch, `open-file`). */
   onOpened(listener: (results: OpenResult[]) => void): () => void

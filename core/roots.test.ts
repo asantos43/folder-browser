@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { zipBuffer } from '../fixtures/zip.ts'
-import { RootRegistry, type DirEntry, type ListResult } from './roots.ts'
+import { FILE_LIMIT, RootRegistry, type DirEntry, type ListResult } from './roots.ts'
 
 let base: string
 let dir: string
@@ -442,5 +442,55 @@ describe('editing a text file of a ZIP', () => {
   it('does not edit the bytes of an entry of a ZIP (the hexadecimal view is for files of a folder)', async () => {
     const id = await open()
     expect(await roots.editBytes(id, 'pack.zip!/top.txt')).toEqual({ ok: false, error: 'unsupported' })
+  })
+})
+
+describe('listFiles (every file of a root, for Go to File)', () => {
+  const open = async (target = dir) => ((await roots.openPath(target)) as { root: { id: string } }).root.id
+  const paths = async (id: string, hidden = false) => {
+    const got = await roots.listFiles(id, hidden)
+    if (!('paths' in got)) throw new Error(`listing failed: ${got.error}`)
+    return got
+  }
+
+  it('lists the files of a folder at every depth, the ones near the top first, as paths relative to the root; the ZIP file is a file, not opened', async () => {
+    const got = await paths(await open())
+    expect(got.truncated).toBe(false)
+    expect(got.paths).toEqual(['a.txt', 'pack.zip', 'page.wsnp', 'docs/readme.md', 'docs/deep/n.json'])
+  })
+
+  it('leaves out the files and folders that start with a dot unless asked, and never looks into node_modules or .git', async () => {
+    fs.mkdirSync(path.join(dir, 'node_modules', 'pkg'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'node_modules', 'pkg', 'index.js'), 'x')
+    fs.writeFileSync(path.join(dir, '.git', 'HEAD'), 'ref')
+    fs.mkdirSync(path.join(dir, '.config'))
+    fs.writeFileSync(path.join(dir, '.config', 'app.json'), '{}')
+    const id = await open()
+    expect((await paths(id)).paths).not.toEqual(expect.arrayContaining(['.env']))
+    const all = (await paths(id, true)).paths
+    expect(all).toEqual(expect.arrayContaining(['.env', '.config/app.json']))
+    expect(all.some((p) => p.startsWith('node_modules/') || p.startsWith('.git/'))).toBe(false)
+  })
+
+  it('does not follow a symbolic link to a folder (nor out of the root), but lists a link to a file', async () => {
+    fs.symlinkSync(base, path.join(dir, 'escape'))
+    fs.symlinkSync(path.join(dir, 'a.txt'), path.join(dir, 'link.txt'))
+    const got = (await paths(await open())).paths
+    expect(got.some((p) => p.startsWith('escape/'))).toBe(false)
+    expect(got).toContain('link.txt')
+    expect(got).not.toContain('outside.txt')
+  })
+
+  it('gives the entries of a ZIP root, without the folders and without the hidden ones unless asked', async () => {
+    const id = await open(path.join(dir, 'pack.zip'))
+    const got = await paths(id)
+    expect(got.paths.sort()).toEqual(['nested.zip', 'src/main.c', 'top.txt'])
+    expect((await paths(id, true)).paths).toContain('.hidden')
+  })
+
+  it('is cut at the limit, and says so, and says why when it cannot', async () => {
+    expect(FILE_LIMIT).toBe(50_000)
+    expect(await roots.listFiles('nope', false)).toEqual({ error: 'no-root' })
+    await roots.close('x')
   })
 })

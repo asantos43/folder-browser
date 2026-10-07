@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -19,6 +20,16 @@ describe('the icon of the application', () => {
     expect(width).toBe(height)
     expect(width).toBeGreaterThanOrEqual(1024)
     expect(colour, 'colour type 6 is RGBA').toBe(6)
+  })
+
+  // (ImageMagick reads a pixel; where it is not installed the test is skipped: the picture is committed, so only whoever changes it needs it.)
+  it.skipIf(spawnSync('magick', ['-version']).error !== undefined)('has no background: the corners and the margin are transparent, the middle of the drawing is not', () => {
+    const alpha = (file: string, x: number, y: number) => Number(spawnSync('magick', [path.join(root, file), '-format', `%[fx:p{${x},${y}}.a]`, 'info:'], { encoding: 'utf8' }).stdout)
+    const size = png('build/icon.png').width
+    for (const [x, y] of [[0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1], [4, size / 2]]) expect(alpha('build/icon.png', x, y), `${x},${y} of icon.png`).toBe(0)
+    expect(alpha('build/icon.png', size / 2, size / 2)).toBe(1)
+    // (Scaling down leaves a trace of at most a few 255ths in a corner: nothing anyone can see.)
+    for (const n of [16, 32, 128, 512]) expect(alpha(`build/icons/${n}x${n}.png`, 0, 0), `${n}x${n} corner`).toBeLessThan(0.02)
   })
 
   it('has, for Linux, a picture at each size of the icon theme, as large as its name says', () => {

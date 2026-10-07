@@ -5,7 +5,7 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell, webFrameMain, type IpcMainInvokeEvent, type Session, type WebContents, type WebFrameMain } from 'electron'
-import type { AppInfo, DocOpen, OpResult, IntegrityEvent, ListResult, MediaOpen, OpenResult, OpenWithResult, PrintRequest, PrintResult, RangeResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
+import type { AppInfo, DocOpen, OpResult, IntegrityEvent, FileListResult, ListResult, MediaOpen, OpenResult, OpenWithResult, PrintRequest, PrintResult, RangeResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
 import { extractSelection, type ExtractResult } from '../core/extract.ts'
 import { FRAME_SCRIPT } from '../core/frameScript.ts'
 import { BINARY_LIMIT, DOCUMENT_LIMIT, effectiveType, mediaKind, viewKind } from '../core/filekind.ts'
@@ -623,6 +623,7 @@ export class SnapshotHost {
       const file = typeof id === 'string' && typeof name === 'string' && /\.wsnp$/i.test(name) ? await this.roots.diskFile(id, name) : null
       return file ? this.openPaths([file], { withFolder: false }) : []
     })
+    handle('fb:list-files', (_win, id: unknown, hidden: unknown): Promise<FileListResult> | FileListResult => (typeof id === 'string' && id.length < 4096 && typeof hidden === 'boolean' ? this.roots.listFiles(id, hidden) : { error: 'no-root' }))
     handle('fb:list-dir', async (_win, id: unknown, dir: unknown): Promise<ListResult> => (typeof id === 'string' && typeof dir === 'string' && dir.length < 4096 ? this.roots.list(id, dir) : { error: 'no-root' }))
     handle('fb:open-paths', (_win, paths: unknown) => (isPaths(paths) ? this.openPaths(paths) : []))
     handle('fb:close', async (_win, id: unknown) => {

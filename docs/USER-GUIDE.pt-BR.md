@@ -16,8 +16,9 @@ O Folder Browser mostra as pastas do seu computador e o que há nelas. Abre **pa
 
 Ela é organizada como o Visual Studio Code: uma **barra de título** com o menu, uma **barra de atividades**, uma **barra lateral**, **abas** com o caminho embaixo, o arquivo no meio e uma **barra de status**. `Ctrl+B` esconde e mostra a barra lateral; arraste a borda dela para mudar o tamanho.
 
+- Quando há mais **abas** do que cabem, uma **barra de rolagem** fina aparece embaixo delas (como no VS Code): arraste-a, ou gire a **roda** do mouse sobre as abas, para andar por elas; a aba que vai para a frente sempre é trazida à vista.
 - As **setas** da barra de título são **Voltar** e **Avançar** pelas abas que você visitou (`Alt+Esquerda`, `Alt+Direita`).
-- A **caixa do meio** é **Ir para o Arquivo** (`Ctrl+E`): parte de um nome acha um arquivo dos snapshots abertos; sem nada digitado ela lista as suas abas, a mais recente primeiro. Digite `>` (ou aperte `Ctrl+Shift+P`) para a **paleta de comandos**, que tem todo comando que pode rodar agora e os temas de cor.
+- A **caixa do meio** é **Ir para o Arquivo** (`Ctrl+E`): parte de um nome acha um arquivo nas **pastas e arquivos ZIP abertos** (todos os arquivos da árvore, em qualquer profundidade, menos o que está em `node_modules` ou `.git` e, a menos que os arquivos ocultos estejam à mostra, o que começa com ponto) e nos snapshots abertos; sem nada digitado ela lista as suas abas, a mais recente primeiro. Funciona sempre que algo está aberto; um clique na caixa ou `Ctrl+E` a abre. Digite `>` (ou aperte `Ctrl+Shift+P`) para a **paleta de comandos**, que tem todo comando que pode rodar agora e os temas de cor.
 
 ### A barra lateral
 

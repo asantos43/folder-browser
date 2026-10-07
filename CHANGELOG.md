@@ -8,6 +8,17 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+### Changed
+
+- The pictures of the guides are made again (the Dark+ one shows the black Explorer and editors).
+
+- **Dark+ is black behind the Explorer and the editors**: the side bar, the editors, the diff, the tables, the bytes, Settings, the user guide and the active tab are `#000000` (they were `#252526` and `#1e1e1e`). The menus, dialogs, the find box, the tab bar and the other bars keep their greys, so they stand out from the black. Light+ is as it was.
+
+- **Go to File (`Ctrl+E`, and the box in the title bar) finds the files of the open folders and ZIP files**, not only of snapshots: a click on the box did nothing when only a folder was open (the command asked for a snapshot, as WSNP Viewer's did). `RootRegistry.listFiles` (`fb:list-files`) lists every file of a root, near the top first, cut at 50,000, without `node_modules`, `.git` and, unless hidden files are shown, what starts with a dot; symbolic links to folders are not followed. The file opens with its size from its folder's listing.
+- **The tabs that do not fit have a thin scroll bar**, as VS Code's (it was hidden, and only the wheel moved them); the wheel still does, and a tab that comes to the front is brought into view.
+
+- **The icon has a transparent background**: no dark rounded square (and no rim) any more, only the drawing (the folder closed by a zipper, the page, the pencil, the play button and the lens, a little larger), so it blends into the Dock, the taskbar and a Linux dock. `build/icon.svg`, `public/icon.svg`, `build/icon.png`, `build/icons/*` and `build/icon.icns` are made again, and `scripts/icons.test.ts` checks that the corners are transparent. On macOS, where icons have a tile of their own by habit, the Dock now shows the bare drawing.
+
 ### Fixed
 
 - **The text selected in an editor was unreadable in the dark theme**: CodeMirror's own rule for the selection of an editor with the focus (a pale lilac, `#d7d4f0`) is more specific than ours and won over the theme's colour, so pale text sat on a pale background. The selection is now the theme's (`--wsnp-selection`: blue in Dark+, light blue in Light+), with the focus and without it; `e2e/edit.spec.ts` checks the colour in both themes. Every other text the interface shows (the formatted Markdown, the user guide, the fields) has the theme's selection colour too (`::selection` in `index.css`, the browser's own blue was not the theme's), and `e2e/selection.spec.ts` measures the selection in the editor, the read-only view, the diff (side by side and inline), the formatted Markdown and the guide, in both themes.

@@ -44,11 +44,17 @@ export interface DirEntry {
   link?: boolean
 }
 
+/** Every file of a root, for Go to File: relative paths (`docs/a.txt`, in a ZIP root the entries' names), cut at `FILE_LIMIT`. */
+export type FileListResult = { paths: string[]; truncated: boolean } | { error: 'no-root' | 'not-zip' | 'too-large' | 'denied' }
+
 export type ListResult = { entries: DirEntry[]; truncated: boolean } | { error: 'no-root' | 'no-dir' | 'denied' | 'too-large' | 'not-zip' }
 export type OpenRootResult = { root: RootInfo; already: boolean } | { error: 'not-found' | 'not-supported' | 'too-large' | 'not-zip' | 'denied' }
 /** The same words as the snapshots' registry, so the callers do not tell the two apart. */
 type Fail = { error: 'no-snapshot' | 'no-file' | 'too-large' }
 
+/** The most files `listFiles` returns, and the folders that are not looked into (a folder of that kind has more files than a person looks for by name). */
+export const FILE_LIMIT = 50_000
+const NOT_INDEXED = new Set(['node_modules', '.git', '.hg', '.svn'])
 /** The most rows one listing returns: a folder with more is cut, and says so. */
 export const LIST_LIMIT = 20_000
 const ZIP_NAME = /\.zip$/i
@@ -500,6 +506,60 @@ export class RootRegistry {
   saveEditBytes(id: string, name: string, bytes: Uint8Array, base: FileVersion, overwrite: boolean): Promise<EditSave> {
     const root = this.writable(id)
     return root ? saveEditedBytes(root.real, name, bytes, base, overwrite) : Promise.resolve({ ok: false, error: 'unsupported' })
+  }
+
+  // ---- every file of a root, by name (Go to File)
+
+  /**
+   * The paths of the files of a root, found breadth first so that the files near the top come first when the list is cut. A folder of the disk is walked (not through a symbolic link, and
+   * not into `node_modules` or `.git`; the files and folders that start with a dot only with `hidden`); a ZIP root gives its entries; a ZIP file in a folder is not opened (it is a file
+   * here, and is found by its name).
+   */
+  async listFiles(id: string, hidden = false): Promise<FileListResult> {
+    const root = this.open.get(id)
+    if (!root) return { error: 'no-root' }
+    const paths: string[] = []
+    if (root.kind === 'zip') {
+      try {
+        const zip = await this.zipArchive(root, '')
+        for (const entry of zip.entries) {
+          if (entry.directory || entry.unreadable) continue
+          if (!hidden && entry.name.split('/').some(isHidden)) continue
+          if (paths.length >= FILE_LIMIT) return { paths, truncated: true }
+          paths.push(entry.name)
+        }
+        return { paths, truncated: zip.truncated }
+      } catch (err) {
+        return { error: err instanceof ZipError && err.code === 'too-large' ? 'too-large' : 'not-zip' }
+      }
+    }
+    const queue: { real: string; relative: string }[] = [{ real: root.real, relative: '' }]
+    try {
+      for (let next = 0; next < queue.length; next++) {
+        const { real, relative } = queue[next]
+        let dirents: fs.Dirent[]
+        try {
+          dirents = await fsp.readdir(real, { withFileTypes: true })
+        } catch (err) {
+          // The root itself that cannot be read is said; a folder inside that cannot is left out.
+          if (next === 0) return { error: (err as NodeJS.ErrnoException).code === 'EACCES' ? 'denied' : 'no-root' }
+          continue
+        }
+        for (const d of dirents) {
+          if (!hidden && isHidden(d.name)) continue
+          const path_ = relative ? `${relative}/${d.name}` : d.name
+          if (d.isDirectory()) {
+            if (!NOT_INDEXED.has(d.name)) queue.push({ real: path.join(real, d.name), relative: path_ })
+          } else if (d.isFile() || d.isSymbolicLink()) {
+            if (paths.length >= FILE_LIMIT) return { paths, truncated: true }
+            paths.push(path_)
+          }
+        }
+      }
+    } catch {
+      return { error: 'denied' }
+    }
+    return { paths, truncated: false }
   }
 
   // ---- listing

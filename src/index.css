@@ -128,6 +128,21 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+/* The tabs of an editor group, when they are more than fit: a thin bar under them (as VS Code's), which the wheel and a drag of it move sideways. Only the width is set here:
+   `scrollbar-width` would take the look of the thumb from the rest of the interface. */
+.tab-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.tab-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.tab-scroll::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+}
+.tab-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+}
 
 /* The matches of Find in the views drawn as HTML (the CSS Custom Highlight API: no element is added to the page). */
 ::highlight(wsnp-find) {
