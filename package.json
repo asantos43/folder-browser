@@ -131,6 +131,7 @@
       "target": "nsis"
     },
     "mac": {
+      "icon": "build/icon.icns",
       "target": [
         {
           "target": "dmg",

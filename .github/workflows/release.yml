@@ -9,6 +9,10 @@ on:
       tag:
         description: 'The release to add the .dmg to (vX.Y.Z); it must exist, published from the maintainer''s computer'
         required: true
+      dry_run:
+        description: 'A rehearsal: `tag` is a branch (or a tag), it is built and checked on the Mac like a release, and nothing is added to any release (nor needs to exist)'
+        type: boolean
+        default: false
       e2e:
         description: 'Also run the end-to-end tests on the Mac (about 10 minutes of the quota; the unit tests always run)'
         type: boolean
@@ -28,11 +32,14 @@ jobs:
     timeout-minutes: 45
     env:
       TAG: ${{ github.event.inputs.tag }}
+      DRY: ${{ github.event.inputs.dry_run }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: The tag is a release that exists
         shell: bash
         run: |
+          # A rehearsal builds a branch or a tag, and needs no release: only a name made of safe characters goes on.
+          if [ "$DRY" = "true" ]; then echo "$TAG" | grep -Eq '^[A-Za-z0-9._/-]+$' || { echo "not a branch or a tag name: $TAG"; exit 1; }; echo "A rehearsal of $TAG: nothing is added to a release."; exit 0; fi
           # Only a tag of the form vX.Y.Z or vX.Y.Z-pre goes on: the name is used in commands below.
           echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' || { echo "not a release tag: $TAG"; exit 1; }
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null || { echo "There is no release $TAG: publish it first with 'node scripts/release-local.mjs --publish'"; exit 1; }
@@ -44,6 +51,7 @@ jobs:
           node-version: 24
           cache: npm
       - name: The version of the tag is the version of the code
+        if: github.event.inputs.dry_run != 'true'
         run: test "$(node -p "require('./package.json').version")" = "${TAG#v}"
       - run: npm ci
       - run: npm test
@@ -61,6 +69,7 @@ jobs:
       - name: Packaging smoke test
         run: node scripts/package-smoke.mjs
       - name: Add the .dmg and its checksum to the release
+        if: github.event.inputs.dry_run != 'true'
         shell: bash
         run: |
           set -e
@@ -76,3 +85,9 @@ jobs:
           gh release upload "$TAG" "$dmg" sums/SHA256SUMS.txt --clobber --repo "$GITHUB_REPOSITORY"
           echo "### $name added to $TAG" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(du -m "$dmg" | cut -f1) MB (unsigned unless the signing secrets are set)" >> "$GITHUB_STEP_SUMMARY"
+      - name: What the rehearsal made
+        if: github.event.inputs.dry_run == 'true'
+        shell: bash
+        run: |
+          echo "### Rehearsal of $TAG: built and checked, nothing added to a release" >> "$GITHUB_STEP_SUMMARY"
+          ls -la release/*.dmg >> "$GITHUB_STEP_SUMMARY" || true
