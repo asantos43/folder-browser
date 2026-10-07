@@ -79,7 +79,7 @@ Group 4: aids to see the text (small to medium)
 Group 5: Find in Files and Replace in Files (large: a project of its own)
 - [ ] **Find in Files** (`Ctrl+Shift+F`) over the open folders and ZIP files: a text, the three modes, case, whole word, a filter of names (`*.ts`) and folders to leave out (`.git`, `node_modules`, taken from a `.gitignore` if there is one), a results panel (file, line, the line with the match lit) that opens the file at the line, **cancel**, and a count; run in the main process by a worker so it never blocks, never follows a link out of the root, never reads a binary (the look at the first bytes) or a file over a limit
 - [ ] **Replace in Files**: a preview of every change, the files chosen by the user, written through the safe path (temporary file, rename, version check) and refused for what is read-only (a `.wsnp`, an encrypted ZIP); an entry of a ZIP goes through `core/archive/edit.ts`; one notice for the batch; the files that are open with changes are not touched
-- [ ] The existing idea "Search inside files" (below) is this item
+- [ ] This item is the old idea "Search inside files" (the Ideas for later list points here)
 
 Group 6: bigger, optional
 - [ ] **Other encodings** (Latin-1, Windows-1252, UTF-16, Shift-JIS, GBK…) shown in the status bar and chosen from it, with a conversion (`TextDecoder` reads them; writing needs `iconv-lite`): the same item as "Other encodings" under Text editing and tables above
