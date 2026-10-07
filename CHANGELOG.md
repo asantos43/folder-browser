@@ -8,6 +8,12 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-07
+
+### About this release
+
+The same application as [0.1.0](https://github.com/asantos43/folder-browser/releases/tag/v0.1.0), whose notes say what Folder Browser does. **0.1.2 is the first release with all four files**, the macOS disk image (`.dmg`) among them: 0.1.0 and 0.1.1 are published without it (the unit tests failed on a Mac, and then the icon of the `.dmg` had not every size), and what changed since 0.1.1 is only for macOS (below). The Linux (`.deb`, `.rpm`) and Windows (`.exe`) files are built again, from this version, so that every file of a release is of the same code. Not signed: Windows and macOS warn on the first launch (the README says how to go on).
+
 ### Fixed
 
 - **macOS: the icon of the application has every size.** electron-builder's own `.icns` had no 1024 × 1024 picture (`ic10`) and no 512 at twice the density (`ic14`), which the packaging smoke test asks for. `build/icon.icns` is now made by `scripts/make-icns.mjs` (all eleven kinds, from `build/icon.png`) and given to electron-builder (`mac.icon`); `scripts/icons.test.ts` reads each entry. The `.dmg` of 0.1.1 could not be added to its release because of it.
