@@ -78,3 +78,13 @@ How it was installed (2026-10-07, release v0.11.0, Linux x86-64), **without** th
 
 To remove it: `claude mcp remove codebase-memory-mcp --scope local`, delete `~/.local/bin/codebase-memory-mcp` and `~/.cache/codebase-memory-mcp/`. To update, repeat steps 1 to 3 with the new release and check it the same way.
 
+## rtk (optional, for the maintainer's sessions)
+
+`rtk` (Rust Token Killer, `rtk-ai/rtk`, Apache-2.0) is a command-line proxy that shortens the output of build, test and git commands before it reaches a coding agent. Installed on 2026-10-07 with `brew install rtk` (the Homebrew-core formula, a bottle checked by Homebrew; 0.51.0); not a dependency of the project.
+
+- **Telemetry**: off (`rtk telemetry status` says consent was never asked and this build has no telemetry endpoint); it needs an explicit opt-in.
+- **The hook is not installed.** `rtk init -g` would patch `~/.claude/settings.json` so that every Bash command of every project is rewritten to `rtk …`; `rtk init` without `-g` only adds instructions to `CLAUDE.md` and a `.rtk/filters.toml`, and installs no hook. Neither was run.
+- **Measured here** (native output against `rtk`, in bytes): `git log --oneline -5` 493 against 441; `gh pr list` 1,030 against 762; `ls -la docs` 1,059 against 381 (**lossy**: permissions and dates are dropped); `git status --short`, `grep`, `git diff --stat`, `vitest` of one file and `npm run lint` about the same, because those commands are already short. The saving is real for long, noisy output (a failing build, a long test run), small for the rest.
+- **Use by hand** for long output: `rtk err <cmd>`, `rtk test <cmd>`, `rtk playwright test …`, `rtk vitest …`, `rtk tsc`; the part it elided comes back with `rtk recall <hash>`, and `rtk proxy <cmd>` runs a command unfiltered. `rtk gain` shows what was saved.
+- **To enable the hook later**: preview with `rtk init -g --hook-only --dry-run`, then `rtk init -g --hook-only`; to remove it: `rtk init -g --uninstall`. To uninstall the program: `brew uninstall rtk`.
+
