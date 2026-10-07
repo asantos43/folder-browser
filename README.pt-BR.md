@@ -29,6 +29,7 @@ O [guia do usuário](docs/USER-GUIDE.pt-BR.md) mostra cada funcionalidade, com i
 | **Hex** | Programas, bibliotecas e qualquer arquivo de bytes (`.exe`, `.dll`, `.so`, `.bin`, `.iso`…) abrem como posição, hexadecimal e texto, com seleção, cópia, Ir para a posição e Localizar bytes ou texto; o cabeçalho diz o que o arquivo é (ELF, PE, Mach-O, ZIP…) sem executá-lo. **Editar** muda os bytes (dígitos hex ou texto, Insert, Delete, desfazer) e salva como o texto. |
 | **Tocar** | Vídeos e sons tocam numa aba (mp4, webm, mp3, flac, wav…), com busca, volume, velocidade e Próximo/Anterior na pasta, também de dentro de um ZIP. |
 | **Comparar** | **Selecionar para comparar** e **Comparar com o selecionado**, no menu da árvore, põem dois arquivos de texto (disco ou ZIP) numa aba de **diff**, lado a lado ou em uma coluna, com cores de sintaxe, as alterações contadas e F7 para percorrê-las. |
+| **Texto novo** | **Arquivo ▸ Novo Arquivo de Texto** (`Ctrl+N`) abre uma aba vazia que existe só na janela: cole um trecho de texto nela e compare com um arquivo (**Selecionar para comparar**, no menu da aba) ou ponha ao lado de um (**Dividir à direita**). |
 | **Botão direito** | Um menu por tipo de arquivo (texto, imagem, PDF, ZIP, `.wsnp`, pasta) e **Abrir com…** em todo arquivo, com os aplicativos instalados no computador. |
 | **WSNP** | Arquivos `.wsnp` abrem como snapshots, isolados, verificados (SHA-256, assinatura) e sem rede, como no WSNP Viewer. São somente leitura. |
 

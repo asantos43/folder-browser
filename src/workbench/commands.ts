@@ -9,6 +9,8 @@ export interface Commands {
   toggleSideBar: () => void
   setTheme: (theme: 'auto' | 'dark' | 'light') => void
   openFile: () => void
+  /** A new text file that exists only in the window. */
+  newFile: () => void
   openFolder: () => void
   /** Asks for a ZIP file to browse (the folder picker of Linux and Windows cannot choose a file). */
   openZip: () => void
@@ -93,6 +95,8 @@ export const MENUS: MenuDef[] = [
     id: 'file',
     label: 'menu.file',
     entries: (t, c) => [
+      { id: 'newFile', label: t('menu.newFile'), shortcut: shortcut('Ctrl+N'), run: c.newFile },
+      { separator: true },
       { id: 'openFolder', label: t('menu.openFolder'), shortcut: shortcut('Ctrl+Shift+O'), run: c.openFolder },
       { id: 'open', label: t('menu.openFile'), shortcut: shortcut('Ctrl+O'), run: c.openFile },
       { id: 'openZip', label: t('menu.openZip'), run: c.openZip },

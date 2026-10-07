@@ -590,3 +590,63 @@ describe('two editor groups', () => {
     expect(ws).toMatchObject({ tabs: [], active: null, other: null, focus: 0 })
   })
 })
+
+describe('a new text file (untitled)', () => {
+  const r1 = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const base = () => run([{ type: 'root-opened', root: r1 }, file('r1', 'a.txt', true)])
+  const untitled = (n: number) => ({ rootId: '@untitled', path: `u:${n}` })
+
+  it('opens a kept tab with no path beside the active one, numbered from the lowest free number', () => {
+    let ws = reduce(base(), { type: 'open-untitled' })
+    expect(keys(ws)).toEqual(['f:r1:a.txt', 'u:1'])
+    expect(ws.active).toBe('u:1')
+    expect(ws.tabs[1]).toMatchObject({ view: 'untitled', preview: false, pinned: false })
+    expect(ws.tabs[1].path).toBeUndefined()
+    expect(isSnapshotTab(ws.tabs[1])).toBe(false)
+    ws = reduce(reduce(ws, { type: 'open-untitled' }), { type: 'open-untitled' })
+    expect(keys(ws).filter((k) => k.startsWith('u:'))).toEqual(['u:1', 'u:2', 'u:3'])
+    // A number that was closed is used again.
+    ws = reduce(ws, { type: 'close', key: 'u:2' })
+    expect(reduce(ws, { type: 'open-untitled' }).active).toBe('u:2')
+  })
+  it('comes back with its own number when it was kept from the last session, and an open one is only shown again', () => {
+    let ws = reduce(base(), { type: 'open-untitled', key: 'u:4' })
+    expect(keys(ws)).toEqual(['f:r1:a.txt', 'u:4'])
+    ws = reduce(reduce(ws, { type: 'activate', key: 'f:r1:a.txt' }), { type: 'open-untitled', key: 'u:4' })
+    expect(keys(ws)).toEqual(['f:r1:a.txt', 'u:4'])
+    expect(ws.active).toBe('u:4')
+    // A key that is not one of a new text is not taken: the next free number is.
+    expect(keys(reduce(base(), { type: 'open-untitled', key: '../x' }))).toEqual(['f:r1:a.txt', 'u:1'])
+  })
+  it('is opened in the group that has the focus', () => {
+    const ws = run([{ type: 'root-opened', root: r1 }, file('r1', 'a.txt', true), file('r1', 'b.txt', true), { type: 'move-to-group', key: 'f:r1:b.txt', group: 1 }, { type: 'open-untitled' }])
+    expect(ws.tabs.find((t) => t.key === 'u:1')?.group).toBe(1)
+  })
+  it('is compared with a file, or with another new text file, in a tab of its own', () => {
+    const ws = reduce(base(), { type: 'open-untitled' })
+    const side = { rootId: 'r1', path: 'a.txt' }
+    const compared = reduce(ws, { type: 'open-diff', left: untitled(1), right: side })
+    expect(compared.active).toBe(diffKey(untitled(1), side))
+    expect(compared.tabs.at(-1)).toMatchObject({ view: 'diff', diff: { left: untitled(1), right: side } })
+    // A new text file that is not open cannot be a side.
+    expect(reduce(ws, { type: 'open-diff', left: untitled(2), right: side })).toBe(ws)
+    const two = reduce(ws, { type: 'open-untitled' })
+    expect(reduce(two, { type: 'open-diff', left: untitled(1), right: untitled(2) }).tabs.at(-1)?.view).toBe('diff')
+  })
+  it('takes the comparisons that have it with it when it closes (its text is gone), and no others', () => {
+    const side = { rootId: 'r1', path: 'a.txt' }
+    let ws = run([{ type: 'root-opened', root: r1 }, file('r1', 'a.txt', true), file('r1', 'b.txt', true), { type: 'open-untitled' }])
+    ws = reduce(reduce(ws, { type: 'open-diff', left: untitled(1), right: side }), { type: 'open-diff', left: side, right: { rootId: 'r1', path: 'b.txt' } })
+    ws = reduce(ws, { type: 'close', key: 'u:1' })
+    expect(keys(ws).filter((k) => k.startsWith('d:'))).toEqual([diffKey(side, { rootId: 'r1', path: 'b.txt' })])
+    expect(keys(ws)).not.toContain('u:1')
+  })
+  it('is not touched by a folder that closes or a path that changes, and follows the dirty flag like any text', () => {
+    let ws = reduce(base(), { type: 'open-untitled' })
+    ws = reduce(ws, { type: 'dirty', key: 'u:1', dirty: true })
+    ws = reduce(reduce(ws, { type: 'path-removed', rootId: 'r1', path: '' }), { type: 'root-closed', id: 'r1' })
+    expect(keys(ws)).toEqual(['u:1'])
+    expect(ws.dirty).toEqual({ 'u:1': true })
+    expect(reduce(ws, { type: 'close', key: 'u:1' }).dirty).toEqual({})
+  })
+})

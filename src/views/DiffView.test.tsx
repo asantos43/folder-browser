@@ -3,6 +3,8 @@ import type { FbApi } from '@core/api.ts'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
+import { EditorState } from '@codemirror/state'
+import { editorBuffers } from '@/state/editors.ts'
 import { diffCollapse, diffLayout } from '@/state/setting.ts'
 import { DiffView } from './DiffView.tsx'
 
@@ -133,5 +135,38 @@ describe('DiffView', () => {
     )
     await waitFor(() => expect(drawn()[0]).toContain('c'))
     expect(readFile).toHaveBeenCalledWith('r1', 'c.txt')
+  })
+})
+
+describe('DiffView with a new text file (untitled)', () => {
+  it('reads that side from the text of its tab, not from a file, and names it Untitled-N', async () => {
+    editorBuffers.clear()
+    const state = EditorState.create({ doc: 'one\n2\nthree\n' })
+    editorBuffers.set('u:2', { state, saved: state.doc, version: { mtimeMs: 0, size: 0 }, eol: 'lf', bom: false })
+    const readFile = vi.fn(async () => ({ bytes: enc('one\ntwo\nthree\n') }))
+    window.fb = { readFile } as unknown as FbApi
+    render(
+      <I18nProvider language="en">
+        <DiffView left={{ rootId: 'r1', path: 'a.txt' }} right={{ rootId: '@untitled', path: 'u:2' }} leftTitle="work › a.txt" rightTitle="Untitled-2" />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(document.querySelectorAll('.cm-editor')).toHaveLength(2))
+    await waitFor(() => expect(screen.getByText('1 change')).toBeTruthy())
+    expect(readFile).toHaveBeenCalledTimes(1)
+    expect(readFile).toHaveBeenCalledWith('r1', 'a.txt')
+    expect(screen.getByText('Untitled-2')).toBeTruthy()
+    expect(document.querySelector('.cm-merge-b')?.textContent).toContain('2')
+  })
+
+  it('says so when the text of the tab is gone', async () => {
+    editorBuffers.clear()
+    window.fb = { readFile: vi.fn(async () => ({ bytes: enc('x') })) } as unknown as FbApi
+    render(
+      <I18nProvider language="en">
+        <DiffView left={{ rootId: '@untitled', path: 'u:9' }} right={{ rootId: 'r1', path: 'a.txt' }} leftTitle="Untitled-9" rightTitle="work › a.txt" />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(document.querySelectorAll('.cm-editor')).toHaveLength(0))
+    expect(screen.getByText(/Untitled-9/)).toBeTruthy()
   })
 })

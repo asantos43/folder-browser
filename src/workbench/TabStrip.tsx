@@ -2,17 +2,17 @@ import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 're
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
-import { comparable } from '@core/diff.ts'
+import { comparable, type DiffSide } from '@core/diff.ts'
 import { basename } from '@/lib/format.ts'
 import { groupOf, isSplit, shownIn, type Action, type GroupId, type Tab, type Workspace } from '@/state/workspace.ts'
 import { draggedFile, dragging, FILE_DRAG, TAB_DRAG, type DraggedFile } from './dnd.ts'
-import type { TabView } from './tabInfo.ts'
+import { sideOfTab, type TabView } from './tabInfo.ts'
 
-/** Whether a tab shows a text file that can be one side of a comparison, or of two files side by side. */
-export const isTextTab = (tab: Tab | undefined): boolean => tab !== undefined && tab.path !== undefined && tab.view === undefined && tab.as === undefined && comparable(basename(tab.path), tab.size ?? 0)
+/** Whether a tab shows a text file that can be one side of a comparison, or of two files side by side (a new text file is one too). */
+export const isTextTab = (tab: Tab | undefined): boolean => tab !== undefined && (tab.view === 'untitled' || (tab.path !== undefined && tab.view === undefined && tab.as === undefined && comparable(basename(tab.path), tab.size ?? 0)))
 
 /** The tab strip: 35 px, as VS Code's, with preview (italic) and pinned tabs, drag to reorder, middle click and × to close, a context menu. */
-export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenWith, onDropOnTab, onDropFileOnTab, onDropFile }: { /** A file of the tree was dropped in the middle of a text tab (and is a text too): asks what to do with the two. */ onDropFileOnTab?: (file: DraggedFile, target: string) => void; /** A file of the tree was dropped on a tab, not in its middle: opened in this group. */ onDropFile?: (file: DraggedFile, group: GroupId) => void; ws: Workspace; /** The group whose tabs this strip shows. */ group: GroupId; /** A tab was dropped in the middle of another one (two text files): asks what to do with the two. */ onDropOnTab?: (dragged: string, target: string) => void; views: Map<string, TabView>; dispatch: (a: Action) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; /** Opens the file of the tab in another application (a file of a snapshot has no other way to be handed to one). */ onOpenWith?: (snapshotId: string, path: string) => void }) {
+export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenWith, onDropOnTab, onDropFileOnTab, onDropFile, compare }: { /** Select for Compare and Compare with Selected on a tab: the file of the tab, or the new text file it is, is a side of a comparison. */ compare?: { selected: DiffSide | null; select: (side: DiffSide) => void; with: (side: DiffSide) => void };  /** A file of the tree was dropped in the middle of a text tab (and is a text too): asks what to do with the two. */ onDropFileOnTab?: (file: DraggedFile, target: string) => void; /** A file of the tree was dropped on a tab, not in its middle: opened in this group. */ onDropFile?: (file: DraggedFile, group: GroupId) => void; ws: Workspace; /** The group whose tabs this strip shows. */ group: GroupId; /** A tab was dropped in the middle of another one (two text files): asks what to do with the two. */ onDropOnTab?: (dragged: string, target: string) => void; views: Map<string, TabView>; dispatch: (a: Action) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; /** Opens the file of the tab in another application (a file of a snapshot has no other way to be handed to one). */ onOpenWith?: (snapshotId: string, path: string) => void }) {
   const { t } = useI18n()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [over, setOver] = useState<{ key: string; after: boolean; middle: boolean } | null>(null)
@@ -42,6 +42,7 @@ export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenW
     event.preventDefault()
     const snapshot = ws.snapshots[tab.snapshotId]
     const source = snapshot?.manifest.source.url
+    const side = sideOfTab(ws, tab)
     setMenu({
       x: event.clientX,
       y: event.clientY,
@@ -55,11 +56,17 @@ export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenW
         { id: 'pin', label: tab.pinned ? t('tabs.unpin') : t('tabs.pin'), run: () => dispatch({ type: 'pin', key: tab.key, pinned: !tab.pinned }) },
         // As VS Code's Split Right: the tab goes to a second group on the right (a tab is one file, so it moves and is not shown twice).
         { id: 'split', label: !split ? t('tabs.splitRight') : group === 0 ? t('tabs.moveToRight') : t('tabs.moveToLeft'), disabled: !split && tabs.length < 2, run: () => dispatch({ type: 'move-to-group', key: tab.key, group: group === 0 ? 1 : 0 }) },
+        ...(compare && side && (tab.view === 'untitled' || isTextTab(tab))
+          ? [
+              { id: 'selectCompare', label: t('tabs.selectForCompare'), run: () => compare.select(side) },
+              { id: 'compareWith', label: t('tabs.compareWithSelected'), disabled: !compare.selected || (compare.selected.rootId === side.rootId && compare.selected.path === side.path), run: () => compare.with(side) },
+            ]
+          : []),
         { separator: true },
-        ...(tab.view === 'settings' || tab.view === 'guide' || ws.roots[tab.snapshotId] ? [] : [{ id: 'metadata', label: t('tabs.showMetadata'), run: () => dispatch({ type: 'open-metadata', snapshotId: tab.snapshotId }) }]),
+        ...(tab.view === 'settings' || tab.view === 'guide' || tab.view === 'untitled' || ws.roots[tab.snapshotId] ? [] : [{ id: 'metadata', label: t('tabs.showMetadata'), run: () => dispatch({ type: 'open-metadata', snapshotId: tab.snapshotId }) }]),
         ...(tab.view ? [] : tab.path === undefined ? [{ id: 'source', label: t('tabs.copySource'), disabled: !source, run: () => source && onCopy(source) }] : [{ id: 'path', label: t('tabs.copyPath'), run: () => onCopy(tab.path!) }]),
         ...(tab.path !== undefined && onOpenWith ? [{ id: 'openWith', label: t('tree.openWith'), run: () => onOpenWith(tab.snapshotId, tab.path!) }] : []),
-        ...(tab.view === 'settings' || tab.view === 'guide' || tab.view === 'diff' ? [] : [{ id: 'reveal', label: t('tabs.reveal'), run: () => (ws.roots[tab.snapshotId] && tab.path !== undefined ? onReveal(tab.snapshotId, tab.path) : onReveal(tab.snapshotId)) }]),
+        ...(tab.view === 'settings' || tab.view === 'guide' || tab.view === 'diff' || tab.view === 'untitled' ? [] : [{ id: 'reveal', label: t('tabs.reveal'), run: () => (ws.roots[tab.snapshotId] && tab.path !== undefined ? onReveal(tab.snapshotId, tab.path) : onReveal(tab.snapshotId)) }]),
       ],
     })
   }

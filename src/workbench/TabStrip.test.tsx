@@ -157,3 +157,73 @@ describe('TabStrip: two groups', () => {
     expect(dragging.get()).toBeNull()
   })
 })
+
+describe('TabStrip: comparing from the menu of a tab', () => {
+  const root = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const file = (path: string): Action => ({ type: 'open-file', snapshotId: 'r1', path, keep: true, size: 10 })
+  const side = { rootId: 'r1', path: 'a.txt' }
+  function showWith(ws: Workspace, selected: { rootId: string; path: string } | null) {
+    const compare = { selected, select: vi.fn(), with: vi.fn() }
+    render(
+      <I18nProvider language="en">
+        <TabStrip ws={ws} group={0} views={describeTabs(ws, translator('en'))} dispatch={vi.fn()} onCopy={vi.fn()} onReveal={vi.fn()} compare={compare} />
+      </I18nProvider>,
+    )
+    return compare
+  }
+  const items = () => screen.getAllByRole('menuitem').map((m) => m.textContent)
+
+  it('a new text file is named Untitled-N, is chosen with Select for Compare, and has no metadata, source or reveal items', () => {
+    const ws = build({ type: 'root-opened', root }, file('a.txt'), { type: 'open-untitled' })
+    const compare = showWith(ws, null)
+    expect(screen.getByRole('tab', { name: /^Untitled-1/ })).toBeTruthy()
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /^Untitled-1/ }))
+    expect(items()).toEqual(['Close', 'Close Others', 'Close to the Right', 'Close All', 'Pin', 'Split Right', 'Select for Compare', 'Compare with Selected'])
+    expect((screen.getByRole('menuitem', { name: 'Compare with Selected' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Select for Compare' }))
+    expect(compare.select).toHaveBeenCalledWith({ rootId: '@untitled', path: 'u:1' })
+  })
+
+  it('compares with what was selected, and not with itself', () => {
+    const ws = build({ type: 'root-opened', root }, file('a.txt'), { type: 'open-untitled' })
+    const compare = showWith(ws, side)
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /^Untitled-1/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Compare with Selected' }))
+    expect(compare.with).toHaveBeenCalledWith({ rootId: '@untitled', path: 'u:1' })
+    cleanup()
+    const same = showWith(ws, side)
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /^a\.txt/ }))
+    expect((screen.getByRole('menuitem', { name: 'Compare with Selected' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(same.with).not.toHaveBeenCalled()
+  })
+
+  it('a tab that is not a text (a picture) has no compare items', () => {
+    const ws = build({ type: 'root-opened', root }, file('pic.png'))
+    showWith(ws, null)
+    fireEvent.contextMenu(screen.getByRole('tab'))
+    expect(items()).not.toContain('Select for Compare')
+  })
+
+  it('a new text dropped on the middle of a text tab asks (and a text on the middle of a new text), but not on a picture', () => {
+    const ws = build({ type: 'root-opened', root }, file('a.txt'), file('pic.png'), { type: 'open-untitled' })
+    const onDropOnTab = vi.fn()
+    render(
+      <I18nProvider language="en">
+        <TabStrip ws={ws} group={0} views={describeTabs(ws, translator('en'))} dispatch={vi.fn()} onCopy={vi.fn()} onReveal={vi.fn()} onDropOnTab={onDropOnTab} />
+      </I18nProvider>,
+    )
+    const dropOn = (target: HTMLElement, key: string) => {
+      target.getBoundingClientRect = () => ({ left: 0, width: 100, top: 0, right: 100, bottom: 35, height: 35, x: 0, y: 0, toJSON: () => ({}) })
+      const event = createEvent.drop(target, { dataTransfer: { getData: (type: string) => (type === TAB_DRAG ? key : ''), types: [TAB_DRAG] } })
+      Object.defineProperty(event, 'clientX', { value: 50 })
+      fireEvent(target, event)
+    }
+    dropOn(screen.getByRole('tab', { name: /^a\.txt/ }), 'u:1')
+    expect(onDropOnTab).toHaveBeenLastCalledWith('u:1', 'f:r1:a.txt')
+    dropOn(screen.getByRole('tab', { name: /^Untitled-1/ }), 'f:r1:a.txt')
+    expect(onDropOnTab).toHaveBeenLastCalledWith('f:r1:a.txt', 'u:1')
+    onDropOnTab.mockClear()
+    dropOn(screen.getByRole('tab', { name: /^pic\.png/ }), 'u:1')
+    expect(onDropOnTab).not.toHaveBeenCalled()
+  })
+})

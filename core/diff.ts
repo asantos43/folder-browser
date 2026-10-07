@@ -6,6 +6,12 @@ export interface DiffSide {
   path: string
 }
 
+/** The `rootId` of a side that is a new text file that exists only in the window (Untitled-1): its `path` is the key of its tab. */
+export const UNTITLED_ROOT = '@untitled'
+/** The key of the tab of the new text file number `n`, and the number back from the key. */
+export const untitledKey = (n: number): string => `u:${n}`
+export const untitledNumber = (key: string): number => Number(key.slice(2))
+
 export type LineEnding = 'lf' | 'crlf' | 'cr'
 
 /**
