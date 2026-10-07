@@ -51,7 +51,8 @@ files…               themes/*.json, keymaps/*.json, locales/*.json, snippets/*
     "languages":  [],
     "openWith":   [],
     "commands":   [],
-    "locales":    []
+    "locales":    [],
+    "configuration": { "title": "Solarized", "properties": { "contrast": { "type": "enum", "values": ["low", "normal", "high"], "default": "normal", "label": "setting.contrast", "description": "setting.contrast.help" } } }
   },
   "activation": ["onTheme:solarized-dark"],   // when it is loaded; nothing is loaded at start
   "files": { "themes/dark.json": "sha256:9a1f…" }
@@ -74,6 +75,18 @@ A level 1 extension adds `"main": "worker.js"` or `"wasm"` entries, a list of **
 | `process` | **never**: a program is started only by a level 0 entry that the **application** runs after the user's confirmation, without a shell |
 
 An update that asks for **more** permissions is **not** applied silently: the user is shown the difference and must accept again.
+
+## 3b. Settings of an extension
+
+An extension can have **options the user sets**. They are **declared, not coded**: `contributes.configuration` in the manifest lists them, so the application can **show, search, validate, store and reset them without running a line of the extension's code** (no activation, no risk, no cost at start).
+
+- **Declared**: each property has an id (unique inside the extension; the full key is `<extension id>.<key>`), a **type** (`boolean`; `enum` with its values and a label for each; `number` with `min`, `max` and `step`; `string` with `maxLength`; `colour`; `list` of strings with `maxItems`; `key` (a key binding, checked against the reserved keys); `folder` or `file` (chosen with the application's own picker; the value is **held by the application** and the extension reaches it only through the broker, within the roots it was granted); `action` (a button that runs one of the extension's commands)), a **default**, a label and a description as **keys of its locale files** (text, never HTML), an optional `group`, `order`, `keywords` and `enabledWhen` (a plain comparison with another setting of the same extension: `"contrast == 'high'"`, no code), and flags: `scope` (`user` now, `folder` later), `reload` (the extension is restarted when it changes) and `sensitive` (see below).
+- **Shown in the Settings page** (the registry of "Settings" accepts contributions): **Settings ▸ Extensions ▸ <name>**, with the same search, the **modified** mark, **Reset** per option and **Reset all of this extension**, the same export and import (only the keys the manifest declares, each checked against its declaration), and a **Settings** button on the extension's card. A disabled extension's options are shown, greyed.
+- **Stored by the application**, in `settings.json` under `extensions.<id>` (never by the extension), **validated on every write and every read**: a value of the wrong type, out of range, longer than its limit or not among the enum's values is **refused**, and a stored value that no longer fits (after an update) falls back to the default with a notice. Limits in the schema: at most **100 properties** per extension, strings **4 KB**, lists **1,000 items**, a default of the declared type.
+- **Read by the extension** (level 1 and 2) through the broker: `settings.get(key)`, `settings.getAll()` and an event `settings.onChange` (**debounced**, batched, only the keys that changed); an extension can **read only its own** options and **cannot write them** except through a declared `action` or a UI of its own that asks the user (the value goes through the same validation). Level 0 contributions can **refer** to an option (`{setting:contrast}`) in a theme or a command's arguments; the application substitutes the **validated** value as **one argument**, never into a command string.
+- **Versions and updates**: a new version may add, rename (`"renamedFrom": "oldKey"`, declared) or remove options; unknown stored keys are dropped; a type that changed resets that option to its default; a **permission-relevant** option (one that widens what the extension may reach, such as a folder to read) is **never kept silently** across an update that changes it, and **never applied from an imported settings file** without the user's confirmation.
+- **Safety rules**: values are **data** (rendered as text, never as HTML or evaluated); there are **no regular-expression patterns** in version 1 (a pattern is a way to hang the page; presets such as `format: "identifier"` come later); an extension **cannot add a setting to another's group** or to the application's own pages; **no secrets**: a `sensitive` option (a token) is **not offered in version 1**, and when a network permission exists it will be kept with the system's key store (Electron's `safeStorage`), never in `settings.json`, never exported; **uninstalling asks** whether to keep or delete the extension's settings and data.
+- **Performance**: the options are compiled into the settings registry **at install**, the page lists them with **no extension code running**, reads are an O(1) lookup of a cached value, changes are batched, and a page with many extensions stays one frame to open and to filter.
 
 ## 4. Where an extension lives and how it runs
 
@@ -182,6 +195,7 @@ packages are release assets of the extension's own repository or of the catalog'
 | A compromised publisher key | the signed blocklist disables it; keys are per publisher, so one leak is bounded |
 | Typosquatting, impersonation, a look-alike name | the namespace rule, a visible publisher fingerprint, "Reviewed" shown only for catalog entries |
 | An update that adds permissions | refused until accepted again, with the difference shown |
+| A setting used to attack: a huge default, a million-item list, a hostile string shown as HTML, a regular expression that hangs the page, a `folder` that points outside the roots, a value that widens permissions slipped in by an import or an update | declared and bounded in the schema, validated on every write and read, rendered as text, no patterns in version 1, folders held by the application and read only through the broker's grants, permission-relevant options need the user's confirmation |
 | An extension that reads files it should not | the broker only, per-root grants, `resolveInside`, a read-only copy of the extension, an activity log; for level 2 also Node's permission allow-list |
 | A level 2 extension that starts programs, loads native code or opens sockets | restricted mode denies child processes, native addons and the network at the process level; unrestricted mode needs the typed confirmation, a signature and a status-bar mark, and is never reviewed without its source being read |
 | A level 2 extension installed by trickery (a dropped file, an imported settings file, a link) | it cannot be enabled unless the setting is on, and the install needs the confirmation each time; a settings import never changes that setting |
