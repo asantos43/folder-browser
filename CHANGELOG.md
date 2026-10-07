@@ -8,6 +8,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+### Fixed
+
+- **The text selected in an editor was unreadable in the dark theme**: CodeMirror's own rule for the selection of an editor with the focus (a pale lilac, `#d7d4f0`) is more specific than ours and won over the theme's colour, so pale text sat on a pale background. The selection is now the theme's (`--wsnp-selection`: blue in Dark+, light blue in Light+), with the focus and without it; `e2e/edit.spec.ts` checks the colour in both themes. Every other text the interface shows (the formatted Markdown, the user guide, the fields) has the theme's selection colour too (`::selection` in `index.css`, the browser's own blue was not the theme's), and `e2e/selection.spec.ts` measures the selection in the editor, the read-only view, the diff (side by side and inline), the formatted Markdown and the guide, in both themes.
+
 ## [0.1.2] - 2026-10-07
 
 ### About this release

@@ -54,7 +54,9 @@ const theme = EditorView.theme({
   '.cm-lineNumbers .cm-gutterElement': { padding: '0 12px 0 20px', minWidth: '48px' },
   '.cm-activeLine': { backgroundColor: v('line-highlight') },
   '.cm-activeLineGutter': { backgroundColor: 'transparent', color: v('line-number-active') },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, .cm-content ::selection': { backgroundColor: v('selection') },
+  // The selection of the theme. CodeMirror's own rule for an editor with the focus (`&light.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`, a pale lilac #d7d4f0)
+  // is more specific than a plain `.cm-selectionBackground`, and it won in the dark theme: pale text on a pale selection. This one is as specific, and has `.cm-editor` besides.
+  '&.cm-editor .cm-selectionBackground, &.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-content ::selection': { backgroundColor: v('selection') },
   '.cm-wsnpMatch': { backgroundColor: v('find-match') },
   '.cm-wsnpMatch-current': { backgroundColor: v('find-current'), outline: '1px solid var(--vscode-focusBorder)' },
   '&.cm-focused .cm-matchingBracket': { backgroundColor: v('match-bracket'), outline: '1px solid var(--vscode-editorGroup-border)' },

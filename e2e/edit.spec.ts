@@ -215,3 +215,33 @@ test('a middle click on a tab (to close it) does not paste the selection of the 
   await expect(editor(page)).not.toContainText('PASTED')
   await expect(tab(page, 'a.txt')).not.toContainText('Modified')
 })
+
+test('the selection has the colour of the theme in both themes, with the focus in the editor and without it (CodeMirror\'s own pale lilac made the selected text unreadable in the dark theme)', async () => {
+  const page = await launch(work)
+  await open(page, 'a.txt')
+  for (const theme of ['Dark+', 'Light+']) {
+    await page.getByRole('button', { name: 'Manage' }).click()
+    await page.getByRole('menuitemcheckbox', { name: theme }).click()
+    await editor(page).click()
+    await page.keyboard.press('ControlOrMeta+a')
+    await expect(page.locator('.cm-selectionBackground').first()).toBeVisible()
+    const colours = () =>
+      page.evaluate(() => {
+        const probe = document.createElement('div')
+        probe.style.backgroundColor = 'var(--wsnp-selection)'
+        document.body.append(probe)
+        const wanted = getComputedStyle(probe).backgroundColor
+        probe.remove()
+        const layer = document.querySelector('.cm-selectionBackground')
+        return { wanted, got: layer ? getComputedStyle(layer).backgroundColor : null }
+      })
+    const focused = await colours()
+    // (The two themes have two colours: the one asked for is the theme's own.)
+    expect(focused.wanted, theme).toBe(theme === 'Dark+' ? 'rgb(38, 79, 120)' : 'rgb(173, 214, 255)')
+    expect(focused.got, `${theme}, focused`).toBe(focused.wanted)
+    // Without the focus (the file tree has it) the selection stays, in the same colour.
+    await item(page, 'b.txt').focus()
+    const blurred = await colours()
+    expect(blurred.got, `${theme}, not focused`).toBe(blurred.wanted)
+  }
+})
