@@ -208,7 +208,9 @@ test('a move onto a name that is taken is refused, and both files are as they we
   // A move onto a name that is taken is refused, and both files are as they were.
   fs.writeFileSync(onDisk('docs', 'a.txt'), 'other a')
   await item(page, 'docs').click()
-  await item(page, 'a.txt').first().dragTo(item(page, 'docs'))
+  // (docs lists its own a.txt first, once it is read: the one to drag is the a.txt of the root, the last of the two. Taking `first()` before that was read made the test depend on how fast it was.)
+  await expect(item(page, 'a.txt')).toHaveCount(2)
+  await item(page, 'a.txt').last().dragTo(item(page, 'docs'))
   await expect(page.getByText(/Could not move a\.txt/)).toBeVisible()
   expect(fs.readFileSync(onDisk('a.txt'), 'utf8')).toBe('the words of a')
   expect(fs.readFileSync(onDisk('docs', 'a.txt'), 'utf8')).toBe('other a')
