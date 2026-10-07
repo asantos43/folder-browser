@@ -29,7 +29,57 @@ function loadPdfjs(): Promise<Pdfjs> {
   return library
 }
 
-type Load = { state: 'loading' } | { state: 'ready'; doc: PDFDocumentProxy; pdfjs: Pdfjs } | { state: 'protected' } | { state: 'broken' }
+/** `password`: the document asks for one (`wrong`: the one given was not it; `busy`: it is being tried) and goes on when `submit` is given one. */
+type Load = { state: 'loading' } | { state: 'ready'; doc: PDFDocumentProxy; pdfjs: Pdfjs } | { state: 'password'; wrong: boolean; busy: boolean; submit: (password: string) => void } | { state: 'broken' }
+
+/** What pdf.js says when it asks for a password (`PasswordResponses`): 1 the file needs one, 2 the one given is not right. */
+const INCORRECT_PASSWORD = 2
+
+/** The box that asks for the password of a PDF: it is outside the scroll area, whose keys (`+`, `-`, `0`) zoom the PDF and must not take a password's characters. */
+function PasswordForm({ wrong, busy, onSubmit }: { wrong: boolean; busy: boolean; onSubmit: (password: string) => void }) {
+  const { t } = useI18n()
+  const [password, setPassword] = useState('')
+  const field = useRef<HTMLInputElement>(null)
+  // A wrong password is asked for again: the field is emptied and has the focus.
+  useEffect(() => {
+    if (!busy) {
+      setPassword('')
+      field.current?.focus()
+    }
+  }, [busy, wrong])
+  return (
+    <form
+      className="m-4 flex max-w-[420px] flex-col gap-2 text-[13px] text-fg"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (password && !busy) onSubmit(password)
+      }}
+    >
+      <p className="m-0">{t('pdf.passwordNeeded')}</p>
+      <div className="flex items-center gap-2">
+        <input
+          ref={field}
+          type="password"
+          autoComplete="off"
+          aria-label={t('pdf.password')}
+          aria-invalid={wrong}
+          disabled={busy}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="h-[26px] min-w-0 flex-1 rounded-sm border border-group-border bg-editor px-1 text-[13px] text-fg outline-none focus-visible:outline-1 focus-visible:outline-focus"
+        />
+        <button type="submit" disabled={busy || !password} className="h-[26px] rounded-sm bg-button px-3 text-button-fg hover:bg-button-hover disabled:opacity-40">
+          {t('pdf.passwordOpen')}
+        </button>
+      </div>
+      {wrong && !busy ? (
+        <p role="alert" className="m-0 text-error">
+          {t('pdf.passwordWrong')}
+        </p>
+      ) : null}
+    </form>
+  )
+}
 
 /** Draws one page when it is near the window, and lets go of it when it is far: a long PDF stays light. */
 function PdfPage({ pdfjs, doc, number, size, scale, root }: { pdfjs: Pdfjs; doc: PDFDocumentProxy; number: number; size: Size; scale: number; root: RefObject<HTMLElement | null> }) {
@@ -132,6 +182,12 @@ export function PdfView({ id, bytes, name, onSave }: { id: string; bytes: Uint8A
         disableAutoFetch: true,
       })
       task = loading
+      // A PDF with a password: the person is asked for it, and the document goes on with what they give (a wrong one asks again). The password is kept nowhere: it is used and let go.
+      loading.onPassword = (submit: (password: string) => void, reason: number) => {
+        if (!alive) return
+        const again = reason === INCORRECT_PASSWORD
+        setLoad({ state: 'password', wrong: again, busy: false, submit: (password) => (setLoad({ state: 'password', wrong: again, busy: true, submit }), submit(password)) })
+      }
       const doc = await loading.promise
       if (!alive) return
       const first = await doc.getPage(1)
@@ -144,7 +200,7 @@ export function PdfView({ id, bytes, name, onSave }: { id: string; bytes: Uint8A
         all.push({ width: v.width, height: v.height })
         if (n % 25 === 0 || n === doc.numPages) setSizes([...all])
       }
-    })().catch((err: unknown) => alive && setLoad({ state: (err as { name?: string })?.name === 'PasswordException' ? 'protected' : 'broken' }))
+    })().catch(() => alive && setLoad({ state: 'broken' }))
     return () => {
       alive = false
       void task?.destroy().catch(() => {})
@@ -217,7 +273,7 @@ export function PdfView({ id, bytes, name, onSave }: { id: string; bytes: Uint8A
     setTyped(null)
   }
 
-  const failed = load.state === 'protected' || load.state === 'broken'
+  const failed = load.state === 'broken'
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <Toolbar>
@@ -243,9 +299,10 @@ export function PdfView({ id, bytes, name, onSave }: { id: string; bytes: Uint8A
         <Separator />
         <SaveButton label={t('file.saveAs')} onClick={onSave} />
       </Toolbar>
+      {load.state === 'password' ? <PasswordForm wrong={load.wrong} busy={load.busy} onSubmit={load.submit} /> : null}
       <div ref={scroller} tabIndex={0} aria-label={name} onScroll={onScroll} onWheel={onWheel} onKeyDown={onKeyDown} className="relative min-h-0 flex-1 overflow-auto bg-sidebar p-4 outline-none">
         {load.state === 'loading' ? <p className="m-0 text-fg-muted">{t('pdf.loading')}</p> : null}
-        {failed ? <p className="m-0 text-fg-muted">{t(load.state === 'protected' ? 'pdf.protected' : 'pdf.broken')}</p> : null}
+        {failed ? <p className="m-0 text-fg-muted">{t('pdf.broken')}</p> : null}
         {load.state === 'ready'
           ? Array.from({ length: pages }, (_, i) => <PdfPage key={i} pdfjs={load.pdfjs} doc={load.doc} number={i + 1} size={sizeOf(i + 1)} scale={scale} root={scroller} />)
           : null}
