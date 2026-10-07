@@ -198,3 +198,30 @@ packages are release assets of the extension's own repository or of the catalog'
 ## 8. What it does not do (version 1)
 
 A network permission and writing files for **level 1** (level 2 has them, with its own safeguards, in phase 4), starting programs from level 1 code, dependencies between extensions, accounts, payments, ratings or comments, telemetry, automatic updates, installing from a URL typed by the user. **Level 2 is planned (phase 4), not part of the first versions.**
+
+## 9. First-party extensions: the application builds its own complex features on the same model
+
+The most complex items of `TODO.md` (a 7z or tar reader, an audio decoder, subtitle rendering, image codecs, metadata readers, a SQLite viewer, a Git view, a duplicates finder, the playlists' formats) are **built as extensions**, not as code in the core, when they fit. Reasons: the **core stays small and fast** (a smaller installer, nothing loaded at start: the performance rule); **risky parsers run in a box** (the riskiest code is isolated, and a bug in a 7z reader cannot reach the application's files); a **dependency with another licence** (7-Zip is LGPL, a decoder may be GPL) stays **out of the core's licence** and in an extension of its own; a feature can be **installed, disabled or revoked** without a new release; and the API is **proved by real use** (a point is added to the API only when a built-in feature needs it).
+
+**The rule of thumb.** *Core* when it is a security boundary (the roots, safe writes, the broker itself), a safety net (Local History), the performance-critical interface (the tree, the tabs, the editors, the hex view) or the foundation others stand on (settings, commands, keys). *Extension* when it is a **reader, writer, codec, viewer, tool or panel**, it can work through the broker's API, it pulls a heavy or differently-licensed dependency, or it is not needed on the first run.
+
+**Built in, or from the catalog.** A first-party extension is **signed by the project** and either **ships inside the installer** (enabled by default, marked *Built in*, can be turned off; for what nearly everyone needs) or is an **Official** entry of the catalog (installed on demand, for what is large or rare, such as a 7z engine or an audio decoder). The user can see and disable either kind in the same Extensions page, and the same revocation applies.
+
+**Extension-shaped before the extension system exists.** The near-term items must not wait. Until the extension points are real, such a feature is written **as if it were an extension**: its own folder (`extensions/<id>/` with a `plugin.json` that already says its level and permissions), its code reaching the application **only through an internal host interface shaped like the future broker** (typed calls, no imports of the application's internals), its data in its own folder, its dependencies bundled with it, and its tests running against a **fake host**. Moving it into the box later is then a build step, not a rewrite.
+
+See "Extension-first" in `TODO.md` for which item goes where.
+
+## 10. The authoring guide (to write once the first phases are implemented)
+
+`docs/EXTENSIONS.md` is the one document a programmer **or an AI agent** reads to make an extension that installs, passes review and cannot harm the user. It is written **after** phases 1 to 3 exist (it describes what is built, never what is hoped), kept in step with the `api` version, and checked by tests so it cannot drift. It is written for a reader that **cannot ask questions**: complete, exact, with examples that run.
+
+- **Start here**: what an extension is, the three levels and how to choose, what is not possible and why, the trust labels, the five-minute path (`fb-extension init`, edit, `validate`, `pack`, install from file).
+- **The manifest, field by field**: every key, its type and limits, a worked example per contribution point, and the **JSON Schema** files (`docs/schema/*.json`) that the validator and the catalog use, so a tool can read them directly.
+- **The host API reference** for each level: every method, its parameters and results, errors with **stable codes**, permissions it needs, limits and quotas, and a runnable example; generated from the same TypeScript types the application uses, so it cannot drift.
+- **Recipes**: a theme, a key scheme, a language pack, an Open With command, a command that transforms the selected text, a viewer for a file type, a converter in WebAssembly, a metadata reader, a panel; and for level 2 a restricted tool and its permissions.
+- **Security rules the extension must follow, and what the host enforces**: no network, no HTML from data, strings are text, the reserved keys, the quotas, what is logged; the threat model's table written as a checklist an author can run through.
+- **Testing**: a **test host** (`fb-extension test`: a fake broker with fixtures, a virtual file system and a clock) that runs an extension's tests with no application, **performance budgets** for the extension (activation time, memory, call latency) and how to measure them.
+- **Publishing**: the pull request flow to the catalog, signing, versions and the `engines` range, how a review works and how long it takes, how to take a version down, key rotation, the policy.
+- **For agents**: a short **`AGENTS.md`** at the template's root and a `llms.txt`-style index of the guide (what to read first, the commands to run, the definition of done), **machine-readable output** from every `fb-extension` command (`--json`, stable error codes with a one-line fix each), a **conformance checklist** that the catalog's CI runs and an agent can run first, and a rule written down: *never* ask for a permission the extension does not use, *never* fetch or evaluate code at run time, and **stop and ask the person** before publishing.
+- **Templates**: one repository template per kind (theme, keymap, language, command, viewer, WebAssembly converter, process tool), each with its tests, a `README`, the `AGENTS.md` and a release workflow that builds, packs and signs reproducibly.
+
