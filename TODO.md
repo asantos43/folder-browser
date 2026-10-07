@@ -164,6 +164,11 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [ ] Sign the files (Windows code signing, macOS Developer ID and notarisation, GPG for the `.deb` and `.rpm`): `docs/RELEASING.md`, "Signing"
 - [ ] Mark v0.1.0 and v0.1.1 as superseded on their release pages
 
+## A new text in the window (after 0.1.2)
+- [x] File ▸ New Text File (`Ctrl+N`): an Untitled-N tab with its text only in the window; Save As…; asks before it closes; compared (Select for Compare / Compare with Selected on a tab) or put beside a file (Split Right)
+- [x] Drag a new text's tab onto the middle of a file's tab or editor (the compare / side by side question of two texts), and a file of the tree onto it; kept for the next start (a draft)
+- [ ] A language for a new text (today plain text)
+
 ## Passwords
 - [x] A PDF with a password asks for it (pdf.js `onPassword`)
 - [ ] A ZIP with a password (ZIP-level encryption: traditional ZipCrypto and WinZip AES): today its entries are listed as protected and cannot be opened, and the ZIP is read-only (`core/archive/reader.ts` and `core/zip.ts` refuse them; yauzl does not decrypt, so it needs a decryptor for the entry's stream, a password box like the PDF's, and `core/archive/edit.ts` must keep the encrypted entries as they are when it writes the ZIP back)

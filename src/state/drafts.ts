@@ -1,5 +1,6 @@
 import type { FbApi } from '@core/api.ts'
 import { draftOf, hasBuffer } from './buffers.ts'
+import { UNTITLED_ROOT } from '@core/diff.ts'
 import type { Workspace } from './workspace.ts'
 
 /**
@@ -61,7 +62,8 @@ export function syncDrafts(api: Pick<FbApi, 'drafts'>, ws: Workspace): void {
   for (const key of Object.keys(ws.dirty)) {
     if (known.has(key)) continue
     const tab = ws.tabs.find((candidate) => candidate.key === key)
-    if (tab?.path !== undefined && hasBuffer(key)) touchDraft(api, key, tab.snapshotId, tab.path)
+    if (tab?.view === 'untitled' && hasBuffer(key)) touchDraft(api, key, UNTITLED_ROOT, key)
+    else if (tab?.path !== undefined && hasBuffer(key)) touchDraft(api, key, tab.snapshotId, tab.path)
   }
 }
 

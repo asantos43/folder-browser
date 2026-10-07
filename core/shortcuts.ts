@@ -7,7 +7,7 @@ export interface KeyLike {
   alt?: boolean
 }
 
-export type CommandName = 'toggleSideBar' | 'openFile' | 'openFolder' | 'openZip' | 'openGuide' | 'toggleHidden' | 'find' | 'print' | 'quickOpen' | 'commandPalette' | 'goBack' | 'goForward' | 'openSettings' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'closeEditor' | 'save' | 'saveAll' | 'nextEditor' | 'previousEditor' | 'cycleRecent' | 'cycleRecentBack' | 'goToTab1' | 'goToTab2' | 'goToTab3' | 'goToTab4' | 'goToTab5' | 'goToTab6' | 'goToTab7' | 'goToTab8' | 'goToTab9'
+export type CommandName = 'newFile' | 'toggleSideBar' | 'openFile' | 'openFolder' | 'openZip' | 'openGuide' | 'toggleHidden' | 'find' | 'print' | 'quickOpen' | 'commandPalette' | 'goBack' | 'goForward' | 'openSettings' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'closeEditor' | 'save' | 'saveAll' | 'nextEditor' | 'previousEditor' | 'cycleRecent' | 'cycleRecentBack' | 'goToTab1' | 'goToTab2' | 'goToTab3' | 'goToTab4' | 'goToTab5' | 'goToTab6' | 'goToTab7' | 'goToTab8' | 'goToTab9'
 
 /**
  * VS Code's shortcuts for the commands the viewer has (docs/UI-DESIGN.md, "Behaviour taken from VS Code"): Ctrl on Windows
@@ -31,6 +31,7 @@ export function commandFor(e: KeyLike, mac: boolean): CommandName | null {
       if (key === ',') return 'openSettings'
       if (key === 'b') return 'toggleSideBar'
       if (key === 'o') return 'openFile'
+      if (key === 'n') return 'newFile'
       // Show or hide the hidden files, as a file manager's Ctrl+H does.
       if (key === 'h') return 'toggleHidden'
       if (key === 'f') return 'find'

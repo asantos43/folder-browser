@@ -122,11 +122,21 @@ A CSV or TSV file opens as a **table** (**Table / Text** in the toolbar switch t
 - **Edit cells** (a file of a folder): click a cell and press `Enter`, `F2` or just type; double click does the same. `Enter` keeps the text and goes down, `Tab` keeps it and goes right, `Esc` gives up, `Alt+Enter` starts a new line in the cell. `Delete` empties the cell. The header's names are edited the same way. **Add Row**, **Delete Row**, **Add Column** and **Delete Column** (the toolbar, or the right-click menu of a cell) work on the selected cell; `Ctrl+Z` and `Ctrl+Y` undo and redo, one action at a time.
 - A cell you edit is a change of **the file's text**, exactly at that cell: everything else stays byte for byte as it was (quotes, line endings, the byte order mark); a value that needs quotes gets them. So the dot on the tab, **Save** (`Ctrl+S`), the check against a file that changed on disk, and the changes kept for the next start are the text editor's, and the **Text** button shows the same text. A file with more rows or columns than are drawn, a file in a ZIP or a snapshot, and the result of a query are only looked at.
 
+## A new text, only in the window
+
+**File ▸ New Text File** (`Ctrl+N`, `⌘N` on macOS) opens an empty tab, **Untitled-1**, that exists only in the window: nothing is written anywhere. It is made to hold a piece of text you copied from a file, so that you can compare it with another file or keep it beside one:
+
+1. Copy the text in any file (or anywhere else) and paste it into the new tab (`Ctrl+V`).
+2. **Compare it:** right-click the tab and choose **Select for Compare**, then right-click a text file in the tree (or the tab of another text) and choose **Compare with Selected**. It also works the other way round: select the file first, then use **Compare with Selected** in the menu of the new tab. The comparison reads the text as it is when you choose it; if you change the text afterwards, open the comparison again.
+3. **Put it beside a file, or compare, by dragging:** drag the tab onto the **middle** of another text's tab (or onto the middle of the editor that shows it) and choose **Open Side by Side** or **Compare (Diff)**; a text file of the tree dropped on the new text's tab asks the same. Or right-click the tab and choose **Split Right**, or drag it to the side of the editor.
+
+A new text has Word Wrap and the zoom of any text, and **Save As…** (or `Ctrl+S`) writes it to a file of your choice; the tab stays a new text after that, and is clean. A tab that has text asks before it closes (an empty one closes at once). Like the changes of a file, the text is **kept for the next start** (the setting that keeps unsaved changes governs it): the window closes without asking, and the tab comes back with its number and its text, still not saved. Closing the tab also closes the comparisons that have it. Several can be open (**Untitled-2**, …).
+
 ## Comparing two text files
 
 ![Two files side by side, the changes marked and counted](images/diff.png)
 
-Right-click a text file in the tree and choose **Select for Compare**, then right-click another and choose **Compare with Selected**: the two open in one tab, `a.txt ↔ b.txt`, the first as the left side. Either may be a file of a folder or an entry of a ZIP (also inside another ZIP), of the same open folder or of two different ones; the choice stays, so more files can be compared with the same first one. Only a text of up to 5 MB in UTF-8 can be compared; anything else is refused with its name and the reason.
+Right-click a text file in the tree and choose **Select for Compare**, then right-click another and choose **Compare with Selected**: the two open in one tab, `a.txt ↔ b.txt`, the first as the left side. Either may be a file of a folder or an entry of a ZIP (also inside another ZIP), of the same open folder or of two different ones; the choice stays, so more files can be compared with the same first one. The menu of a **tab** of a text has the same two items, and so has a [new text](#a-new-text-only-in-the-window). Only a text of up to 5 MB in UTF-8 can be compared; anything else is refused with its name and the reason.
 
 - **Side by Side** and **Inline** (one column, the removed lines above the added ones) switch the layout; the choice is kept. The colours of each file's language are kept, removed lines are red, added ones green, and the words that changed inside a line are marked more strongly.
 - The toolbar says how many changes there are. **Previous Change** and **Next Change** (`Shift+F7`, `F7`) go from one to the next; **Swap Sides** turns the two round.
@@ -182,6 +192,7 @@ The file is checked when it opens, and again in the background: its **structure*
 
 | Action | Windows, Linux | macOS |
 | --- | --- | --- |
+| New text file (only in the window) | `Ctrl+N` | `⌘N` |
 | Open Folder / Open File | `Ctrl+Shift+O` / `Ctrl+O` | `⇧⌘O` / `⌘O` |
 | Show hidden files | `Ctrl+H` | `⌘H` |
 | Rename / Delete the item in the tree | `F2` / `Delete` | `F2` / `Delete` |
