@@ -175,13 +175,21 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [ ] Change or remove a PDF's password: pdf.js only reads (it cannot write a PDF with other encryption), so this needs another library or a tool such as qpdf
 
 ## Image editing (a simple Paint, after 0.1.3)
-Idea, not started: the features of the Paint of Windows 7/8, with no layers, but with undo and redo, and **built for speed as much as for features**. A canvas 2D editor in the interface (no heavy library), saving through the existing `saveBytes` (temporary file, rename, version check) and Save As. Formats edited: PNG, JPEG, BMP, WebP (GIF and ICO stay read-only: frames and sizes would be lost); JPEG warns about the loss at each save and offers Save as PNG; EXIF rotation is applied on opening, metadata is lost on saving (say so).
+Idea, not started: the features of the Paint of Windows 7/8, with no layers, but with undo and redo, and **built for speed as much as for features**. A canvas 2D editor in the interface (no heavy library), saving through the existing `saveBytes` (temporary file, rename, version check) and Save As. **Every common raster format is edited** (see "Formats" below), each through a decoder and an encoder behind one interface, so the editor itself works on one RGBA bitmap whatever the file was; a loss that saving in a format causes is said in plain words before it happens (JPEG: quality, no transparency; GIF: 256 colours; BMP: no transparency; EXIF is dropped), with Save As to another format one click away.
 
 Phase A: the editor
 - [ ] **Edit** on the toolbar of an image; pencil/freeform, brush with a line width, eraser, colour picker, fill bucket, colours and a palette
 - [ ] Line, rectangle, rounded rectangle, ellipse, each empty, filled or both, with a line width; Shift for a square or a circle
 - [ ] Undo and redo (`Ctrl+Z`, `Ctrl+Shift+Z`/`Ctrl+Y`), the tab's dirty mark, a draft for the next start like the other editors, Save, Save As
-- [ ] A new image (File ▸ New Image, `Ctrl+Shift+N`; a size, a background) that exists only in the window until saved, like a new text
+- [ ] **A new image** (File ▸ New Image, `Ctrl+Shift+N`): a dialog for the size (pixels, with a few presets: icon sizes, 800 × 600, 1920 × 1080, the size of the image on the clipboard), the background (transparent, white or a colour) and the format it will be saved as; it exists only in the window, like a new text (kept between starts as a draft), until Save As gives it a file
+
+Formats (Phase A reads and writes the first four; the rest follow, each its own item)
+- [ ] PNG, JPEG, WebP: decoded with `createImageBitmap`, encoded by the canvas (`convertToBlob`), with a quality slider for JPEG and WebP and an alpha-aware choice (JPEG has none: flatten on a colour, said before saving)
+- [ ] BMP: decoded by the browser, **encoded by a small encoder of our own** (24 and 32 bits; the canvas cannot write it)
+- [ ] GIF: a still GIF is edited and saved with a small encoder (an open-source one such as `gifenc`, with a palette made by quantisation and 1-bit transparency, a choice of colours/dithering); an **animated** GIF opens with its frames in a strip, so a frame is edited, frames are added, copied, removed and their delay set (this is a feature of its own, phase C), and until then saving an animated GIF as an edit says that the animation would be lost and offers Save As PNG of the shown frame
+- [ ] ICO (and `.cur`): our own reader and writer of the container (PNG or BMP entries), so each **size** of an icon is edited and a size can be added or removed (16, 32, 48, 64, 128, 256), not only the one the browser shows
+- [ ] AVIF (and HEIC if a decoder with a licence we can ship exists): read, edit, saved as PNG or WebP (the canvas cannot write AVIF; an encoder in WebAssembly such as `libavif` is heavy: only if asked); TIFF: a small decoder (`utif`) to read, saved as PNG; SVG stays a text file (the text editor), not a picture to paint on
+- [ ] The decoders and encoders run in the worker (see Performance); a file whose decoder fails is shown as it is today, with the reason
 
 Phase B: selection and the clipboard
 - [ ] Rectangular and free-form selection; move it, crop to it, delete it; the selection floats until it is confirmed
