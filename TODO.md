@@ -164,6 +164,11 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [ ] Sign the files (Windows code signing, macOS Developer ID and notarisation, GPG for the `.deb` and `.rpm`): `docs/RELEASING.md`, "Signing"
 - [ ] Mark v0.1.0 and v0.1.1 as superseded on their release pages
 
+## Passwords
+- [x] A PDF with a password asks for it (pdf.js `onPassword`)
+- [ ] A ZIP with a password (ZIP-level encryption: traditional ZipCrypto and WinZip AES): today its entries are listed as protected and cannot be opened, and the ZIP is read-only (`core/archive/reader.ts` and `core/zip.ts` refuse them; yauzl does not decrypt, so it needs a decryptor for the entry's stream, a password box like the PDF's, and `core/archive/edit.ts` must keep the encrypted entries as they are when it writes the ZIP back)
+- [ ] Change or remove a PDF's password: pdf.js only reads (it cannot write a PDF with other encryption), so this needs another library or a tool such as qpdf
+
 ## Ideas for later
 - Hidden attribute of Windows (today only names that start with a dot)
 - ZIP64 and other encodings than UTF-8

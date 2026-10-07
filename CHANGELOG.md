@@ -8,6 +8,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+### Added
+
+- **A PDF with a password asks for it.** `PdfView` answers pdf.js's `onPassword` with a field in the tab (outside the scroll area, so the zoom keys `+ - 0` can be typed in it): a wrong password asks again with a message, the right one draws the pages; the password is given to pdf.js and kept nowhere. This replaces the "this version cannot ask for its password" card. Tests: `PdfView` (with a stand-in for pdf.js), `e2e/pdfpassword.spec.ts` and `fixtures/pdf.ts` `makeEncryptedPdf` (a PDF with the standard security handler, RC4 128-bit, written from the specification and checked with the real pdf.js in `src/test/encryptedPdf.test.ts`).
+
 ### Changed
 
 - **The line between the Explorer and the editors has a colour of its own, and Settings choose it.** With the black Dark+ the line (which was only the difference between two greys) was gone. `--wsnp-divider` (`#3c3c3c` in Dark+, none in Light+) is what the sashes draw (`--separator-border`), between the Explorer and the editors and between two editor groups, and **Settings ▸ Divider Line Colour** takes another colour (kept on this computer, with a button to give the theme's colour back).
