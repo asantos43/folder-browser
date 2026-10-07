@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { KINDS, kindsOf } from './make-icns.mjs'
 
 // The picture of the application, on every system. electron-builder makes Windows' `.ico` and macOS's `.icns` from build/icon.png, and Linux
 // takes the pictures of build/icons as they are: the desktop's icon theme lists sizes only up to 512, so a lone 1024 × 1024 picture is never found
@@ -28,6 +29,25 @@ describe('the icon of the application', () => {
       expect([depth, colour], `${size}x${size}.png is 8-bit RGBA`).toEqual([8, 6])
     }
     expect(fs.readdirSync(path.join(root, 'build/icons')).sort()).toEqual(sizes.map((s) => `${s}x${s}.png`).sort())
+  })
+
+  it('has, for macOS, an .icns with every size (16 to 1024 pixels, and the ones at twice the density), each a PNG as big as its kind says', () => {
+    const bytes = fs.readFileSync(path.join(root, 'build/icon.icns'))
+    expect(kindsOf(bytes)).toEqual(KINDS.map(([kind]) => kind))
+    let at = 8
+    for (const [kind, size] of KINDS) {
+      const length = bytes.readUInt32BE(at + 4)
+      const picture = bytes.subarray(at + 8, at + length)
+      expect(picture.subarray(1, 4).toString(), `${kind} is a PNG`).toBe('PNG')
+      expect([picture.readUInt32BE(16), picture.readUInt32BE(20)], kind).toEqual([size, size])
+      at += length
+    }
+  })
+
+  it('is given to electron-builder for macOS as that .icns, and for Linux as the folder of pictures', () => {
+    const config = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).build
+    expect(config.mac.icon).toBe('build/icon.icns')
+    expect(config.linux.icon).toBe('build/icons')
   })
 
   it('is given to electron-builder for Linux as that folder', () => {
