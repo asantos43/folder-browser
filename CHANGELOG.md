@@ -8,6 +8,12 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-07
+
+### About this release
+
+The same application as [0.1.0](https://github.com/asantos43/folder-browser/releases/tag/v0.1.0), whose notes say what Folder Browser does, with one fix for macOS (below). **0.1.1 is the first release with the macOS disk image** (`.dmg`): the unit tests of 0.1.0 failed on a Mac, so its `.dmg` could not be built. The Linux (`.deb`, `.rpm`) and Windows (`.exe`) files are built again from this version. Not signed: Windows and macOS warn on the first launch (the README says how to go on).
+
 ### Fixed
 
 - **On macOS, `core/fs/ops.ts` did not see a root that is (or is under) a symbolic link as containing what is in it** (the temporary folder is `/var`, a link to `/private/var`): moving or copying a folder into itself answered `failed` instead of `into-itself`. The application itself was not affected (it gives these functions the real path of the root), but the unit tests were run on a Mac for the first time by the `.dmg` workflow and failed there. The root is now resolved like everything else, and three tests use a root named through a link.
