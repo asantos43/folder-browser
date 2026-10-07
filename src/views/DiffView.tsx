@@ -1,12 +1,13 @@
 import { getChunks, goToNextChunk, goToPreviousChunk, MergeView, unifiedMergeView } from '@codemirror/merge'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { decodeSide, type DiffSide, type LineEnding } from '@core/diff.ts'
+import { decodeSide, UNTITLED_ROOT, untitledNumber, type DiffSide, type LineEnding } from '@core/diff.ts'
 import { languageOf } from '@core/filekind.ts'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import type { MessageKey } from '@/i18n/index.ts'
 import { basename } from '@/lib/format.ts'
+import { editorBuffers } from '@/state/editors.ts'
 import { diffCollapse, diffLayout, wordWrap } from '@/state/setting.ts'
 import { readOnlyExtensions, wrapping } from './codeTheme.ts'
 import { Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
@@ -26,7 +27,13 @@ interface Shown {
   editors: EditorView[]
 }
 
-async function readSide(side: DiffSide): Promise<{ ok: true; side: Loaded } | { ok: false; name: string; error: Extract<Load, { state: 'failed' }>['error'] }> {
+async function readSide(side: DiffSide, untitled: (n: number) => string): Promise<{ ok: true; side: Loaded } | { ok: false; name: string; error: Extract<Load, { state: 'failed' }>['error'] }> {
+  // A new text file that exists only in its tab: the text it has now (the comparison does not follow what is typed after it was opened).
+  if (side.rootId === UNTITLED_ROOT) {
+    const name = untitled(untitledNumber(side.path))
+    const buffer = editorBuffers.get(side.path)
+    return buffer ? { ok: true, side: { name, text: buffer.state.doc.toString(), eol: 'lf' } } : { ok: false, name, error: 'no-file' }
+  }
   const name = basename(side.path)
   const read = await window.fb?.readFile(side.rootId, side.path)
   if (!read) return { ok: false, name, error: 'no-snapshot' }
@@ -45,6 +52,7 @@ export function DiffView({ left, right, leftTitle, rightTitle, zoom = 1 }: { lef
   const layout = diffLayout.use()
   const collapse = diffCollapse.use()
   const wrap = wordWrap.use()
+  const untitled = (n: number) => t('tabs.untitled', { n })
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [swapped, setSwapped] = useState(false)
   const [changes, setChanges] = useState(0)
@@ -56,7 +64,7 @@ export function DiffView({ left, right, leftTitle, rightTitle, zoom = 1 }: { lef
   useEffect(() => {
     let alive = true
     setLoad({ state: 'loading' })
-    void Promise.all([readSide(left), readSide(right)]).then(([a, b]) => {
+    void Promise.all([readSide(left, untitled), readSide(right, untitled)]).then(([a, b]) => {
       if (!alive) return
       if (!a.ok) return setLoad({ state: 'failed', name: a.name, error: a.error })
       if (!b.ok) return setLoad({ state: 'failed', name: b.name, error: b.error })

@@ -14,19 +14,19 @@ import { groupView, invalidProblems, isHeldBack, isSnapshotTab, snapshotKey, typ
 import { FileView } from '@/views/FileView.tsx'
 import { DocumentView } from '@/views/DocumentView.tsx'
 import { DiffView } from '@/views/DiffView.tsx'
+import { UntitledView } from '@/views/UntitledView.tsx'
 import { GuideView } from '@/views/GuideView.tsx'
 import { MediaView } from '@/views/MediaView.tsx'
 import { MetadataView } from '@/views/MetadataView.tsx'
 import { SettingsView } from '@/views/SettingsView.tsx'
 import type { ThemeSetting } from '@/theme/theme.ts'
 import { Icon } from '@/components/Icon.tsx'
-import { basename } from '@/lib/format.ts'
-import { comparable } from '@core/diff.ts'
+import { comparable, untitledNumber, type DiffSide } from '@core/diff.ts'
 import { Breadcrumbs } from './Breadcrumbs.tsx'
 import { shortcut } from './commands.ts'
 import type { Signers } from './signature.ts'
 import { tabZoomOf } from '@/state/tabZoom.ts'
-import { describeTabs, isEditable, kindOf, sideLabel, snapshotTitle, sourceTitle } from './tabInfo.ts'
+import { describeTabs, isEditable, kindOf, sideLabel, sideName, snapshotTitle, sourceTitle } from './tabInfo.ts'
 import { draggedFile, dragging, FILE_DRAG, TAB_DRAG, type DraggedFile } from './dnd.ts'
 import { isTextTab, TabStrip } from './TabStrip.tsx'
 
@@ -34,7 +34,7 @@ import { isTextTab, TabStrip } from './TabStrip.tsx'
  * The editor group: the tab strip, the breadcrumbs and the area of the active tab. Every open snapshot keeps its `<iframe sandbox>`
  * (hidden while another tab shows), so its scroll and state stay as they were; a file tab shows the file.
  */
-export function EditorGroup({ group, onDropOnTab, onDropFileOnTab, onDropFile, zooms, onZoom, reloads, onSaveTab, onSaveBufferAs, onSaveBytesAs, onChanged, onRestored, onSaveConverted, onViewEntry, onNotify, find, onCloseFind, ws: wsAll, dispatch, onSaveFile, onOpenWith, onReveal, onCopy, onOpenExternal, signers, onTrust, onForget, theme, setTheme }: { /** Which of the two groups this is. */ group: GroupId; /** A tab was dropped on another tab, in the middle of it: the workbench asks what to do with the two. */ onDropOnTab: (dragged: string, target: string) => void; /** A file of the tree was dropped on a text tab (or on the middle of the editor that shows one): the workbench asks what to do with the two. */ onDropFileOnTab: (file: DraggedFile, target: string) => void; /** A file of the tree was dropped on the group: open it there. */ onDropFile: (file: DraggedFile, group: GroupId) => void; /** The zoom of each tab that has one. */ zooms: Readonly<Record<string, number>>; /** A text whose editor is made again (it was reloaded from the disk): the key of the tab and how many times. */ reloads: Readonly<Record<string, number>>; /** Saves the text of a tab to its file (the workbench says what went wrong). */ onSaveTab: (key: string) => void; onSaveBufferAs: (name: string, text: string, options: { eol: 'lf' | 'crlf' | 'cr'; bom: boolean }) => void; /** Save As of the bytes on screen. */ onSaveBytesAs: (name: string, bytes: Uint8Array) => void; /** A text has changes not saved, or has none now. */ onChanged: (key: string, changed: boolean) => void; /** Changes that were not saved came back from a draft. */ onRestored: (name: string) => void; /** The wheel or a zoom key over a document (a zoom of its tab). */ onZoom: (change: { wheel: number } | { direction: 'in' | 'out' | 'reset' }) => void; onSaveConverted: (snapshotId: string) => void; onViewEntry: (snapshotId: string, zipPath: string, entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; find: { open: boolean; token: number }; onCloseFind: () => void; theme: ThemeSetting; setTheme: (theme: ThemeSetting) => void; signers: Signers; onTrust: (fingerprint: string, name?: string) => void; onForget: (fingerprint: string) => void; ws: Workspace; dispatch: (a: Action) => void; onSaveFile: (snapshotId: string, path: string) => void; onOpenWith: (snapshotId: string, path: string) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; onOpenExternal: (url: string) => void }) {
+export function EditorGroup({ group, onDropOnTab, onDropFileOnTab, onDropFile, compare, zooms, onZoom, reloads, onSaveTab, onSaveBufferAs, onSaveBytesAs, onChanged, onRestored, onSaveConverted, onViewEntry, onNotify, find, onCloseFind, ws: wsAll, dispatch, onSaveFile, onOpenWith, onReveal, onCopy, onOpenExternal, signers, onTrust, onForget, theme, setTheme }: { /** Which of the two groups this is. */ group: GroupId; /** Select for Compare and Compare with Selected, in the menu of a tab. */ compare: { selected: DiffSide | null; select: (side: DiffSide) => void; with: (side: DiffSide) => void }; /** A tab was dropped on another tab, in the middle of it: the workbench asks what to do with the two. */ onDropOnTab: (dragged: string, target: string) => void; /** A file of the tree was dropped on a text tab (or on the middle of the editor that shows one): the workbench asks what to do with the two. */ onDropFileOnTab: (file: DraggedFile, target: string) => void; /** A file of the tree was dropped on the group: open it there. */ onDropFile: (file: DraggedFile, group: GroupId) => void; /** The zoom of each tab that has one. */ zooms: Readonly<Record<string, number>>; /** A text whose editor is made again (it was reloaded from the disk): the key of the tab and how many times. */ reloads: Readonly<Record<string, number>>; /** Saves the text of a tab to its file (the workbench says what went wrong). */ onSaveTab: (key: string) => void; onSaveBufferAs: (name: string, text: string, options: { eol: 'lf' | 'crlf' | 'cr'; bom: boolean }) => void; /** Save As of the bytes on screen. */ onSaveBytesAs: (name: string, bytes: Uint8Array) => void; /** A text has changes not saved, or has none now. */ onChanged: (key: string, changed: boolean) => void; /** Changes that were not saved came back from a draft. */ onRestored: (name: string) => void; /** The wheel or a zoom key over a document (a zoom of its tab). */ onZoom: (change: { wheel: number } | { direction: 'in' | 'out' | 'reset' }) => void; onSaveConverted: (snapshotId: string) => void; onViewEntry: (snapshotId: string, zipPath: string, entry: ZipEntryInfo) => void; onNotify: (notice: Notice) => void; find: { open: boolean; token: number }; onCloseFind: () => void; theme: ThemeSetting; setTheme: (theme: ThemeSetting) => void; signers: Signers; onTrust: (fingerprint: string, name?: string) => void; onForget: (fingerprint: string) => void; ws: Workspace; dispatch: (a: Action) => void; onSaveFile: (snapshotId: string, path: string) => void; onOpenWith: (snapshotId: string, path: string) => void; onReveal: (snapshotId: string, path?: string) => void; onCopy: (text: string) => void; onOpenExternal: (url: string) => void }) {
   const { t } = useI18n()
   // What this group shows: its own tabs, and the one in front of it as the active one.
   const ws = useMemo(() => groupView(wsAll, group), [wsAll, group])
@@ -43,7 +43,7 @@ export function EditorGroup({ group, onDropOnTab, onDropFileOnTab, onDropFile, z
   const active = ws.tabs.find((tab) => tab.key === ws.active)
   // The frames keep the order in which the snapshots were opened, whatever the order of the tabs: moving an iframe in the page reloads it.
   const frames = Object.keys(ws.snapshots).flatMap((id) => ws.tabs.filter((tab) => tab.snapshotId === id && isSnapshotTab(tab)))
-  const trail = active ? (active.view === 'settings' ? [t('settings.title')] : active.view === 'guide' ? [t('guide.title')] : active.view === 'diff' && active.diff ? [t('tabs.diffOf', { left: basename(active.diff.left.path), right: basename(active.diff.right.path) })] : [sourceTitle(ws, active.snapshotId), ...(active.view === 'metadata' ? [t('metadata.breadcrumb')] : active.path ? trailOf(active.path) : [])]) : []
+  const trail = active ? (active.view === 'settings' ? [t('settings.title')] : active.view === 'guide' ? [t('guide.title')] : active.view === 'untitled' ? [t('tabs.untitled', { n: untitledNumber(active.key) })] : active.view === 'diff' && active.diff ? [t('tabs.diffOf', { left: sideName(active.diff.left, t), right: sideName(active.diff.right, t) })] : [sourceTitle(ws, active.snapshotId), ...(active.view === 'metadata' ? [t('metadata.breadcrumb')] : active.path ? trailOf(active.path) : [])]) : []
   const fileTab = active?.path !== undefined ? active : undefined
   const metadataTab = active?.view === 'metadata' ? active : undefined
   const heldBack = active && isSnapshotTab(active) && isHeldBack(ws, active.snapshotId) ? active : undefined
@@ -77,7 +77,7 @@ export function EditorGroup({ group, onDropOnTab, onDropFileOnTab, onDropFile, z
   return (
     <GroupContext.Provider value={group}>
     <main aria-label={wsAll.tabs.some((tab) => tab.group === 1) ? t(group === 0 ? 'editor.leftGroup' : 'editor.rightGroup') : 'Editor'} data-group={group} onMouseDownCapture={() => !focused && ws.active !== null && dispatch({ type: 'activate', key: ws.active })} className="flex h-full min-w-0 flex-col bg-editor text-editor-fg">
-      <TabStrip ws={wsAll} group={group} views={views} dispatch={dispatch} onReveal={onReveal} onCopy={onCopy} onOpenWith={onOpenWith} onDropOnTab={onDropOnTab} onDropFileOnTab={onDropFileOnTab} onDropFile={onDropFile} />
+      <TabStrip ws={wsAll} group={group} views={views} dispatch={dispatch} onReveal={onReveal} onCopy={onCopy} onOpenWith={onOpenWith} onDropOnTab={onDropOnTab} onDropFileOnTab={onDropFileOnTab} onDropFile={onDropFile} compare={compare} />
       {active ? <Breadcrumbs trail={trail} /> : null}
       <div ref={area} className="relative flex min-h-0 flex-1 flex-col">
         {active && isSnapshotTab(active) && !heldBack && ws.snapshots[active.snapshotId]?.converted ? <ConvertedBar info={ws.snapshots[active.snapshotId].converted!} onSave={() => onSaveConverted(active.snapshotId)} /> : null}
@@ -100,7 +100,8 @@ export function EditorGroup({ group, onDropOnTab, onDropFileOnTab, onDropFile, z
           )
         })}
         {heldBack ? <Invalid ws={ws} id={heldBack.snapshotId} dispatch={dispatch} /> : null}
-        {active?.view === 'diff' && active.diff ? <DiffView key={active.key} left={active.diff.left} right={active.diff.right} leftTitle={sideLabel(ws, active.diff.left)} rightTitle={sideLabel(ws, active.diff.right)} zoom={tabZoomOf(zooms, active.key)} /> : null}
+        {active?.view === 'diff' && active.diff ? <DiffView key={active.key} left={active.diff.left} right={active.diff.right} leftTitle={sideLabel(ws, active.diff.left, t)} rightTitle={sideLabel(ws, active.diff.right, t)} zoom={tabZoomOf(zooms, active.key)} /> : null}
+        {active?.view === 'untitled' ? <UntitledView key={active.key} tabKey={active.key} zoom={tabZoomOf(zooms, active.key)} dirty={Boolean(ws.dirty[active.key])} onSave={() => onSaveTab(active.key)} onChanged={onChanged} /> : null}
         {active?.view === 'settings' ? <SettingsView theme={theme} setTheme={setTheme} /> : null}
         {active?.view === 'guide' ? <GuideView zoom={tabZoomOf(zooms, active.key)} /> : null}
         {metadataTab && ws.snapshots[metadataTab.snapshotId] ? (

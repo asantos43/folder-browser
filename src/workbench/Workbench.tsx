@@ -28,7 +28,9 @@ import { readFrameMessage, wheelSteps } from '@core/frameScript.ts'
 import { pruneZooms, stepTabZoom, tabZoomOf } from '@/state/tabZoom.ts'
 import { viewZoom } from '@/state/viewZoom.ts'
 import type { AppInfo } from '@core/api.ts'
-import type { DiffSide } from '@core/diff.ts'
+import { UNTITLED_ROOT, untitledNumber, type DiffSide } from '@core/diff.ts'
+import { sideName } from './tabInfo.ts'
+import { editorBuffers } from '@/state/editors.ts'
 import { innerPath, isInner, parentPath } from '@core/vpath.ts'
 import { fileTarget } from '@/find/types.ts'
 import { shownText } from '@/state/shown.ts'
@@ -459,6 +461,22 @@ export function Workbench() {
   const saveKey = useCallback(
     async (key: string, overwrite = false): Promise<boolean> => {
       const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
+      // A new text file has no file to write to: Save asks where (Save As), and the text is clean once it is written (the tab goes on being a new text, with the same name).
+      if (api && tab?.view === 'untitled') {
+        const buffer = editorBuffers.get(key)
+        if (!buffer) return false
+        const doc = buffer.state.doc
+        const name = `${t('tabs.untitled', { n: untitledNumber(key) })}.txt`
+        const result = await api.edit.saveAs(name, doc.toString(), { eol: 'lf', bom: false })
+        if (result.saved) {
+          buffer.saved = doc
+          rawDispatch({ type: 'dirty', key, dirty: bufferChanged(key) })
+          notify({ level: 'info', text: t('edit.saved', { name: basename(result.path) }) })
+          return true
+        }
+        if (result.reason === 'error') notify({ level: 'error', text: t('edit.saveFailed', { name, reason: result.message ?? t('edit.error.failed') }) })
+        return false
+      }
       if (!api || !tab || tab.path === undefined) return false
       const name = basename(tab.path)
       const result = await saveAnyBuffer(api, tab.snapshotId, tab.path, key, overwrite)
@@ -509,6 +527,11 @@ export function Workbench() {
     [api, notify, t],
   )
   const dirtyKeys = Object.keys(ws.dirty)
+  /** What a tab with changes is called in the questions: its file's name, or Untitled-1. */
+  const nameOfTab = (key: string): string => {
+    const tab = ws.tabs.find((candidate) => candidate.key === key)
+    return tab?.view === 'untitled' ? t('tabs.untitled', { n: untitledNumber(key) }) : basename(tab?.path ?? '')
+  }
   // The tabs with changes are counted for the window, which asks before it closes; and the text of a tab that is gone is let go.
   useEffect(() => {
     api?.setUnsaved(dirtyKeys.length)
@@ -525,7 +548,8 @@ export function Workbench() {
   useEffect(
     () =>
       api?.onCloseRequested(() => {
-        if (hotExit.get()) void flushDrafts(api).then(() => api.leave())
+        // A new text file is not kept for the next start: with one that has text, the window asks even when the changes of the files are kept.
+        if (hotExit.get() && !Object.keys(wsNow.current.dirty).some((key) => wsNow.current.tabs.find((tab) => tab.key === key)?.view === 'untitled')) void flushDrafts(api).then(() => api.leave())
         else setQuitAsk(true)
       }),
     [api],
@@ -562,6 +586,7 @@ export function Workbench() {
       if (command === 'openGuide') return dispatch({ type: 'open-guide' })
       if (command === 'showAbout') return void (api?.appInfo().then((info) => setAbout({ info })) ?? setAbout({ info: null }))
       if (command === 'zoomIn' || command === 'zoomOut' || command === 'zoomReset') return zoomTab(command === 'zoomIn' ? 1 : command === 'zoomOut' ? -1 : 0)
+      if (command === 'newFile') return dispatch({ type: 'open-untitled' })
       if (command === 'openFile') return void api?.openDialog().then(handleResults)
       if (command === 'openFolder') return void api?.openFolderDialog().then(handleResults)
       if (command === 'openZip') return void api?.openZipDialog().then(handleResults)
@@ -657,6 +682,7 @@ export function Workbench() {
       toggleSideBar,
       setTheme: setSetting,
       openFile: () => run('openFile'),
+      newFile: () => run('newFile'),
       openFolder: () => run('openFolder'),
       openZip: () => run('openZip'),
       toggleHidden: () => run('toggleHidden'),
@@ -831,7 +857,19 @@ export function Workbench() {
 
   const [compareChosen, setCompareChosen] = useState<DiffSide | null>(null)
   // (Closing the folder it is in forgets the choice.)
-  const compareSource = compareChosen && ws.roots[compareChosen.rootId] ? compareChosen : null
+  const compareSource = compareChosen && (compareChosen.rootId === UNTITLED_ROOT ? ws.tabs.some((tab) => tab.key === compareChosen.path) : ws.roots[compareChosen.rootId]) ? compareChosen : null
+  // The menu of a tab: a text file that is open, or a new text file, is chosen to be compared, or compared with the one chosen (the same choice as the tree's).
+  const tabCompare = useMemo(
+    () => ({
+      selected: compareSource,
+      select: (side: DiffSide) => {
+        setCompareChosen(side)
+        notify({ level: 'info', text: t('diff.selected', { name: sideName(side, t) }) })
+      },
+      with: (side: DiffSide) => compareSource && dispatch({ type: 'open-diff', left: compareSource, right: side }),
+    }),
+    [compareSource, notify, t, dispatch],
+  )
   const sideBarActions = useMemo(
     () => ({
       openFolder: () => run('openFolder'),
@@ -929,7 +967,7 @@ export function Workbench() {
   const dropFile = (file: DraggedFile, group: GroupId) => dispatch({ type: 'open-file', snapshotId: file.rootId, path: file.path, keep: true, size: file.size, group })
   /** One of the editor groups; both get the same props and each shows its own tabs. */
   const renderGroup = (group: GroupId) => (
-    <EditorGroup group={group} onDropOnTab={dropOnTab} onDropFileOnTab={dropFileOnTab} onDropFile={dropFile} reloads={reloads} onSaveTab={(key) => void saveKey(key)} onSaveBufferAs={saveBufferAs} onSaveBytesAs={saveBytesAs} onChanged={(key, changed) => {
+    <EditorGroup group={group} compare={tabCompare} onDropOnTab={dropOnTab} onDropFileOnTab={dropFileOnTab} onDropFile={dropFile} reloads={reloads} onSaveTab={(key) => void saveKey(key)} onSaveBufferAs={saveBufferAs} onSaveBytesAs={saveBytesAs} onChanged={(key, changed) => {
         rawDispatch({ type: 'dirty', key, dirty: changed })
         const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
         if (changed && api && tab?.path !== undefined) touchDraft(api, key, tab.snapshotId, tab.path)
@@ -1004,7 +1042,7 @@ export function Workbench() {
       {unsavedAsk ? (
         <ChoiceDialog
           title={t('edit.unsavedTitle')}
-          message={unsavedAsk.keys.length === 1 ? t('edit.unsavedOne', { name: basename(ws.tabs.find((tab) => tab.key === unsavedAsk.keys[0])?.path ?? '') }) : t('edit.unsavedMany', { count: unsavedAsk.keys.length })}
+          message={unsavedAsk.keys.length === 1 ? t('edit.unsavedOne', { name: nameOfTab(unsavedAsk.keys[0]) }) : t('edit.unsavedMany', { count: unsavedAsk.keys.length })}
           onCancel={() => setUnsavedAsk(null)}
           choices={[
             {
@@ -1055,7 +1093,7 @@ export function Workbench() {
       {quitAsk ? (
         <ChoiceDialog
           title={t('edit.quitTitle')}
-          message={dirtyKeys.length === 1 ? t('edit.unsavedOne', { name: basename(ws.tabs.find((tab) => tab.key === dirtyKeys[0])?.path ?? '') }) : t('edit.unsavedMany', { count: dirtyKeys.length })}
+          message={dirtyKeys.length === 1 ? t('edit.unsavedOne', { name: nameOfTab(dirtyKeys[0]) }) : t('edit.unsavedMany', { count: dirtyKeys.length })}
           onCancel={() => setQuitAsk(false)}
           choices={[
             {

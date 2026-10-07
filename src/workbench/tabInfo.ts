@@ -1,3 +1,4 @@
+import { UNTITLED_ROOT, untitledNumber, type DiffSide } from '@core/diff.ts'
 import { mediaKind, viewKind } from '@core/filekind.ts'
 import { isInner } from '@core/vpath.ts'
 import type { Translate } from '@/i18n/index.ts'
@@ -32,7 +33,15 @@ const folderOfSnapshot = (ws: Workspace, id: string): string => {
 export const sourceTitle = (ws: Workspace, id: string): string => ws.roots[id]?.name ?? snapshotTitle(ws, id)
 
 /** Where one side of a comparison is, for a person: the folder or ZIP file it was opened from, then its path in it (`›` into a ZIP too). */
-export const sideLabel = (ws: Workspace, side: { rootId: string; path: string }): string => `${sourceTitle(ws, side.rootId)} › ${side.path.replaceAll('!/', ' › ')}`
+export const sideLabel = (ws: Workspace, side: { rootId: string; path: string }, t: Translate): string =>
+  side.rootId === UNTITLED_ROOT ? sideName(side, t) : `${sourceTitle(ws, side.rootId)} › ${side.path.replaceAll('!/', ' › ')}`
+
+/** The side of a comparison that a tab is: its file of a folder or ZIP, or the new text file it is (null for a tab that is neither, or a file of a snapshot). */
+export const sideOfTab = (ws: Workspace, tab: Tab): DiffSide | null =>
+  tab.view === 'untitled' ? { rootId: UNTITLED_ROOT, path: tab.key } : tab.path !== undefined && tab.view === undefined && tab.as === undefined && ws.roots[tab.snapshotId] ? { rootId: tab.snapshotId, path: tab.path } : null
+
+/** The name of one side of a comparison: its file's name, or Untitled-1 for a new text file. */
+export const sideName = (side: { rootId: string; path: string }, t: Translate): string => (side.rootId === UNTITLED_ROOT ? t('tabs.untitled', { n: untitledNumber(side.path) }) : basename(side.path))
 
 const parentOf = (path: string): string => path.replaceAll('!/', '/').split('/').slice(0, -1).join('/')
 
@@ -41,10 +50,11 @@ export function describeTabs(ws: Workspace, t: Translate): Map<string, TabView> 
   const base = ws.tabs.map((tab): [Tab, string, string, string] => {
     const snapshot = ws.snapshots[tab.snapshotId]
     if (tab.view === 'settings') return [tab, t('settings.title'), 'settings-gear', t('settings.title')]
+    if (tab.view === 'untitled') return [tab, t('tabs.untitled', { n: untitledNumber(tab.key) }), 'new-file', t('untitled.saveAsTitle')]
     if (tab.view === 'guide') return [tab, t('guide.title'), 'book', t('guide.title')]
     if (tab.view === 'diff' && tab.diff) {
       const { left, right } = tab.diff
-      return [tab, t('tabs.diffOf', { left: basename(left.path), right: basename(right.path) }), 'diff', `${sideLabel(ws, left)}\n${sideLabel(ws, right)}`]
+      return [tab, t('tabs.diffOf', { left: sideName(left, t), right: sideName(right, t) }), 'diff', `${sideLabel(ws, left, t)}\n${sideLabel(ws, right, t)}`]
     }
     if (tab.view === 'metadata') return [tab, t('tabs.metadataOf', { name: snapshotTitle(ws, tab.snapshotId) }), 'info', snapshot?.path ?? '']
     // (The tooltip of a page: where the file is, and the address the page was saved from.)

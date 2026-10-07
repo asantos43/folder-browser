@@ -16,6 +16,8 @@ describe('commandFor', () => {
     expect(commandFor({ key: 'B', control: true }, false)).toBe('toggleSideBar')
     expect(commandFor({ key: 'o', control: true }, false)).toBe('openFile')
     expect(commandFor({ key: 'w', control: true }, false)).toBe('closeEditor')
+    expect(commandFor({ key: 'n', control: true }, false)).toBe('newFile')
+    expect(commandFor({ key: 'N', control: true, shift: true }, false)).toBeNull()
     expect(commandFor({ key: 'PageDown', control: true }, false)).toBe('nextEditor')
     expect(commandFor({ key: 'PageUp', control: true }, false)).toBe('previousEditor')
     expect(commandFor({ key: 'b', meta: true }, false)).toBeNull()

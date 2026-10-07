@@ -29,6 +29,7 @@ The [user guide](docs/USER-GUIDE.md) shows each feature, with pictures, and how 
 | **Hex** | Programs, libraries and any file of bytes (`.exe`, `.dll`, `.so`, `.bin`, `.iso`…) open as offset, hexadecimal and text, with selection, copy, Go to offset and Find for bytes or text; the header says what the file is (ELF, PE, Mach-O, ZIP…) without running it. **Edit** changes the bytes (hex digits or text, Insert, Delete, undo) and saves them like text. |
 | **Play** | Videos and sounds play in a tab (mp4, webm, mp3, flac, wav…), with seek, volume, speed and Next/Previous in the folder, also from a ZIP. |
 | **Compare** | **Select for Compare** and **Compare with Selected** in the tree's menu put two text files (disk or ZIP) in a **diff** tab, side by side or in one column, with syntax colours, the changes counted and F7 to step through them. |
+| **New text** | **File ▸ New Text File** (`Ctrl+N`) opens an empty tab that exists only in the window: paste a piece of text in it, then compare it with a file (**Select for Compare** in the tab's menu) or put it beside one (**Split Right**). |
 | **Right click** | A menu by kind of file (text, picture, PDF, ZIP, `.wsnp`, folder), and **Open With…** on every file, with the applications installed on the computer. |
 | **WSNP** | `.wsnp` files open as snapshots, isolated, checked (SHA-256, signature) and with no network, as in WSNP Viewer. They are read-only. |
 

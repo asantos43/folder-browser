@@ -8,6 +8,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+### Added
+
+- **A new text file that exists only in the window (File ▸ New Text File, `Ctrl+N`, `⌘N`).** An empty tab, **Untitled-1** (`Tab.view: 'untitled'`, key `u:<n>`, the text in `editorBuffers` and nowhere else), to paste a piece of text in and then compare it with a file or put it beside one. The menu of a text tab (and of a new text) has **Select for Compare** and **Compare with Selected**, using the same choice as the tree's; a comparison side can be `@untitled` + the tab's key (`UNTITLED_ROOT`), read from the tab's text when the comparison opens, and a comparison closes with the new text it has. A new text with text asks before it closes (also when the window closes with *Reopen the files that were open* on: it is not kept for the next start); **Save As…**/`Ctrl+S` writes it to a file of the user's choice. Tests: the reducer, `UntitledView`, `DiffView` with an untitled side, the tab menu, `e2e/untitled.spec.ts`.
+
 ### Changed
 
 - **The line between the Explorer and the editors has a colour of its own, and Settings choose it.** With the black Dark+ the line (which was only the difference between two greys) was gone. `--wsnp-divider` (`#3c3c3c` in Dark+, none in Light+) is what the sashes draw (`--separator-border`), between the Explorer and the editors and between two editor groups, and **Settings ▸ Divider Line Colour** takes another colour (kept on this computer, with a button to give the theme's colour back).

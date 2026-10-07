@@ -122,11 +122,21 @@ Um arquivo CSV ou TSV abre como **tabela** (**Tabela / Texto** na barra de ferra
 - **Editar células** (arquivo de uma pasta): clique numa célula e aperte `Enter`, `F2` ou simplesmente digite; o duplo clique faz o mesmo. `Enter` guarda o texto e desce, `Tab` guarda e vai para a direita, `Esc` desiste, `Alt+Enter` começa uma nova linha na célula. `Delete` esvazia a célula. Os nomes do cabeçalho se editam do mesmo jeito. **Adicionar Linha**, **Apagar Linha**, **Adicionar Coluna** e **Apagar Coluna** (a barra de ferramentas, ou o menu do botão direito de uma célula) agem sobre a célula selecionada; `Ctrl+Z` e `Ctrl+Y` desfazem e refazem, uma ação por vez.
 - Uma célula que você edita é uma mudança **do texto do arquivo**, exatamente naquela célula: todo o resto fica byte a byte como estava (aspas, fins de linha, a marca de ordem de bytes); um valor que precisa de aspas as recebe. Assim o ponto na aba, **Salvar** (`Ctrl+S`), a conferência contra um arquivo que mudou no disco e as alterações guardadas para a próxima vez são as do editor de texto, e o botão **Texto** mostra o mesmo texto. Um arquivo com mais linhas ou colunas do que são desenhadas, um arquivo de um ZIP ou de um snapshot e o resultado de uma consulta são só vistos.
 
+## Um texto novo, só na janela
+
+**Arquivo ▸ Novo Arquivo de Texto** (`Ctrl+N`, `⌘N` no macOS) abre uma aba vazia, **Sem Título-1**, que existe só na janela: nada é gravado em lugar nenhum. Ela serve para guardar um trecho de texto que você copiou de um arquivo, para comparar com outro arquivo ou deixar ao lado de um:
+
+1. Copie o texto em qualquer arquivo (ou em qualquer lugar) e cole na aba nova (`Ctrl+V`).
+2. **Comparar:** clique com o botão direito na aba e escolha **Selecionar para comparar**; depois clique com o direito num arquivo de texto da árvore (ou na aba de outro texto) e escolha **Comparar com o selecionado**. Também funciona ao contrário: selecione o arquivo primeiro e use **Comparar com o selecionado** no menu da aba nova. A comparação lê o texto como ele está na hora em que você escolhe; se mudar o texto depois, abra a comparação de novo.
+3. **Pôr ao lado de um arquivo:** clique com o direito na aba e escolha **Dividir à direita** (ou arraste a aba para o outro lado), e os dois textos ficam na tela.
+
+Um texto novo tem Quebra de Linha e o zoom de qualquer texto, e **Salvar Como…** (ou `Ctrl+S`) grava num arquivo à sua escolha; depois disso a aba continua sendo um texto novo, já sem alterações. Uma aba com texto pergunta antes de fechar (uma vazia fecha na hora), e a janela também, mesmo com **Reabrir os arquivos que estavam abertos** ligado, pois um texto novo não é guardado para a próxima vez. Fechá-lo também fecha as comparações que o têm. Podem ficar vários abertos (**Sem Título-2**, …).
+
 ## Comparar dois arquivos de texto
 
 ![Dois arquivos lado a lado, com as diferenças marcadas e contadas](images/diff.png)
 
-Clique com o botão direito num arquivo de texto da árvore e escolha **Selecionar para comparar**; depois clique com o direito em outro e escolha **Comparar com o selecionado**: os dois abrem numa só aba, `a.txt ↔ b.txt`, o primeiro como o lado esquerdo. Qualquer um pode ser um arquivo de uma pasta ou uma entrada de um ZIP (também dentro de outro ZIP), da mesma pasta aberta ou de duas diferentes; a escolha fica, então mais arquivos podem ser comparados com o mesmo primeiro. Só se compara um texto em UTF-8 de até 5 MB; o resto é recusado com o nome e o motivo.
+Clique com o botão direito num arquivo de texto da árvore e escolha **Selecionar para comparar**; depois clique com o direito em outro e escolha **Comparar com o selecionado**: os dois abrem numa só aba, `a.txt ↔ b.txt`, o primeiro como o lado esquerdo. Qualquer um pode ser um arquivo de uma pasta ou uma entrada de um ZIP (também dentro de outro ZIP), da mesma pasta aberta ou de duas diferentes; a escolha fica, então mais arquivos podem ser comparados com o mesmo primeiro. O menu de uma **aba** de texto tem os mesmos dois itens, e o de um [texto novo](#um-texto-novo-só-na-janela) também. Só se compara um texto em UTF-8 de até 5 MB; o resto é recusado com o nome e o motivo.
 
 - **Lado a lado** e **Em linha** (uma coluna, com as linhas removidas acima das acrescentadas) mudam a disposição; a escolha é lembrada. As cores da linguagem de cada arquivo continuam, as linhas removidas ficam vermelhas e as acrescentadas verdes, e as palavras que mudaram dentro de uma linha são marcadas com mais força.
 - A barra de ferramentas diz quantas alterações há. **Alteração anterior** e **Próxima alteração** (`Shift+F7`, `F7`) vão de uma à outra; **Trocar os lados** inverte os dois.
@@ -182,6 +192,7 @@ O arquivo é verificado quando abre, e de novo em segundo plano: a **estrutura**
 
 | Ação | Windows, Linux | macOS |
 | --- | --- | --- |
+| Novo arquivo de texto (só na janela) | `Ctrl+N` | `⌘N` |
 | Abrir Pasta / Abrir Arquivo | `Ctrl+Shift+O` / `Ctrl+O` | `⇧⌘O` / `⌘O` |
 | Mostrar arquivos ocultos | `Ctrl+H` | `⌘H` |
 | Renomear / Apagar o item da árvore | `F2` / `Delete` | `F2` / `Delete` |

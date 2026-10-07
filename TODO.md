@@ -164,6 +164,11 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [ ] Sign the files (Windows code signing, macOS Developer ID and notarisation, GPG for the `.deb` and `.rpm`): `docs/RELEASING.md`, "Signing"
 - [ ] Mark v0.1.0 and v0.1.1 as superseded on their release pages
 
+## A new text in the window (after 0.1.2)
+- [x] File ▸ New Text File (`Ctrl+N`): an Untitled-N tab with its text only in the window; Save As…; asks before it closes; compared (Select for Compare / Compare with Selected on a tab) or put beside a file (Split Right)
+- [ ] Drag a new text's tab onto a file's tab (the compare / side by side question of two texts) and a file of the tree onto it
+- [ ] A language for a new text (today plain text), and keeping it for the next start (a draft)
+
 ## Ideas for later
 - Hidden attribute of Windows (today only names that start with a dot)
 - ZIP64 and other encodings than UTF-8

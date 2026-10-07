@@ -1,5 +1,5 @@
 import type { IntegrityEvent, RootInfo } from '@core/api.ts'
-import type { DiffSide } from '@core/diff.ts'
+import { UNTITLED_ROOT, untitledKey, type DiffSide } from '@core/diff.ts'
 import type { SnapshotInfo } from '@core/snapshots.ts'
 import type { IntegrityReport } from '@core/validate/index.ts'
 import type { Issue } from '@core/validate/issues.ts'
@@ -18,8 +18,8 @@ export interface Tab {
   size?: number
   /** How the file is shown when the user chose, whatever its kind: its bytes (hexadecimal). The same file can be open in a tab of its own kind and in one of these. */
   as?: 'hex'
-  /** A view that is not a file: a snapshot's metadata, the settings, or two files compared (`diff`; `snapshotId` is the left side's root). */
-  view?: 'metadata' | 'settings' | 'diff' | 'guide'
+  /** A view that is not a file: a snapshot's metadata, the settings, two files compared (`diff`; `snapshotId` is the left side's root), or a new text file that exists only in the window (`untitled`, key `u:<n>`, no path). */
+  view?: 'metadata' | 'settings' | 'diff' | 'guide' | 'untitled'
   /** The two files of a comparison: files of the folders and ZIP files that were opened, read-only. */
   diff?: { left: DiffSide; right: DiffSide }
   /** The editor group the tab is in: absent for the first (left) one, 1 for the second (right) one, which exists only while it has tabs. */
@@ -112,6 +112,8 @@ export type Action =
   | { type: 'root-closed'; id: string }
   /** Two files compared, in a tab of their own (kept, beside the active tab). */
   | { type: 'open-diff'; left: DiffSide; right: DiffSide }
+  /** A new text file that exists only in the window, in a tab of its own (kept, beside the active tab, in the group that has the focus). */
+  | { type: 'open-untitled' }
   | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number; /** Show the bytes (hexadecimal) instead of what the kind of the file gets. */ as?: 'hex'; /** The group to open it in (a tab of the file that is in the other group goes there); else the one that has the focus. */ group?: GroupId }
   /** A tab goes to a group (the second one is made if it was not there), next to the tab `at` when that one is in the group (before it, or `after` it), else after the one in front of the group; it comes to the front and the group has the focus. */
   | { type: 'move-to-group'; key: string; group: GroupId; at?: { key: string; after: boolean } }
@@ -201,6 +203,8 @@ function moveToGroup(ws: Workspace, key: string, group: GroupId, place?: { key: 
 
 /** Removes the tabs of the given keys, and the snapshots that are left without a tab of their own. */
 function without(ws: Workspace, keys: Set<string>): Workspace {
+  // A comparison with a new text file (it exists only in its tab) goes with it.
+  for (const t of ws.tabs) if (t.diff && [t.diff.left, t.diff.right].some((side) => side.rootId === UNTITLED_ROOT && keys.has(side.path))) keys = new Set([...keys, t.key])
   let tabs = ws.tabs.filter((t) => !keys.has(t.key))
   // A snapshot's own tab closing closes the snapshot: the tabs of its files go with it.
   const closed = new Set(ws.tabs.filter((t) => keys.has(t.key) && isSnapshotTab(t)).map((t) => t.snapshotId))
@@ -316,9 +320,20 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       else delete dirty[action.key]
       return { ...ws, dirty }
     }
+    case 'open-untitled': {
+      const used = new Set(ws.tabs.filter((t) => t.view === 'untitled').map((t) => t.key))
+      let n = 1
+      while (used.has(untitledKey(n))) n++
+      const key = untitledKey(n)
+      const tab: Tab = { key, snapshotId: '', view: 'untitled', ...(ws.focus === 1 ? { group: 1 as const } : {}), preview: false, pinned: false }
+      const at = ws.tabs.findIndex((t) => t.key === ws.active)
+      const tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]
+      return withActive({ ...ws, tabs: arranged(tabs) }, key)
+    }
     case 'open-diff': {
       const key = diffKey(action.left, action.right)
-      if (!ws.roots[action.left.rootId] || !ws.roots[action.right.rootId]) return ws
+      const exists = (side: DiffSide) => (side.rootId === UNTITLED_ROOT ? ws.tabs.some((t) => t.key === side.path) : Boolean(ws.roots[side.rootId]))
+      if (!exists(action.left) || !exists(action.right)) return ws
       if (ws.tabs.some((t) => t.key === key)) return withActive(ws, key)
       const tab: Tab = { key, snapshotId: action.left.rootId, view: 'diff', diff: { left: action.left, right: action.right }, ...(ws.focus === 1 ? { group: 1 as const } : {}), preview: false, pinned: false }
       const at = ws.tabs.findIndex((t) => t.key === ws.active)
