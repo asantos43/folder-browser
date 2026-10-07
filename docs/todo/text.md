@@ -3,6 +3,7 @@
 Part of the plan in [`TODO.md`](../../TODO.md) (the index, the performance rule and the roadmap). Open work of this area; what was delivered is in [`history.md`](history.md).
 
 ## Text editing, tables and diff
+> **Reuse**: a diff of two folders, a `.patch` export and the limits for huge diffs can be ported from the `mdiff` project (MIT): see [`docs/ASSOCIATED-PROJECTS.md`](../ASSOCIATED-PROJECTS.md). Read it before writing them.
 - [ ] Select a range of cells (copy and paste a block, fill down, delete a range); paste from a spreadsheet
 - [ ] Resize and reorder columns; freeze columns; show or hide a column
 - [ ] Dates in other formats (`dd/mm/yyyy`) in sort, filter and the query; a column type chosen by hand

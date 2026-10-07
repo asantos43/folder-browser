@@ -29,6 +29,12 @@ It was **started from `~/Dev/AI/projetos/github/wsnp-viewer` 0.1.0** (a copy, no
 - A change is complete only with its tests (same pull request), its lines in `CHANGELOG.md` under `[Unreleased]`, its boxes in `TODO.md`, and the docs it affects (the README in both languages, the user guides in both).
 - Test files are synthetic (`fixtures/`); real `.wsnp`/ZIP files from `~/Downloads` come from private sites and never enter the repository.
 
+- **Reuse before you write**, in this order, before a new line of code (this does not replace the tests, the docs or the performance budget a change needs):
+  1. Is it already in **this repository** (ask the code graph: `search_graph`, `search_code`), in the **standard library** or in the **platform**?
+  2. Is it in a **dependency already installed**?
+  3. Is it in an **associated project** beside this one (`../wsnp-viewer`, `../mdiff`, `../mdiff-electron`, `../wsnp-format`)? `docs/ASSOCIATED-PROJECTS.md` says what can be taken and under which licence.
+  4. Only then **write it, small**; a new dependency says what it adds to the installer and why it is worth it.
+
 ## Light use: how to work while the usage limit is a concern
 The user's weekly limit is finite, and they want room for light use. Unless told otherwise, work this way:
 - **Never start a token-heavy run on my own**: `/claude-security` (any scan), `/pr-review-toolkit:review-pr`, `/code-review ultra`, or any other review with many agents. The plugins only *suggest* a scan after a push or a pull request: that is not a reason to run one. When a review is wanted, **ask first and say what it costs**; then the lightest useful form: a scan of **this branch's changes at `medium` effort** (not the whole repository, not `high`), a review of one pull request at a time.

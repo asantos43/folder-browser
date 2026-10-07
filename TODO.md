@@ -23,6 +23,9 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 7. **Settings framework** (M, "Settings"): a registry the page is made from, a file the application owns, JSON, export and import, and the first options: it makes every option after it cheap
 
 **Next**
+- **The three scenarios and the distribution channels** (S to M, "Positioning, distribution and adoption"): signed apt and dnf repositories, winget, Flathub and Homebrew, signing, a site, a first-run tour, shell integration and a command line: what gets people to the application
+- **File safety triage** (M, "Safety and privacy tools") and **Share Safely** (M, after the first metadata work), **Inspect Only mode and the activity log** (S to M)
+- **Compare two folders** and **large text diffs** with a patch export (M and S, "Compare more than text"; code to port from `mdiff`)
 - **SQLite viewer** (S to M, "Data files"): the SQL worker is already there
 - **Sizes and counts of folders** (S to M, "Sizes and counts of folders") and **metadata of media in Properties**, images and sound first (M, "Metadata of media files in Properties"), with the **EXIF panel to read** (M, "Images") before the editor
 - **PDF**: bookmarks, thumbnails, links, then forms (M, "PDFs", reading and forms)
@@ -34,6 +37,8 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 - **Accessibility pass** (M), **opt-in update check** (S), a **fuzzing harness** for the parsers (M), **drag files out** (S), **named workspaces** (S) ("Quality of the product", "Browsing")
 
 **Later** (each a project; the order is a guess)
+- **The distribution channel of extensions** as a real, operated service (M, "Extensions", phase 2b)
+- **Redaction that really removes**, **repair of damaged files**, **comparing pictures, PDFs and structured data**, **portable mode** (L, M, M and S)
 - **Extension-first** (a rule for every complex item below: see "Extension-first", tags `[core]`/`[ext L0-L2]`)
 - **Extensions** (plugins), **all levels**: the package, side load and level 0, then the signed online catalog, then code in a box, then extensions that run as a process, off by default (L, "Extensions", `docs/EXTENSIONS-DESIGN.md`); after the registries of Settings, commands and keys exist
 - **Image editor**, phase A and B, with EXIF editing in place and the Save options (L, "Images")
@@ -66,5 +71,8 @@ Section names used in the roadmap and in the texts (for example "Settings", "Tex
 | [`images.md`](docs/todo/images.md) | viewing and a simple image editor; EXIF; quality of the formats |
 | [`pdf.md`](docs/todo/pdf.md) | PDFs: bookmarks, links, forms, annotations, pages, merge |
 | [`media.md`](docs/todo/media.md) | snapshots; media, documents and binary files; video (tracks, subtitles, chapters); playlists |
+| [`positioning.md`](docs/todo/positioning.md) | positioning, the three scenarios to show, distribution channels (repositories, Flathub, Homebrew, winget…), code signing, a site, a first-run tour, shell integration and a command line, portable mode |
+| [`safety.md`](docs/todo/safety.md) | safety and privacy tools: file safety triage, Share Safely (hidden data), real redaction, Inspect Only mode and an activity log, repair of damaged files |
+| [`compare.md`](docs/todo/compare.md) | comparing more than text: folders, pictures, PDFs, archives, structured data, three-way |
 | [`release.md`](docs/todo/release.md) | packaging, platforms and the release; ideas for later |
 | [`history.md`](docs/todo/history.md) | what was delivered, by phase |
