@@ -1,7 +1,7 @@
 {
   "name": "folder-browser",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Folder and ZIP browser and editor, with a viewer for WSNP (.wsnp) web page snapshots",
   "author": "Anderson Santos",
   "license": "MPL-2.0",
