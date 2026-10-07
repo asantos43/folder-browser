@@ -158,8 +158,11 @@ Feasibility checked on 2026-10-06 (developer's request). Tried: `sql.js` 1.14 (S
 - [x] README, CHANGELOG, user guides (en and pt-BR) with pictures, the guide inside the application (Help ▸ User Guide, `F1`)
 - [ ] Pictures of the application on Windows and macOS for the guide (today only Linux)
 - [x] The About window's **User guide** link opens the bundled guide in a tab
-- [ ] Packages: deb, rpm, NSIS, dmg; `npm run package:smoke`; try the `.rpm` on Fedora
-- [ ] First release
+- [x] Packages: `.deb`, `.rpm`, `.exe` built on the maintainer's computer and `.dmg` by the macOS workflow, all through `npm run package:smoke`; the `.rpm` installs on a clean Fedora (container) and next to WSNP Viewer
+- [x] First release: **v0.1.2** (v0.1.0 and v0.1.1 are published without a `.dmg`: the unit tests failed on a Mac, then the `.icns` lacked two sizes)
+- [ ] Try the `.exe` on a Windows machine, and the `.dmg` on a Mac (built and checked, never started by the author)
+- [ ] Sign the files (Windows code signing, macOS Developer ID and notarisation, GPG for the `.deb` and `.rpm`): `docs/RELEASING.md`, "Signing"
+- [ ] Mark v0.1.0 and v0.1.1 as superseded on their release pages
 
 ## Ideas for later
 - Hidden attribute of Windows (today only names that start with a dot)
