@@ -1,0 +1,95 @@
+# TODO: Snapshots, media, documents, video and playlists
+
+Part of the plan in [`TODO.md`](../../TODO.md) (the index, the performance rule and the roadmap). Open work of this area; what was delivered is in [`history.md`](history.md).
+
+## Snapshots (`.wsnp`)
+- [ ] A PageKeep ZIP found in a folder opens as a snapshot (today it opens as a ZIP folder; "Open as Snapshot" for `.zip` rows)
+- [ ] Entries of a `.wsnp` are read-only (the whole file can be renamed, moved, deleted): nothing writes yet, so this is a rule for phases 2 to 5 (`core/archive/edit.ts` must refuse a `.wsnp`)
+- [ ] Decide whether the **Save as .wsnp…** bar of a converted PageKeep ZIP (`ConvertedBar`) stays: it is the only part of the viewer's conversion still in the app; the **Metadata** tab of a snapshot stays for now
+
+## Media, documents and binary files
+- [ ] Try a real mp4 (H.264), mp3, flac and an HEVC file by hand (the tests only have WAV and a broken file: no encoder here)
+- [ ] Previous/Next for the media of a snapshot (from its list of files)
+- [ ] Header panel for ELF, PE and Mach-O (sections, imports): read-only, no execution
+- [ ] Print the bytes of a file and the CSV table as a table (a CSV prints as its text)
+- [ ] Zoom keys with the focus inside a document are relayed by the page (the main process reads real key presses first); Find of a pptx highlights in the slide list only
+- [ ] Try real files by hand (Word with headers and footnotes, a PowerPoint with charts and SmartArt, an `.xls`): the tests only have small hand-written ones
+- [ ] `.rtf`, `.pages`, `.numbers`, `.key`: not drawn (Open With… or hex)
+- [ ] Hex: paste bytes, fill a selection, search and replace bytes, a check mark for the bytes saved but not yet on disk
+
+### Video: warnings, tracks, subtitles, chapters and more codecs (MKV, MP4, WebM…, after 0.1.3)
+What was found (a try on Linux with small files made by `ffmpeg`, played in the application's own player): **MKV, MP4 and WebM play** with VP9, H.264 and HEVC and with AAC, Opus, FLAC and Vorbis; a file whose audio is **AC3** (also E-AC3, DTS, TrueHD: the usual audio of a film in MKV) plays the picture **in silence and with no message**, because the player reports no error; the player of the browser shows **one video and one audio track**: a file with several audio languages plays the first, and its **subtitles, chapters and the choice of track are not reachable** (the same for MKV and for MP4, which also carries several audio tracks, subtitle tracks (`tx3g`/`mov_text`) and chapters; WebM carries WebVTT subtitles and Opus/Vorbis; MOV, AVI and `.m2ts` are further cases). HEVC played here, but the browser plays it only where the system or the graphics card has a decoder: Windows and macOS were not tried. Playing one file at a time through `fb-media://` with ranges stays; what follows is **on top of it**.
+
+Group 1: say what cannot be played (small; the first step)
+- [ ] **Know the tracks and what the player can decode** before it starts: the container is read by the shared metadata reader (see "Metadata of media files in Properties", video) and each track's codec is asked of the browser (`MediaCapabilities.decodingInfo`, `canPlayType`); when the **audio** cannot be decoded the player shows a bar over the picture: "This file's audio (AC3, 5.1) cannot be played here: the picture plays without sound", and when the **video** cannot (HEVC without a decoder) "This video (HEVC) cannot be shown on this computer", each with **Open With…** (the system's player) as the way out; the failure of a codec is **never silent**
+- [ ] A fallback for what the reader cannot tell (an odd container): after a second of play with decoded frames and **no decoded audio** (`webkitAudioDecodedByteCount` stays 0) the same bar appears; a file that has no audio track at all is not warned about
+- [ ] Tests: a bar for AC3 and for a file with no audio, none for AAC/Opus/FLAC; an end-to-end spec with MKV files (VP9+Opus, H.264+AAC, H.264+AC3, H.264+FLAC): the first plays with sound, the AC3 one shows the bar
+
+Group 2: a player of our own on the `<video>` element (medium to large)
+- [ ] A **custom control bar** (the native one cannot show tracks, chapters or the playlist): play and pause, a seek bar with a time tooltip and **chapter ticks**, volume and mute, **speed**, **audio track** and **subtitles** menus, chapters list, full screen, picture in picture, previous and next (the playlists' too), the keys of the native player kept (`Space`, arrows, `F`, `M`), and a **remembered volume and speed**; the native controls stay for a file whose container could not be read
+- [ ] **Audio tracks**: a menu with the language and name of each track ("Portuguese · AC3 5.1 · cannot be played here" shown greyed), a choice that takes effect while playing; the way to switch is a **spike with a result written here**: (a) Blink's `AudioVideoTracks` (`audioTracks[i].enabled`, switched on with `enable-blink-features`) if it works for MKV and MP4 in this Electron, or (b) **our own demuxer feeding Media Source Extensions** (the tracks chosen are the only ones appended, so a track is switched by a seek to the same time; the container is read as a stream by ranges and cut into fragments by a small muxer or `mp4box.js`/`mux.js`), which also gives the next group; (a) is much less work if it holds
+- [ ] **Subtitles**, from three places: **embedded** text tracks (MP4 `tx3g`/`mov_text`, WebVTT, and in MKV SRT, ASS/SSA and WebVTT) turned into WebVTT cues and shown by a `<track>` made from a blob (the browser's own cue drawing, or our own over the picture for the ASS styles); **external** files beside the video with the same name (`movie.srt`, `movie.pt-BR.srt`, `.vtt`, `.ass`), found in the folder and in a ZIP; and **Add Subtitle File…** by hand; the encoding of an `.srt` is guessed (UTF-8, Windows-1252, UTF-16 with a BOM) with a choice; **delay** (± in steps of 100 ms, a key each), font size, colour and background, and "off"; picture-based subtitles (PGS, VobSub, DVB) are **listed as not supported**, with Open With…
+- [ ] A **preference for languages** (a setting: the audio language wanted, the subtitle language and whether to show it only when the audio is not the one wanted) applied when a file opens, and **resume where it stopped** (the position of a file, kept by path and size, for the files that last longer than a few minutes)
+- [ ] Reading where the data is: an MP4 keeps its subtitle samples where its tables say, so they are read by ranges at once; an **MKV interleaves its subtitles in its clusters**, so the whole file must be read through to take them all: that runs in the background with a progress ("Reading subtitles… 40 %"), shows the cues found so far, uses the file's cue index to jump, caches the result by file and version, and stops when the tab closes
+- [ ] Tests: hand-made containers from the fixture builders or made by `ffmpeg` at test time (skipped when it is not installed, with a few tiny files kept in `fixtures` for the machines that have none), with two audio tracks and subtitles in MP4 and in MKV; the parsing of SRT, WebVTT and ASS (times, tags, multiple lines, bad lines); the encoding guess; the delay; the track menu; an end-to-end check that a switch changes the decoded audio (`webkitAudioDecodedByteCount`) and that a cue shows at its time
+
+Group 3: more than the browser can decode (large; each by its own decision)
+- [ ] **Use the computer's own `ffmpeg`** when it is installed (the path found, or chosen in Settings; it is **never shipped**: patents and licences): a file the player cannot decode (AC3 audio, DTS, HEVC, an AVI, a `.m2ts`) is played through a **remux or transcode** started without a shell with an argument list and served by `fb-media://` as a stream the browser can play (the audio converted to AAC or Opus, the video copied when it is playable), with a notice that says it is being converted, a cancel, a scratch file of limited size removed when the tab closes, and the same safety as the other external applications
+- [ ] Without `ffmpeg`: a **decoder in WebAssembly** for the audio only (AC3/E-AC3, DTS: a `libav.js` or a small decoder build), played through Web Audio in step with the picture: a design of its own (the clock and the drift), taken only if the first option is not enough
+- [ ] More containers the browser does not play: **AVI, `.m2ts`/`.ts`, FLV, WMV** are read by the demuxer of group 2 and remuxed to what MSE accepts when their codecs are playable (an AVI with H.264 and MP3, a `.ts` with H.264 and AAC), and **Open With…** otherwise
+- [ ] **Chapters and metadata** shown in the player and in Properties (the same reader); **cover art** of a sound in the player; a **thumbnail** of a video for its tab and for Properties (a frame taken with a canvas)
+- [ ] The **external subtitles** idea ("Ideas for later") is the second item of group 2
+- Not planned: ripping, burning in subtitles into a new file, editing a video, DRM, streaming from the web
+
+Performance
+- [ ] The headers of a file are read by ranges (the first window and the tail where the format has its index), never the file; the demuxer and the subtitle pass run in a worker of the interface (a sandbox with no Node) fed by `fb:read-range`; MSE gets fragments of a few seconds with back-pressure and a small buffer ahead (a 40 GB film is never in memory), a seek goes by the cue or sample index; the start of play is measured (the first picture appears in about a second on a local file) and a seek in a long file in a fraction of a second
+
+Decisions to make before this is started
+- **Group 1 first**, as one small pull request that ends the silent failure (the recommendation)?
+- **The switch of audio track**: try Blink's `AudioVideoTracks` first (little work if it holds) and our own MSE demuxer only if it does not?
+- **`ffmpeg` of the computer** as an optional helper for what the browser cannot play, never bundled: is that the right line, or should the application carry a decoder in WebAssembly for AC3?
+- **Subtitles of the ASS format** with their styles: plain text with the basic tags at first (the recommendation) or a full renderer (`libass` in WebAssembly)?
+- **Resume where it stopped** and the **language preferences**: in this work, or later?
+
+## Playlists: open, edit, create and play M3U and M3U8 (after 0.1.3)
+Idea, not started. A playlist is a text file with one track per line (`.m3u`, and `.m3u8`, the same in UTF-8; the extended form has `#EXTM3U` and `#EXTINF:seconds,Artist - Title`). Today a sound or a video plays one file at a time in `MediaView` (the tab goes on to the next file of its folder when one ends, `neighbours`); a playlist is another source for that sequence, with its own tab, its own order and a player that follows it. **Safety stays as it is**: an entry is played only if it resolves to a file inside a folder or ZIP that is **open** (the playlist's own, or another one the user opened); a path outside them is listed, greyed, with the reason and a button to open that folder (a click is what authorises it: the application never adds a root on its own); **a web address is never played** (nothing leaves the computer); media still goes through `fb-media://` tokens, never a path.
+
+Group 1: the format and playing in sequence (the core)
+- [ ] **A reader and a writer of M3U/M3U8** in `core/playlist.ts` (plain TypeScript, no Electron, tested next to the code): simple and extended lists; `#EXTINF` (duration, `-1` for unknown, a comma inside a title), `#PLAYLIST`, other `#` lines **kept as they are** so an edit never loses what it does not understand; `\n`, `\r\n` and `\r` endings and the byte order mark; a `.m3u` that is not UTF-8 is read as Windows-1252 (the old convention) and a list is **written as UTF-8** (and `.m3u8` always is)
+- [ ] **Resolving an entry**: relative to the playlist's folder (`/` or `\`, `..`, spaces, `%20` in `file://` addresses), an absolute path of this system, a Windows path (`C:\Music\a.mp3`) on Linux or macOS looked for **by its file name** in the playlist's folder and below it (said when it is a guess); an entry of a playlist that is inside a ZIP resolves inside that ZIP; each entry has a state (found, not found, outside the open folders, an address on the web, not a sound or a video) that the list shows in words
+- [ ] **Open `.m3u` and `.m3u8` as a playlist** (a tab; the right-click menu has **Open as Text** for the text editor, which already edits it): the table of tracks (number, title, artist, duration, path, state) with the current track marked; a streaming manifest (`#EXT-X-…`, the HLS kind that has the same extension) is recognised and shown as text, not as a playlist
+- [ ] **Play in sequence**: double click or Enter on a track plays it, and when it ends the next one starts; **previous** (restarts the track when it has played more than 3 seconds), **next**, play and pause, a seek bar, volume and mute; a track that cannot be played is skipped with one notice (and it stops, not loops for ever, when none can be)
+- [ ] **Shuffle**: every track once before any is repeated (a shuffled copy of the order, not a random pick each time), the current one never first of the next round, and **previous** follows what was really played; turning it off keeps the current track and goes on in the list's order
+- [ ] **Repeat**: off, one track, the whole list; the state is kept per list and shown on the buttons
+- [ ] **Keys**: `Space` play and pause, `N` / `P` or `Ctrl+→` / `Ctrl+←` next and previous (to be chosen), `S` shuffle, `R` repeat; and the **media keys** of the keyboard and the operating system's controls through the Media Session API (`navigator.mediaSession`: title, artist and cover shown there, play, pause, next, previous; to check on Linux whether Electron needs the `MediaSessionService` feature switched on)
+- [ ] The player keeps playing while the user works in other tabs (as `MediaView` already does), and a **now playing item in the status bar** (the track, play and pause, next) takes the user back to the list
+- [ ] A **video** list plays the same way in the tab's video area; a list may mix sounds and videos
+- [ ] Tests: the parser on hand-made lists (extended and simple, commas in titles, a missing duration, a title with non-ASCII letters, Windows paths and `\` separators, `%20`, a BOM, CR only, an `#EXTINF` with no track after it, a streaming manifest), a **byte-for-byte round trip** of a list that was not edited, the shuffle (each track once per round, no repeat at the seam, previous follows the history, a list of one), and an end-to-end spec with short synthetic WAV files (`fixtures/audio.ts`) that checks the sequence, the end of a track moving on, shuffle, repeat and a missing track skipped
+
+Group 2: editing and creating (medium)
+- [ ] **Edit a list in its table**: add tracks (the file picker, a drag from the tree, and **Add to Playlist** in the right-click menu of a sound, a video or a folder: a folder adds its media in the order of the tree, and a folder with sub-folders asks whether to go in), **remove**, **reorder** by dragging a row or with the keys (`Alt+↑/↓`), sort by name, title, artist or duration, **remove the tracks that are not found**, remove duplicates, edit the title and the artist of a row (an `#EXTINF` line), with **undo and redo**
+- [ ] **Save and Save As…** through the safe path of the application (temporary file, rename, version check; a changed file asks), as `.m3u8` by default and as `.m3u` on request; the paths are written **relative to the folder the file is saved in** (a choice in the dialog: relative or absolute); the tab has the dirty mark, asks before it closes, and keeps a draft for the next start like the other editors; a list in a ZIP is saved into the ZIP (a text entry is edited there today)
+- [ ] **New Playlist** (File ▸ New Playlist): a list that exists only in the window, like a new text, kept between starts as a draft until Save As gives it a file; and a **queue**: **Play Next** and **Add to Queue** in the right-click menu of a sound or a video fill the queue (a list that is not saved), which can be saved as a playlist
+- [ ] **Play a folder** (right-click ▸ Play Folder, and Shuffle Folder): a list made on the spot from the media of the folder, not saved unless asked
+- [ ] Open the list as text and edit it there: the text editor and the table are two views of one buffer (as the CSV's table and text are), so a change in one is the other's
+
+Group 3: what a player shows (medium)
+- [ ] **Title, artist, album, duration and cover** read from the files themselves when the list has none (the same reader as the metadata of Properties, see "Metadata of media files in Properties"): ID3 of an MP3, the comments of FLAC and Ogg, the atoms of MP4/M4A, the picture of each, read from the first bytes of the file (`fb:read-range`) in the background, a few files at a time, only for the rows in view, cancelled when the tab closes; a small parser of our own for the common cases, or `music-metadata` (MIT, large: to weigh)
+- [ ] The **total duration** and the number of tracks shown for the list; the cover of the current track in the player
+- [ ] A **column chooser** and sorting by any column, remembered
+
+Group 4: other playlist formats (later, each its own item)
+- [ ] Read **PLS** and **XSPF** (and WPL and ASX) and **save as M3U8**; **CUE** sheets (one audio file split into tracks) are a separate idea
+- [ ] The installers do **not** register `.m3u`/`.m3u8` as the application's own types (other players own them); Open With… and a double click inside the application are enough
+
+Performance
+- [ ] A list of tens of thousands of tracks: a **virtual list** (only the rows in view are drawn), the state of a file found out in batches for the rows in view first (one IPC call for many files, never one per row), the metadata read lazily with a limit on how many at once, shuffle and the "once per round" order made in one pass (O(n)), saving without drawing; the next track's token is asked a moment before the end so that the change is quick (gapless play is **not** planned: the `<audio>` element leaves a short gap)
+- Not planned: streaming from web addresses (privacy), gapless or cross-fading, an equaliser or visualiser, a library of the user's music (a database of tags), downloading, a tag editor
+
+Decisions to make before this is started
+- **Default**: a double click on a `.m3u`/`.m3u8` opens the playlist view (with Open as Text in the menu), or the text editor as today?
+- **The player**: in the playlist's tab only, or also a persistent **now playing** control in the status bar that follows the user into other tabs (the recommendation)?
+- **Web addresses** in a list: listed and never played, or an opt-in setting to play them later?
+- **Paths written**: relative to the file by default (the list keeps working when the folder is copied), with an absolute choice?
+- **Metadata**: a small parser of our own (ID3, FLAC, MP4) or `music-metadata`?
+- **Order**: group 1 (reading and playing), then group 2 (editing and creating), then 3, and 4 only if asked?
