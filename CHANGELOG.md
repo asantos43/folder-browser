@@ -8,6 +8,14 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+### Fixed
+
+- **macOS: the icon of the application has every size.** electron-builder's own `.icns` had no 1024 × 1024 picture (`ic10`) and no 512 at twice the density (`ic14`), which the packaging smoke test asks for. `build/icon.icns` is now made by `scripts/make-icns.mjs` (all eleven kinds, from `build/icon.png`) and given to electron-builder (`mac.icon`); `scripts/icons.test.ts` reads each entry. The `.dmg` of 0.1.1 could not be added to its release because of it.
+
+### Changed
+
+- **The macOS workflow has a rehearsal** (`dry_run`): `tag` is a branch, it is built and checked on the Mac like a release, and nothing is added to any release. It found nothing more to fix before 0.1.2, the first release with a `.dmg`.
+
 ## [0.1.1] - 2026-10-07
 
 ### About this release
