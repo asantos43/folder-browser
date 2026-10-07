@@ -86,6 +86,13 @@ GPG key later (and a signed apt/dnf repository is a further option). Linux packa
 There is no automatic update yet. The release notes say which Electron a version has: a new Electron (which carries Chromium) is taken every few months, and at once for a security fix (`SECURITY.md`). Dependabot opens
 the pull requests (Electron on its own).
 
+## Lessons of the first releases
+
+- **Rehearse the Mac before cutting a version.** The `.dmg` is the only file that is not made on the maintainer's computer, and the unit tests, the packaging and its smoke test run there for the first time. A release that fails there is published without a `.dmg` and cannot be mended without a new version (a tag is never moved). So run the rehearsal first: `git push` the branch and `gh workflow run release.yml --ref <branch> -f tag=<branch> -f dry_run=true` builds and checks it like a release and adds nothing to any release. Only then `prepare`, publish, and run the workflow for the tag.
+- **Everything of a release comes from one commit**: the files of Linux and Windows are built again for each version (`release-local.mjs --e2e --publish`), so that a release never mixes the code of two versions.
+- A step that fails stops the release and **nothing is published** (the release is created last); read the first error, not the last line.
+- Do not `pkill -f` or `pgrep -f` a pattern that is in the same command line: it kills the shell that runs it.
+
 ## Checklist
 
 - [ ] `CHANGELOG.md` read: every user-facing change is there, in words a user understands.
