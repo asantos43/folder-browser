@@ -23,6 +23,7 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 7. **Settings framework** (M, "Settings"): a registry the page is made from, a file the application owns, JSON, export and import, and the first options: it makes every option after it cheap
 
 **Next**
+- **Permissions, owner, group and visibility** (M, "Permissions, owner, group and visibility"): make a file executable, set the mode, the group and the owner, for one row, several or a folder's contents; Linux and macOS first
 - **File intelligence** (M to L, "Files that understand their content"): the Problems panel, schema validation and the DevOps pack as the proof of the vision, then the inspectors; the pillar of the positioning
 - **The three scenarios and the distribution channels** (S to M, "Positioning, distribution and adoption"): signed apt and dnf repositories, winget, Flathub and Homebrew, signing, a site, a first-run tour, shell integration and a command line: what gets people to the application
 - **File safety triage** (M, "Safety and privacy tools") and **Share Safely** (M, after the first metadata work), **Inspect Only mode and the activity log** (S to M)
