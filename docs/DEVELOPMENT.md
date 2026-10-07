@@ -62,3 +62,19 @@ A hidden window that is not rendered offscreen never paints, so anything that ph
 - Hostile inputs (ZIP64, encryption, unsafe names, wrong sizes) are covered in `core/archive/reader.test.ts`; hostile paths and links for the file operations in `core/fs/ops.test.ts`; the sandboxed frame of a document in `e2e/documents.spec.ts`.
 - The specs open windows: leave the computer alone while they run, and run the whole suite in the background with its output in a file (a spec that fails once may pass alone: a click while the window lacks focus; do not "fix" the pointer tests of `zoom.spec.ts`).
 - The synthetic office documents of the tests are written by hand in `fixtures/office.ts`; no real file from a private site enters the repository.
+
+## Code graph (optional, for the maintainer's sessions)
+
+`codebase-memory-mcp` indexes the repository into a graph (functions, classes, calls, imports) so that an agent can ask "who calls this" or "the outline of this file" without reading whole files. It is **not** a dependency of the project and nothing in the repository refers to it at run time.
+
+How it was installed (2026-10-07, release v0.11.0, Linux x86-64), **without** the project's `curl | bash` installer (that one edits the configuration of up to 45 programs):
+
+1. Download `codebase-memory-mcp-linux-amd64.tar.gz`, `checksums.txt` and the two `.bundle` files from the GitHub release into an empty folder.
+2. Check the **SHA-256** against `checksums.txt`, and the **Sigstore signature** of the archive and of `checksums.txt` with `cosign verify-blob <file> --bundle <file>.bundle --certificate-identity https://github.com/DeusData/codebase-memory-mcp/.github/workflows/release.yml@refs/heads/main --certificate-oidc-issuer https://token.actions.githubusercontent.com` (`brew install cosign`). The signature proves that the project's own release workflow built the file; it does not prove the code is harmless.
+3. Copy only the binary to `~/.local/bin/` (do not run its `install` command).
+4. `codebase-memory-mcp config set ui_enabled false` (the graph viewer is a local web page on port 9749: off).
+5. `claude mcp add codebase-memory-mcp --scope local -- ~/.local/bin/codebase-memory-mcp --tool-profile=analysis` (this project only, read-only tools: 13 of the 17, about 3,600 tokens of descriptions; `scout` has 8 tools and about 2,200).
+6. `codebase-memory-mcp cli index_repository --repo-path <this folder>` (about 6 seconds for this repository: about 3,750 nodes and 16,000 edges; it skips `.git`, `node_modules`, `dist` and `dist-electron`).
+
+To remove it: `claude mcp remove codebase-memory-mcp --scope local`, delete `~/.local/bin/codebase-memory-mcp` and `~/.cache/codebase-memory-mcp/`. To update, repeat steps 1 to 3 with the new release and check it the same way.
+
