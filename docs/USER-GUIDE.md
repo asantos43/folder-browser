@@ -16,8 +16,9 @@ Folder Browser looks at the folders on your computer and at what is in them. It 
 
 It is laid out like Visual Studio Code: a **title bar** with the menu, an **activity bar**, a **side bar**, **tabs** with the path under them, the file in the middle, and a **status bar**. `Ctrl+B` hides and shows the side bar; drag its edge to resize it.
 
+- When there are more **tabs** than fit, a thin **scroll bar** shows under them (as in VS Code): drag it, or turn the mouse **wheel** over the tabs, to move along them; the tab that comes to the front is always brought into view.
 - The **arrows** of the title bar are **Go Back** and **Go Forward** through the tabs you visited (`Alt+Left`, `Alt+Right`).
-- The **box in the middle** is **Go to File** (`Ctrl+E`): part of a name finds a file of the open snapshots; with nothing typed it lists your tabs, the latest first. Type `>` (or press `Ctrl+Shift+P`) for the **command palette**, which has every command that can run now and the colour themes.
+- The **box in the middle** is **Go to File** (`Ctrl+E`): part of a name finds a file in the **open folders and ZIP files** (every file of the tree, at any depth, except what is in `node_modules` or `.git` and, unless hidden files are shown, what starts with a dot) and in the open snapshots; with nothing typed it lists your tabs, the latest first. It works whenever something is open; a click on the box or `Ctrl+E` opens it. Type `>` (or press `Ctrl+Shift+P`) for the **command palette**, which has every command that can run now and the colour themes.
 
 ### The side bar
 

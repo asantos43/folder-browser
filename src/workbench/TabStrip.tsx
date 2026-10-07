@@ -103,7 +103,7 @@ export function TabStrip({ ws, group, views, dispatch, onReveal, onCopy, onOpenW
 
   return (
     <>
-      <div ref={strip} role="tablist" aria-label={t('tabs.label')} className="no-scrollbar flex h-[35px] shrink-0 overflow-x-auto bg-tabs">
+      <div ref={strip} role="tablist" aria-label={t('tabs.label')} className="tab-scroll flex h-[35px] shrink-0 overflow-x-auto bg-tabs">
         {tabs.map((tab) => {
           const view = views.get(tab.key)!
           const active = shown === tab.key

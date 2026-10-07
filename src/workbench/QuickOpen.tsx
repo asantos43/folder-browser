@@ -1,3 +1,4 @@
+import type { FileListResult } from '@core/api.ts'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
@@ -42,10 +43,10 @@ function commandItems(t: Translate, commands: Commands, setTheme: Commands['setT
 }
 
 /**
- * VS Code's quick open, from the box in the title bar (and Ctrl+E): type part of a name to go to a file of any open snapshot, `>` for
+ * VS Code's quick open, from the box in the title bar (and Ctrl+E): type part of a name to go to a file of any open folder, ZIP file or snapshot, `>` for
  * the commands of the menus (Ctrl+Shift+P opens it with the `>` already typed). With nothing typed it lists the tabs, the latest first.
  */
-export function QuickOpen({ start, ws, commands, onOpen, onClose }: { start: 'files' | 'commands'; ws: Workspace; commands: Commands; onOpen: (snapshotId: string, path: string | undefined) => void; onClose: () => void }) {
+export function QuickOpen({ start, ws, commands, loadFiles, onOpen, onClose }: { start: 'files' | 'commands'; ws: Workspace; commands: Commands; /** The files of a folder or ZIP file that is open (the main process walks it). */ loadFiles: (rootId: string) => Promise<FileListResult>; onOpen: (snapshotId: string, path: string | undefined) => void; onClose: () => void }) {
   const { t } = useI18n()
   const [query, setQuery] = useState(start === 'commands' ? '>' : '')
   const [at, setAt] = useState(0)
@@ -58,8 +59,37 @@ export function QuickOpen({ start, ws, commands, onOpen, onClose }: { start: 'fi
   const asCommands = query.startsWith('>')
   const text = asCommands ? query.slice(1).trim() : query.trim()
 
+  // The files of every folder and ZIP file that is open, asked when the box opens (a folder of many files takes a moment; what is typed meanwhile finds the rest).
+  const roots = useMemo(() => Object.values(ws.roots).filter((root) => !root.trash), [ws.roots])
+  const [indexed, setIndexed] = useState<Record<string, { paths: string[]; truncated: boolean } | 'failed'>>({})
+  useEffect(() => {
+    let alive = true
+    for (const root of roots) {
+      loadFiles(root.id).then(
+        (result) => alive && setIndexed((all) => ({ ...all, [root.id]: 'paths' in result ? result : 'failed' })),
+        () => alive && setIndexed((all) => ({ ...all, [root.id]: 'failed' })),
+      )
+    }
+    return () => {
+      alive = false
+    }
+  }, [roots, loadFiles])
+  const waiting = roots.some((root) => indexed[root.id] === undefined)
+  const cut = roots.some((root) => {
+    const found = indexed[root.id]
+    return found !== undefined && found !== 'failed' && found.truncated
+  })
+
   const files = useMemo(() => {
     const all: Item[] = []
+    for (const root of roots) {
+      const found = indexed[root.id]
+      if (!found || found === 'failed') continue
+      for (const file of found.paths) {
+        const slash = file.lastIndexOf('/')
+        all.push({ id: fileKey(root.id, file), label: file.slice(slash + 1), description: `${root.name}${slash > 0 ? ` › ${file.slice(0, slash)}` : ''}`, icon: fileIcon(undefined, file), run: () => onOpen(root.id, file) })
+      }
+    }
     for (const snapshot of Object.values(ws.snapshots)) {
       const title = snapshotTitle(ws, snapshot.id)
       all.push({ id: snapshotKey(snapshot.id), label: title, description: t('quickOpen.snapshot'), icon: 'browser', run: () => onOpen(snapshot.id, undefined) })
@@ -70,7 +100,7 @@ export function QuickOpen({ start, ws, commands, onOpen, onClose }: { start: 'fi
       }
     }
     return all
-  }, [ws, t, onOpen])
+  }, [ws, t, onOpen, roots, indexed])
 
   const items = useMemo(() => {
     if (asCommands) {
@@ -142,7 +172,9 @@ export function QuickOpen({ start, ws, commands, onOpen, onClose }: { start: 'fi
         </div>
         <div ref={list} id="quick-open-list" role="listbox" aria-label={t('quickOpen.label')} className="max-h-[300px] overflow-auto pb-1">
           {!asCommands && !text && items.length ? <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">{t('quickOpen.recent')}</div> : null}
-          {items.length === 0 ? <div className="px-3 py-2 text-fg-muted">{t('quickOpen.none')}</div> : null}
+          {items.length === 0 ? <div className="px-3 py-2 text-fg-muted">{t(waiting && !asCommands ? 'quickOpen.indexing' : 'quickOpen.none')}</div> : null}
+          {items.length > 0 && !asCommands && text && waiting ? <div className="px-3 py-1 text-[11px] text-fg-muted">{t('quickOpen.indexing')}</div> : null}
+          {!asCommands && text && cut ? <div className="px-3 py-1 text-[11px] text-fg-muted">{t('quickOpen.truncated')}</div> : null}
           {items.map((item, i) => (
             <div
               key={item.id}

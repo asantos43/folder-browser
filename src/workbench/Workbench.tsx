@@ -564,7 +564,8 @@ export function Workbench() {
       if (command === 'print') return void printTab()
       if (command === 'savePdf') return void savePdfTab()
       if (command === 'saveAsWsnp') return void (current.active && canSaveWsnp(current) ? saveConverted(activeTabOf(current)!.snapshotId) : undefined)
-      if (command === 'quickOpen') return current.snapshots && Object.keys(current.snapshots).length ? setQuick('files') : undefined
+      // Go to File works with whatever is open: a folder, a ZIP file, a snapshot, or tabs (it was only with a snapshot, which a folder is not).
+      if (command === 'quickOpen') return Object.keys(current.snapshots).length || Object.keys(current.roots).length || current.tabs.length ? setQuick('files') : undefined
       if (command === 'commandPalette') return setQuick('commands')
       if (command === 'goBack') return go(-1)
       if (command === 'goForward') return go(1)
@@ -1139,9 +1140,16 @@ export function Workbench() {
           ws={ws}
           commands={commands}
           onClose={() => setQuick(null)}
+          loadFiles={(rootId) => api!.listFiles(rootId, showHidden.get())}
           onOpen={(snapshotId, path) => {
             if (path === undefined) dispatch({ type: 'snapshot-opened', snapshot: ws.snapshots[snapshotId] })
-            else dispatch({ type: 'open-file', snapshotId, path, keep: true })
+            else if (wsNow.current.roots[snapshotId]) {
+              // A file of a folder or ZIP: its size (the tree's row has it) says how it is shown, so it is read from the listing of its folder.
+              void api?.listDir(snapshotId, parentPath(path)).then((listing) => {
+                const size = 'entries' in listing ? listing.entries.find((e) => e.path === path)?.size : undefined
+                dispatch({ type: 'open-file', snapshotId, path, keep: true, ...(size !== undefined ? { size } : {}) })
+              })
+            } else dispatch({ type: 'open-file', snapshotId, path, keep: true })
           }}
         />
       ) : null}
