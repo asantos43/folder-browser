@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
 import { editorBuffers, hasChanges } from '@/state/editors.ts'
+import { newUntitledBuffer } from '@/state/untitled.ts'
 import { wordWrap } from '@/state/setting.ts'
 import { UntitledView } from './UntitledView.tsx'
 
@@ -81,5 +82,14 @@ describe('UntitledView', () => {
     show('u:2')
     expect(editor().state.doc.toString()).toBe('')
     expect(editorBuffers.get('u:1')!.state.doc.toString()).toBe('first')
+  })
+
+  it('shows the text that came back from the last session as changes that are not saved', () => {
+    newUntitledBuffer('u:3', false, 'kept\ntext')
+    const { handlers } = show('u:3')
+    expect(editor().state.doc.toString()).toBe('kept\ntext')
+    expect(hasChanges(editorBuffers.get('u:3')!)).toBe(true)
+    expect(handlers.onChanged).toHaveBeenCalledWith('u:3', true)
+    expect(screen.getByText(/modified/i)).toBeTruthy()
   })
 })

@@ -10,14 +10,14 @@ import { topmost } from './selection.ts'
 import { refusalNotice } from '@/state/messages.ts'
 import { useNotifications } from '@/state/notifications.ts'
 import { focusedGroup } from '@/state/groups.ts'
-import { empty, isHeldBack, isSnapshotTab, isSplit, reduce, released, type Action, type GroupId } from '@/state/workspace.ts'
+import { empty, isHeldBack, isSnapshotTab, isSplit, reduce, released, type Action, type GroupId, type Tab } from '@/state/workspace.ts'
 import type { DraggedFile } from './dnd.ts'
 import { bufferChanged, dropBuffer, keepBuffers, moveBuffer, saveAnyBuffer } from '@/state/buffers.ts'
 import { flushDrafts, setDraftsEnabled, syncDrafts, touchDraft } from '@/state/drafts.ts'
 import type { MessageKey } from '@/i18n/index.ts'
 import { emptyHistory, step, visit, type History } from '@/state/history.ts'
 import { isSession, keyOfEntry, sessionOf, type Session } from '@/state/session.ts'
-import { dividerColour, hotExit, reopenSession, showHidden, sortDescending, sortKey, svgView } from '@/state/setting.ts'
+import { dividerColour, hotExit, reopenSession, showHidden, sortDescending, sortKey, svgView, wordWrap } from '@/state/setting.ts'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { shownSource } from '@/state/fileLanguage.ts'
 import { LanguagePicker } from './LanguagePicker.tsx'
@@ -31,6 +31,7 @@ import type { AppInfo } from '@core/api.ts'
 import { UNTITLED_ROOT, untitledNumber, type DiffSide } from '@core/diff.ts'
 import { sideName } from './tabInfo.ts'
 import { editorBuffers } from '@/state/editors.ts'
+import { newUntitledBuffer } from '@/state/untitled.ts'
 import { innerPath, isInner, parentPath } from '@core/vpath.ts'
 import { fileTarget } from '@/find/types.ts'
 import { shownText } from '@/state/shown.ts'
@@ -211,13 +212,20 @@ export function Workbench() {
       if (!hotExit.get()) return void (await api.drafts.clear())
       const list = await api.drafts.list()
       if (!list.length) return
-      const folders = [...new Set(list.map((draft) => draft.rootPath))]
+      // The new texts (Untitled-N) come back first, as they were: the same number, with their text as changes that are not saved.
+      for (const draft of list.filter((d) => d.rootPath === UNTITLED_ROOT && d.kind === 'text')) {
+        const kept = await api.drafts.get(UNTITLED_ROOT, draft.path)
+        if (kept?.kind !== 'text') continue
+        newUntitledBuffer(draft.path, wordWrap.get(), kept.text)
+        dispatch({ type: 'open-untitled', key: draft.path })
+      }
+      const folders = [...new Set(list.filter((draft) => draft.rootPath !== UNTITLED_ROOT).map((draft) => draft.rootPath))]
       const results = await api.openPaths(folders)
       const roots = new Map<string, RootInfo>()
       results.forEach((result, i) => {
         if (result.ok && 'root' in result) roots.set(folders[i], result.root)
       })
-      for (const draft of list) {
+      for (const draft of list.filter((d) => d.rootPath !== UNTITLED_ROOT)) {
         const root = roots.get(draft.rootPath)
         if (!root) continue
         dispatch({ type: 'root-opened', root })
@@ -548,8 +556,7 @@ export function Workbench() {
   useEffect(
     () =>
       api?.onCloseRequested(() => {
-        // A new text file is not kept for the next start: with one that has text, the window asks even when the changes of the files are kept.
-        if (hotExit.get() && !Object.keys(wsNow.current.dirty).some((key) => wsNow.current.tabs.find((tab) => tab.key === key)?.view === 'untitled')) void flushDrafts(api).then(() => api.leave())
+        if (hotExit.get()) void flushDrafts(api).then(() => api.leave())
         else setQuitAsk(true)
       }),
     [api],
@@ -954,15 +961,18 @@ export function Workbench() {
   // What Find, Copy, Print and the status bar act on is what the group that has the focus shows.
   useEffect(() => focusedGroup.set(ws.focus), [ws.focus])
   // Two files that were dragged together (a tab on a tab, a file of the tree on another file): the user is asked what to do with them.
-  const [pair, setPair] = useState<{ left: { rootId: string; path: string; size: number }; right: { rootId: string; path: string; size: number } } | null>(null)
+  // The two texts of a drop: a file (of a folder or ZIP) or a new text (`rootId` is `@untitled` and `path` the key of its tab).
+  type PairSide = { rootId: string; path: string; size: number }
+  const [pair, setPair] = useState<{ left: PairSide; right: PairSide } | null>(null)
+  const pairSideOf = (tab: Tab | undefined): PairSide | null => (tab?.view === 'untitled' ? { rootId: UNTITLED_ROOT, path: tab.key, size: 0 } : tab?.path !== undefined ? { rootId: tab.snapshotId, path: tab.path, size: tab.size ?? 0 } : null)
   const dropOnTab = (dragged: string, target: string) => {
-    const [a, b] = [dragged, target].map((key) => wsNow.current.tabs.find((tab) => tab.key === key))
-    if (a?.path !== undefined && b?.path !== undefined) setPair({ left: { rootId: a.snapshotId, path: a.path, size: a.size ?? 0 }, right: { rootId: b.snapshotId, path: b.path, size: b.size ?? 0 } })
+    const [a, b] = [dragged, target].map((key) => pairSideOf(wsNow.current.tabs.find((tab) => tab.key === key)))
+    if (a && b) setPair({ left: a, right: b })
   }
   // A file of the tree dropped on a text tab, or on the middle of the editor that shows one: the same question as for two tabs (the file dragged is the left side).
   const dropFileOnTab = (file: DraggedFile, target: string) => {
-    const tab = wsNow.current.tabs.find((candidate) => candidate.key === target)
-    if (tab?.path !== undefined) setPair({ left: { rootId: file.rootId, path: file.path, size: file.size }, right: { rootId: tab.snapshotId, path: tab.path, size: tab.size ?? 0 } })
+    const side = pairSideOf(wsNow.current.tabs.find((candidate) => candidate.key === target))
+    if (side) setPair({ left: { rootId: file.rootId, path: file.path, size: file.size }, right: side })
   }
   const dropFile = (file: DraggedFile, group: GroupId) => dispatch({ type: 'open-file', snapshotId: file.rootId, path: file.path, keep: true, size: file.size, group })
   /** One of the editor groups; both get the same props and each shows its own tabs. */
@@ -970,7 +980,8 @@ export function Workbench() {
     <EditorGroup group={group} compare={tabCompare} onDropOnTab={dropOnTab} onDropFileOnTab={dropFileOnTab} onDropFile={dropFile} reloads={reloads} onSaveTab={(key) => void saveKey(key)} onSaveBufferAs={saveBufferAs} onSaveBytesAs={saveBytesAs} onChanged={(key, changed) => {
         rawDispatch({ type: 'dirty', key, dirty: changed })
         const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
-        if (changed && api && tab?.path !== undefined) touchDraft(api, key, tab.snapshotId, tab.path)
+        if (changed && api && tab?.view === 'untitled') touchDraft(api, key, UNTITLED_ROOT, key)
+        else if (changed && api && tab?.path !== undefined) touchDraft(api, key, tab.snapshotId, tab.path)
       }} onRestored={(name) => notify({ level: 'info', text: t('edit.restored', { name }) })} zooms={zooms} onZoom={(change) => ('wheel' in change ? zoomWheel(change.wheel) : zoomTab(change.direction === 'in' ? 1 : change.direction === 'out' ? -1 : 0))} onSaveConverted={(id) => void saveConverted(id)} onNotify={notify} onViewEntry={(snapshotId, zipPath, entry) => dispatch({ type: 'open-file', snapshotId, path: innerPath(zipPath, entry.name), keep: true, size: entry.size })} find={find} onCloseFind={() => setFind((f) => ({ ...f, open: false }))} ws={ws} dispatch={dispatch} onSaveFile={saveFile} onOpenWith={openWith} onReveal={(id, path) => void api?.reveal(id, path)} onCopy={copy} onOpenExternal={openExternal} signers={signers} onTrust={trustSigner} onForget={forgetSigner} theme={setting} setTheme={setSetting} />
   )
 
@@ -1140,15 +1151,17 @@ export function Workbench() {
       {pair ? (
         <ChoiceDialog
           title={t('drop.title')}
-          message={t('drop.message', { left: basename(pair.left.path), right: basename(pair.right.path) })}
+          message={t('drop.message', { left: sideName(pair.left, t), right: sideName(pair.right, t) })}
           choices={[
             {
               label: t('drop.sideBySide'),
               primary: true,
               run: () => {
                 // The first in the left group, the second in the right one (which has the focus).
-                dispatch({ type: 'open-file', snapshotId: pair.left.rootId, path: pair.left.path, keep: true, size: pair.left.size, group: 0 })
-                dispatch({ type: 'open-file', snapshotId: pair.right.rootId, path: pair.right.path, keep: true, size: pair.right.size, group: 1 })
+                // (A new text is a tab that is there already: it is moved to its group.)
+                ;([[pair.left, 0], [pair.right, 1]] as const).forEach(([side, group]) =>
+                  dispatch(side.rootId === UNTITLED_ROOT ? { type: 'move-to-group', key: side.path, group } : { type: 'open-file', snapshotId: side.rootId, path: side.path, keep: true, size: side.size, group }),
+                )
                 setPair(null)
               },
             },

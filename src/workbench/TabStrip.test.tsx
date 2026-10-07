@@ -203,4 +203,27 @@ describe('TabStrip: comparing from the menu of a tab', () => {
     fireEvent.contextMenu(screen.getByRole('tab'))
     expect(items()).not.toContain('Select for Compare')
   })
+
+  it('a new text dropped on the middle of a text tab asks (and a text on the middle of a new text), but not on a picture', () => {
+    const ws = build({ type: 'root-opened', root }, file('a.txt'), file('pic.png'), { type: 'open-untitled' })
+    const onDropOnTab = vi.fn()
+    render(
+      <I18nProvider language="en">
+        <TabStrip ws={ws} group={0} views={describeTabs(ws, translator('en'))} dispatch={vi.fn()} onCopy={vi.fn()} onReveal={vi.fn()} onDropOnTab={onDropOnTab} />
+      </I18nProvider>,
+    )
+    const dropOn = (target: HTMLElement, key: string) => {
+      target.getBoundingClientRect = () => ({ left: 0, width: 100, top: 0, right: 100, bottom: 35, height: 35, x: 0, y: 0, toJSON: () => ({}) })
+      const event = createEvent.drop(target, { dataTransfer: { getData: (type: string) => (type === TAB_DRAG ? key : ''), types: [TAB_DRAG] } })
+      Object.defineProperty(event, 'clientX', { value: 50 })
+      fireEvent(target, event)
+    }
+    dropOn(screen.getByRole('tab', { name: /^a\.txt/ }), 'u:1')
+    expect(onDropOnTab).toHaveBeenLastCalledWith('u:1', 'f:r1:a.txt')
+    dropOn(screen.getByRole('tab', { name: /^Untitled-1/ }), 'f:r1:a.txt')
+    expect(onDropOnTab).toHaveBeenLastCalledWith('f:r1:a.txt', 'u:1')
+    onDropOnTab.mockClear()
+    dropOn(screen.getByRole('tab', { name: /^pic\.png/ }), 'u:1')
+    expect(onDropOnTab).not.toHaveBeenCalled()
+  })
 })

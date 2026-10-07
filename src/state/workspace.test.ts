@@ -609,6 +609,15 @@ describe('a new text file (untitled)', () => {
     ws = reduce(ws, { type: 'close', key: 'u:2' })
     expect(reduce(ws, { type: 'open-untitled' }).active).toBe('u:2')
   })
+  it('comes back with its own number when it was kept from the last session, and an open one is only shown again', () => {
+    let ws = reduce(base(), { type: 'open-untitled', key: 'u:4' })
+    expect(keys(ws)).toEqual(['f:r1:a.txt', 'u:4'])
+    ws = reduce(reduce(ws, { type: 'activate', key: 'f:r1:a.txt' }), { type: 'open-untitled', key: 'u:4' })
+    expect(keys(ws)).toEqual(['f:r1:a.txt', 'u:4'])
+    expect(ws.active).toBe('u:4')
+    // A key that is not one of a new text is not taken: the next free number is.
+    expect(keys(reduce(base(), { type: 'open-untitled', key: '../x' }))).toEqual(['f:r1:a.txt', 'u:1'])
+  })
   it('is opened in the group that has the focus', () => {
     const ws = run([{ type: 'root-opened', root: r1 }, file('r1', 'a.txt', true), file('r1', 'b.txt', true), { type: 'move-to-group', key: 'f:r1:b.txt', group: 1 }, { type: 'open-untitled' }])
     expect(ws.tabs.find((t) => t.key === 'u:1')?.group).toBe(1)

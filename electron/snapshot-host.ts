@@ -7,6 +7,7 @@ import { pipeline } from 'node:stream/promises'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell, webFrameMain, type IpcMainInvokeEvent, type Session, type WebContents, type WebFrameMain } from 'electron'
 import type { AppInfo, DocOpen, OpResult, IntegrityEvent, FileListResult, ListResult, MediaOpen, OpenResult, OpenWithResult, PrintRequest, PrintResult, RangeResult, ReadResult, SaveResult, ZipList } from '../core/api.ts'
 import { extractSelection, type ExtractResult } from '../core/extract.ts'
+import { UNTITLED_ROOT } from '../core/diff.ts'
 import { FRAME_SCRIPT } from '../core/frameScript.ts'
 import { BINARY_LIMIT, DOCUMENT_LIMIT, effectiveType, mediaKind, viewKind } from '../core/filekind.ts'
 import { DocFiles, documentFlavour } from '../core/docs.ts'
@@ -755,6 +756,8 @@ export class SnapshotHost {
     })
     // Drafts: the changes of a file not yet saved, kept for the next start. The interface names a root; the folder that was opened (its path) is what keeps them apart.
     const rootPathOf = (id: string): string | null => {
+      // A new text file (Untitled-N) has no folder: its drafts are kept under this name.
+      if (id === UNTITLED_ROOT) return UNTITLED_ROOT
       const root = this.roots.info(id)
       return root && !root.trash ? root.path : null
     }

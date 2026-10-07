@@ -128,9 +128,9 @@ Um arquivo CSV ou TSV abre como **tabela** (**Tabela / Texto** na barra de ferra
 
 1. Copie o texto em qualquer arquivo (ou em qualquer lugar) e cole na aba nova (`Ctrl+V`).
 2. **Comparar:** clique com o botão direito na aba e escolha **Selecionar para comparar**; depois clique com o direito num arquivo de texto da árvore (ou na aba de outro texto) e escolha **Comparar com o selecionado**. Também funciona ao contrário: selecione o arquivo primeiro e use **Comparar com o selecionado** no menu da aba nova. A comparação lê o texto como ele está na hora em que você escolhe; se mudar o texto depois, abra a comparação de novo.
-3. **Pôr ao lado de um arquivo:** clique com o direito na aba e escolha **Dividir à direita** (ou arraste a aba para o outro lado), e os dois textos ficam na tela.
+3. **Pôr ao lado de um arquivo, ou comparar, arrastando:** arraste a aba para o **meio** da aba de outro texto (ou para o meio do editor que o mostra) e escolha **Abrir lado a lado** ou **Comparar (Diff)**; um arquivo de texto da árvore solto na aba do texto novo faz a mesma pergunta. Ou clique com o direito na aba e escolha **Dividir à direita**, ou arraste-a para o lado do editor.
 
-Um texto novo tem Quebra de Linha e o zoom de qualquer texto, e **Salvar Como…** (ou `Ctrl+S`) grava num arquivo à sua escolha; depois disso a aba continua sendo um texto novo, já sem alterações. Uma aba com texto pergunta antes de fechar (uma vazia fecha na hora), e a janela também, mesmo com **Reabrir os arquivos que estavam abertos** ligado, pois um texto novo não é guardado para a próxima vez. Fechá-lo também fecha as comparações que o têm. Podem ficar vários abertos (**Sem Título-2**, …).
+Um texto novo tem Quebra de Linha e o zoom de qualquer texto, e **Salvar Como…** (ou `Ctrl+S`) grava num arquivo à sua escolha; depois disso a aba continua sendo um texto novo, já sem alterações. Uma aba com texto pergunta antes de fechar (uma vazia fecha na hora). Como as alterações de um arquivo, o texto é **guardado para a próxima vez** (a configuração que guarda as alterações não salvas vale para ele): a janela fecha sem perguntar, e a aba volta com o número e o texto, ainda sem salvar. Fechar a aba também fecha as comparações que o têm. Podem ficar vários abertos (**Sem Título-2**, …).
 
 ## Comparar dois arquivos de texto
 

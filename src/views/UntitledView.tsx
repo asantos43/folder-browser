@@ -1,4 +1,3 @@
-import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
@@ -9,22 +8,15 @@ import { editorBuffers, hasChanges, type EditorBuffer } from '@/state/editors.ts
 import { useGroup } from '@/state/groups.ts'
 import { wordWrap } from '@/state/setting.ts'
 import { shownText } from '@/state/shown.ts'
+import { newUntitledBuffer } from '@/state/untitled.ts'
 import { shortcut } from '@/workbench/commands.ts'
-import { editableExtensions, languageSlot, languageExtension, listenerSlot, wrapping } from './codeTheme.ts'
+import { languageSlot, languageExtension, listenerSlot, wrapping } from './codeTheme.ts'
 import { SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
-
-/** The text of a new file: empty, and with nothing saved, so that it has changes as soon as it has text. It lives in `editorBuffers` by the key of its tab, and nowhere else. */
-function newBuffer(key: string, wrap: boolean): EditorBuffer {
-  const state = EditorState.create({ doc: '', extensions: editableExtensions('plain', wrap) })
-  const buffer: EditorBuffer = { state, saved: state.doc, version: { mtimeMs: 0, size: 0 }, eol: 'lf', bom: false }
-  editorBuffers.set(key, buffer)
-  return buffer
-}
 
 /**
  * A new text file (Ctrl+N): an editor whose text exists only in the window, as VS Code's Untitled. Paste a text in it to compare it with a file or to put it beside one; Save As… writes
  * it to a file, and a tab that has text asks before it closes, like any text with changes. The text is kept by the key of the tab (`editorBuffers`), so going to another tab and back
- * keeps it, its undo history and its place; it is not kept for the next start.
+ * keeps it, its undo history and its place; it is kept for the next start as a draft, like the changes of a file (`src/state/drafts.ts`).
  */
 export function UntitledView({ tabKey, zoom = 1, onSave, onChanged, dirty, leading }: { tabKey: string; zoom?: number; /** Save As: the workbench asks where, and writes. */ onSave: () => void; /** The text now has something in it that is not saved, or no longer has. */ onChanged: (key: string, changed: boolean) => void; /** What the workbench says of the tab: when a save made it clean, the toolbar looks at the buffer again. */ dirty?: boolean; leading?: ReactNode }) {
   const { t } = useI18n()
@@ -32,7 +24,7 @@ export function UntitledView({ tabKey, zoom = 1, onSave, onChanged, dirty, leadi
   const wrap = wordWrap.use()
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
-  const [buffer] = useState<EditorBuffer>(() => editorBuffers.get(tabKey) ?? newBuffer(tabKey, wordWrap.get()))
+  const [buffer] = useState<EditorBuffer>(() => editorBuffers.get(tabKey) ?? newUntitledBuffer(tabKey, wordWrap.get()))
   const [changed, setChanged] = useState(() => hasChanges(buffer))
   const [lines, setLines] = useState(0)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
@@ -64,6 +56,10 @@ export function UntitledView({ tabKey, zoom = 1, onSave, onChanged, dirty, leadi
     })
     buffer.state = editor.state
     setLines(editor.state.doc.lines)
+    // (A text that came back from the last session has changes from the start.)
+    const now = hasChanges(buffer)
+    setChanged(now)
+    changedNow.current(tabKey, now)
     const unregister = fileTarget.set(createCodeFindTarget(() => view.current), group)
     const unshow = shownText.set(() => editor.state.doc.toString(), group)
     editor.focus()

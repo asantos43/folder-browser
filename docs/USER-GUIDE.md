@@ -128,9 +128,9 @@ A CSV or TSV file opens as a **table** (**Table / Text** in the toolbar switch t
 
 1. Copy the text in any file (or anywhere else) and paste it into the new tab (`Ctrl+V`).
 2. **Compare it:** right-click the tab and choose **Select for Compare**, then right-click a text file in the tree (or the tab of another text) and choose **Compare with Selected**. It also works the other way round: select the file first, then use **Compare with Selected** in the menu of the new tab. The comparison reads the text as it is when you choose it; if you change the text afterwards, open the comparison again.
-3. **Put it beside a file:** right-click the tab and choose **Split Right** (or drag the tab to the other side), and both texts stay on screen.
+3. **Put it beside a file, or compare, by dragging:** drag the tab onto the **middle** of another text's tab (or onto the middle of the editor that shows it) and choose **Open Side by Side** or **Compare (Diff)**; a text file of the tree dropped on the new text's tab asks the same. Or right-click the tab and choose **Split Right**, or drag it to the side of the editor.
 
-A new text has Word Wrap and the zoom of any text, and **Save As…** (or `Ctrl+S`) writes it to a file of your choice; the tab stays a new text after that, and is clean. A tab that has text asks before it closes (an empty one closes at once), and so does the window, even with **Reopen the files that were open** on, since a new text is not kept for the next start. Closing it also closes the comparisons that have it. Several can be open (**Untitled-2**, …).
+A new text has Word Wrap and the zoom of any text, and **Save As…** (or `Ctrl+S`) writes it to a file of your choice; the tab stays a new text after that, and is clean. A tab that has text asks before it closes (an empty one closes at once). Like the changes of a file, the text is **kept for the next start** (the setting that keeps unsaved changes governs it): the window closes without asking, and the tab comes back with its number and its text, still not saved. Closing the tab also closes the comparisons that have it. Several can be open (**Untitled-2**, …).
 
 ## Comparing two text files
 

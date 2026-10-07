@@ -113,7 +113,7 @@ export type Action =
   /** Two files compared, in a tab of their own (kept, beside the active tab). */
   | { type: 'open-diff'; left: DiffSide; right: DiffSide }
   /** A new text file that exists only in the window, in a tab of its own (kept, beside the active tab, in the group that has the focus). */
-  | { type: 'open-untitled' }
+  | { type: 'open-untitled'; /** The tab it was (`u:<n>`) when it comes back from the last session; else the lowest number that is free. */ key?: string }
   | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number; /** Show the bytes (hexadecimal) instead of what the kind of the file gets. */ as?: 'hex'; /** The group to open it in (a tab of the file that is in the other group goes there); else the one that has the focus. */ group?: GroupId }
   /** A tab goes to a group (the second one is made if it was not there), next to the tab `at` when that one is in the group (before it, or `after` it), else after the one in front of the group; it comes to the front and the group has the focus. */
   | { type: 'move-to-group'; key: string; group: GroupId; at?: { key: string; after: boolean } }
@@ -324,7 +324,8 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const used = new Set(ws.tabs.filter((t) => t.view === 'untitled').map((t) => t.key))
       let n = 1
       while (used.has(untitledKey(n))) n++
-      const key = untitledKey(n)
+      const key = action.key !== undefined && /^u:[1-9]\d{0,5}$/.test(action.key) ? action.key : untitledKey(n)
+      if (used.has(key)) return withActive(ws, key)
       const tab: Tab = { key, snapshotId: '', view: 'untitled', ...(ws.focus === 1 ? { group: 1 as const } : {}), preview: false, pinned: false }
       const at = ws.tabs.findIndex((t) => t.key === ws.active)
       const tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]

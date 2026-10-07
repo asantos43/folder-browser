@@ -102,3 +102,26 @@ describe('drafts of the tabs with changes', () => {
     expect(put).not.toHaveBeenCalled()
   })
 })
+
+describe('drafts of a new text file (Untitled-N)', () => {
+  const untitledWs = (dirty: boolean): Workspace => run({ type: 'open-untitled' }, ...(dirty ? [{ type: 'dirty', key: 'u:1', dirty: true } as const] : []))
+  const buffer = (text: string) => {
+    const state = EditorState.create({ doc: text })
+    editorBuffers.set('u:1', { state, saved: EditorState.create({ doc: '' }).doc, version: { mtimeMs: 0, size: 0 }, eol: 'lf', bom: false })
+  }
+
+  it('is kept under the name @untitled, with the key of its tab as the path, once its text has changes', async () => {
+    const api = { drafts: { put: vi.fn(async () => true), delete: vi.fn(async () => {}) } } as unknown as Pick<FbApi, 'drafts'>
+    buffer('pasted text')
+    syncDrafts(api, untitledWs(true))
+    await vi.advanceTimersByTimeAsync(DRAFT_DELAY_MS + 100)
+    expect(api.drafts.put).toHaveBeenCalledWith('@untitled', 'u:1', { kind: 'text', text: 'pasted text', base: { mtimeMs: 0, size: 0 }, eol: 'lf', bom: false })
+  })
+  it('is let go when the text has no changes any more (saved, emptied, or the tab closed)', async () => {
+    const api = { drafts: { put: vi.fn(async () => true), delete: vi.fn(async () => {}) } } as unknown as Pick<FbApi, 'drafts'>
+    buffer('pasted text')
+    syncDrafts(api, untitledWs(true))
+    syncDrafts(api, untitledWs(false))
+    expect(api.drafts.delete).toHaveBeenCalledWith('@untitled', 'u:1')
+  })
+})
