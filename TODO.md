@@ -198,6 +198,49 @@ Passwords and what is kept
 - [ ] `.rtf`, `.pages`, `.numbers`, `.key`: not drawn (Open With… or hex)
 - [ ] Hex: paste bytes, fill a selection, search and replace bytes, a check mark for the bytes saved but not yet on disk
 
+## Playlists: open, edit, create and play M3U and M3U8 (after 0.1.3)
+Idea, not started. A playlist is a text file with one track per line (`.m3u`, and `.m3u8`, the same in UTF-8; the extended form has `#EXTM3U` and `#EXTINF:seconds,Artist - Title`). Today a sound or a video plays one file at a time in `MediaView` (the tab goes on to the next file of its folder when one ends, `neighbours`); a playlist is another source for that sequence, with its own tab, its own order and a player that follows it. **Safety stays as it is**: an entry is played only if it resolves to a file inside a folder or ZIP that is **open** (the playlist's own, or another one the user opened); a path outside them is listed, greyed, with the reason and a button to open that folder (a click is what authorises it: the application never adds a root on its own); **a web address is never played** (nothing leaves the computer); media still goes through `fb-media://` tokens, never a path.
+
+Group 1: the format and playing in sequence (the core)
+- [ ] **A reader and a writer of M3U/M3U8** in `core/playlist.ts` (plain TypeScript, no Electron, tested next to the code): simple and extended lists; `#EXTINF` (duration, `-1` for unknown, a comma inside a title), `#PLAYLIST`, other `#` lines **kept as they are** so an edit never loses what it does not understand; `\n`, `\r\n` and `\r` endings and the byte order mark; a `.m3u` that is not UTF-8 is read as Windows-1252 (the old convention) and a list is **written as UTF-8** (and `.m3u8` always is)
+- [ ] **Resolving an entry**: relative to the playlist's folder (`/` or `\`, `..`, spaces, `%20` in `file://` addresses), an absolute path of this system, a Windows path (`C:\Music\a.mp3`) on Linux or macOS looked for **by its file name** in the playlist's folder and below it (said when it is a guess); an entry of a playlist that is inside a ZIP resolves inside that ZIP; each entry has a state (found, not found, outside the open folders, an address on the web, not a sound or a video) that the list shows in words
+- [ ] **Open `.m3u` and `.m3u8` as a playlist** (a tab; the right-click menu has **Open as Text** for the text editor, which already edits it): the table of tracks (number, title, artist, duration, path, state) with the current track marked; a streaming manifest (`#EXT-X-…`, the HLS kind that has the same extension) is recognised and shown as text, not as a playlist
+- [ ] **Play in sequence**: double click or Enter on a track plays it, and when it ends the next one starts; **previous** (restarts the track when it has played more than 3 seconds), **next**, play and pause, a seek bar, volume and mute; a track that cannot be played is skipped with one notice (and it stops, not loops for ever, when none can be)
+- [ ] **Shuffle**: every track once before any is repeated (a shuffled copy of the order, not a random pick each time), the current one never first of the next round, and **previous** follows what was really played; turning it off keeps the current track and goes on in the list's order
+- [ ] **Repeat**: off, one track, the whole list; the state is kept per list and shown on the buttons
+- [ ] **Keys**: `Space` play and pause, `N` / `P` or `Ctrl+→` / `Ctrl+←` next and previous (to be chosen), `S` shuffle, `R` repeat; and the **media keys** of the keyboard and the operating system's controls through the Media Session API (`navigator.mediaSession`: title, artist and cover shown there, play, pause, next, previous; to check on Linux whether Electron needs the `MediaSessionService` feature switched on)
+- [ ] The player keeps playing while the user works in other tabs (as `MediaView` already does), and a **now playing item in the status bar** (the track, play and pause, next) takes the user back to the list
+- [ ] A **video** list plays the same way in the tab's video area; a list may mix sounds and videos
+- [ ] Tests: the parser on hand-made lists (extended and simple, commas in titles, a missing duration, a title with non-ASCII letters, Windows paths and `\` separators, `%20`, a BOM, CR only, an `#EXTINF` with no track after it, a streaming manifest), a **byte-for-byte round trip** of a list that was not edited, the shuffle (each track once per round, no repeat at the seam, previous follows the history, a list of one), and an end-to-end spec with short synthetic WAV files (`fixtures/audio.ts`) that checks the sequence, the end of a track moving on, shuffle, repeat and a missing track skipped
+
+Group 2: editing and creating (medium)
+- [ ] **Edit a list in its table**: add tracks (the file picker, a drag from the tree, and **Add to Playlist** in the right-click menu of a sound, a video or a folder: a folder adds its media in the order of the tree, and a folder with sub-folders asks whether to go in), **remove**, **reorder** by dragging a row or with the keys (`Alt+↑/↓`), sort by name, title, artist or duration, **remove the tracks that are not found**, remove duplicates, edit the title and the artist of a row (an `#EXTINF` line), with **undo and redo**
+- [ ] **Save and Save As…** through the safe path of the application (temporary file, rename, version check; a changed file asks), as `.m3u8` by default and as `.m3u` on request; the paths are written **relative to the folder the file is saved in** (a choice in the dialog: relative or absolute); the tab has the dirty mark, asks before it closes, and keeps a draft for the next start like the other editors; a list in a ZIP is saved into the ZIP (a text entry is edited there today)
+- [ ] **New Playlist** (File ▸ New Playlist): a list that exists only in the window, like a new text, kept between starts as a draft until Save As gives it a file; and a **queue**: **Play Next** and **Add to Queue** in the right-click menu of a sound or a video fill the queue (a list that is not saved), which can be saved as a playlist
+- [ ] **Play a folder** (right-click ▸ Play Folder, and Shuffle Folder): a list made on the spot from the media of the folder, not saved unless asked
+- [ ] Open the list as text and edit it there: the text editor and the table are two views of one buffer (as the CSV's table and text are), so a change in one is the other's
+
+Group 3: what a player shows (medium)
+- [ ] **Title, artist, album, duration and cover** read from the files themselves when the list has none: ID3 of an MP3, the comments of FLAC and Ogg, the atoms of MP4/M4A, the picture of each, read from the first bytes of the file (`fb:read-range`) in the background, a few files at a time, only for the rows in view, cancelled when the tab closes; a small parser of our own for the common cases, or `music-metadata` (MIT, large: to weigh)
+- [ ] The **total duration** and the number of tracks shown for the list; the cover of the current track in the player
+- [ ] A **column chooser** and sorting by any column, remembered
+
+Group 4: other playlist formats (later, each its own item)
+- [ ] Read **PLS** and **XSPF** (and WPL and ASX) and **save as M3U8**; **CUE** sheets (one audio file split into tracks) are a separate idea
+- [ ] The installers do **not** register `.m3u`/`.m3u8` as the application's own types (other players own them); Open With… and a double click inside the application are enough
+
+Performance
+- [ ] A list of tens of thousands of tracks: a **virtual list** (only the rows in view are drawn), the state of a file found out in batches for the rows in view first (one IPC call for many files, never one per row), the metadata read lazily with a limit on how many at once, shuffle and the "once per round" order made in one pass (O(n)), saving without drawing; the next track's token is asked a moment before the end so that the change is quick (gapless play is **not** planned: the `<audio>` element leaves a short gap)
+- Not planned: streaming from web addresses (privacy), gapless or cross-fading, an equaliser or visualiser, a library of the user's music (a database of tags), downloading, a tag editor
+
+Decisions to make before this is started
+- **Default**: a double click on a `.m3u`/`.m3u8` opens the playlist view (with Open as Text in the menu), or the text editor as today?
+- **The player**: in the playlist's tab only, or also a persistent **now playing** control in the status bar that follows the user into other tabs (the recommendation)?
+- **Web addresses** in a list: listed and never played, or an opt-in setting to play them later?
+- **Paths written**: relative to the file by default (the list keeps working when the folder is copied), with an absolute choice?
+- **Metadata**: a small parser of our own (ID3, FLAC, MP4) or `music-metadata`?
+- **Order**: group 1 (reading and playing), then group 2 (editing and creating), then 3, and 4 only if asked?
+
 ## Packaging, platforms and the release
 - [ ] Try the app on **Windows and macOS** (Trash, Open With…, the chooser, icons, packages): everything so far was tried on Linux only
 - [ ] Pictures of the application on Windows and macOS for the guide (today only Linux)
@@ -209,7 +252,7 @@ Passwords and what is kept
 - Hidden attribute of Windows (today only names that start with a dot)
 - ZIP64 and other encodings than UTF-8
 - Search inside files (see "Text tools", group 5); a terminal here
-- External subtitles (`.srt`, `.vtt`) beside a video; a playlist that survives closing the tab
+- External subtitles (`.srt`, `.vtt`) beside a video; a playlist that survives closing the tab (see "Playlists")
 - Password protection and `.wsnpx` from `docs/VIEWER-GUIDELINES.md`
 
 # Delivered, by phase (the history)
