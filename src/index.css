@@ -221,3 +221,6 @@ body {
 .fb-diff .cm-merge-a .cm-gutters {
   border-right: 1px solid var(--vscode-editorGroup-border);
 }
+
+/* The text selected anywhere in the interface (the formatted Markdown, the user guide, the fields) has the theme's colour, as the editors have; the browser's own blue is not the theme's. The PDF has its own (pdf.css). */
+::selection { background-color: var(--wsnp-selection); }
