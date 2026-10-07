@@ -39,6 +39,7 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 - **Accessibility pass** (M), **opt-in update check** (S), a **fuzzing harness** for the parsers (M), **drag files out** (S), **named workspaces** (S) ("Quality of the product", "Browsing")
 
 **Later** (each a project; the order is a guess)
+- **ACLs** (M to L, "ACLs: access control lists"): read first (the entries, the mask, the effective permissions, a mark on files that have them), then edit; Linux, macOS and Windows each on their own model; after the Permissions work
 - **The distribution channel of extensions** as a real, operated service (M, "Extensions", phase 2b)
 - **Redaction that really removes**, **repair of damaged files**, **comparing pictures, PDFs and structured data**, **portable mode** (L, M, M and S)
 - **Extension-first** (a rule for every complex item below: see "Extension-first", tags `[core]`/`[ext L0-L2]`)
