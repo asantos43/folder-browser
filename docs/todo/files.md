@@ -14,6 +14,7 @@ Part of the plan in [`TODO.md`](../../TODO.md) (the index, the performance rule 
 - [ ] Try the clipboard keys on **macOS** (the Edit menu roles Cut and Paste were added, as Copy already was) and Windows: tried on Linux only
 
 ### Copy the path, and open a shell on a folder (after 0.1.3; priority Next, size S)
+> **Reuse**: the **custom command template** (`{file}`, `{line}`, quotes, no shell) of `mdiff`'s `editor.ts` is the parser to port for the custom terminal command: see [`docs/ASSOCIATED-PROJECTS.md`](../ASSOCIATED-PROJECTS.md).
 Two small commands in the right-click menu of the tree (and of a tab, and in Properties), for a row or for **several marked rows**. Today a tab's menu has **Copy Path** (the path inside its folder or snapshot) and the tree has **Reveal in File Manager**; the tree has no way to copy a path, and no way to start a shell in a folder.
 
 Copy the path

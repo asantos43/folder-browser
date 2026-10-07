@@ -3,6 +3,7 @@
 Part of the plan in [`TODO.md`](../../TODO.md) (the index, the performance rule and the roadmap). Open work of this area; what was delivered is in [`history.md`](history.md).
 
 ## Search folders: find files by name, extension and content, kept as a folder (after 0.1.3)
+> **Reuse**: `mdiff`'s `.gitignore` handling (the `ignore` package), its content search with a **length-safe lowercasing** and a size cap per file, and its patch writer are described in [`docs/ASSOCIATED-PROJECTS.md`](../ASSOCIATED-PROJECTS.md).
 Idea, not started. In the Explorer, a search for files by **name, extension and content** whose result can be **saved as a folder**: it appears in **Open Folders** like any other root (with a magnifier for its icon), the **Files** area shows what it found, and it can be **edited later** (its text, its filters, its place) to run again. It is what a file manager calls a saved search or smart folder. It is **the same engine as Find in Files** of "Text tools" (group 5): one search that is built once and used by both. Today the closest things are `listFiles` (the list of file names behind Go to File, up to a limit) and the open roots.
 
 How it is shaped
