@@ -23,7 +23,7 @@ It was **started from `~/Dev/AI/projetos/github/wsnp-viewer` 0.1.0** (a copy, no
 
 ## Workflow
 
-- The repository is `asantos43/folder-browser`. Each phase of `TODO.md` is developed on its own branch and delivered as a pull request against `main`; never push implementation work directly to `main`. **Do not push, or create the remote repository, without asking.**
+- The repository is `asantos43/folder-browser`. Each piece of work of `TODO.md` (open work is listed by area, delivered work by phase) is developed on its own branch and delivered as a pull request against `main`; never push implementation work directly to `main`. **Do not push, or create the remote repository, without asking.**
 - A change is complete only with its tests (same pull request), its lines in `CHANGELOG.md` under `[Unreleased]`, its boxes in `TODO.md`, and the docs it affects (the README in both languages, the user guides in both).
 - Test files are synthetic (`fixtures/`); real `.wsnp`/ZIP files from `~/Downloads` come from private sites and never enter the repository.
 
