@@ -2,10 +2,7 @@
 
 <img src="build/icon.png" alt="Ícone do Folder Browser: uma pasta fechada por um zíper, com uma página, um lápis, um botão de play e uma lente" width="96" align="right">
 
-Um aplicativo de desktop para **navegar por pastas e arquivos ZIP**, alterar o que há neles e ler snapshots **WSNP**. Escolha uma pasta ou um `.zip`, veja os
-arquivos (os ocultos, se quiser), crie, renomeie, mova, apague e **edite** arquivos de texto (HTML, TXT, JSON, código…) na pasta ou **dentro do ZIP**, ponha
-dois arquivos de texto lado a lado num **diff** e abra arquivos `.wsnp` (páginas web salvas para leitura offline) exatamente como o
-[WSNP Viewer](https://github.com/asantos43/wsnp-viewer) os mostra.
+**O gerenciador de arquivos que entende os seus arquivos.** Um aplicativo de desktop para navegar por pastas e arquivos ZIP e para **ver e tratar o que há neles, ali mesmo**: ler documentos, imagens, PDFs, tabelas, mídia e bytes; editar texto e consertar um arquivo até **dentro de um ZIP**; pôr dois arquivos lado a lado num **diff**; abrir snapshots `.wsnp` (páginas web salvas para leitura offline) exatamente como o [WSNP Viewer](https://github.com/asantos43/wsnp-viewer) os mostra. O plano é fazê-lo crescer, com extensões, até ser a ferramenta que você procura primeiro para as **tarefas pequenas** do dia (recortar uma imagem, girar ou juntar páginas de um PDF, conferir se um YAML ou um Dockerfile é válido) em vez de abrir um programa diferente para cada uma.
 
 Roda no Linux, Windows e macOS, é feito com Electron e TypeScript e tem o visual e o comportamento do Dark+ e do Light+ do Visual Studio Code. Inglês e português do
 Brasil, conforme o idioma do sistema. [English](README.md).
@@ -14,8 +11,22 @@ Brasil, conforme o idioma do sistema. [English](README.md).
 
 O [guia do usuário](docs/USER-GUIDE.pt-BR.md) mostra cada funcionalidade, com imagens, e como usá-la; ele também está dentro do aplicativo: **Ajuda ▸ Guia do Usuário** (`F1`), em português ou inglês, sem rede.
 
-> **Situação: primeira versão (0.1.0).** Navegar por pastas e arquivos ZIP, a árvore com várias linhas marcadas, Recortar/Copiar/Colar, editar texto (também dentro de um ZIP), tabelas, diff, dois grupos de editor,
-> mídia, documentos de escritório, a visão hexadecimal e os snapshots `.wsnp` funcionam; o que falta está no [`TODO.md`](TODO.md).
+> **Situação: inicial (0.1.3).** O que está em [O que faz](#o-que-faz) funciona hoje; o que está em [Para onde vai](#para-onde-vai) é **planejado e ainda não foi feito** (o plano está no [`TODO.md`](TODO.md) e em `docs/todo/`). Até agora foi usado no Linux: os pacotes do Windows e do macOS são construídos e verificados, mas ninguém os usou ainda.
+
+## A ideia
+
+Os gerenciadores de arquivos são bons em nomes, tamanhos e datas, e entregam todo o resto a outros programas. Mas **quase tudo o que fazemos com um arquivo é pequeno**: recortar uma imagem, mudar uma linha, girar uma página de um PDF, juntar dois PDFs, separar páginas, comparar duas versões, olhar dentro de um arquivo compactado, conferir se uma configuração é válida. Cada uma dessas tarefas hoje obriga a achar e abrir um programa diferente, e no Linux muitas vezes não há uma boa alternativa atualizada para alguma delas. Para quem trabalha com TI ou software, isso significa recorrer ao Notepad++ ou ao VS Code para as coisas mais básicas.
+
+O Folder Browser parte de outra ideia: **o gerenciador de arquivos deve ser o lugar onde você vê um arquivo e faz a tarefa rápida com ele.** Seus princípios:
+
+- **Entender o arquivo.** Cada tipo de arquivo tem um visualizador de verdade, que desenha sem executar nada.
+- **Fazer a tarefa pequena ali mesmo.** Editar, consertar, comparar, girar, juntar, converter, validar, até dentro de um ZIP, e voltar ao que estava fazendo.
+- **Seguro por padrão.** Arquivos de qualquer origem aparecem em quadros isolados e sem rede; toda gravação é atômica e conferida; um histórico para desfazer está planejado.
+- **Local e privado.** Nada sai do computador a menos que você peça.
+- **Rápido para abrir.** Uma tarefa rápida não pode custar mais do que iniciar um programa maior.
+- **Extensível.** Extensões (planejadas, projetadas com a segurança em primeiro lugar: pacotes assinados e um catálogo assinado opcional) ensinam novos tipos de arquivo e de tarefa, como os plugins estendem um programa, para que ele cresça sem ficar pesado.
+
+Ele **não** pretende substituir um editor ou uma IDE para um projeto inteiro: para isso, entregue a pasta ao VS Code (**Abrir com…**).
 
 ## O que faz
 
@@ -34,6 +45,19 @@ O [guia do usuário](docs/USER-GUIDE.pt-BR.md) mostra cada funcionalidade, com i
 | **WSNP** | Arquivos `.wsnp` abrem como snapshots, isolados, verificados (SHA-256, assinatura) e sem rede, como no WSNP Viewer. São somente leitura. |
 
 Nada sai do computador: sem conta, sem análise de uso, sem rede, exceto um link da web em que você clica.
+
+## Para onde vai
+
+Planejado, ainda não feito, em ordem aproximada de valor (cada item com o projeto, o orçamento e os testes no [`TODO.md`](TODO.md) e em [`docs/todo/`](docs/todo/); o sistema de extensões em [`docs/EXTENSIONS-DESIGN.md`](docs/EXTENSIONS-DESIGN.md)):
+
+- **PDF**: bookmarks, links, formulários que dá para preencher e salvar, anotações, e **girar, apagar, reordenar, separar e juntar páginas**.
+- **Imagens**: recortar, girar, redimensionar, desenhar formas, copiar e colar, com desfazer e refazer; ler e editar o **EXIF**; salvar em outro formato e qualidade.
+- **Arquivos que entendem o próprio conteúdo** (para quem trabalha com TI e software): abrir um Dockerfile, um manifesto do Kubernetes, um workflow de CI ou um `docker-compose.yml` e ver **problemas, a validação contra o esquema, um esboço e uma versão formatada**; decodificar um certificado, um JWT ou uma linha de cron; converter entre JSON, YAML e TOML.
+- **Ferramentas de texto** de um bom editor: mudar a caixa, ordenar e limpar linhas, localizar e substituir com expressões regulares, vários cursores.
+- **Comparar** pastas, imagens, PDFs e arquivos compactados, não só texto.
+- **Redes de segurança**: um histórico local para desfazer qualquer gravação, dados escondidos (GPS, autor) mostrados e removíveis, redação de verdade, um modo só de inspeção, uma triagem de arquivos arriscados.
+- **Arquivos compactados**: compactar e extrair, `tar`, `tar.gz`, `7z`; **SQLite** e outros arquivos de dados; playlists; uma galeria.
+- **Extensões** com um catálogo assinado, e distribuição pelos repositórios de pacotes e lojas que as pessoas já usam.
 
 ## Instalação
 
