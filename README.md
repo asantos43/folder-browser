@@ -70,7 +70,7 @@ sends deletions to the trash and writes through a temporary file; how hostile fi
 
 | | |
 | --- | --- |
-| [`TODO.md`](TODO.md) | The plan, phase by phase, and what is next |
+| [`TODO.md`](TODO.md) | What is left, by area of the application, and the history by phase |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed, by version |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the app is built, and its safety rules |
 | [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) ([pt-BR](docs/USER-GUIDE.pt-BR.md)) | Using the app, every feature, with pictures |
