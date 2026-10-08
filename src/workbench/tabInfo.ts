@@ -99,7 +99,7 @@ const kindOfFile = (ws: Workspace, tab: Tab) => {
   // A file of a folder or a ZIP that was opened to browse: no manifest, so its type is told by its name (and, if that says nothing, by looking at it) and its size is the one the tree listed.
   if (ws.roots[tab.snapshotId] && tab.path) {
     const file: { path: string; size: number; mediaType?: string } = { path: tab.path, size: tab.size ?? 0 }
-    // A `.wsnp` of a folder opened as a ZIP ("Open as ZIP") is listed like one.
+    // A `.wsnp` of a folder opened as a ZIP ("Show Contents") is listed like one.
     return { file, kind: /\.wsnp$/i.test(tab.path) ? ('zip' as const) : mediaKind(undefined, tab.path) ? ('media' as const) : viewKind(undefined, tab.path, file.size) }
   }
   let file: { path: string; size: number; mediaType?: string } | undefined = ws.snapshots[tab.snapshotId]?.files.find((f) => f.path === tab.path)

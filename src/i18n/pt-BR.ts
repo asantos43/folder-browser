@@ -37,7 +37,7 @@ export const ptBR: Record<MessageKey, string> = {
   'tree.errorLarge': 'Este arquivo ZIP é grande demais para ser navegado aqui.',
   'tree.hideHidden': 'Ocultar Arquivos Ocultos',
   'tree.openAsList': 'Abrir como Lista',
-  'tree.openAsZip': 'Abrir como ZIP',
+  'tree.openAsZip': 'Mostrar Conteúdo',
   'tree.openAsHex': 'Abrir como Hex',
   'tree.openDefault': 'Abrir com o Aplicativo Padrão',
   'tree.play': 'Reproduzir',

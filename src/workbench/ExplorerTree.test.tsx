@@ -197,13 +197,13 @@ describe('ExplorerTree', () => {
     fireEvent.keyDown(screen.getByRole('tree'), { key: 'Enter' })
     expect(openSnapshot).toHaveBeenCalledTimes(1)
   })
-  it('shows a .wsnp as any file (no icon of its own), offers Open and Open as ZIP, and does not expand it', async () => {
+  it('shows a .wsnp as any file (no icon of its own), offers Open and Show Contents, and does not expand it', async () => {
     const { openSnapshot, open } = show()
     await waitFor(() => expect(names()).toHaveLength(4))
     expect(screen.getByRole('treeitem', { name: 'page.wsnp' }).getAttribute('aria-expanded')).toBeNull()
     expect(screen.getByRole('treeitem', { name: 'page.wsnp' }).querySelector('.codicon-browser')).toBeNull()
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'page.wsnp' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Open as ZIP' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Show Contents' }))
     expect(open).toHaveBeenCalledWith(expect.objectContaining({ path: 'page.wsnp' }), true)
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'page.wsnp' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Open' }))
