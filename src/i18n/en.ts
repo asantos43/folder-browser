@@ -35,7 +35,7 @@ export const en = {
   'tree.errorLarge': 'This ZIP file is too large to browse here.',
   'tree.hideHidden': 'Hide Hidden Files',
   'tree.openAsList': 'Open as List',
-  'tree.openAsZip': 'Open as ZIP',
+  'tree.openAsZip': 'Show Contents',
   'tree.openAsHex': 'Open as Hex',
   'tree.openDefault': 'Open with Default Application',
   'tree.play': 'Play',

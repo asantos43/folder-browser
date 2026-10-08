@@ -219,7 +219,7 @@ test('the page of a .wsnp is checked like any snapshot, and its metadata are in 
 test('a .wsnp of the folder can be opened as a ZIP: its entries are listed, not shown as a page', async () => {
   const page = await launch(work)
   await item(page, 'harbor.wsnp').click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Open as ZIP' }).click()
+  await page.getByRole('menuitem', { name: 'Show Contents' }).click()
   await expect(page.getByRole('tab', { selected: true })).toContainText('harbor.wsnp')
   await expect(page.getByText('manifest.json').first()).toBeVisible()
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' }).getByRole('option')).toHaveCount(0)
