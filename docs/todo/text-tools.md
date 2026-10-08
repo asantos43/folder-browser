@@ -46,7 +46,7 @@ Group 6: bigger, optional
 - [ ] **Other encodings** (Latin-1, Windows-1252, UTF-16, Shift-JIS, GBK…) shown in the status bar and chosen from it, with a conversion (`TextDecoder` reads them; writing needs `iconv-lite`): the same item as "Other encodings" under Text editing and tables above
 - [ ] **Live file monitoring** (`tail -f`: a file that grows is followed to its end) with the reload of a file that changed on disk (the same area as "A file that changes on disk while it is open")
 - [ ] **Clone document**: the same file in two groups at once, with one buffer (today a tab is one file and moves)
-- [ ] **Document map** (a minimap) and a **function list** (from the syntax tree of the language: each language needs its own list of nodes)
+- [ ] **Document map**: the **minimap** is its own item, "A minimap" in `docs/todo/text.md`; and a **function list** (from the syntax tree of the language: each language needs its own list of nodes)
 - [ ] **Macros** (record and play back a run of commands, save with a name) and a **clipboard history**
 - [ ] **Open in a browser** for an HTML file, **file summary** (lines, words, characters, bytes) and a word count of the selection
 - Not planned: plugins with full trust or with Node (a safe extension system is planned: see "Extensions"), the Run menu, FTP, spell checking
