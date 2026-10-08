@@ -27,23 +27,24 @@ libraries Chromium contains. They are shipped unchanged by electron-builder.
 | @codemirror/lang-markdown | 6.5.2 | MIT | https://code.haverbeke.berlin/codemirror/lang-markdown |
 | @codemirror/lang-xml | 6.1.0 | MIT | https://github.com/codemirror/lang-xml |
 | @codemirror/lang-yaml | 6.1.3 | MIT | https://github.com/codemirror/lang-yaml |
-| @codemirror/language | 6.12.4 | MIT | https://code.haverbeke.berlin/codemirror/language |
+| @codemirror/language | 6.13.1 | MIT | https://code.haverbeke.berlin/codemirror/language |
 | @codemirror/lint | 6.9.7 | MIT | https://code.haverbeke.berlin/codemirror/lint |
 | @codemirror/merge | 6.12.2 | MIT | https://code.haverbeke.berlin/codemirror/merge |
 | @codemirror/state | 6.7.6 | MIT | https://code.haverbeke.berlin/codemirror/state |
-| @codemirror/view | 6.43.13 | MIT | https://code.haverbeke.berlin/codemirror/view |
+| @codemirror/streamparser | 6.0.0 | MIT | https://code.haverbeke.berlin/codemirror/streamparser |
+| @codemirror/view | 6.43.14 | MIT | https://code.haverbeke.berlin/codemirror/view |
 | @lezer/common | 1.5.3 | MIT | https://code.haverbeke.berlin/lezer/common |
-| @lezer/css | 1.3.8 | MIT | https://code.haverbeke.berlin/lezer/css |
+| @lezer/css | 1.3.9 | MIT | https://code.haverbeke.berlin/lezer/css |
 | @lezer/highlight | 1.2.5 | MIT | https://code.haverbeke.berlin/lezer/highlight |
 | @lezer/html | 1.3.13 | MIT | https://github.com/lezer-parser/html |
-| @lezer/javascript | 1.5.5 | MIT | https://code.haverbeke.berlin/lezer/javascript |
+| @lezer/javascript | 1.5.6 | MIT | https://code.haverbeke.berlin/lezer/javascript |
 | @lezer/json | 1.0.3 | MIT | https://github.com/lezer-parser/json |
-| @lezer/lr | 1.4.10 | MIT | https://code.haverbeke.berlin/lezer/lr |
-| @lezer/markdown | 1.7.2 | MIT | https://code.haverbeke.berlin/lezer/markdown |
+| @lezer/lr | 1.4.11 | MIT | https://code.haverbeke.berlin/lezer/lr |
+| @lezer/markdown | 1.8.0 | MIT | https://code.haverbeke.berlin/lezer/markdown |
 | @lezer/xml | 1.0.6 | MIT | https://github.com/lezer-parser/xml |
 | @lezer/yaml | 1.0.4 | MIT | https://github.com/lezer-parser/yaml |
 | @marijn/find-cluster-break | 1.0.4 | MIT | https://code.haverbeke.berlin/marijn/find-cluster-break |
-| @opendocument/odr-core | 7.4.0 | MPL-2.0 | https://github.com/opendocument-app/OpenDocument.core |
+| @opendocument/odr-core | 7.5.0 | MPL-2.0 | https://github.com/opendocument-app/OpenDocument.core |
 | @vscode/codicons | 0.0.46-24 | CC-BY-4.0 | https://github.com/microsoft/vscode-codicons |
 | allotment | 1.20.5 | MIT | https://github.com/johnwalley/allotment |
 | buffer-crc32 | 1.0.0 | MIT | git://github.com/brianloveswords/buffer-crc32 |
@@ -52,7 +53,7 @@ libraries Chromium contains. They are shipped unchanged by electron-builder.
 | crelt | 1.0.7 | MIT | https://code.haverbeke.berlin/marijn/crelt |
 | docx-preview | 0.4.1 | Apache-2.0 | https://github.com/VolodymyrBaydalka/docxjs |
 | echarts | 6.1.0 | Apache-2.0 | https://github.com/apache/echarts |
-| entities | 8.1.0 | BSD-2-Clause | https://github.com/fb55/entities |
+| entities | 7.0.1 | BSD-2-Clause | https://github.com/fb55/entities |
 | eventemitter3 | 5.0.4 | MIT | git://github.com/primus/eventemitter3 |
 | fast-deep-equal | 3.1.3 | MIT | https://github.com/epoberezkin/fast-deep-equal |
 | immediate | 3.0.6 | MIT | git://github.com/calvinmetcalf/immediate |
@@ -78,7 +79,7 @@ libraries Chromium contains. They are shipped unchanged by electron-builder.
 | sql.js | 1.14.2 | MIT | http://github.com/sql-js/sql.js |
 | string_decoder | 1.1.1 | MIT | git://github.com/nodejs/string_decoder |
 | style-mod | 4.1.4 | MIT | https://code.haverbeke.berlin/marijn/style-mod |
-| tslib | 2.8.1 | 0BSD | https://github.com/Microsoft/tslib |
+| tslib | 2.3.0 | 0BSD | https://github.com/Microsoft/tslib |
 | usehooks-ts | 3.1.1 | MIT | https://github.com/juliencrn/usehooks-ts |
 | util-deprecate | 1.0.2 | MIT | git://github.com/TooTallNate/util-deprecate |
 | w3c-keyname | 2.2.8 | MIT | https://github.com/marijnh/w3c-keyname |
@@ -317,7 +318,7 @@ Apache License
    limitations under the License.
 ```
 
-### @codemirror/autocomplete 6.20.3, @codemirror/commands 6.11.1, @codemirror/lang-css 6.3.1, @codemirror/lang-html 6.4.12, @codemirror/lang-javascript 6.2.5, @codemirror/lang-json 6.0.2, @codemirror/lang-markdown 6.5.2, @codemirror/lang-xml 6.1.0, @codemirror/language 6.12.4, @codemirror/lint 6.9.7, @codemirror/state 6.7.6, @codemirror/view 6.43.13
+### @codemirror/autocomplete 6.20.3, @codemirror/commands 6.11.1, @codemirror/lang-css 6.3.1, @codemirror/lang-html 6.4.12, @codemirror/lang-javascript 6.2.5, @codemirror/lang-json 6.0.2, @codemirror/lang-markdown 6.5.2, @codemirror/lang-xml 6.1.0, @codemirror/language 6.13.1, @codemirror/lint 6.9.7, @codemirror/state 6.7.6, @codemirror/streamparser 6.0.0, @codemirror/view 6.43.14
 
 ```text
 MIT License
@@ -395,7 +396,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### @lezer/common 1.5.3, @lezer/css 1.3.8, @lezer/highlight 1.2.5, @lezer/html 1.3.13, @lezer/javascript 1.5.5, @lezer/lr 1.4.10, @lezer/xml 1.0.6
+### @lezer/common 1.5.3, @lezer/css 1.3.9, @lezer/highlight 1.2.5, @lezer/html 1.3.13, @lezer/javascript 1.5.6, @lezer/lr 1.4.11, @lezer/xml 1.0.6
 
 ```text
 MIT License
@@ -447,7 +448,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### @lezer/markdown 1.7.2
+### @lezer/markdown 1.8.0
 
 ```text
 MIT License
@@ -525,7 +526,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### @opendocument/odr-core 7.4.0
+### @opendocument/odr-core 7.5.0
 
 ```text
 MPL-2.0 (the library does not ship a licence file; see https://github.com/opendocument-app/OpenDocument.core)
@@ -1512,7 +1513,7 @@ This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
 ```
 
-### entities 8.1.0
+### entities 7.0.1
 
 ```text
 Copyright (c) Felix Böhm
@@ -3387,7 +3388,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### tslib 2.8.1
+### tslib 2.3.0
 
 ```text
 Copyright (c) Microsoft Corporation.

@@ -8,6 +8,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+### Changed
+
+- **Dependencies brought up to the newest versions their ranges allow** (`package.json` is unchanged; `package-lock.json` and `THIRD-PARTY-NOTICES.md` are): Electron 44.5.1 → 44.7.0, `@opendocument/odr-core` 7.4.0 → 7.5.0, `@codemirror/language` 6.12.4 → 6.13.1, `@codemirror/view` 6.43.13 → 6.43.14, `@codemirror/legacy-modes` 6.5.4 → 6.5.5, Vite 8.3.3 → 8.3.4, `@vitejs/plugin-react` 6.1.1 → 6.1.2, Playwright 1.63.0 → 1.64.0 and oxlint 1.86.0 → 1.87.0, with their indirect dependencies (78 versions changed, 26 packages added, 24 removed). Checked locally: lint, typecheck, 1,154 unit tests and 278 end-to-end tests pass (one link-click spec flaky, passing on its retry).
+
 ## [0.1.3] - 2026-10-07
 
 ### Added
