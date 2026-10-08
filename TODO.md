@@ -23,6 +23,7 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 7. **Settings framework** (M, "Settings"): a registry the page is made from, a file the application owns, JSON, export and import, and the first options: it makes every option after it cheap
 
 **Next**
+- **Go to the next and the previous file of the folder** (M, "Go to the next and the previous file of the folder" in `docs/todo/interface.md`): one key to sweep a folder of pictures, PDFs, sounds or documents, in one tab, with the next one prepared ahead
 - **Several windows** (L, "Several windows" in `docs/todo/interface.md`): roots per window, shared settings, favourites, drafts and clipboard, one editor per file, a session of many windows; it changes the main process's shape, so the earlier it is decided the cheaper it is
 - **Move and copy to any folder** with the system's folder dialog and a New Folder button (M, "Move and copy to any folder"): out of the root, to another open root, and across file systems, safely
 - **Permissions, owner, group and visibility** (M, "Permissions, owner, group and visibility"): make a file executable, set the mode, the group and the owner, for one row, several or a folder's contents; Linux and macOS first
