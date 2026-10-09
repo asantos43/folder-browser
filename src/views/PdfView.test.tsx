@@ -16,6 +16,7 @@ vi.mock('pdfjs-dist', () => pdfjs)
 vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: 'worker.mjs' }))
 
 import { PdfView } from './PdfView.tsx'
+import { clearPdfPasswords, getPdfPassword, pdfPasswordKey, rememberPdfPassword } from './pdfPasswords.ts'
 
 const fakePage = () => ({
   getViewport: ({ scale }: { scale: number }) => ({ width: 100 * scale, height: 200 * scale, scale }),
@@ -34,7 +35,10 @@ function show(onSave = vi.fn()) {
   return onSave
 }
 
-beforeEach(() => pdfjs.getDocument.mockReset())
+beforeEach(() => {
+  pdfjs.getDocument.mockReset()
+  clearPdfPasswords()
+})
 afterEach(cleanup)
 
 describe('PdfView', () => {
@@ -160,5 +164,101 @@ describe('PdfView', () => {
     await screen.findByRole('img', { name: 'Page 1' })
     cleanup()
     expect(loading.destroy).toHaveBeenCalled()
+  })
+  describe('a remembered password (only while the app is open)', () => {
+    const ID = 'snap:t'
+    const BYTES = new Uint8Array([1, 2, 3, 4, 5])
+    const OTHER_ID = 'snap:other'
+    /** Mount with a stable id and bytes, so the password key is the same across mounts of the same test. */
+    function mountPdf(id = ID, bytes = BYTES) {
+      render(
+        <I18nProvider language="en">
+          <PdfView id={id} bytes={bytes} name="a.pdf" onSave={vi.fn()} />
+        </I18nProvider>,
+      )
+    }
+    /** A loading task that asks for the password the way pdf.js does, and goes on when it is given one. */
+    function freshAsking() {
+      let resolve!: (doc: unknown) => void
+      const loading = { ...task(new Promise((r) => (resolve = r))), onPassword: undefined as undefined | ((update: (password: string) => void, reason: number) => void) }
+      pdfjs.getDocument.mockReturnValue(loading)
+      return { ask: (update: (password: string) => void, reason = 1) => act(() => loading.onPassword!(update, reason)), open: (pages = 2) => act(() => resolve(fakeDoc(pages))) }
+    }
+    const field = () => screen.getByLabelText('Password') as HTMLInputElement
+    const type = (value: string) => fireEvent.change(field(), { target: { value } })
+
+    it('opens the doc without the form when the same file is mounted a second time with the password already known', async () => {
+      const first = freshAsking()
+      mountPdf()
+      await waitFor(() => expect(pdfjs.getDocument).toHaveBeenCalledTimes(1))
+      first.ask(vi.fn(), 1)
+      type('harbor')
+      fireEvent.click(screen.getByRole('button', { name: 'Open' }))
+      first.open()
+      await screen.findByRole('img', { name: 'Page 2' })
+
+      cleanup()
+      const second = freshAsking()
+      mountPdf()
+      await waitFor(() => expect(pdfjs.getDocument).toHaveBeenCalledTimes(2))
+      const submit = vi.fn()
+      second.ask(submit, 1)
+      expect(submit).toHaveBeenCalledWith('harbor')
+      second.open()
+      await screen.findByRole('img', { name: 'Page 2' })
+      expect(screen.queryByLabelText('Password')).toBeNull()
+    })
+    it('forgets a cached password that pdf.js rejects and asks again', async () => {
+      const key = pdfPasswordKey(ID, BYTES)
+      rememberPdfPassword(key, 'stale')
+
+      const { ask } = freshAsking()
+      mountPdf()
+      await waitFor(() => expect(pdfjs.getDocument).toHaveBeenCalled())
+      const submit = vi.fn()
+      ask(submit, 1)
+      expect(submit).toHaveBeenCalledWith('stale')
+      // pdf.js rejects what the view had sent on its behalf: the form comes back and the cache is gone.
+      ask(submit, 2)
+      expect(screen.getByLabelText('Password')).toBeTruthy()
+      // The cached password was not the person's mistake: no "not right" notice yet.
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(getPdfPassword(key)).toBeUndefined()
+    })
+    it('does not remember a password the user typed but pdf.js rejects', async () => {
+      const key = pdfPasswordKey(ID, BYTES)
+      const { ask } = freshAsking()
+      mountPdf()
+      await waitFor(() => expect(pdfjs.getDocument).toHaveBeenCalled())
+      ask(vi.fn(), 1)
+      type('nope')
+      fireEvent.submit(field().closest('form')!)
+      ask(vi.fn(), 2)
+      expect(screen.getByLabelText('Password')).toBeTruthy()
+      // The wrong typed password was never put in the cache (only a password that opens the doc is).
+      expect(getPdfPassword(key)).toBeUndefined()
+    })
+    it('asks for the password again for a different id (the cached one is for a different key)', async () => {
+      const first = freshAsking()
+      mountPdf(ID, BYTES)
+      await waitFor(() => expect(pdfjs.getDocument).toHaveBeenCalledTimes(1))
+      first.ask(vi.fn(), 1)
+      type('harbor')
+      fireEvent.submit(field().closest('form')!)
+      first.open()
+      await screen.findByRole('img', { name: 'Page 2' })
+      const firstKey = pdfPasswordKey(ID, BYTES)
+      expect(getPdfPassword(firstKey)).toBe('harbor')
+
+      cleanup()
+      const second = freshAsking()
+      mountPdf(OTHER_ID, BYTES)
+      await waitFor(() => expect(pdfjs.getDocument).toHaveBeenCalledTimes(2))
+      const submit = vi.fn()
+      second.ask(submit, 1)
+      expect(submit).not.toHaveBeenCalled()
+      expect(screen.getByLabelText('Password')).toBeTruthy()
+      expect(getPdfPassword(firstKey)).toBe('harbor')
+    })
   })
 })

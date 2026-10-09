@@ -63,3 +63,27 @@ test('the characters of the zoom keys can be typed in a password', async () => {
   await page.keyboard.type('+-0=')
   await expect(field).toHaveValue('+-0=')
 })
+
+test('the password of a PDF is remembered while the app is open: switching tabs and reopening the tab do not ask for it again', async () => {
+  fs.writeFileSync(path.join(work, 'note.txt'), 'a side file to switch tabs with')
+  const page = await launch(work)
+  // Open the encrypted PDF, type the password, and see the pages drawn.
+  await item(page, 'secret.pdf').dblclick()
+  const field = page.getByLabel('Password', { exact: true })
+  await expect(page.getByText(/protected with a password/)).toBeVisible()
+  await field.fill('harbor')
+  await page.getByRole('button', { name: 'Open', exact: true }).click()
+  await expect(page.getByRole('img', { name: 'Page 1' })).toBeVisible()
+  // Open a second file from the folder and switch back to the PDF tab: the form does not come back, the pages stay drawn.
+  await item(page, 'note.txt').dblclick()
+  await expect(page.locator('.cm-content')).toContainText('a side file to switch tabs with')
+  await page.getByRole('tab', { name: /^secret\.pdf/ }).click()
+  await expect(page.getByRole('img', { name: 'Page 1' })).toBeVisible()
+  await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0)
+  // Close the PDF tab and reopen it in the same session: also no form, pages are drawn.
+  await page.getByRole('tab', { name: /^secret\.pdf/ }).getByRole('button', { name: /close/i }).click()
+  await expect(page.getByRole('tab', { name: /^secret\.pdf/ })).toHaveCount(0)
+  await item(page, 'secret.pdf').dblclick()
+  await expect(page.getByRole('img', { name: 'Page 1' })).toBeVisible()
+  await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0)
+})
