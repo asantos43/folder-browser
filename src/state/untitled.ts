@@ -25,6 +25,21 @@ export function newUntitledBuffer(key: string, wrap: boolean, text = '', lang: U
   return buffer
 }
 
+/**
+ * The new text `from` (`u:<n>`) was saved and its tab is now the file's `to` (`f:<root>:<path>`): the buffer goes to the new key with its undo history, a buffer the file's tab had is
+ * replaced, and what only a new text has (`lang`) is dropped. The language the user picked stays picked. Nothing changes when `from` has no buffer or is `to`.
+ */
+export function moveEditorBuffer(from: string, to: string, languageKey: string = to): void {
+  const buffer = editorBuffers.get(from)
+  if (!buffer || from === to) return
+  const picked = fileLanguage.get(from)
+  delete buffer.lang
+  editorBuffers.move(from, to)
+  // `fileLanguage` is keyed by what a file's view uses (`<root>:<path>`, no `f:`), not by the key of the tab.
+  fileLanguage.set(from, undefined)
+  fileLanguage.set(languageKey, picked)
+}
+
 /** How many characters a change put in and took out. */
 export function changeSize(changes: ChangeSet): number {
   let size = 0

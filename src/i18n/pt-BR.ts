@@ -250,6 +250,7 @@ export const ptBR: Record<MessageKey, string> = {
   'edit.error.no-buffer': 'Não há nada para salvar.',
   'edit.saveFailed': 'Não foi possível salvar {name}: {reason}',
   'edit.saved': '{name} foi salvo.',
+  'edit.savedNotText': '{name} foi salvo. Não é um arquivo de texto; ele abre como esse tipo de arquivo.',
   'edit.conflictTitle': 'O arquivo mudou no disco',
   'edit.conflictMessage': '“{name}” foi alterado por outra coisa desde que você o abriu. Sobrescrever com o seu texto, ou carregar o que está no disco e perder as suas alterações?',
   'edit.overwrite': 'Sobrescrever',

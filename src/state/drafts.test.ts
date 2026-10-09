@@ -1,7 +1,7 @@
 import { EditorState } from '@codemirror/state'
 import type { FbApi } from '@core/api.ts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DRAFT_DELAY_MS, flushDrafts, forgetDrafts, setDraftsEnabled, syncDrafts, touchDraft } from './drafts.ts'
+import { DRAFT_DELAY_MS, flushDrafts, forgetDrafts, releaseDraft, setDraftsEnabled, syncDrafts, touchDraft } from './drafts.ts'
 import { editorBuffers, type EditorBuffer } from './editors.ts'
 import { empty, reduce, type Action, type Workspace } from './workspace.ts'
 
@@ -116,6 +116,17 @@ describe('drafts of a new text file (Untitled-N)', () => {
     syncDrafts(api, untitledWs(true))
     await vi.advanceTimersByTimeAsync(DRAFT_DELAY_MS + 100)
     expect(api.drafts.put).toHaveBeenCalledWith('@untitled', 'u:1', { kind: 'text', text: 'pasted text', base: { mtimeMs: 0, size: 0 }, eol: 'lf', bom: false })
+  })
+  it('releaseDraft cancels the write that waits and lets the kept draft go (a new text saved as a file)', async () => {
+    const api = { drafts: { put: vi.fn(async () => true), delete: vi.fn(async () => {}) } } as unknown as Pick<FbApi, 'drafts'>
+    buffer('pasted text')
+    syncDrafts(api, untitledWs(true))
+    releaseDraft(api, 'u:1')
+    await vi.advanceTimersByTimeAsync(DRAFT_DELAY_MS + 100)
+    expect(api.drafts.put).not.toHaveBeenCalled()
+    expect(api.drafts.delete).toHaveBeenCalledWith('@untitled', 'u:1')
+    releaseDraft(api, 'u:1')
+    expect(api.drafts.delete).toHaveBeenCalledTimes(1)
   })
   it('is let go when the text has no changes any more (saved, emptied, or the tab closed)', async () => {
     const api = { drafts: { put: vi.fn(async () => true), delete: vi.fn(async () => {}) } } as unknown as Pick<FbApi, 'drafts'>

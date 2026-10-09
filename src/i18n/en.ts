@@ -248,6 +248,7 @@ export const en = {
   'edit.error.no-buffer': 'There is nothing to save.',
   'edit.saveFailed': 'Could not save {name}: {reason}',
   'edit.saved': 'Saved {name}.',
+  'edit.savedNotText': 'Saved {name}. It is not a text file, so it opens as that kind of file.',
   'edit.conflictTitle': 'The file changed on disk',
   'edit.conflictMessage': '“{name}” was changed by something else since you opened it. Overwrite it with your text, or load what is on the disk and lose your changes?',
   'edit.overwrite': 'Overwrite',
