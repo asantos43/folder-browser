@@ -5,7 +5,7 @@ import { useI18n } from '@/i18n/context.tsx'
 import { showHidden, sortDescending, sortKey } from '@/state/setting.ts'
 import { sortMenuEntries } from './sortMenu.ts'
 import { MenuList, useDismiss } from '@/components/Menu.tsx'
-import type { Action, Workspace } from '@/state/workspace.ts'
+import { snapshotLocation, type Action, type Workspace } from '@/state/workspace.ts'
 import type { DiffSide } from '@core/diff.ts'
 import type { SortKey } from '@core/fs/sort.ts'
 import { ExplorerTree } from './ExplorerTree.tsx'
@@ -102,8 +102,16 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
   const createCount = useRef(0)
   const rootIds = Object.keys(ws.roots)
   const activeTab = ws.tabs.find((tab) => tab.key === ws.active)
-  // The file of the tab on screen, when it is of the folder the tree shows (the tree opens ZIP files like folders, so the whole path is a place in it).
-  const activePath = activeTab && activeTab.snapshotId === ws.selected ? activeTab.path : undefined
+  // The file of the tab on screen, when it is of the folder the tree shows (the tree opens ZIP files like folders, so the whole path is a place in it). A snapshot tab (its page, metadata or one of its files) takes the same shape: the `.wsnp` itself in the root that contains it, so the tree highlights its row. `undefined` when no open root (or not the one the tree shows) contains the `.wsnp` — the tree then has nothing to point at.
+  const activePath = (() => {
+    if (!activeTab) return undefined
+    if (activeTab.snapshotId === ws.selected && activeTab.path !== undefined) return activeTab.path
+    if (ws.snapshots[activeTab.snapshotId]) {
+      const loc = snapshotLocation(ws, activeTab)
+      if (loc && loc.rootId === ws.selected) return loc.path
+    }
+    return undefined
+  })()
   const iconButton = 'mr-1 flex h-[22px] w-[22px] items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-toolbar-hover focus-visible:opacity-100'
 
   return (
