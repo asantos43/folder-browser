@@ -9,6 +9,7 @@ import { fileIcon } from '@/lib/icons.ts'
 import type { MenuEntry } from '@/components/Menu.tsx'
 import { fileKey, isSnapshotTab, snapshotKey, type Workspace } from '@/state/workspace.ts'
 import { MENUS, type Commands } from './commands.ts'
+import { builtinCommands } from '@core/commands/builtin.ts'
 import { snapshotTitle } from './tabInfo.ts'
 
 interface Item {
@@ -23,6 +24,10 @@ interface Item {
 
 const MAX_ITEMS = 100
 
+export function buildCommandItemsWhenOpen<T>(open: boolean, build: () => T): T | undefined {
+  return open ? build() : undefined
+}
+
 /** Every command of the menus that can run now, as "Menu: Command", and the colour themes. */
 export function commandItems(t: Translate, commands: Commands, setTheme: Commands['setTheme']): Item[] {
   const items: Item[] = []
@@ -34,11 +39,16 @@ export function commandItems(t: Translate, commands: Commands, setTheme: Command
     }
   }
   for (const menu of MENUS) visit(t(menu.label), menu.entries(t, commands))
-  // The zoom of the tab on screen is not in the menus (nothing zooms the whole application), but it is a command.
-  if (commands.canZoom) {
-    for (const [id, label, run] of [['zoomIn', t('menu.zoomIn'), commands.zoomIn], ['zoomOut', t('menu.zoomOut'), commands.zoomOut], ['zoomReset', t('menu.resetZoom'), commands.zoomReset]] as const) items.push({ id: `view:${id}`, label, description: t('menu.view'), icon: 'zoom-in', run })
+  // Commands without a menu entry (zoom and the theme choices) still come from the same registry.
+  for (const command of builtinCommands.filter((definition) => definition.palette && !('menu' in definition))) {
+    if (command.id === 'zoomIn' || command.id === 'zoomOut' || command.id === 'zoomReset') {
+      if (commands.canZoom) items.push({ id: `view:${command.id}`, label: t(command.title), description: t('menu.view'), icon: 'zoom-in', run: commands[command.id] })
+    } else if (command.id === 'themeDark' || command.id === 'themeLight') {
+      const value = command.id === 'themeDark' ? 'dark' : 'light'
+      const name = value === 'dark' ? 'Dark+' : 'Light+'
+      items.push({ id: `theme:${value}`, label: t(command.title, { name }), description: t('menu.view'), icon: 'symbol-color', run: () => setTheme(value) })
+    }
   }
-  for (const [name, value] of [['Dark+', 'dark'], ['Light+', 'light']] as const) items.push({ id: `theme:${value}`, label: t('quickOpen.theme', { name }), description: t('menu.view'), icon: 'symbol-color', run: () => setTheme(value) })
   return items
 }
 
@@ -104,7 +114,7 @@ export function QuickOpen({ start, ws, commands, loadFiles, onOpen, onClose }: {
 
   const items = useMemo(() => {
     if (asCommands) {
-      const all = commandItems(t, commands, commands.setTheme)
+      const all = buildCommandItemsWhenOpen(asCommands, () => commandItems(t, commands, commands.setTheme))!
       return (text ? all.map((i) => [i, fuzzyScore(text, i.label)] as const).filter(([, s]) => s !== null).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([i]) => i) : all).slice(0, MAX_ITEMS)
     }
     if (!text) {

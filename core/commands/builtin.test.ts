@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { translator, type MessageKey } from '@/i18n/index.ts'
 import type { MenuEntry } from '@/components/Menu.tsx'
 import { MENUS, type Commands } from '@/workbench/commands.ts'
-import { builtinCommands } from './builtin.ts'
+import { builtinCommands, runBuiltinCommand, type BuiltinHandlers } from './builtin.ts'
 import { createRegistry } from './registry.ts'
 import type { WhenContext } from './when.ts'
 
@@ -110,5 +110,14 @@ describe('built-in command data', () => {
   it('has the commands that are in no menu (zoom and the themes) and nothing else is outside a menu', () => {
     const outside = builtinCommands.filter((command) => !('menu' in command)).map((command) => command.id)
     expect(outside).toEqual(['zoomIn', 'zoomOut', 'zoomReset', 'themeDark', 'themeLight'])
+  })
+
+  it('dispatches every built-in id to its matching handler', () => {
+    const called: string[] = []
+    const handlers = Object.fromEntries(builtinCommands.map(({ id }) => [id, () => { called.push(id) }])) as unknown as BuiltinHandlers
+    for (const { id } of builtinCommands) runBuiltinCommand(handlers, id)
+    expect(called).toEqual(builtinCommands.map(({ id }) => id))
+    runBuiltinCommand(handlers, 'unknown-command')
+    expect(called).toHaveLength(builtinCommands.length)
   })
 })

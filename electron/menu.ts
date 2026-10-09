@@ -1,10 +1,18 @@
 import { app, Menu, type MenuItemConstructorOptions } from 'electron'
+import { builtinCommands, type BuiltinCommandId } from '../core/commands/builtin.ts'
+
+const menuCommandIds = new Set(builtinCommands.filter((command) => 'menu' in command && command.menu).map((command) => command.id))
+function commandId(id: BuiltinCommandId): string {
+  if (!menuCommandIds.has(id)) throw new Error(`Command has no menu registration: ${id}`)
+  return id
+}
 
 /**
  * The native application menu of macOS, as VS Code has it: File, Edit, View, Go, Help. Commands the interface
  * handles go to it as `fb:command`. On Windows and Linux the menu is drawn in the title bar by the interface.
  */
-export function installMenu(send: (command: string) => void): void {
+export function installMenu(sendCommand: (command: string) => void): void {
+  const send = (id: BuiltinCommandId) => sendCommand(commandId(id))
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null)
     return

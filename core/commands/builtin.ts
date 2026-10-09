@@ -1,4 +1,4 @@
-import type { CommandDef, HandlerMap } from './registry.ts'
+import type { CommandDef, CommandHandlers, HandlerMap } from './registry.ts'
 
 /** Current workbench commands copied as data; core never imports the renderer. */
 export const builtinCommands = [
@@ -40,3 +40,8 @@ export const builtinCommands = [
 export type BuiltinCommandId = typeof builtinCommands[number]['id']
 export type BuiltinHandlers = HandlerMap<BuiltinCommandId>
 export function bindBuiltinHandlers(handlers: BuiltinHandlers): BuiltinHandlers { return handlers }
+
+/** Dispatch an id defensively: ids from old callers or extensions have no effect here. */
+export function runBuiltinCommand(handlers: CommandHandlers<BuiltinCommandId>, id: string): void {
+  if (Object.hasOwn(handlers, id)) handlers[id as BuiltinCommandId]()
+}

@@ -1,5 +1,6 @@
 import type { Chooser, DirEntry, OpenResult, OpenWithResult, Place, PlacesData, RootInfo, SaveResult } from '@core/api.ts'
 import { commandFor, type CommandName } from '@core/shortcuts.ts'
+import { runBuiltinCommand, type BuiltinHandlers } from '@core/commands/builtin.ts'
 import { Allotment } from 'allotment'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
@@ -608,31 +609,24 @@ export function Workbench() {
   const run = useCallback(
     (command: CommandName | 'cycleEnd' | 'showAbout' | 'copy' | 'savePdf' | 'saveAsWsnp') => {
       const current = wsNow.current
-      if (command === 'toggleSideBar') return toggleSideBar()
-      if (command === 'openSettings') return dispatch({ type: 'open-settings' })
-      if (command === 'openGuide') return dispatch({ type: 'open-guide' })
-      if (command === 'showAbout') return void (api?.appInfo().then((info) => setAbout({ info })) ?? setAbout({ info: null }))
-      if (command === 'zoomIn' || command === 'zoomOut' || command === 'zoomReset') return zoomTab(command === 'zoomIn' ? 1 : command === 'zoomOut' ? -1 : 0)
-      if (command === 'newFile') return dispatch({ type: 'open-untitled' })
-      if (command === 'openFile') return void api?.openDialog().then(handleResults)
-      if (command === 'openFolder') return void api?.openFolderDialog().then(handleResults)
-      if (command === 'openZip') return void api?.openZipDialog().then(handleResults)
-      if (command === 'toggleHidden') return showHidden.set(!showHidden.get())
-      if (command === 'copy') return void copySelection()
-      if (command === 'print') return void printTab()
-      if (command === 'savePdf') return void savePdfTab()
-      if (command === 'saveAsWsnp') return void (current.active && canSaveWsnp(current) ? saveConverted(activeTabOf(current)!.snapshotId) : undefined)
-      // Go to File works with whatever is open: a folder, a ZIP file, a snapshot, or tabs (it was only with a snapshot, which a folder is not).
-      if (command === 'quickOpen') return Object.keys(current.snapshots).length || Object.keys(current.roots).length || current.tabs.length ? setQuick('files') : undefined
-      if (command === 'commandPalette') return setQuick('commands')
-      if (command === 'goBack') return go(-1)
-      if (command === 'goForward') return go(1)
-      if (command === 'find') return canFind(current) ? setFind((f) => ({ open: true, token: f.token + 1 })) : undefined
-      if (command === 'save') return current.active && current.dirty[current.active] ? void saveKey(current.active) : undefined
-      if (command === 'saveAll') return Object.keys(current.dirty).length ? void saveKeys(Object.keys(current.dirty)) : undefined
-      if (command === 'closeEditor') return current.active ? dispatch({ type: 'close', key: current.active }) : undefined
-      if (command === 'nextEditor') return dispatch({ type: 'step', direction: 1 })
-      if (command === 'previousEditor') return dispatch({ type: 'step', direction: -1 })
+      const handlers: BuiltinHandlers = {
+        newFile: () => dispatch({ type: 'open-untitled' }), openFolder: () => void api?.openFolderDialog().then(handleResults),
+        openFile: () => void api?.openDialog().then(handleResults), openZip: () => void api?.openZipDialog().then(handleResults),
+        clearRecent: () => void api?.recent.clear().then(refreshRecent), save: () => current.active && current.dirty[current.active] ? void saveKey(current.active) : undefined,
+        saveAll: () => Object.keys(current.dirty).length ? void saveKeys(Object.keys(current.dirty)) : undefined,
+        saveAsWsnp: () => current.active && canSaveWsnp(current) ? void saveConverted(activeTabOf(current)!.snapshotId) : undefined,
+        savePdf: () => void savePdfTab(), print: () => void printTab(), openSettings: () => dispatch({ type: 'open-settings' }),
+        closeEditor: () => current.active ? dispatch({ type: 'close', key: current.active }) : undefined, closeAll: () => dispatch({ type: 'close-all' }),
+        copy: () => void copySelection(), find: () => canFind(current) ? setFind((f) => ({ open: true, token: f.token + 1 })) : undefined,
+        commandPalette: () => setQuick('commands'), sort: () => {}, toggleHidden: () => showHidden.set(!showHidden.get()),
+        showMetadata: () => { const id = activeSnapshotId(current); if (id) dispatch({ type: 'open-metadata', snapshotId: id }) },
+        toggleSideBar, goBack: () => go(-1), goForward: () => go(1),
+        quickOpen: () => Object.keys(current.snapshots).length || Object.keys(current.roots).length || current.tabs.length ? setQuick('files') : undefined,
+        nextEditor: () => dispatch({ type: 'step', direction: 1 }), previousEditor: () => dispatch({ type: 'step', direction: -1 }),
+        openGuide: () => dispatch({ type: 'open-guide' }), showAbout: () => void (api?.appInfo().then((info) => setAbout({ info })) ?? setAbout({ info: null })), exit: () => window.close(),
+        zoomIn: () => zoomTab(1), zoomOut: () => zoomTab(-1), zoomReset: () => zoomTab(0), themeDark: () => setSetting('dark'), themeLight: () => setSetting('light'),
+      }
+      if (Object.hasOwn(handlers, command)) return runBuiltinCommand(handlers, command)
       if (command === 'cycleEnd') {
         if (cycle.current) dispatch({ type: 'touch' })
         cycle.current = null

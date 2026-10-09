@@ -3,6 +3,8 @@ import type { MenuEntry } from '@/components/Menu.tsx'
 import { basename } from '@/lib/format.ts'
 import type { SortKey } from '@core/fs/sort.ts'
 import { sortMenuEntries } from './sortMenu.ts'
+import { builtinCommands, type BuiltinCommandId } from '@core/commands/builtin.ts'
+import { createRegistry, type CommandDef } from '@core/commands/registry.ts'
 
 /** What the workbench can do; the menus, the keyboard and the native menu of macOS all end up here. */
 export interface Commands {
@@ -90,76 +92,65 @@ export interface MenuDef {
  * VS Code's menus, trimmed to what the viewer does (docs/UI-DESIGN.md, "Behaviour taken from VS Code"). Items of features
  * that do not exist yet are disabled, not hidden, so the structure is the final one.
  */
-export const MENUS: MenuDef[] = [
-  {
-    id: 'file',
-    label: 'menu.file',
-    entries: (t, c) => [
-      { id: 'newFile', label: t('menu.newFile'), shortcut: shortcut('Ctrl+N'), run: c.newFile },
-      { separator: true },
-      { id: 'openFolder', label: t('menu.openFolder'), shortcut: shortcut('Ctrl+Shift+O'), run: c.openFolder },
-      { id: 'open', label: t('menu.openFile'), shortcut: shortcut('Ctrl+O'), run: c.openFile },
-      { id: 'openZip', label: t('menu.openZip'), run: c.openZip },
-      {
-        id: 'recent',
-        label: t('menu.openRecent'),
-        submenu: [
-          ...(c.recent.length ? c.recent.map((path): MenuEntry => ({ id: `recent:${path}`, label: basename(path), run: () => c.openRecent(path) })) : [{ id: 'none', label: t('menu.noRecent'), disabled: true } as MenuEntry]),
-          { separator: true },
-          { id: 'clear', label: t('menu.clearRecent'), disabled: !c.recent.length, run: c.clearRecent },
-        ],
-      },
-      { separator: true },
-      { id: 'save', label: t('menu.save'), shortcut: shortcut('Ctrl+S'), disabled: !c.canSave, run: c.save },
-      { id: 'saveAll', label: t('menu.saveAll'), shortcut: shortcut('Ctrl+Alt+S'), disabled: !c.canSaveAll, run: c.saveAll },
-      { separator: true },
-      { id: 'saveAsWsnp', label: t('menu.saveAsWsnp'), disabled: !c.canSaveWsnp, run: c.saveAsWsnp },
-      { id: 'savePdf', label: t('menu.savePdf'), disabled: !c.canPrint, run: c.savePdf },
-      { separator: true },
-      { id: 'print', label: t('menu.print'), shortcut: shortcut('Ctrl+P'), disabled: !c.canPrint, run: c.print },
-      { separator: true },
-      { id: 'preferences', label: t('menu.preferences'), submenu: [{ id: 'settings', label: t('menu.settings'), shortcut: shortcut('Ctrl+,'), run: c.openSettings }] },
-      { separator: true },
-      { id: 'close', label: t('menu.closeEditor'), shortcut: shortcut('Ctrl+W'), disabled: !c.hasEditor, run: c.closeEditor },
-      { id: 'closeAll', label: t('menu.closeAll'), disabled: !c.hasEditor, run: c.closeAll },
-      ...(isMac() ? [] : [{ separator: true } as const, { id: 'exit', label: t('menu.exit'), run: () => window.close() }]),
-    ],
-  },
-  {
-    id: 'edit',
-    label: 'menu.edit',
-    entries: (t, c) => [
-      { id: 'copy', label: t('menu.copy'), shortcut: shortcut('Ctrl+C'), disabled: !c.hasEditor, run: c.copy },
-      { separator: true },
-      { id: 'find', label: t('menu.find'), shortcut: shortcut('Ctrl+F'), disabled: !c.canFind, run: c.find },
-    ],
-  },
-  {
-    id: 'view',
-    label: 'menu.view',
-    entries: (t, c) => [
-      { id: 'palette', label: t('menu.commandPalette'), shortcut: shortcut('Ctrl+Shift+P'), run: c.commandPalette },
-      { separator: true },
-      { id: 'sort', label: t('sort.by'), submenu: sortMenuEntries(t, c.sortKey, c.sortDescending, { key: c.setSortKey, descending: c.setSortDescending }) },
-      { id: 'hidden', label: t('menu.showHidden'), shortcut: shortcut('Ctrl+H'), checked: c.showHidden, run: c.toggleHidden },
-      { separator: true },
-      { id: 'metadata', label: t('menu.showMetadata'), disabled: !c.hasEditor, run: c.showMetadata },
-      { separator: true },
-      { id: 'sidebar', label: t('menu.toggleSideBar'), shortcut: shortcut('Ctrl+B'), run: c.toggleSideBar },
-    ],
-  },
-  {
-    id: 'go',
-    label: 'menu.go',
-    entries: (t, c) => [
-      { id: 'back', label: t('menu.goBack'), shortcut: isMac() ? '⌃-' : 'Alt+Left', disabled: !c.canGoBack, run: c.goBack },
-      { id: 'forward', label: t('menu.goForward'), shortcut: isMac() ? '⌃⇧-' : 'Alt+Right', disabled: !c.canGoForward, run: c.goForward },
-      { separator: true },
-      { id: 'goToFile', label: t('menu.goToFile'), shortcut: shortcut('Ctrl+E'), disabled: !c.hasSnapshots, run: c.quickOpen },
-      { separator: true },
-      { id: 'next', label: t('menu.nextEditor'), shortcut: shortcut('Ctrl+PageDown'), disabled: !c.hasEditor, run: c.nextEditor },
-      { id: 'previous', label: t('menu.previousEditor'), shortcut: shortcut('Ctrl+PageUp'), disabled: !c.hasEditor, run: c.previousEditor },
-    ],
-  },
-  { id: 'help', label: 'menu.help', entries: (t, c) => [{ id: 'guide', label: t('menu.userGuide'), shortcut: 'F1', run: c.openGuide }, { separator: true }, { id: 'about', label: t('menu.about'), run: c.showAbout }] },
+const registry = createRegistry()
+for (const definition of builtinCommands) registry.register(definition)
+const definitions = new Map<string, Readonly<CommandDef>>(builtinCommands.map((definition) => [definition.id, definition] as const))
+const labels: Record<string, string> = { openFile: 'open', openSettings: 'settings', closeEditor: 'close', commandPalette: 'palette', toggleHidden: 'hidden', clearRecent: 'clear', showMetadata: 'metadata', toggleSideBar: 'sidebar', goBack: 'back', goForward: 'forward', quickOpen: 'goToFile', nextEditor: 'next', previousEditor: 'previous', openGuide: 'guide', showAbout: 'about' }
+const headers: Array<Pick<MenuDef, 'id' | 'label'>> = [
+  { id: 'file', label: 'menu.file' }, { id: 'edit', label: 'menu.edit' }, { id: 'view', label: 'menu.view' },
+  { id: 'go', label: 'menu.go' }, { id: 'help', label: 'menu.help' },
 ]
+
+function contextOf(c: Commands) {
+  return {
+    hasRecent: c.recent.length > 0, canSave: c.canSave, canSaveAll: c.canSaveAll, canSaveWsnp: c.canSaveWsnp,
+    canPrint: c.canPrint, hasEditor: c.hasEditor, canFind: c.canFind, canGoBack: c.canGoBack,
+    canGoForward: c.canGoForward, hasSnapshots: c.hasSnapshots, canZoom: c.canZoom,
+  }
+}
+
+function registeredEntry(id: BuiltinCommandId, t: Translate, c: Commands): MenuEntry {
+  const definition = definitions.get(id)!
+  const available = registry.available(contextOf(c)).some((command) => command.id === id)
+  const actions: Partial<Record<BuiltinCommandId, () => void>> = {
+    newFile: c.newFile, openFolder: c.openFolder, openFile: c.openFile, openZip: c.openZip, clearRecent: c.clearRecent,
+    save: c.save, saveAll: c.saveAll, saveAsWsnp: c.saveAsWsnp, savePdf: c.savePdf, print: c.print,
+    openSettings: c.openSettings, closeEditor: c.closeEditor, closeAll: c.closeAll, copy: c.copy, find: c.find,
+    commandPalette: c.commandPalette, toggleHidden: c.toggleHidden, toggleSideBar: c.toggleSideBar, goBack: c.goBack,
+    goForward: c.goForward, quickOpen: c.quickOpen, nextEditor: c.nextEditor, previousEditor: c.previousEditor,
+    openGuide: c.openGuide, showAbout: c.showAbout, showMetadata: c.showMetadata, exit: () => window.close(),
+  }
+  const item: MenuEntry = {
+    id: labels[id] ?? id,
+    label: t(definition.title as MessageKey),
+    ...(definition.keys?.[0] ? { shortcut: id === 'goBack' ? (isMac() ? '⌃-' : 'Alt+Left') : id === 'goForward' ? (isMac() ? '⌃⇧-' : 'Alt+Right') : shortcut(definition.keys[0]) } : {}),
+    ...(!available ? { disabled: true } : {}),
+    ...(id === 'toggleHidden' ? { checked: c.showHidden } : {}),
+    ...(actions[id] ? { run: actions[id] } : {}),
+  }
+  if (id === 'sort') item.submenu = sortMenuEntries(t, c.sortKey, c.sortDescending, { key: c.setSortKey, descending: c.setSortDescending })
+  return item
+}
+
+function entriesFor(menuId: string, t: Translate, c: Commands): MenuEntry[] {
+  const menuCommands = (builtinCommands as readonly CommandDef[]).filter((command) => command.menu?.menu === menuId && !(isMac() && command.id === 'exit'))
+  const groups: string[] = []
+  for (const command of menuCommands) if (!groups.includes(command.menu!.group)) groups.push(command.menu!.group)
+  const result: MenuEntry[] = []
+  for (const group of groups) {
+    if (result.length && group !== 'recent') result.push({ separator: true })
+    const commands = menuCommands.filter((command) => command.menu!.group === group).sort((a, b) => a.menu!.order - b.menu!.order)
+    if (group === 'recent') {
+      result.push({ id: 'recent', label: t('menu.openRecent'), submenu: [
+        ...(c.recent.length ? c.recent.map((path): MenuEntry => ({ id: `recent:${path}`, label: basename(path), run: () => c.openRecent(path) })) : [{ id: 'none', label: t('menu.noRecent'), disabled: true }]),
+        { separator: true }, registeredEntry('clearRecent', t, c),
+      ] })
+    } else if (group === 'preferences') {
+      result.push({ id: 'preferences', label: t('menu.preferences'), submenu: [registeredEntry('openSettings', t, c)] })
+    } else result.push(...commands.map((command) => registeredEntry(command.id as BuiltinCommandId, t, c)))
+  }
+  return result
+}
+
+export const MENUS: MenuDef[] = headers.map(({ id, label }) => ({ id, label, entries: (t, c) => entriesFor(id, t, c) }))
+
