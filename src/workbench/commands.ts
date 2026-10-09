@@ -5,6 +5,8 @@ import type { SortKey } from '@core/fs/sort.ts'
 import { sortMenuEntries } from './sortMenu.ts'
 import { builtinCommands, type BuiltinCommandId } from '@core/commands/builtin.ts'
 import { createRegistry, type CommandDef } from '@core/commands/registry.ts'
+import { formatChord } from '@core/keys/chord.ts'
+import { builtinKeyTables } from '@core/keys/table.ts'
 
 /** What the workbench can do; the menus, the keyboard and the native menu of macOS all end up here. */
 export interface Commands {
@@ -75,11 +77,7 @@ export const isMac = (): boolean => platform() === 'darwin'
 
 /** VS Code writes a shortcut as `Ctrl+Shift+P`, and on macOS as symbols in the order ⌃⌥⇧⌘. */
 export function shortcut(keys: string): string {
-  if (!isMac()) return keys
-  const parts = keys.split('+')
-  const key = parts.pop() ?? ''
-  const has = (m: string) => parts.includes(m)
-  return [has('Alt') ? '⌥' : '', has('Shift') ? '⇧' : '', has('Ctrl') ? '⌘' : '', key].join('')
+  return formatChord(keys.replace(/^Ctrl\+/, 'Mod+'), isMac())
 }
 
 export interface MenuDef {
@@ -112,6 +110,7 @@ function contextOf(c: Commands) {
 function registeredEntry(id: BuiltinCommandId, t: Translate, c: Commands): MenuEntry {
   const definition = definitions.get(id)!
   const available = registry.available(contextOf(c)).some((command) => command.id === id)
+  const keyLabel = (isMac() ? builtinKeyTables.mac : builtinKeyTables.nonmac).shortcut(id)
   const actions: Partial<Record<BuiltinCommandId, () => void>> = {
     newFile: c.newFile, openFolder: c.openFolder, openFile: c.openFile, openZip: c.openZip, clearRecent: c.clearRecent,
     save: c.save, saveAll: c.saveAll, saveAsWsnp: c.saveAsWsnp, savePdf: c.savePdf, print: c.print,
@@ -123,7 +122,7 @@ function registeredEntry(id: BuiltinCommandId, t: Translate, c: Commands): MenuE
   const item: MenuEntry = {
     id: labels[id] ?? id,
     label: t(definition.title as MessageKey),
-    ...(definition.keys?.[0] ? { shortcut: id === 'goBack' ? (isMac() ? '⌃-' : 'Alt+Left') : id === 'goForward' ? (isMac() ? '⌃⇧-' : 'Alt+Right') : shortcut(definition.keys[0]) } : {}),
+    ...(keyLabel ? { shortcut: keyLabel } : {}),
     ...(!available ? { disabled: true } : {}),
     ...(id === 'toggleHidden' ? { checked: c.showHidden } : {}),
     ...(actions[id] ? { run: actions[id] } : {}),

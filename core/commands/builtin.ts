@@ -30,14 +30,30 @@ export const builtinCommands = [
   { id: 'openGuide', title: 'menu.userGuide', category: 'help', keys: ['F1'], menu: { menu: 'help', group: 'help', order: 0 }, palette: true },
   { id: 'showAbout', title: 'menu.about', category: 'help', menu: { menu: 'help', group: 'about', order: 0 }, palette: true },
   { id: 'exit', title: 'menu.exit', category: 'file', menu: { menu: 'file', group: 'exit', order: 0 }, palette: true },
-  { id: 'zoomIn', title: 'menu.zoomIn', category: 'view', when: 'canZoom', palette: true },
-  { id: 'zoomOut', title: 'menu.zoomOut', category: 'view', when: 'canZoom', palette: true },
-  { id: 'zoomReset', title: 'menu.resetZoom', category: 'view', when: 'canZoom', palette: true },
+  { id: 'zoomIn', title: 'menu.zoomIn', category: 'view', when: 'canZoom', keys: ['Mod+=', 'Mod++', 'Mod+Shift++'], palette: true },
+  { id: 'zoomOut', title: 'menu.zoomOut', category: 'view', when: 'canZoom', keys: ['Mod+-'], palette: true },
+  { id: 'zoomReset', title: 'menu.resetZoom', category: 'view', when: 'canZoom', keys: ['Mod+0'], palette: true },
   { id: 'themeDark', title: 'quickOpen.theme', category: 'view', palette: true },
   { id: 'themeLight', title: 'quickOpen.theme', category: 'view', palette: true },
 ] as const satisfies readonly CommandDef[]
 
 export type BuiltinCommandId = typeof builtinCommands[number]['id']
+
+/** Legacy menu strings use Ctrl for Mod; keep their presentation while sharing actual defaults. */
+export const builtinKeyCommands = [
+  ...builtinCommands.map((command) => ({
+    id: command.id,
+    keys: 'keys' in command ? command.keys.flatMap((key) => {
+      if (key === 'Alt+Left') return ['nonmac:Alt+Left', 'mac:Ctrl+-']
+      if (key === 'Alt+Right') return ['nonmac:Alt+Right', 'mac:Ctrl+Shift+-']
+      return [key.replace(/^Ctrl\+/, 'Mod+')]
+    }) : [],
+  })),
+  { id: 'cycleRecent', keys: ['Ctrl+Tab'] },
+  { id: 'cycleRecentBack', keys: ['Ctrl+Shift+Tab'] },
+  ...Array.from({ length: 9 }, (_, i) => ({ id: `goToTab${i + 1}`, keys: [`mac:Mod+${i + 1}`, `nonmac:Alt+${i + 1}`] })),
+] as const
+
 export type BuiltinHandlers = HandlerMap<BuiltinCommandId>
 export function bindBuiltinHandlers(handlers: BuiltinHandlers): BuiltinHandlers { return handlers }
 
