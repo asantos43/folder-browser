@@ -8,6 +8,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Explorer "New File…" and "New Folder…" header buttons now act where the user asked, only once** (issue #71, parts a, b, d). The target is the **last row the user has marked** in the tree, else **the row last clicked or reached with the arrows** (a folder or a ZIP, the folder itself; a file, its folder), else the folder of the active file, else the root; Esc and a click on the empty part of the tree let go of the row — **never the keyboard focus** (it is the row the focus touched last, which a button click does not move). The name field says where: `placeholder` and `title` are "New folder in <name>" or "New file in the root" (and the same in `pt-BR`). The create request is **one-shot**: `ExplorerTree` tells the parent it handled the request (`onCreateHandled`), `SideBar` clears it, and switching roots (the `key={root.id}` of the Files section) does not re-fire the same token. The Open Folder button of the Open Folders header now uses `folder-opened` instead of `new-folder`, so the two "new folder" icons of the side bar are not the same. Tests: `src/workbench/ExplorerTree.test.tsx`, `src/workbench/SideBar.test.tsx`, `e2e/explorer-new-folder.spec.ts`.
+
 ### Changed
 
 - **The menu item of a `.wsnp` that listed its files is now called "Show Contents"** (it was "Open as ZIP"; the action and the order of the menu are the same). Only the text changed: the files of a snapshot are listed in a tab, read-only, as before.

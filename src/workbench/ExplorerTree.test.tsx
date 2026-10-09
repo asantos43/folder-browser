@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
 import type { SortKey } from '@core/fs/sort.ts'
 import { fileClipboard } from './fileClipboard.ts'
-import { ENTRY_DRAG, ExplorerTree, HOVER_OPEN_MS, type ExplorerActions } from './ExplorerTree.tsx'
+import { ENTRY_DRAG, ExplorerTree, HOVER_OPEN_MS, type ExplorerActions, createTarget } from './ExplorerTree.tsx'
 
 afterEach(() => {
   cleanup()
@@ -389,6 +389,8 @@ describe('ExplorerTree: changing the disk', () => {
   it('makes a new file or folder in a field at the top of the folder that has the focus (it opens), and in the root when none has', async () => {
     const { create, view } = show({ writable: true, createRequest: { kind: 'file', token: 1 } })
     await waitFor(() => expect(nameField().value).toBe(''))
+    expect(nameField().getAttribute('placeholder')).toBe('New file in the root')
+    expect(nameField().getAttribute('title')).toBe('New file in the root')
     fireEvent.change(nameField(), { target: { value: 'new.txt' } })
     fireEvent.keyDown(nameField(), { key: 'Enter' })
     await waitFor(() => expect(create).toHaveBeenCalledWith('', 'new.txt', 'file'))
@@ -400,10 +402,46 @@ describe('ExplorerTree: changing the disk', () => {
     rightClick('docs')
     fireEvent.click(menuItem('New Folder…'))
     await waitFor(() => expect(nameField()).toBeTruthy())
+    expect(nameField().getAttribute('placeholder')).toBe('New folder in docs')
+    expect(nameField().getAttribute('title')).toBe('New folder in docs')
     expect(second.listDir).toHaveBeenCalledWith('docs')
     fireEvent.change(nameField(), { target: { value: 'sub' } })
     fireEvent.keyDown(nameField(), { key: 'Enter' })
     await waitFor(() => expect(second.create).toHaveBeenCalledWith('docs', 'sub', 'dir'))
+  })
+  it('tells the parent it handled a create request, so a remount with the same prop does not show a name field twice', async () => {
+    // Simulates the parent (SideBar): keeps the request alive until the tree says it handled it.
+    let request: { kind: 'file' | 'dir'; token: number } | undefined = { kind: 'dir', token: 1 }
+    const actions = { listDir: vi.fn(async () => ({ entries: [], truncated: false }) as ListResult), open: vi.fn(), openSnapshot: vi.fn(), openWith: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), save: vi.fn(), pin: vi.fn(), openAsRoot: vi.fn(), restore: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(), rename: vi.fn(), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), paste: vi.fn(), remove: vi.fn() }
+    const tree = (k: number) => (
+      <I18nProvider language="en">
+        <ExplorerTree
+          key={k}
+          rootId="r1"
+          rootKind="folder"
+          trash={false}
+          writable={true}
+          createRequest={request}
+          onCreateHandled={() => {
+            request = undefined
+          }}
+          actions={actions}
+          showHidden={false}
+          refreshToken={0}
+          sortKey="name"
+          sortDescending={false}
+        />
+      </I18nProvider>
+    )
+    const first = render(tree(1))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Name' })).toBeTruthy())
+    // The tree signaled the parent to clear the request; without the fix (no callback), the request stays.
+    expect(request).toBeUndefined()
+    // A remount (e.g. user switched roots and back) must not re-fire it: the parent already cleared it.
+    first.unmount()
+    render(tree(2))
+    await waitFor(() => expect(screen.getByRole('tree')).toBeTruthy())
+    expect(screen.queryByRole('textbox', { name: 'Name' })).toBeNull()
   })
   it('asks to delete with Delete and from the menu, and to move from the menu', async () => {
     const { remove, moveTo } = show({ writable: true })
@@ -960,5 +998,270 @@ describe('ExplorerTree: open as the root of the Files', () => {
     await ready({ trash: true })
     rightClick('docs')
     expect(screen.queryByRole('menuitem', { name: 'Open as Explorer Root' })).toBeNull()
+  })
+})
+
+describe('createTarget (where New File / New Folder of the side bar makes the entry)', () => {
+  // The same fixture as the tree: a folder, a file, a ZIP, a file inside a sub-folder. The test only reads `kind` and `path`.
+  const docs = entry('docs', 'dir')
+  const docsSub = entry('sub', 'dir', 'docs')
+  const aTxt = entry('a.txt', 'file')
+  const deep = entry('deep.txt', 'file', 'docs/sub')
+  const all: DirEntry[] = [docs, aTxt, docsSub, deep]
+
+  it('puts a marked folder inside itself', () => {
+    expect(createTarget({ marked: new Set(['docs']), anchor: 'docs', activePath: undefined, entries: all })).toBe('docs')
+  })
+  it('puts a marked file in the root in the root, not in a folder it is not in', () => {
+    expect(createTarget({ marked: new Set(['a.txt']), anchor: 'a.txt', activePath: undefined, entries: all })).toBe('')
+  })
+  it('puts a marked file inside `docs/sub` in `docs/sub`', () => {
+    expect(createTarget({ marked: new Set(['docs/sub/deep.txt']), anchor: 'docs/sub/deep.txt', activePath: undefined, entries: all })).toBe('docs/sub')
+  })
+  it('uses the anchor (a clicked folder) when no row is marked', () => {
+    // A plain click on `docs` set the anchor; the user did not mark anything. The new entry is in `docs`.
+    expect(createTarget({ marked: new Set(), anchor: 'docs', activePath: undefined, entries: all })).toBe('docs')
+  })
+  it('uses the anchor pointing to a file in `docs/sub` to put the new entry in `docs/sub`', () => {
+    expect(createTarget({ marked: new Set(), anchor: 'docs/sub/deep.txt', activePath: undefined, entries: all })).toBe('docs/sub')
+  })
+  it('uses the anchor pointing to a top-level file to put the new entry in the root', () => {
+    expect(createTarget({ marked: new Set(), anchor: 'a.txt', activePath: undefined, entries: all })).toBe('')
+  })
+  it('falls back to the active file when the anchor is not on screen any more', () => {
+    // The anchor points to a row that has left the listing (a folder was closed, a file was deleted, the root changed).
+    expect(createTarget({ marked: new Set(), anchor: 'gone', activePath: 'docs/x.md', entries: all })).toBe('docs')
+    // No active file either: the root.
+    expect(createTarget({ marked: new Set(), anchor: 'gone', activePath: undefined, entries: all })).toBe('')
+  })
+  it('falls back to the folder of the active file when no row is marked and there is no anchor', () => {
+    expect(createTarget({ marked: new Set(), anchor: null, activePath: 'docs/x.md', entries: all })).toBe('docs')
+  })
+  it('falls back to the root when nothing is marked, no anchor and no active file', () => {
+    expect(createTarget({ marked: new Set(), anchor: null, activePath: undefined, entries: all })).toBe('')
+  })
+  it('prefers the anchor when several rows are marked, so the most recently clicked wins', () => {
+    const docsEntry = entry('docs', 'dir')
+    const other = entry('other', 'dir')
+    const aTxtEntry = entry('a.txt', 'file')
+    const both: DirEntry[] = [docsEntry, aTxtEntry, other]
+    // The user Ctrl+clicked `other` last; that is the anchor and is what we use.
+    expect(createTarget({ marked: new Set(['docs', 'a.txt', 'other']), anchor: 'other', activePath: undefined, entries: both })).toBe('other')
+    // No anchor (defensive): take the last one in visible order.
+    expect(createTarget({ marked: new Set(['docs', 'a.txt', 'other']), anchor: null, activePath: undefined, entries: both })).toBe('other')
+  })
+  it('a mark always wins over the anchor, even when the anchor is set', () => {
+    // The user clicked `other` (anchor) and then Ctrl+clicked `docs` (mark). The mark is the intent: the new entry is in `docs`.
+    expect(createTarget({ marked: new Set(['docs']), anchor: 'other', activePath: undefined, entries: all })).toBe('docs')
+  })
+})
+
+describe('ExplorerTree: the side bar New File / New Folder has a visible, predictable target', () => {
+  // The accessible name of the name field is "Name" (the same as the rename field), so e2e specs and tests can locate it. The target is shown in `placeholder` and `title`.
+  const field = () => screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement
+  it('the field that appears says where the new entry will be: "New folder in <name>" or "…in the root"', async () => {
+    // No mark, no active file: the new entry is in the root.
+    show({ writable: true, createRequest: { kind: 'dir', token: 1 } })
+    await waitFor(() => expect(field()).toBeTruthy())
+    expect(field().getAttribute('placeholder')).toBe('New folder in the root')
+    expect(field().getAttribute('title')).toBe('New folder in the root')
+    cleanup()
+    // The folder the active file is in: "docs".
+    show({ writable: true, createRequest: { kind: 'dir', token: 1 }, activePath: 'docs/x.md' })
+    await waitFor(() => expect(field().getAttribute('placeholder')).toBe('New folder in docs'))
+    expect(field().getAttribute('title')).toBe('New folder in docs')
+    cleanup()
+    // A new file: "New file in …".
+    show({ writable: true, createRequest: { kind: 'file', token: 1 }, activePath: 'docs/x.md' })
+    await waitFor(() => expect(field().getAttribute('placeholder')).toBe('New file in docs'))
+    expect(field().getAttribute('title')).toBe('New file in docs')
+  })
+
+  it('a folder focused by the keyboard but not marked is ignored: the new entry is in the marked folder, not the focused one', async () => {
+    // The user focused `docs` (no mark) and marked `other` (Shift+click — keeps the focus on `docs`). With the old code that used `focused`, the new entry would land in `docs` (the focused one). The new code uses the marked row, so the entry is in `other`.
+    const lists: Record<string, ListResult> = { '': { entries: [entry('docs', 'dir'), entry('a.txt', 'file'), entry('other', 'dir')], truncated: false }, other: { entries: [entry('inside.txt', 'file', 'other')], truncated: false } }
+    const actions: ExplorerActions = {
+      listDir: vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult)),
+      open: vi.fn(),
+      openSnapshot: vi.fn(),
+      openDefault: vi.fn(),
+      properties: vi.fn(),
+      save: vi.fn(),
+      pin: vi.fn(),
+      openAsRoot: vi.fn(),
+      restore: vi.fn(),
+      openWith: vi.fn(),
+      copy: vi.fn(),
+      reveal: vi.fn(),
+      create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })),
+      rename: vi.fn(),
+      move: vi.fn(),
+      copyTo: vi.fn(),
+      moveTo: vi.fn(),
+      paste: vi.fn(),
+      remove: vi.fn(),
+    }
+    const view = render(
+      <I18nProvider language="en">
+        <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={true} activePath={undefined} showHidden={false} refreshToken={0} sortKey="name" sortDescending={false} actions={actions} />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(screen.queryAllByRole('treeitem').map((r) => r.getAttribute('aria-label'))).toEqual(['docs', 'other', 'a.txt']))
+    // Focus a folder (this sets `focused` via onFocus, but does not mark).
+    fireEvent.focus(screen.getByRole('treeitem', { name: 'docs' }))
+    // Mark a different folder with Shift+click: the range starts from the focus's anchor (still null — a focus alone does not set it), so the range is just the clicked row. Crucially, the focus stays on `docs`.
+    fireEvent.click(screen.getByRole('treeitem', { name: 'other' }), { shiftKey: true })
+    // Trigger New Folder from outside (the side bar's button) by re-rendering with a `createRequest`.
+    view.rerender(
+      <I18nProvider language="en">
+        <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={true} createRequest={{ kind: 'dir', token: 1 }} activePath={undefined} showHidden={false} refreshToken={0} sortKey="name" sortDescending={false} actions={actions} />
+      </I18nProvider>,
+    )
+    const newField = await screen.findByRole('textbox', { name: 'Name' })
+    expect(newField.getAttribute('placeholder')).toBe('New folder in other')
+    expect(newField.getAttribute('title')).toBe('New folder in other')
+    fireEvent.change(newField, { target: { value: 'new' } })
+    fireEvent.keyDown(newField, { key: 'Enter' })
+    await waitFor(() => expect(actions.create).toHaveBeenCalledWith('other', 'new', 'dir'))
+  })
+
+  it('a plain click on a folder makes it the target of the next New Folder (the e2e fileops spec flow)', async () => {
+    // A plain click on `docs` is not a mark (it clears marks and sets the anchor to the row). With the old code that used `focused`, the click moved the focus to `docs`; the focus later changed and the new entry went to the root. The new code uses the anchor: the new entry is in `docs`.
+    const lists: Record<string, ListResult> = { '': { entries: [entry('.git', 'dir'), entry('docs', 'dir'), entry('a.txt', 'file'), entry('pack.zip', 'zip'), entry('page.wsnp', 'wsnp')], truncated: false }, docs: { entries: [entry('readme.md', 'file', 'docs')], truncated: false } }
+    const actions: ExplorerActions = {
+      listDir: vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult)),
+      open: vi.fn(),
+      openSnapshot: vi.fn(),
+      openDefault: vi.fn(),
+      properties: vi.fn(),
+      save: vi.fn(),
+      pin: vi.fn(),
+      openAsRoot: vi.fn(),
+      restore: vi.fn(),
+      openWith: vi.fn(),
+      copy: vi.fn(),
+      reveal: vi.fn(),
+      create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })),
+      rename: vi.fn(),
+      move: vi.fn(),
+      copyTo: vi.fn(),
+      moveTo: vi.fn(),
+      paste: vi.fn(),
+      remove: vi.fn(),
+    }
+    const view = render(
+      <I18nProvider language="en">
+        <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={true} activePath={undefined} showHidden={false} refreshToken={0} sortKey="name" sortDescending={false} actions={actions} />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(screen.queryAllByRole('treeitem').map((r) => r.getAttribute('aria-label'))).toEqual(['docs', 'a.txt', 'pack.zip', 'page.wsnp']))
+    // A plain click on `docs`: opens the folder (load('docs')) and sets the anchor to `docs`.
+    fireEvent.click(screen.getByRole('treeitem', { name: 'docs' }))
+    // The side bar's New Folder button fires: re-render with a `createRequest`. The same component instance keeps the anchor.
+    view.rerender(
+      <I18nProvider language="en">
+        <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={true} createRequest={{ kind: 'dir', token: 1 }} activePath={undefined} showHidden={false} refreshToken={0} sortKey="name" sortDescending={false} actions={actions} />
+      </I18nProvider>,
+    )
+    const newField = await screen.findByRole('textbox', { name: 'Name' })
+    expect(newField.getAttribute('placeholder')).toBe('New folder in docs')
+    expect(newField.getAttribute('title')).toBe('New folder in docs')
+    expect(actions.listDir).toHaveBeenCalledWith('docs')
+    fireEvent.change(newField, { target: { value: 'sub' } })
+    fireEvent.keyDown(newField, { key: 'Enter' })
+    await waitFor(() => expect(actions.create).toHaveBeenCalledWith('docs', 'sub', 'dir'))
+  })
+
+  it('a click on the empty space clears the anchor: the next New Folder goes to the root', async () => {
+    // The user clicked a folder (anchor set), then right-clicked the empty space to say "I want to act on the root". The anchor is cleared, the field says "in the root".
+    const lists: Record<string, ListResult> = { '': { entries: [entry('.git', 'dir'), entry('docs', 'dir'), entry('a.txt', 'file'), entry('pack.zip', 'zip'), entry('page.wsnp', 'wsnp')], truncated: false }, docs: { entries: [entry('readme.md', 'file', 'docs')], truncated: false } }
+    const actions: ExplorerActions = {
+      listDir: vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult)),
+      open: vi.fn(),
+      openSnapshot: vi.fn(),
+      openDefault: vi.fn(),
+      properties: vi.fn(),
+      save: vi.fn(),
+      pin: vi.fn(),
+      openAsRoot: vi.fn(),
+      restore: vi.fn(),
+      openWith: vi.fn(),
+      copy: vi.fn(),
+      reveal: vi.fn(),
+      create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })),
+      rename: vi.fn(),
+      move: vi.fn(),
+      copyTo: vi.fn(),
+      moveTo: vi.fn(),
+      paste: vi.fn(),
+      remove: vi.fn(),
+    }
+    const view = render(
+      <I18nProvider language="en">
+        <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={true} activePath={undefined} showHidden={false} refreshToken={0} sortKey="name" sortDescending={false} actions={actions} />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(screen.queryAllByRole('treeitem').map((r) => r.getAttribute('aria-label'))).toEqual(['docs', 'a.txt', 'pack.zip', 'page.wsnp']))
+    fireEvent.click(screen.getByRole('treeitem', { name: 'docs' }))
+    // Right-click on the empty space: opens the context menu and clears the anchor (and the marks).
+    fireEvent.contextMenu(screen.getByRole('tree'))
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    // Now the side bar's New Folder button fires.
+    view.rerender(
+      <I18nProvider language="en">
+        <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={true} createRequest={{ kind: 'dir', token: 1 }} activePath={undefined} showHidden={false} refreshToken={0} sortKey="name" sortDescending={false} actions={actions} />
+      </I18nProvider>,
+    )
+    const newField = await screen.findByRole('textbox', { name: 'Name' })
+    expect(newField.getAttribute('placeholder')).toBe('New folder in the root')
+    expect(newField.getAttribute('title')).toBe('New folder in the root')
+    fireEvent.change(newField, { target: { value: 'sub' } })
+    fireEvent.keyDown(newField, { key: 'Enter' })
+    await waitFor(() => expect(actions.create).toHaveBeenCalledWith('', 'sub', 'dir'))
+  })
+
+  it('Esc clears the anchor too: a click then Esc leaves the target as the root', async () => {
+    // The user clicked `docs` (anchor set), pressed Esc (which clears the marks and the anchor), then New Folder. The new entry is in the root.
+    const lists: Record<string, ListResult> = { '': { entries: [entry('.git', 'dir'), entry('docs', 'dir'), entry('a.txt', 'file'), entry('pack.zip', 'zip'), entry('page.wsnp', 'wsnp')], truncated: false }, docs: { entries: [entry('readme.md', 'file', 'docs')], truncated: false } }
+    const actions: ExplorerActions = {
+      listDir: vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult)),
+      open: vi.fn(),
+      openSnapshot: vi.fn(),
+      openDefault: vi.fn(),
+      properties: vi.fn(),
+      save: vi.fn(),
+      pin: vi.fn(),
+      openAsRoot: vi.fn(),
+      restore: vi.fn(),
+      openWith: vi.fn(),
+      copy: vi.fn(),
+      reveal: vi.fn(),
+      create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })),
+      rename: vi.fn(),
+      move: vi.fn(),
+      copyTo: vi.fn(),
+      moveTo: vi.fn(),
+      paste: vi.fn(),
+      remove: vi.fn(),
+    }
+    const view = render(
+      <I18nProvider language="en">
+        <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={true} activePath={undefined} showHidden={false} refreshToken={0} sortKey="name" sortDescending={false} actions={actions} />
+      </I18nProvider>,
+    )
+    await waitFor(() => expect(screen.queryAllByRole('treeitem').map((r) => r.getAttribute('aria-label'))).toEqual(['docs', 'a.txt', 'pack.zip', 'page.wsnp']))
+    fireEvent.click(screen.getByRole('treeitem', { name: 'docs' }))
+    fireEvent.keyDown(screen.getByRole('tree'), { key: 'Escape' })
+    view.rerender(
+      <I18nProvider language="en">
+        <ExplorerTree rootId="r1" rootKind="folder" trash={false} writable={true} createRequest={{ kind: 'dir', token: 1 }} activePath={undefined} showHidden={false} refreshToken={0} sortKey="name" sortDescending={false} actions={actions} />
+      </I18nProvider>,
+    )
+    const newField = await screen.findByRole('textbox', { name: 'Name' })
+    expect(newField.getAttribute('placeholder')).toBe('New folder in the root')
+    expect(newField.getAttribute('title')).toBe('New folder in the root')
+    fireEvent.change(newField, { target: { value: 'sub' } })
+    fireEvent.keyDown(newField, { key: 'Enter' })
+    await waitFor(() => expect(actions.create).toHaveBeenCalledWith('', 'sub', 'dir'))
   })
 })
