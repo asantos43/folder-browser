@@ -3,7 +3,7 @@ import { comparable, type DiffSide } from '@core/diff.ts'
 import { mediaKind } from '@core/filekind.ts'
 import { nameProblem } from '@core/fs/names.ts'
 import { compareEntries, type SortKey } from '@core/fs/sort.ts'
-import { listingsAbove, parentPath } from '@core/vpath.ts'
+import { listingsAbove, parentPath, trailOf } from '@core/vpath.ts'
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { Icon } from '@/components/Icon.tsx'
@@ -79,8 +79,35 @@ export interface ExplorerActions {
   compare?: { selected: DiffSide | null; select: (entry: DirEntry) => void; with: (entry: DirEntry) => void; /** Two files marked in the tree: compared, the first as the left side. */ pair: (left: DirEntry, right: DirEntry) => void; /** A text file was dropped on another text file: asks what to do with the two. */ drop: (dragged: { path: string; size: number }, entry: DirEntry) => void }
 }
 
+/**
+ * Where "New File…" and "New Folder…" of the side bar's header (and of the menu) make the new entry, in this order:
+ *   1. the **last** row the user has marked (a folder or a ZIP, the folder itself; a file, the folder it is in);
+ *   2. the **anchor** — the last row the user clicked or reached by the arrows — when it is still on screen (a folder or a ZIP, the folder itself; a file, the folder it is in);
+ *   3. the folder of the **active file** (`activePath`);
+ *   4. the **root**.
+ * The keyboard focus is **not** consulted: a click on the button moves the focus to the button, and the focus is not what the user meant. The anchor is what a plain click leaves
+ * behind, and is cleared by a click on the empty space and by Esc, so "nothing selected" falls through to (3) or (4).
+ */
+export function createTarget({ marked, anchor, activePath, entries }: { marked: ReadonlySet<string>; anchor: string | null; activePath: string | undefined; entries: ReadonlyArray<DirEntry> }): string {
+  if (marked.size > 0) {
+    const top = topmost([...marked])
+      .map((path) => entries.find((e) => e.path === path))
+      .filter((e): e is DirEntry => e !== undefined)
+    if (top.length > 0) {
+      const last = top.find((e) => e.path === anchor) ?? top[top.length - 1]
+      return last.kind === 'dir' || last.kind === 'zip' ? last.path : parentPath(last.path)
+    }
+  }
+  if (anchor) {
+    const row = entries.find((e) => e.path === anchor)
+    if (row) return row.kind === 'dir' || row.kind === 'zip' ? row.path : parentPath(row.path)
+  }
+  if (activePath) return parentPath(activePath)
+  return ''
+}
+
 /** A text field in a row of the tree, to name something: Enter says it, Esc (or leaving) does not. */
-function NameInput({ initial, label, problem, onChange, onSubmit, onCancel }: { initial: string; label: string; problem: string | null; onChange: (value: string) => void; onSubmit: (value: string) => void; onCancel: () => void }) {
+function NameInput({ initial, label, title, placeholder, problem, onChange, onSubmit, onCancel }: { initial: string; label: string; title?: string; placeholder?: string; problem: string | null; onChange: (value: string) => void; onSubmit: (value: string) => void; onCancel: () => void }) {
   const input = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const el = input.current
@@ -97,6 +124,8 @@ function NameInput({ initial, label, problem, onChange, onSubmit, onCancel }: { 
         ref={input}
         defaultValue={initial}
         aria-label={label}
+        title={title}
+        placeholder={placeholder}
         aria-invalid={problem !== null}
         spellCheck={false}
         onClick={(e) => e.stopPropagation()}
@@ -124,7 +153,7 @@ function NameInput({ initial, label, problem, onChange, onSubmit, onCancel }: { 
  * not read until it is opened). A ZIP opens like a folder, also inside a ZIP. Clicks and keys are as in the tree of a snapshot: a click opens a preview tab, a double click (or
  * Enter) keeps it, arrows move, typing jumps to a name. Hidden files are listed but shown only when `showHidden` says so, so the switch needs no new request.
  */
-export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest, activePath, showHidden, sortKey, sortDescending, refreshToken, actions }: { /** How the rows of a folder are ordered (folders first, whatever it is), and which of size and date each row shows when there is little room. */ sortKey: SortKey; sortDescending: boolean; rootId: string; rootKind: 'folder' | 'zip'; /** The root is the trash: its top-level rows can be put back. */ trash: boolean; /** Files and folders of this root can be made, renamed, moved and deleted (a folder of the disk, not a ZIP, an entry of a ZIP; not the trash). */ writable: boolean; /** A new file or folder was asked for from outside the tree (the buttons of the side bar): `token` counts the requests. */ createRequest?: { kind: 'file' | 'dir'; token: number } | undefined; activePath?: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
+export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest, onCreateHandled, activePath, showHidden, sortKey, sortDescending, refreshToken, actions }: { /** How the rows of a folder are ordered (folders first, whatever it is), and which of size and date each row shows when there is little room. */ sortKey: SortKey; sortDescending: boolean; rootId: string; rootKind: 'folder' | 'zip'; /** The root is the trash: its top-level rows can be put back. */ trash: boolean; /** Files and folders of this root can be made, renamed, moved and deleted (a folder of the disk, not a ZIP, an entry of a ZIP; not the trash). */ writable: boolean; /** A new file or folder was asked for from outside the tree (the buttons of the side bar): `token` counts the requests. */ createRequest?: { kind: 'file' | 'dir'; token: number } | undefined; /** The tree handled a `createRequest`: the parent can clear it, so a remount does not re-fire the same request. */ onCreateHandled?: (() => void) | undefined; activePath?: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
   const { t, language } = useI18n()
   const [listings, setListings] = useState<Record<string, Listing>>({})
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
@@ -200,6 +229,8 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
     for (const path of above) load(path)
   }, [activePath, load])
 
+  /** The folder that the first click of the current gesture opened (a double click must not close it again). */
+  const openedByClick = useRef<string | null>(null)
   const toggle = (path: string, force?: boolean) => {
     const opening = force ?? !open.has(path)
     setOpen((current) => {
@@ -309,18 +340,18 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
     },
     [load],
   )
-  // Where "New File…" of the side bar's header makes it: in the folder that has the focus, or in the folder of the file that has it, or in the root.
-  const focusedRef = useRef<{ path: string | undefined; entries: DirEntry[] }>({ path: undefined, entries: [] })
-  focusedRef.current = { path: focused ?? undefined, entries: entries.map((r) => r.entry) }
+  // Where "New File…" of the side bar's header makes it: not where the keyboard focus last was, but the row the user marked (a folder or a ZIP, the folder itself; a file, the folder it
+  // is in), else the folder of the active file, else the root. The ref is read by the effect below (it is updated on every render, so the effect does not list its fields as deps).
+  const targetRef = useRef<{ marked: ReadonlySet<string>; anchor: string | null; activePath: string | undefined; entries: DirEntry[] }>({ marked: new Set(), anchor: null, activePath: undefined, entries: [] })
+  targetRef.current = { marked, anchor: anchor.current, activePath, entries: entries.map((r) => r.entry) }
   const handled = useRef(0)
   useEffect(() => {
     if (!createRequest || createRequest.token === handled.current) return
     handled.current = createRequest.token
-    const { path, entries: all } = focusedRef.current
-    const at = all.find((e) => e.path === path)
-    const parent = !at ? '' : at.kind === 'dir' || at.kind === 'zip' ? at.path : parentPath(at.path)
-    if (writable) startNew(parent, createRequest.kind)
-  }, [createRequest, writable, startNew])
+    if (writable) startNew(createTarget(targetRef.current), createRequest.kind)
+    // Tell the parent the request is consumed: when the tree remounts (a switch of roots via `key={root.id}`), the ref resets to 0, but the request is gone — no stale re-fire.
+    onCreateHandled?.()
+  }, [createRequest, writable, startNew, onCreateHandled])
 
   const stopEditing = () => {
     setEditing(null)
@@ -400,8 +431,10 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         else if (row.parent) focusRow(row.parent)
         break
       case 'Escape':
-        if (!marked.size) return
+        // Clears the marks (its old job) and also the anchor: a row the user no longer points at should not be the target of the next "New File / New Folder" either.
+        if (!marked.size && !anchor.current) return
         clearMarks()
+        anchor.current = null
         break
       case 'F2':
         if (canChange && marked.size < 2) {
@@ -557,6 +590,9 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
   /** The empty part of the tree: New File and New Folder in the root. */
   const backgroundMenu = (event: MouseEvent) => {
     event.preventDefault()
+    // The user pointed at the empty space: a mark on some row is no longer the intent, and the anchor (where a click left the focus) is not what the user means either.
+    clearMarks()
+    anchor.current = null
     setMenu({
       x: event.clientX,
       y: event.clientY,
@@ -587,11 +623,14 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
             )
           }
           if (row.type === 'new') {
+            // The `aria-label` stays "Name" (the same as the rename field): tests and the e2e specs locate the field by it. The target is shown in the `placeholder` (visible while the
+            // field is empty) and in the `title` (tooltip): "New folder in docs" / "New file in the root" — a folder by name, "the root" when the target is the root.
+            const target = row.parent === '' ? t(row.kind === 'dir' ? 'tree.newFolderInRoot' : 'tree.newFileInRoot') : t(row.kind === 'dir' ? 'tree.newFolderIn' : 'tree.newFileIn', { name: trailOf(row.parent).pop() ?? row.parent })
             return (
               <div key={`${row.parent}\0new`} role="none" style={{ paddingLeft: 8 + row.depth * 8 }} className="flex h-[22px] items-center gap-1 pr-2">
                 <span className="w-4 shrink-0" />
                 <Icon name={row.kind === 'dir' ? 'folder' : 'file'} className="shrink-0 text-[16px]" />
-                <NameInput initial="" label={t('tree.nameInput')} problem={problem} onChange={() => setProblem(null)} onSubmit={(v) => void submit(v)} onCancel={stopEditing} />
+                <NameInput initial="" label={t('tree.nameInput')} title={target} placeholder={target} problem={problem} onChange={() => setProblem(null)} onSubmit={(v) => void submit(v)} onCancel={stopEditing} />
               </div>
             )
           }
@@ -616,14 +655,22 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
               onFocus={() => setFocused(entry.path)}
               onClick={(e) => {
                 if (markByClick(e, entry)) return
-                if (expandable) toggle(entry.path)
-                else if (entry.kind === 'wsnp') actions.openSnapshot(entry, false)
+                if (expandable) {
+                  // A click on the name selects the row and opens a closed folder; it never closes one (the chevron and a double click do). `detail` 1 starts a gesture: the second click of a
+                  // double click finds the folder already open, so it must not forget that the gesture itself opened it.
+                  if (e.detail <= 1) openedByClick.current = open.has(entry.path) ? null : entry.path
+                  if (!open.has(entry.path)) toggle(entry.path, true)
+                } else if (entry.kind === 'wsnp') actions.openSnapshot(entry, false)
                 else actions.open(entry, false)
               }}
               onDoubleClick={(e) => {
                 if (e.ctrlKey || e.metaKey || e.shiftKey) return
-                if (entry.kind === 'wsnp') actions.openSnapshot(entry, true)
-                else if (!expandable) actions.open(entry, true)
+                if (expandable) {
+                  // The double click leaves the folder in the opposite state to the one it had before the gesture: open before → it closes; closed before → the first click opened it, and it stays open.
+                  if (openedByClick.current !== entry.path) toggle(entry.path, false)
+                  openedByClick.current = null
+                } else if (entry.kind === 'wsnp') actions.openSnapshot(entry, true)
+                else actions.open(entry, true)
               }}
               draggable={(pinnable(entry) || canChange || entry.kind === 'file') && !renaming}
               onDragStart={(e) => {
@@ -681,7 +728,14 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
               style={{ paddingLeft: 8 + depth * 8 }}
               className={`flex h-[22px] cursor-pointer items-center gap-1 pr-2 outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus ${entry.hidden || cutRow(entry.path) ? 'opacity-60' : ''} ${dropOver === entry.path || marked.has(entry.path) ? 'bg-list-active text-list-active-fg' : selected ? 'bg-list-inactive focus-within:bg-list-active focus-within:text-list-active-fg' : 'hover:bg-list-hover'}`}
             >
-              <span className="flex w-4 shrink-0 justify-center">{expandable ? <Icon name={expanded ? 'chevron-down' : 'chevron-right'} className="text-[16px]" /> : null}</span>
+              <span
+                className="flex w-4 shrink-0 justify-center"
+                data-chevron={expandable ? '' : undefined}
+                onClick={expandable ? (e) => { e.stopPropagation(); toggle(entry.path) } : undefined}
+                onDoubleClick={expandable ? (e) => e.stopPropagation() : undefined}
+              >
+                {expandable ? <Icon name={expanded ? 'chevron-down' : 'chevron-right'} className="text-[16px]" /> : null}
+              </span>
               <Icon name={entry.kind === 'dir' ? (expanded ? 'folder-opened' : 'folder') : entry.kind === 'zip' ? 'file-zip' : fileIcon(undefined, entry.name)} className="shrink-0 text-[16px]" />
               {renaming ? (
                 <NameInput initial={entry.name} label={t('tree.nameInput')} problem={problem} onChange={() => setProblem(null)} onSubmit={(v) => void submit(v)} onCancel={stopEditing} />

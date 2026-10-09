@@ -98,6 +98,8 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
   const descending = sortDescending.use()
   const [refreshToken, setRefreshToken] = useState(0)
   const [createRequest, setCreateRequest] = useState<{ kind: 'file' | 'dir'; token: number } | undefined>(undefined)
+  /** Counts the requests for ever: the request is cleared once the tree handles it, so its own token cannot be the counter (the next one would be 1 again and the tree would take it for the one it handled). */
+  const createCount = useRef(0)
   const rootIds = Object.keys(ws.roots)
   const activeTab = ws.tabs.find((tab) => tab.key === ws.active)
   // The file of the tab on screen, when it is of the folder the tree shows (the tree opens ZIP files like folders, so the whole path is a place in it).
@@ -120,7 +122,7 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
           actions={
             <>
               <button type="button" title={t('menu.openFolder')} aria-label={t('menu.openFolder')} onClick={actions.openFolder} className={iconButton}>
-                <Icon name="new-folder" className="text-[16px]" />
+                <Icon name="folder-opened" className="text-[16px]" />
               </button>
               <button type="button" title={t('menu.openZip')} aria-label={t('menu.openZip')} onClick={actions.openZip} className={iconButton}>
                 <Icon name="file-zip" className="text-[16px]" />
@@ -179,10 +181,10 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
               <>
                 {!root.trash ? (
                   <>
-                    <button type="button" title={t('tree.newFile')} aria-label={t('tree.newFile')} onClick={() => setCreateRequest((c) => ({ kind: 'file', token: (c?.token ?? 0) + 1 }))} className={iconButton}>
+                    <button type="button" title={t('tree.newFile')} aria-label={t('tree.newFile')} onClick={() => setCreateRequest({ kind: 'file', token: ++createCount.current })} className={iconButton}>
                       <Icon name="new-file" className="text-[16px]" />
                     </button>
-                    <button type="button" title={t('tree.newFolder')} aria-label={t('tree.newFolder')} onClick={() => setCreateRequest((c) => ({ kind: 'dir', token: (c?.token ?? 0) + 1 }))} className={iconButton}>
+                    <button type="button" title={t('tree.newFolder')} aria-label={t('tree.newFolder')} onClick={() => setCreateRequest({ kind: 'dir', token: ++createCount.current })} className={iconButton}>
                       <Icon name="new-folder" className="text-[16px]" />
                     </button>
                   </>
@@ -210,6 +212,7 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
               trash={root.trash === true}
               writable={root.trash !== true}
               createRequest={createRequest}
+              onCreateHandled={() => setCreateRequest(undefined)}
               activePath={activePath}
               showHidden={hidden}
               sortKey={by}
