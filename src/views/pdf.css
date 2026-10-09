@@ -38,7 +38,7 @@
   display: contents;
 }
 .textLayer ::selection {
-  background: var(--wsnp-selection);
+  background: var(--wsnp-pdf-selection);
   color: transparent;
 }
 .textLayer .endOfContent {

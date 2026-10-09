@@ -8,6 +8,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+### Fixed
+
+- **The text selected in a PDF was hidden by an opaque highlight** (issue #63). The text layer of pdf.js is transparent over the canvas of the page, and the theme's `--wsnp-selection` is opaque (it is what the editors use), so the highlight painted opaque blocks over the glyphs and the line boxes and `endOfContent` of the layer showed through. A new token `--wsnp-pdf-selection` (Dark+ `#264f7866`, Light+ `#add6ff66` — `--wsnp-selection` at 40 % alpha) is what `.textLayer ::selection` paints, in Dark+ and in Light+; the canvas of the page is visible through it. `--wsnp-selection` and the global `::selection` of `index.css` are unchanged (the editors still depend on them). Tests: `src/theme/tokens.test.ts`, `src/views/pdf.test.ts`, `e2e/pdf-selection.spec.ts`.
+
 ### Changed
 
 - **The menu item of a `.wsnp` that listed its files is now called "Show Contents"** (it was "Open as ZIP"; the action and the order of the menu are the same). Only the text changed: the files of a snapshot are listed in a tab, read-only, as before.
