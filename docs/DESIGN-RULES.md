@@ -2,6 +2,10 @@
 
 Moved out of `CLAUDE.md` to keep what every session loads small. The **invariants that always apply** (the authorised roots, safe writes, the trash, a snapshot is a page, and the like) stay in `CLAUDE.md`; the rules of each feature are here, with the files and functions they name. Read the section of the area you change; they are exact, and several are there because something broke.
 
+## Settings registry
+
+`core/settings/` is pure TypeScript and remains unwired until the integration step. Declare defaults and validators once in the registry; core ids use `category.name`, plugin ids use `<plugin>:<name>`. `SettingsStore` owns values, retains unknown JSON keys, reports invalid known values and batches persistence through an injected atomic writer. Plugin contributions validate as a batch and return an idempotent removal function. Portable import is preview-only until explicitly applied; any `safety` option requires confirmation.
+
 ## Office documents
 
 An office document is drawn by `src/docs/{docx,pptx,odf}.ts`, built by `vite.docs.config.ts` into `dist/docs/` (one classic script each; `npm run build` runs `build:docs`). The main process gives each open document a token and serves `fb-doc://<token>/` (the page, `/_file`, `/_v/<flavour>.js`; `electron/doc-protocol.ts`) with a CSP that has `sandbox allow-scripts`, `default-src 'none'` and no network; the interface shows it in `<iframe sandbox="allow-scripts">`, which has an opaque origin and cannot reach `window.fb`. The page tells the interface how it went with `postMessage` (`DocMessage`). A new library or format means a new flavour in `core/docs.ts`, never a script in the interface itself. The odr-core build defines `import.meta.url` (`vite.docs.config.ts`) and needs `connect-src data:` for the WebAssembly it carries inside.
