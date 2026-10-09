@@ -28,6 +28,7 @@ import { readFrameMessage, wheelSteps } from '@core/frameScript.ts'
 import { pruneZooms, stepTabZoom, tabZoomOf } from '@/state/tabZoom.ts'
 import { viewZoom } from '@/state/viewZoom.ts'
 import type { AppInfo } from '@core/api.ts'
+import { LANGUAGES } from '@core/filekind.ts'
 import { UNTITLED_ROOT, untitledNumber, type DiffSide } from '@core/diff.ts'
 import { sideName } from './tabInfo.ts'
 import { editorBuffers } from '@/state/editors.ts'
@@ -216,7 +217,9 @@ export function Workbench() {
       for (const draft of list.filter((d) => d.rootPath === UNTITLED_ROOT && d.kind === 'text')) {
         const kept = await api.drafts.get(UNTITLED_ROOT, draft.path)
         if (kept?.kind !== 'text') continue
-        newUntitledBuffer(draft.path, wordWrap.get(), kept.text)
+        // (Its language comes back with it; a draft from before that, or with a language this version does not know, is plain text that was not chosen.)
+        const language = LANGUAGES.find((candidate) => candidate === kept.language)
+        newUntitledBuffer(draft.path, wordWrap.get(), kept.text, language ? { language, detected: !kept.manual && language !== 'plain', manual: kept.manual === true } : undefined)
         dispatch({ type: 'open-untitled', key: draft.path })
       }
       const folders = [...new Set(list.filter((draft) => draft.rootPath !== UNTITLED_ROOT).map((draft) => draft.rootPath))]

@@ -762,11 +762,11 @@ export class SnapshotHost {
       return root && !root.trash ? root.path : null
     }
     handle('fb:draft-put', (_win, id: unknown, name: unknown, draft: unknown): boolean => {
-      const d = draft as { kind?: unknown; text?: unknown; bytes?: unknown; base?: unknown; eol?: unknown; bom?: unknown } | null
+      const d = draft as { kind?: unknown; text?: unknown; bytes?: unknown; base?: unknown; eol?: unknown; bom?: unknown; language?: unknown; manual?: unknown } | null
       const rootPath = short(id) ? rootPathOf(id) : null
       if (!rootPath || !short(name) || !d || !version(d.base)) return false
       const at = new Date().toISOString()
-      if (d.kind === 'text' && typeof d.text === 'string' && d.text.length <= DRAFT_LIMIT && ending(d.eol) && typeof d.bom === 'boolean') return this.drafts.put({ version: 1, rootPath, path: name, kind: 'text', text: d.text, base: d.base, eol: d.eol, bom: d.bom, at })
+      if (d.kind === 'text' && typeof d.text === 'string' && d.text.length <= DRAFT_LIMIT && ending(d.eol) && typeof d.bom === 'boolean') return this.drafts.put({ version: 1, rootPath, path: name, kind: 'text', text: d.text, base: d.base, eol: d.eol, bom: d.bom, ...(typeof d.language === 'string' && d.language.length <= 40 ? { language: d.language } : {}), ...(typeof d.manual === 'boolean' ? { manual: d.manual } : {}), at })
       if (d.kind === 'bytes' && d.bytes instanceof Uint8Array && d.bytes.length <= DRAFT_LIMIT) return this.drafts.put({ version: 1, rootPath, path: name, kind: 'bytes', bytes: d.bytes, base: d.base, at })
       return false
     })

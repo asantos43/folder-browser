@@ -1,4 +1,5 @@
 import type { EditorState, Text } from '@codemirror/state'
+import type { Language } from '@core/filekind.ts'
 import type { EditSave, FbApi, FileVersion, LineEnding } from '@core/api.ts'
 
 /**
@@ -6,12 +7,21 @@ import type { EditSave, FbApi, FileVersion, LineEnding } from '@core/api.ts'
  * whether it has changes), what the file was like on the disk when it was read or last saved (to notice that someone else changed it), and its line ending and byte order mark.
  * Kept by the key of the tab while the tab is open.
  */
+/** The language of a new text (Untitled-N): the one shown, whether the text made it be chosen (`detected`), and whether the user picked it (`manual`: detection never changes it). */
+export interface UntitledLanguage {
+  language: Language
+  detected: boolean
+  manual: boolean
+}
+
 export interface EditorBuffer {
   state: EditorState
   saved: Text
   version: FileVersion
   eol: LineEnding
   bom: boolean
+  /** Of a new text only. */
+  lang?: UntitledLanguage
 }
 
 const buffers = new Map<string, EditorBuffer>()

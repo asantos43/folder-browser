@@ -37,7 +37,7 @@ export function saveAnyBuffer(api: Pick<FbApi, 'edit'>, rootId: string, path: st
 /** What a draft of the tab would hold (null: nothing, or no changes). */
 export function draftOf(key: string): DraftIn | null {
   const text = editorBuffers.get(key)
-  if (text) return hasChanges(text) ? { kind: 'text', text: text.state.doc.toString(), base: text.version, eol: text.eol, bom: text.bom } : null
+  if (text) return hasChanges(text) ? { kind: 'text', text: text.state.doc.toString(), base: text.version, eol: text.eol, bom: text.bom, ...(text.lang ? { language: text.lang.language, manual: text.lang.manual } : {}) } : null
   const bytes = hexBuffers.get(key)
   return bytes && hexChanged(bytes) ? { kind: 'bytes', bytes: bytes.doc.bytes.slice(), base: bytes.version } : null
 }

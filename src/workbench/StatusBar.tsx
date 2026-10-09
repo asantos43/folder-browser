@@ -112,7 +112,7 @@ export function StatusBar({ zoom, showZoom, onResetZoom, onZoom, ws, signers, on
         ) : null}
         {source ? (
           <button type="button" onClick={onSelectLanguage} className={clickable} title={t('status.language')}>
-            {t(`text.language.${source.language}` as MessageKey)}
+            {source.auto ? t('text.languageDetected', { language: t(`text.language.${source.language}` as MessageKey) }) : t(`text.language.${source.language}` as MessageKey)}
           </button>
         ) : null}
         {m ? (

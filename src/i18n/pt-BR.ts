@@ -510,6 +510,7 @@ export const ptBR: Record<MessageKey, string> = {
   'text.language.markdown': 'Markdown',
   'text.language.yaml': 'YAML',
   'text.language.plain': 'Texto Simples',
+  'text.languageDetected': '{language} (detectado)',
   'text.language.python': "Python",
   'text.language.c': "C",
   'text.language.cpp': "C++",

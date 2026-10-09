@@ -13,7 +13,7 @@ import { wordWrap } from '@/state/setting.ts'
 import { shownText } from '@/state/shown.ts'
 import { shortcut } from '@/workbench/commands.ts'
 import { languageExtension, languageSlot, listenerSlot, wrapping } from './codeTheme.ts'
-import { canFormat, formatSource } from './format.ts'
+import { formatEditor } from './format.ts'
 import { FileActions, SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
 import { useGroup } from '@/state/groups.ts'
 
@@ -130,14 +130,7 @@ export function EditView({ tabKey, rootId, path, language, zoom = 1, onSave, onS
   /** Lays the text out for reading, as an edit (undo brings it back). */
   const format = async () => {
     const editor = view.current
-    if (!editor) return
-    const source = editor.state.doc.toString()
-    if (!canFormat(language, source.length)) return
-    const formatted = await formatSource(source, language)
-    if (formatted === source || !view.current) return
-    const head = Math.min(editor.state.selection.main.head, formatted.length)
-    editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: formatted }, selection: { anchor: head }, userEvent: 'input.format' })
-    editor.focus()
+    if (editor) await formatEditor(editor, language, () => view.current)
   }
 
   const onContextMenu = (event: MouseEvent) => {

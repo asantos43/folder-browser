@@ -1,16 +1,21 @@
 import { EditorView } from '@codemirror/view'
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
+import { FORMATTABLE } from '@core/filekind.ts'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { createCodeFindTarget } from '@/find/code.ts'
 import { fileTarget } from '@/find/types.ts'
 import { useI18n } from '@/i18n/context.tsx'
-import { editorBuffers, hasChanges, type EditorBuffer } from '@/state/editors.ts'
+import type { MessageKey } from '@/i18n/index.ts'
+import { detectLanguage } from '@/state/detectLanguage.ts'
+import { fileLanguage, shownSource } from '@/state/fileLanguage.ts'
+import { editorBuffers, hasChanges, type EditorBuffer, type UntitledLanguage } from '@/state/editors.ts'
 import { useGroup } from '@/state/groups.ts'
 import { wordWrap } from '@/state/setting.ts'
 import { shownText } from '@/state/shown.ts'
-import { newUntitledBuffer } from '@/state/untitled.ts'
+import { changeSize, DETECT_CHANGE, DETECT_DELAY_MS, newUntitledBuffer, nextLanguage, PLAIN_TEXT, pickedLanguage } from '@/state/untitled.ts'
 import { shortcut } from '@/workbench/commands.ts'
 import { languageSlot, languageExtension, listenerSlot, wrapping } from './codeTheme.ts'
+import { formatEditor } from './format.ts'
 import { SaveButton, Separator, Toolbar, ToolbarButton } from './Toolbar.tsx'
 
 /**
@@ -27,20 +32,47 @@ export function UntitledView({ tabKey, zoom = 1, onSave, onChanged, dirty, leadi
   const [buffer] = useState<EditorBuffer>(() => editorBuffers.get(tabKey) ?? newUntitledBuffer(tabKey, wordWrap.get()))
   const [changed, setChanged] = useState(() => hasChanges(buffer))
   const [lines, setLines] = useState(0)
+  const [lang, setLang] = useState<UntitledLanguage>(() => buffer.lang ?? PLAIN_TEXT)
+  const picked = fileLanguage.use(tabKey)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const wrapNow = useRef(wrap)
   wrapNow.current = wrap
+  const lookNow = useRef<(next: UntitledLanguage) => void>(() => undefined)
   const changedNow = useRef(onChanged)
   changedNow.current = onChanged
+
+  /** The language of the text is now this one: the editor's colours, the label and the draft follow (the draft keeps it with the text). */
+  const apply = useCallback(
+    (next: UntitledLanguage) => {
+      const old = buffer.lang ?? PLAIN_TEXT
+      if (old.language === next.language && old.detected === next.detected && old.manual === next.manual) return
+      buffer.lang = next
+      setLang(next)
+      view.current?.dispatch({ effects: languageSlot.reconfigure(languageExtension(next.language)) })
+      if (hasChanges(buffer)) changedNow.current(tabKey, true)
+    },
+    [buffer, tabKey],
+  )
+  lookNow.current = apply
 
   useEffect(() => {
     if (!host.current) return
     const editor = new EditorView({ parent: host.current, state: buffer.state })
     view.current = editor
+    // After a paste or another big change, and a pause, the text is looked at for its language (never at every key; a language the user chose is left alone).
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let big = false
+    const look = () => {
+      timer = undefined
+      big = false
+      const current = buffer.lang ?? PLAIN_TEXT
+      if (current.manual) return
+      lookNow.current(nextLanguage(current, detectLanguage(editor.state.doc.toString())))
+    }
     editor.dispatch({
       effects: [
         wrapping.reconfigure(wrapNow.current ? EditorView.lineWrapping : []),
-        languageSlot.reconfigure(languageExtension('plain')),
+        languageSlot.reconfigure(languageExtension((buffer.lang ?? PLAIN_TEXT).language)),
         listenerSlot.reconfigure(
           EditorView.updateListener.of((update) => {
             buffer.state = update.state
@@ -49,6 +81,11 @@ export function UntitledView({ tabKey, zoom = 1, onSave, onChanged, dirty, leadi
               setChanged(now)
               setLines(update.state.doc.lines)
               changedNow.current(tabKey, now)
+              if (update.transactions.some((tr) => tr.isUserEvent('input.paste')) || changeSize(update.changes) >= DETECT_CHANGE) big = true
+              if (big) {
+                if (timer) clearTimeout(timer)
+                timer = setTimeout(look, DETECT_DELAY_MS)
+              }
             }
           }),
         ),
@@ -64,6 +101,7 @@ export function UntitledView({ tabKey, zoom = 1, onSave, onChanged, dirty, leadi
     const unshow = shownText.set(() => editor.state.doc.toString(), group)
     editor.focus()
     return () => {
+      if (timer) clearTimeout(timer)
       unregister()
       unshow()
       buffer.state = editor.state
@@ -71,6 +109,21 @@ export function UntitledView({ tabKey, zoom = 1, onSave, onChanged, dirty, leadi
       view.current = null
     }
   }, [buffer, group, tabKey])
+
+  // The language picker (the status bar's Select Language Mode) chose one, or went back to Auto Detect.
+  useEffect(() => {
+    const current = buffer.lang ?? PLAIN_TEXT
+    if (picked !== undefined) {
+      if (!current.manual || current.language !== picked) apply(pickedLanguage(picked, null))
+    } else if (current.manual) apply(pickedLanguage(undefined, detectLanguage(view.current?.state.doc.toString() ?? buffer.state.doc.toString())))
+  }, [picked, buffer, apply])
+  // What the status bar shows and the picker offers for this text.
+  const shownLanguage = lang.language
+  const auto = lang.detected && !lang.manual
+  useEffect(() => {
+    const found = detectLanguage(view.current?.state.doc.toString() ?? buffer.state.doc.toString())
+    return shownSource.set({ key: tabKey, language: shownLanguage, detected: found?.language ?? 'plain', auto }, group)
+  }, [tabKey, shownLanguage, auto, group, buffer])
 
   // A save (the workbench's) made the text clean without a change of the text.
   useEffect(() => {
@@ -103,6 +156,7 @@ export function UntitledView({ tabKey, zoom = 1, onSave, onChanged, dirty, leadi
       <Toolbar>
         {leading}
         <SaveButton label={t('file.saveAs')} onClick={onSave} />
+        {FORMATTABLE.includes(lang.language) ? <ToolbarButton icon="list-flat" text={t('edit.formatDocument')} label={t('edit.formatDocumentTitle')} onClick={() => view.current && void formatEditor(view.current, lang.language, () => view.current)} /> : null}
         <ToolbarButton icon="word-wrap" text={t('text.wordWrap')} label={t('text.wordWrapTitle')} pressed={wrap} onClick={() => wordWrap.set(!wrap)} />
         <Separator />
         <span className="truncate text-[12px] text-fg-muted" title={t('untitled.hint')}>
@@ -111,6 +165,7 @@ export function UntitledView({ tabKey, zoom = 1, onSave, onChanged, dirty, leadi
         <span className="ml-auto flex items-center gap-3 pr-1 text-[12px] text-fg-muted">
           {changed ? <span aria-live="polite">● {t('edit.modified')}</span> : null}
           <span>{t('text.lines', { count: lines })}</span>
+          <span title={t('status.language')}>{auto ? t('text.languageDetected', { language: t(`text.language.${lang.language}` as MessageKey) }) : t(`text.language.${lang.language}` as MessageKey)}</span>
         </span>
       </Toolbar>
       <div className="flex min-h-0 flex-1 flex-col" onContextMenu={onContextMenu} style={{ '--wsnp-zoom': zoom } as CSSProperties}>

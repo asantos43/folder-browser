@@ -23,7 +23,7 @@ export type RangeResult = { bytes: Uint8Array; size: number } | { error: 'no-sna
 export type DocOpen = { token: string; url: string; flavour: 'docx' | 'pptx' | 'odf' } | { error: 'no-file' | 'too-large' | 'unsupported' }
 /** What an operation on the files of a folder answers (`core/fs/ops.ts`): the new path of the item, or why nothing was done. */
 /** What the interface hands over to be kept as a draft, and what it is told of a kept one. */
-export type DraftIn = { kind: 'text'; text: string; base: FileVersion; eol: LineEnding; bom: boolean } | { kind: 'bytes'; bytes: Uint8Array; base: FileVersion }
+export type DraftIn = { kind: 'text'; text: string; base: FileVersion; eol: LineEnding; bom: boolean; /** Of a new text (Untitled-N) only. */ language?: string; manual?: boolean } | { kind: 'bytes'; bytes: Uint8Array; base: FileVersion }
 export interface DraftEntry {
   rootPath: string
   path: string

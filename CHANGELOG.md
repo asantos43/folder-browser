@@ -8,6 +8,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+### Added
+
+- **A new text file (`Ctrl+N`) now has a language before it is saved** (issue #69; the Save As that turns the tab into a file of that type is #70, apart). After a paste or a change of 20 characters or more, and a pause of 300 ms (never at every key), `detectLanguage` (`src/state/detectLanguage.ts`, the first 64 KiB) looks at the text; if it convinces, the tab gets the colours of that language and **Format Document** (HTML, CSS, JavaScript, JSON, XML, shared with the editor of a file: `formatEditor`), and the toolbar and the status bar say `HTML (detected)` (`HTML (detectado)`); if the text stops convincing, it goes back to Plain Text. The status bar's **Select Language Mode** picker works for it: a language chosen there (Plain Text too) is never changed by the detection and loses "(detected)"; **Auto Detect** gives the choice back to the text. The language and whether it was chosen (`language`, `manual`, optional) are kept in the draft of the new text and come back with it; an older draft without them is plain text, not chosen. Pure decision: `nextLanguage` / `pickedLanguage` (`src/state/untitled.ts`). Tests: `src/state/untitled.test.ts`, `src/state/detectLanguage.test.ts`, `src/views/UntitledView.test.tsx`, `core/drafts.test.ts`, `e2e/untitled-detect.spec.ts`.
+
 ### Fixed
 
 - **The text selected in a PDF was hidden by an opaque highlight** (issue #63). The text layer of pdf.js is transparent over the canvas of the page, and the theme's `--wsnp-selection` is opaque (it is what the editors use), so the highlight painted opaque blocks over the glyphs and the line boxes and `endOfContent` of the layer showed through. A new token `--wsnp-pdf-selection` (Dark+ `#264f7866`, Light+ `#add6ff66` — `--wsnp-selection` at 40 % alpha) is what `.textLayer ::selection` paints, in Dark+ and in Light+; the canvas of the page is visible through it. `--wsnp-selection` and the global `::selection` of `index.css` are unchanged (the editors still depend on them). Tests: `src/theme/tokens.test.ts`, `src/views/pdf.test.ts`, `e2e/pdf-selection.spec.ts`.
