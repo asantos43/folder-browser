@@ -1,8 +1,9 @@
 import type { SnapshotInfo } from '@core/snapshots.ts'
 import { describe, expect, it } from 'vitest'
-import { diffKey, empty, isSplit, shownIn, fileKey, invalidProblems, isHeldBack, isSnapshotTab, isUnder, metadataKey, reduce, released, remapPath, snapshotKey, type Action, type Workspace } from './workspace.ts'
+import { diffKey, empty, isSplit, shownIn, fileKey, invalidProblems, isHeldBack, isSnapshotTab, isUnder, metadataKey, reduce, released, remapPath, snapshotKey, snapshotLocation, type Action, type Tab, type Workspace } from './workspace.ts'
 
 const snap = (id: string, signature: SnapshotInfo['signature'] = { state: 'unsigned' }): SnapshotInfo => ({ id, path: `/${id}.wsnp`, manifest: { title: id } as SnapshotInfo['manifest'], files: [], signature })
+const snapAt = (id: string, path: string, signature: SnapshotInfo['signature'] = { state: 'unsigned' }): SnapshotInfo => ({ id, path, manifest: { title: id } as SnapshotInfo['manifest'], files: [], signature })
 const run = (actions: Action[], from: Workspace = empty): Workspace => actions.reduce(reduce, from)
 const open = (...ids: string[]): Action[] => ids.map((id) => ({ type: 'snapshot-opened', snapshot: snap(id) }))
 const file = (snapshotId: string, path: string, keep = false): Action => ({ type: 'open-file', snapshotId, path, keep })
@@ -342,6 +343,76 @@ describe('a snapshot is a page in a tab, never what the side bar shows', () => {
     expect(ws.selected).toBe('r1')
     ws = reduce(ws, { type: 'activate', key: 'f:r2:a.txt' })
     expect(ws.selected).toBe('r2')
+  })
+})
+
+describe('a snapshot tab follows the Files area to the root that contains its .wsnp', () => {
+  const r1 = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const r2 = { id: 'r2', kind: 'folder' as const, path: '/home/me/other', name: 'other' }
+  const zip = { id: 'rz', kind: 'zip' as const, path: '/home/me/work/p.zip', name: 'p.zip' }
+  const run = (...actions: Action[]) => actions.reduce(reduce, empty)
+
+  it('takes the Files area to the open folder that contains the .wsnp', () => {
+    const ws = run({ type: 'root-opened', root: r1 }, { type: 'root-opened', root: r2 }, { type: 'snapshot-opened', snapshot: snapAt('a', '/home/me/work/page.wsnp') })
+    expect(ws.selected).toBe('r1')
+    expect(snapshotLocation(ws, ws.tabs[0])).toEqual({ rootId: 'r1', path: 'page.wsnp' })
+  })
+  it('takes the Files area to the open ZIP that has the .wsnp as an entry', () => {
+    const ws = run({ type: 'root-opened', root: r1 }, { type: 'root-opened', root: zip }, { type: 'snapshot-opened', snapshot: snapAt('a', '/home/me/work/p.zip!/page.wsnp') })
+    expect(ws.selected).toBe('rz')
+    expect(snapshotLocation(ws, ws.tabs[0])).toEqual({ rootId: 'rz', path: '!/page.wsnp' })
+  })
+  it('a folder that contains a ZIP root, both open, picks the ZIP (most specific) for an entry that is the .wsnp', () => {
+    const ws = run({ type: 'root-opened', root: r1 }, { type: 'root-opened', root: zip }, { type: 'snapshot-opened', snapshot: snapAt('a', '/home/me/work/p.zip!/nested/page.wsnp') })
+    expect(ws.selected).toBe('rz')
+    expect(snapshotLocation(ws, ws.tabs[0])).toEqual({ rootId: 'rz', path: '!/nested/page.wsnp' })
+  })
+  it('leaves the Files area where it was when no open root contains the .wsnp', () => {
+    let ws = run({ type: 'root-opened', root: r1 }, { type: 'root-opened', root: r2 }, { type: 'select', snapshotId: 'r2' })
+    expect(ws.selected).toBe('r2')
+    ws = reduce(ws, { type: 'snapshot-opened', snapshot: snapAt('a', '/elsewhere/page.wsnp') })
+    expect(ws.selected).toBe('r2')
+    expect(snapshotLocation(ws, ws.tabs.find((t) => t.key === 's:a')!)).toBeNull()
+  })
+  it('a file tab inside the snapshot follows the same root as the snapshot (the .wsnp itself)', () => {
+    let ws = run({ type: 'root-opened', root: r1 }, { type: 'snapshot-opened', snapshot: snapAt('a', '/home/me/work/page.wsnp'), preview: true }, { type: 'keep', key: 's:a' }, { type: 'open-file', snapshotId: 'a', path: 'manifest.json', keep: true })
+    expect(ws.selected).toBe('r1')
+    expect(snapshotLocation(ws, ws.tabs.find((t) => t.key === 'f:a:manifest.json')!)).toEqual({ rootId: 'r1', path: 'page.wsnp' })
+  })
+  it('the metadata tab of a snapshot follows the same root', () => {
+    let ws = run({ type: 'root-opened', root: r1 }, { type: 'snapshot-opened', snapshot: snapAt('a', '/home/me/work/page.wsnp'), preview: true }, { type: 'keep', key: 's:a' }, { type: 'open-metadata', snapshotId: 'a' })
+    expect(ws.active).toBe(metadataKey('a'))
+    expect(ws.selected).toBe('r1')
+  })
+  it('switches between a file of folder A and a snapshot of folder B in either direction', () => {
+    let ws = run({ type: 'root-opened', root: r1 }, { type: 'root-opened', root: r2 }, { type: 'open-file', snapshotId: 'r1', path: 'a.txt', keep: true }, { type: 'snapshot-opened', snapshot: snapAt('s', '/home/me/other/page.wsnp'), preview: true }, { type: 'keep', key: 's:s' })
+    expect(ws.selected).toBe('r2')
+    ws = reduce(ws, { type: 'activate', key: 'f:r1:a.txt' })
+    expect(ws.selected).toBe('r1')
+    ws = reduce(ws, { type: 'activate', key: 's:s' })
+    expect(ws.selected).toBe('r2')
+    ws = reduce(ws, { type: 'open-metadata', snapshotId: 's' })
+    expect(ws.active).toBe(metadataKey('s'))
+    expect(ws.selected).toBe('r2')
+  })
+  it('a snapshot never becomes a root or enters ws.roots', () => {
+    const ws = run({ type: 'root-opened', root: r1 }, { type: 'snapshot-opened', snapshot: snapAt('a', '/home/me/work/page.wsnp') })
+    expect(Object.keys(ws.roots)).toEqual(['r1'])
+    expect(ws.snapshots).toHaveProperty('a')
+    expect(ws.roots).not.toHaveProperty('a')
+  })
+  it('tabs of files of folders and ZIPs still take the Files area to their own root', () => {
+    const z = { id: 'rz2', kind: 'zip' as const, path: '/home/me/p.zip', name: 'p.zip' }
+    let ws = run({ type: 'root-opened', root: r1 }, { type: 'root-opened', root: r2 }, { type: 'root-opened', root: z }, { type: 'open-file', snapshotId: 'rz2', path: 'x.txt', keep: true }, { type: 'select', snapshotId: 'r1' })
+    expect(ws.selected).toBe('r1')
+    ws = reduce(ws, { type: 'activate', key: 'f:rz2:x.txt' })
+    expect(ws.selected).toBe('rz2')
+  })
+  it('snapshotLocation is null for a tab that does not name a snapshot', () => {
+    const ws = run({ type: 'root-opened', root: r1 }, { type: 'open-file', snapshotId: 'r1', path: 'a.txt', keep: true }, { type: 'open-guide' })
+    expect(snapshotLocation(ws, ws.tabs.find((t) => t.key === 'f:r1:a.txt')!)).toBeNull()
+    expect(snapshotLocation(ws, ws.tabs.find((t) => t.key === 'guide')!)).toBeNull()
+    expect(snapshotLocation(empty, { key: 'x', snapshotId: 'nope', preview: false, pinned: false } as Tab)).toBeNull()
   })
 })
 

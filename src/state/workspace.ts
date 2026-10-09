@@ -145,15 +145,34 @@ export type Action =
 /** Pinned tabs come first, in the order they have; the rest keep theirs. */
 const arranged = (tabs: Tab[]): Tab[] => [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)]
 
-/** Bringing a tab to the front: a file of an open folder takes the side bar to that folder; the page of a snapshot, its metadata and its files never do (a snapshot is a page, not a folder). */
+/** Where the Files area of the side bar is for a snapshot tab: the open root that contains its `.wsnp`, by id, and the path of the `.wsnp` within that root (`page.wsnp` under a folder, `!/page.wsnp` as a ZIP entry). The most specific open root wins when several contain it (a folder that contains a ZIP root, both open: the ZIP). `null` when no open root contains the `.wsnp` — the side bar then stays where it was. The tab must name a snapshot (`ws.snapshots[tab.snapshotId]`); a tab of a file of a folder or ZIP has its root in `tab.snapshotId`. */
+export function snapshotLocation(ws: Workspace, tab: Tab): { rootId: string; path: string } | null {
+  const snap = ws.snapshots[tab.snapshotId]
+  if (!snap) return null
+  let best: { root: RootInfo; length: number } | null = null
+  for (const root of Object.values(ws.roots)) {
+    if (!isUnder(snap.path, root.path)) continue
+    if (best !== null && root.path.length <= best.length) continue
+    best = { root, length: root.path.length }
+  }
+  if (!best) return null
+  const rel = snap.path.slice(best.length)
+  // '' when the .wsnp IS the root, '!/x' for a ZIP entry, 'x' (without the leading '/') for a folder child.
+  const path = rel === '' ? '' : rel.startsWith('/') ? rel.slice(1) : rel
+  return { rootId: best.root.id, path }
+}
+
+/** Bringing a tab to the front: a file of an open folder or ZIP takes the side bar to that root; a snapshot tab (its page, metadata or one of its files) takes it to the open root that contains its `.wsnp`, or leaves it alone when none can. The snapshot itself never becomes a root, and the side bar still does not list its own files. */
 function withActive(ws: Workspace, key: string | null, touch = true): Workspace {
   if (key === null) return { ...ws, active: null }
   const tab = ws.tabs.find((t) => t.key === key)
-  const follows = tab !== undefined && ws.roots[tab.snapshotId] !== undefined
+  const directRoot = tab !== undefined && ws.roots[tab.snapshotId] !== undefined ? tab.snapshotId : null
+  const loc = tab !== undefined && directRoot === null ? snapshotLocation(ws, tab) : null
+  const selected = directRoot ?? loc?.rootId ?? ws.selected
   // A tab of the other group takes the focus to its group; the tab that was in front there stays in front of the group that lost it.
   const toOther = tab !== undefined && groupOf(tab) !== ws.focus
   const groups = toOther ? { focus: groupOf(tab), other: ws.active } : {}
-  return { ...ws, ...groups, active: key, selected: follows ? tab.snapshotId : ws.selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
+  return { ...ws, ...groups, active: key, selected, recent: touch ? [key, ...ws.recent.filter((k) => k !== key)] : ws.recent }
 }
 
 /**

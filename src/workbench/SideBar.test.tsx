@@ -2,6 +2,7 @@
 import type { DirEntry, ListResult, OpResult, Place, PlacesData } from '@core/api.ts'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { RootInfo } from '@core/roots.ts'
+import type { SnapshotInfo } from '@core/snapshots.ts'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Workspace } from '@/state/workspace.ts'
 import { empty } from '@/state/workspace.ts'
@@ -82,5 +83,60 @@ describe('SideBar', () => {
       fireEvent.keyDown(field, { key: 'Escape' })
       await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Name' })).toBeNull())
     }
+  })
+})
+
+describe('SideBar follows a snapshot tab to the .wsnp in the root that contains it', () => {
+  const root: RootInfo = { id: 'r1', kind: 'folder', path: '/tmp/example', name: 'example' }
+  const other: RootInfo = { id: 'r2', kind: 'folder', path: '/tmp/other', name: 'other' }
+  const places: PlacesData = { places: [], volumes: [], recent: [], favorites: [] }
+  const entry = (name: string, kind: DirEntry['kind'], dir = ''): DirEntry => ({ name, path: dir ? `${dir}/${name}` : name, kind, size: kind === 'dir' ? 0 : 10, modified: '2026-01-01T00:00:00.000Z', hidden: false })
+  const lists: Record<string, ListResult> = {
+    '': { entries: [entry('a.txt', 'file'), entry('sub', 'dir'), entry('page.wsnp', 'wsnp')], truncated: false },
+    sub: { entries: [entry('page.wsnp', 'wsnp', 'sub')], truncated: false },
+  }
+  const snap = (id: string, path: string): SnapshotInfo => ({ id, path, manifest: { title: id } as SnapshotInfo['manifest'], files: [], signature: { state: 'unsigned' } })
+  const showSideBar = (ws: Workspace, lists: Record<string, ListResult>) => {
+    const a = actions()
+    a.listDir = vi.fn(async (_rootId: string, path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
+    render(
+      <I18nProvider language="en">
+        <SideBar ws={ws} dispatch={vi.fn()} actions={a} places={places} treeVersion={0} />
+      </I18nProvider>,
+    )
+    return a
+  }
+
+  it('a snapshot tab whose .wsnp is at the root: the row of the .wsnp is the active one', async () => {
+    const wsWithSnap: Workspace = { ...empty, selected: 'r1', roots: { r1: root }, snapshots: { s1: snap('s1', '/tmp/example/page.wsnp') }, tabs: [{ key: 's:s1', snapshotId: 's1', preview: false, pinned: false }], active: 's:s1' }
+    showSideBar(wsWithSnap, lists)
+    await waitFor(() => expect(screen.getByRole('treeitem', { name: 'page.wsnp' }).getAttribute('aria-selected')).toBe('true'))
+    expect(screen.getByRole('treeitem', { name: 'a.txt' }).getAttribute('aria-selected')).not.toBe('true')
+  })
+  it('a snapshot tab whose .wsnp is in a subfolder: the tree opens the subfolder and highlights the .wsnp', async () => {
+    const wsWithSnap: Workspace = { ...empty, selected: 'r1', roots: { r1: root }, snapshots: { s2: snap('s2', '/tmp/example/sub/page.wsnp') }, tabs: [{ key: 's:s2', snapshotId: 's2', preview: false, pinned: false }], active: 's:s2' }
+    showSideBar(wsWithSnap, lists)
+    await waitFor(() => expect(screen.getByRole('treeitem', { name: 'sub' }).getAttribute('aria-expanded')).toBe('true'))
+    const row = document.querySelector('[data-path="sub/page.wsnp"]') as HTMLElement
+    expect(row.getAttribute('aria-selected')).toBe('true')
+  })
+  it('a file tab inside the snapshot takes the same root, and the .wsnp is the highlighted row', async () => {
+    const wsWithSnap: Workspace = { ...empty, selected: 'r1', roots: { r1: root }, snapshots: { s3: snap('s3', '/tmp/example/page.wsnp') }, tabs: [{ key: 'f:s3:manifest.json', snapshotId: 's3', path: 'manifest.json', preview: false, pinned: false }], active: 'f:s3:manifest.json' }
+    showSideBar(wsWithSnap, lists)
+    await waitFor(() => expect(screen.getByRole('treeitem', { name: 'page.wsnp' }).getAttribute('aria-selected')).toBe('true'))
+  })
+  it('a metadata tab of the snapshot also takes the root and the .wsnp', async () => {
+    const wsWithSnap: Workspace = { ...empty, selected: 'r1', roots: { r1: root }, snapshots: { s4: snap('s4', '/tmp/example/page.wsnp') }, tabs: [{ key: 'm:s4', snapshotId: 's4', view: 'metadata', preview: false, pinned: false }], active: 'm:s4' }
+    showSideBar(wsWithSnap, lists)
+    await waitFor(() => expect(screen.getByRole('treeitem', { name: 'page.wsnp' }).getAttribute('aria-selected')).toBe('true'))
+  })
+  it('a snapshot tab whose .wsnp is not in any open root: the activePath is undefined, no row is highlighted', async () => {
+    const wsWithSnap: Workspace = { ...empty, selected: 'r1', roots: { r1: root, r2: other }, snapshots: { s5: snap('s5', '/elsewhere/page.wsnp') }, tabs: [{ key: 's:s5', snapshotId: 's5', preview: false, pinned: false }], active: 's:s5' }
+    const a = showSideBar(wsWithSnap, lists)
+    // The tree renders the listing of the selected root (r1); no open root contains the snapshot's .wsnp, so the activePath is undefined and the .wsnp row is not selected.
+    await waitFor(() => expect(a.listDir).toHaveBeenCalledWith('r1', ''))
+    const row = await screen.findByRole('treeitem', { name: 'page.wsnp' })
+    expect(row.getAttribute('aria-selected')).not.toBe('true')
+    expect(screen.queryByRole('treeitem', { name: 'sub' })?.getAttribute('aria-expanded')).not.toBe('true')
   })
 })
