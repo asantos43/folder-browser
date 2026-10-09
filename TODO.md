@@ -43,10 +43,10 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 
 **Later** (each a project; the order is a guess)
 - **ACLs** (M to L, "ACLs: access control lists"): read first (the entries, the mask, the effective permissions, a mark on files that have them), then edit; Linux, macOS and Windows each on their own model; after the Permissions work
-- **The distribution channel of extensions** as a real, operated service (M, "Extensions", phase 6b)
+- **The distribution channel of plugins** as a real, operated service (M, "Plugins", phase 6b)
 - **Redaction that really removes**, **repair of damaged files**, **comparing pictures, PDFs and structured data**, **portable mode** (L, M, M and S)
-- **Extension-first** (a rule for every complex item below: see "Extension-first", tags `[core]`/`[ext L0]`/`[ext L1]`)
-- **Extensions** (plugins), trust model decided 2026-10-09 (**a warning at install plus a safe mode**, full power, no sandbox, code in a separate process; L, "Extensions", `docs/EXTENSIONS-DESIGN.md`): phases in order: registries of Settings, commands and keys; host and level 0; the code process and the application's API; the authoring kit (zero entry cost); install warning, safe mode and activity log; the first extension (PDF pages, needs Local History); plugins on plugins (the onion: an extension exports an API, others consume it); the curated, signed catalog; install from a repository
+- **Plugin-first** (a rule for every complex item below: see "Plugin-first", tags `[core]`/`[ext L0]`/`[ext L1]`, where `ext` means a plugin)
+- **Plugins**, trust model decided 2026-10-09 (**a warning at install plus a safe mode**, full power, no sandbox, one separate process per plugin; the word "Plugins" and the open questions decided the same day; L, "Plugins", `docs/EXTENSIONS-DESIGN.md`): phases in order: registries of Settings, commands and keys; host and level 0; the code process and the application's API; the authoring kit (zero entry cost, accepted by a capability matrix); install warning, safe mode and activity log; the first plugin (PDF pages, needs Local History); plugins on plugins (the onion: a plugin exports an API, others consume it); the curated, signed catalog; install from a repository (a manifest compatible with Claude Code's `marketplace.json`)
 - **Image editor**, phase A and B, with EXIF editing in place and the Save options (L, "Images")
 - **PDF** annotations, pages (select, rotate, delete, reorder) and merge (L, "PDFs")
 - **tar and tar.gz** (M to L), then **7z** (L, "Archives", groups 2 and 3)
@@ -69,8 +69,8 @@ Section names used in the roadmap and in the texts (for example "Settings", "Tex
 | [`files.md`](docs/todo/files.md) | files, folders and places; copy path and open a shell; sizes and counts; the safety net (local history, a tree that follows the disk); tools for files (checksums, duplicates, bulk rename, disk usage) |
 | [`media-metadata.md`](docs/todo/media-metadata.md) | metadata of media files in Properties |
 | [`search-git.md`](docs/todo/search-git.md) | search folders (find by name, extension and content, kept as a folder); Git, read only |
-| [`extensions.md`](docs/todo/extensions.md) | extensions (plugins): the trust model (warning at install plus safe mode), side load, the code process and API, the authoring kit, the catalog, install from a repository, settings of an extension (design: [`docs/EXTENSIONS-DESIGN.md`](docs/EXTENSIONS-DESIGN.md)) |
-| [`extension-first.md`](docs/todo/extension-first.md) | building the complex items on the extension model, and which item is core or an extension |
+| [`extensions.md`](docs/todo/extensions.md) | plugins: the trust model (warning at install plus safe mode), side load, the code process and API, the authoring kit, the catalog, install from a repository, settings of a plugin (design: [`docs/EXTENSIONS-DESIGN.md`](docs/EXTENSIONS-DESIGN.md); the file names keep the old word) |
+| [`extension-first.md`](docs/todo/extension-first.md) | building the complex items on the plugin model, and which item is core or a plugin |
 | [`text.md`](docs/todo/text.md) | text editing, tables and diff; HTML preview; data files (SQLite, JSON, YAML, XML) |
 | [`text-tools.md`](docs/todo/text-tools.md) | text tools from Notepad++: case, lines, indentation, find and replace, cursors |
 | [`archives.md`](docs/todo/archives.md) | ZIP files; compress, extract, tar, tar.gz, 7z |
