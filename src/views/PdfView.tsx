@@ -9,6 +9,7 @@ import { keepState, keptState, useSize } from './useViewport.ts'
 import { PDF_LIMITS, resolveScale, stepZoom, wheelZoom, type Size, type ZoomMode } from './zoom.ts'
 import './pdf.css'
 import { useGroup } from '@/state/groups.ts'
+import { forgetPdfPassword, getPdfPassword, pdfPasswordKey, rememberPdfPassword } from './pdfPasswords.ts'
 
 type Pdfjs = typeof import('pdfjs-dist')
 
@@ -34,6 +35,7 @@ type Load = { state: 'loading' } | { state: 'ready'; doc: PDFDocumentProxy; pdfj
 
 /** What pdf.js says when it asks for a password (`PasswordResponses`): 1 the file needs one, 2 the one given is not right. */
 const INCORRECT_PASSWORD = 2
+const NEED_PASSWORD = 1
 
 /** The box that asks for the password of a PDF: it is outside the scroll area, whose keys (`+`, `-`, `0`) zoom the PDF and must not take a password's characters. */
 function PasswordForm({ wrong, busy, onSubmit }: { wrong: boolean; busy: boolean; onSubmit: (password: string) => void }) {
@@ -157,6 +159,10 @@ export function PdfView({ id, bytes, name, onSave }: { id: string; bytes: Uint8A
   const scroller = useRef<HTMLDivElement>(null)
   const room = useSize(scroller)
   const keep = useRef<number | null>(null)
+  /** The password that was last submitted (auto from the cache or typed): remembered when the document opens. */
+  const submittedPassword = useRef<string | null>(null)
+  /** True while the last submission was the cached password we sent on pdf.js's behalf: a `wrong` for it makes us drop the cache, not the user's typing. */
+  const autoSubmitted = useRef(false)
 
   useEffect(() => keepState(`zoom:${id}`, mode), [id, mode])
 
@@ -164,6 +170,7 @@ export function PdfView({ id, bytes, name, onSave }: { id: string; bytes: Uint8A
   useEffect(() => {
     let alive = true
     let task: { destroy: () => Promise<void> } | undefined
+    const key = pdfPasswordKey(id, bytes)
     setLoad({ state: 'loading' })
     setSizes([])
     void (async () => {
@@ -182,14 +189,43 @@ export function PdfView({ id, bytes, name, onSave }: { id: string; bytes: Uint8A
         disableAutoFetch: true,
       })
       task = loading
-      // A PDF with a password: the person is asked for it, and the document goes on with what they give (a wrong one asks again). The password is kept nowhere: it is used and let go.
+      // A PDF with a password: the person is asked for it, and the document goes on with what they give (a wrong one asks again). A right one is remembered for the current version of the file while the app is open, so the form does not come back each time the view mounts.
       loading.onPassword = (submit: (password: string) => void, reason: number) => {
         if (!alive) return
-        const again = reason === INCORRECT_PASSWORD
-        setLoad({ state: 'password', wrong: again, busy: false, submit: (password) => (setLoad({ state: 'password', wrong: again, busy: true, submit }), submit(password)) })
+        // First attempt with a cached password: send it on pdf.js's behalf without showing the form.
+        if (reason === NEED_PASSWORD) {
+          const remembered = getPdfPassword(key)
+          if (remembered !== undefined) {
+            autoSubmitted.current = true
+            submittedPassword.current = remembered
+            submit(remembered)
+            return
+          }
+        }
+        // pdf.js rejected the cached password we had sent: drop it (so the next mount asks the user again) and show the form.
+        const cachedRejected = reason === INCORRECT_PASSWORD && autoSubmitted.current
+        if (cachedRejected) forgetPdfPassword(key)
+        autoSubmitted.current = false
+        // A rejected cached password is not the person's mistake: the form comes up without the "wrong password" notice.
+        const again = reason === INCORRECT_PASSWORD && !cachedRejected
+        setLoad({
+          state: 'password',
+          wrong: again,
+          busy: false,
+          submit: (password) => {
+            submittedPassword.current = password
+            autoSubmitted.current = false
+            setLoad({ state: 'password', wrong: again, busy: true, submit })
+            submit(password)
+          },
+        })
       }
       const doc = await loading.promise
       if (!alive) return
+      // The password that opened the document (cached and right, or typed and right) is remembered for the rest of the session.
+      const opened = submittedPassword.current
+      submittedPassword.current = null
+      if (opened) rememberPdfPassword(key, opened)
       const first = await doc.getPage(1)
       const view = first.getViewport({ scale: 1 })
       setLoad({ state: 'ready', doc, pdfjs })
@@ -203,9 +239,11 @@ export function PdfView({ id, bytes, name, onSave }: { id: string; bytes: Uint8A
     })().catch(() => alive && setLoad({ state: 'broken' }))
     return () => {
       alive = false
+      submittedPassword.current = null
+      autoSubmitted.current = false
       void task?.destroy().catch(() => {})
     }
-  }, [bytes])
+  }, [id, bytes])
 
   const pages = load.state === 'ready' ? load.doc.numPages : 0
   const sizeOf = (n: number): Size => sizes[n - 1] ?? sizes[0] ?? { width: 612, height: 792 }
