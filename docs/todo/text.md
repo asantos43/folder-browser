@@ -25,7 +25,7 @@ Part of the plan in [`TODO.md`](../../TODO.md) (the index, the performance rule 
 - [ ] Compare from a tab's menu
 - [ ] Compare a text with the unsaved changes of its tab (today a side is the file as it is on disk), and a file of a snapshot as a side
 - [ ] Edit in the diff (accept or reject a change), and a diff of two folders
-- [x] A language for a new text: detected from what is pasted, chosen by hand, kept in the draft (issue #69). Still open: what depends on Save As (#70, a file of that type), CSV as a table and validation for a new text
+- [x] A language for a new text: detected from what is pasted, chosen by hand, kept in the draft (issue #69). Save As makes it the file, of the type of its extension (issue #70). Still open: CSV as a table and validation for a new text
 
 ### HTML: a switch between the text and its preview in the editor (after 0.1.3; priority Next, size M)
 Today an HTML file of a folder, of a ZIP or a new text opens only as **source** (colours, edit, save): a page is drawn only inside a snapshot (`wsnp://`), and `availability.ts` prints an HTML file of a folder as text on purpose. The Markdown file has the switch the user wants (`MarkdownToggle`: the formatted page and its text, the choice remembered) and an SVG has one too (`SvgToggle`). **HTML gets the same switch** in the toolbar of its editor: **Preview** and **Source**, for `.html`, `.htm` and `.xhtml`, the same position and the same behaviour as Markdown's (the choice is a setting and a toolbar button, per tab it is remembered).

@@ -1,6 +1,6 @@
 import type { SnapshotInfo } from '@core/snapshots.ts'
 import { describe, expect, it } from 'vitest'
-import { diffKey, empty, isSplit, shownIn, fileKey, invalidProblems, isHeldBack, isSnapshotTab, isUnder, metadataKey, reduce, released, remapPath, snapshotKey, snapshotLocation, type Action, type Tab, type Workspace } from './workspace.ts'
+import { diffKey, empty, isSplit, shownIn, fileKey, invalidProblems, isHeldBack, isSnapshotTab, isUnder, metadataKey, moveTabKeyed, reduce, released, remapPath, sideAfterSave, snapshotKey, snapshotLocation, type Action, type Tab, type Workspace } from './workspace.ts'
 
 const snap = (id: string, signature: SnapshotInfo['signature'] = { state: 'unsigned' }): SnapshotInfo => ({ id, path: `/${id}.wsnp`, manifest: { title: id } as SnapshotInfo['manifest'], files: [], signature })
 const snapAt = (id: string, path: string, signature: SnapshotInfo['signature'] = { state: 'unsigned' }): SnapshotInfo => ({ id, path, manifest: { title: id } as SnapshotInfo['manifest'], files: [], signature })
@@ -719,5 +719,178 @@ describe('a new text file (untitled)', () => {
     expect(keys(ws)).toEqual(['u:1'])
     expect(ws.dirty).toEqual({ 'u:1': true })
     expect(reduce(ws, { type: 'close', key: 'u:1' }).dirty).toEqual({})
+  })
+})
+
+describe('a new text file saved: its tab becomes the file', () => {
+  const r1 = { id: 'r1', kind: 'folder' as const, path: '/home/me/work', name: 'work' }
+  const u = (n: number) => ({ rootId: '@untitled', path: `u:${n}` })
+  const saved = (key = 'u:1', path = 'new.txt'): Action => ({ type: 'untitled-saved', key, rootId: 'r1', path })
+  const start = () => run([{ type: 'root-opened', root: r1 }, file('r1', 'a.txt', true), file('r1', 'b.txt', true), { type: 'open-untitled' }, file('r1', 'c.txt', true)])
+
+  it('takes the place of the new text: same index, kept, not in italics, as the tree opens a file', () => {
+    const ws = reduce(start(), saved())
+    expect(keys(ws)).toEqual(['f:r1:a.txt', 'f:r1:b.txt', 'f:r1:new.txt', 'f:r1:c.txt'])
+    expect(ws.tabs.find((t) => t.key === 'f:r1:new.txt')).toEqual({ key: 'f:r1:new.txt', snapshotId: 'r1', path: 'new.txt', preview: false, pinned: false })
+    expect(ws.tabs.some((t) => t.key === 'u:1' || t.view === 'untitled')).toBe(false)
+    expect(isSnapshotTab(ws.tabs[2])).toBe(false)
+    expect(ws.active).toBe('f:r1:c.txt')
+    expect(ws.selected).toBe('r1')
+  })
+  it('is the same tab the tree would open (the same key and fields as open-file)', () => {
+    const fromTree = run([{ type: 'root-opened', root: r1 }, file('r1', 'new.txt', true)])
+    const fromSave = run([{ type: 'root-opened', root: r1 }, { type: 'open-untitled' }, saved()])
+    expect(fromSave.tabs).toEqual(fromTree.tabs)
+    expect(fromSave.active).toBe(fromTree.active)
+  })
+  it('keeps the tab in front when it was the one in front, and moves it in recent', () => {
+    let ws = reduce(start(), { type: 'activate', key: 'u:1' })
+    expect(ws.recent[0]).toBe('u:1')
+    ws = reduce(ws, saved())
+    expect(ws.active).toBe('f:r1:new.txt')
+    expect(ws.recent).toEqual(['f:r1:new.txt', 'f:r1:c.txt', 'f:r1:b.txt', 'f:r1:a.txt'])
+    expect(ws.recent).not.toContain('u:1')
+  })
+  it('keeps the pin and the place among the pinned tabs', () => {
+    let ws = reduce(start(), { type: 'pin', key: 'u:1', pinned: true })
+    expect(keys(ws)[0]).toBe('u:1')
+    ws = reduce(ws, saved())
+    expect(keys(ws)[0]).toBe('f:r1:new.txt')
+    expect(ws.tabs[0].pinned).toBe(true)
+    expect(ws.tabs.slice(1).every((t) => !t.pinned)).toBe(true)
+  })
+  it('keeps the group of the tab and the focus, and the tab in front of each group', () => {
+    let ws = run([{ type: 'root-opened', root: r1 }, file('r1', 'a.txt', true), file('r1', 'b.txt', true), { type: 'move-to-group', key: 'f:r1:b.txt', group: 1 }, { type: 'open-untitled' }, { type: 'open-untitled' }])
+    expect(ws.tabs.filter((t) => t.view === 'untitled').map((t) => t.group)).toEqual([1, 1])
+    ws = reduce(ws, { type: 'activate', key: 'f:r1:a.txt' })
+    const before = { focus: ws.focus, active: ws.active, other: ws.other }
+    expect(before).toEqual({ focus: 0, active: 'f:r1:a.txt', other: 'u:2' })
+    const after = reduce(ws, saved('u:1'))
+    expect(after.tabs.find((t) => t.key === 'f:r1:new.txt')?.group).toBe(1)
+    expect({ focus: after.focus, active: after.active, other: after.other }).toEqual(before)
+    // The one in front of its group is saved: the group shows the file.
+    const front = reduce(ws, saved('u:2', 'two.txt'))
+    expect(front.other).toBe('f:r1:two.txt')
+    expect(front.focus).toBe(0)
+    expect(isSplit(front)).toBe(true)
+  })
+  it('does not change the tabs in front when a tab that is not in front is saved', () => {
+    const ws = reduce(start(), saved())
+    expect(ws.active).toBe('f:r1:c.txt')
+    expect(ws.other).toBeNull()
+    expect(ws.focus).toBe(0)
+  })
+  it('moves the dirty flag with the tab', () => {
+    const ws = reduce(reduce(start(), { type: 'dirty', key: 'u:1', dirty: true }), saved())
+    expect(ws.dirty).toEqual({ 'f:r1:new.txt': true })
+  })
+  it('does nothing for a key that is not a new text that is open, or a root or path that is not one', () => {
+    const ws = start()
+    expect(reduce(ws, saved('u:7'))).toBe(ws)
+    expect(reduce(ws, saved('f:r1:a.txt'))).toBe(ws)
+    expect(reduce(ws, { type: 'untitled-saved', key: 'u:1', rootId: '', path: 'x.txt' })).toBe(ws)
+    expect(reduce(ws, { type: 'untitled-saved', key: 'u:1', rootId: '@untitled', path: 'x.txt' })).toBe(ws)
+    expect(reduce(ws, { type: 'untitled-saved', key: 'u:1', rootId: 'r1', path: '' })).toBe(ws)
+  })
+  it('joins the tab of the file when it is open: that one comes to the front and no two tabs show the file', () => {
+    let ws = reduce(start(), { type: 'activate', key: 'u:1' })
+    ws = reduce(ws, saved('u:1', 'a.txt'))
+    expect(keys(ws)).toEqual(['f:r1:a.txt', 'f:r1:b.txt', 'f:r1:c.txt'])
+    expect(ws.active).toBe('f:r1:a.txt')
+    expect(ws.recent).toEqual(['f:r1:a.txt', 'f:r1:c.txt', 'f:r1:b.txt'])
+    expect(ws.recent.some((k) => k === 'u:1')).toBe(false)
+    expect(ws.dirty).toEqual({})
+    expect(ws.selected).toBe('r1')
+  })
+  it('joins a tab of the file that is in the other group: its group gets the focus', () => {
+    let ws = run([{ type: 'root-opened', root: r1 }, file('r1', 'a.txt', true), file('r1', 'b.txt', true), { type: 'move-to-group', key: 'f:r1:b.txt', group: 1 }, { type: 'activate', key: 'f:r1:a.txt' }, { type: 'open-untitled' }])
+    expect(ws.focus).toBe(0)
+    ws = reduce(ws, saved('u:1', 'b.txt'))
+    expect(keys(ws)).toEqual(['f:r1:a.txt', 'f:r1:b.txt'])
+    expect(ws.focus).toBe(1)
+    expect(ws.active).toBe('f:r1:b.txt')
+    expect(ws.other).toBe('f:r1:a.txt')
+    expect(ws.dirty).toEqual({})
+  })
+  it('ends the second group when the new text was alone in it and joined a tab of the first', () => {
+    let ws = run([{ type: 'root-opened', root: r1 }, file('r1', 'a.txt', true), { type: 'open-untitled' }, { type: 'move-to-group', key: 'u:1', group: 1 }])
+    expect(isSplit(ws)).toBe(true)
+    ws = reduce(ws, saved('u:1', 'a.txt'))
+    expect(isSplit(ws)).toBe(false)
+    expect(ws).toMatchObject({ focus: 0, active: 'f:r1:a.txt', other: null })
+  })
+
+  it('the comparisons that had the new text have the file, with the new key, in the same place', () => {
+    const side = { rootId: 'r1', path: 'a.txt' }
+    const file2 = { rootId: 'r1', path: 'new.txt' }
+    let ws = reduce(start(), { type: 'open-diff', left: u(1), right: side })
+    const old = diffKey(u(1), side)
+    expect(ws.active).toBe(old)
+    const index = keys(ws).indexOf(old)
+    ws = reduce(ws, saved())
+    const now = diffKey(file2, side)
+    expect(keys(ws)[index]).toBe(now)
+    expect(ws.tabs[index]).toMatchObject({ view: 'diff', snapshotId: 'r1', diff: { left: file2, right: side } })
+    expect(ws.active).toBe(now)
+    expect(ws.recent).toContain(now)
+    expect(ws.recent).not.toContain(old)
+    // As the right side too.
+    const right = reduce(reduce(start(), { type: 'open-diff', left: side, right: u(1) }), saved())
+    expect(right.tabs.find((t) => t.view === 'diff')?.diff).toEqual({ left: side, right: file2 })
+    expect(JSON.stringify(ws)).not.toContain('u:1')
+    expect(JSON.stringify(ws)).not.toContain('@untitled')
+  })
+  it('a comparison of two new texts keeps the other as its side', () => {
+    let ws = reduce(reduce(start(), { type: 'open-untitled' }), { type: 'open-diff', left: u(1), right: u(2) })
+    ws = reduce(ws, saved('u:1'))
+    expect(ws.tabs.find((t) => t.view === 'diff')?.diff).toEqual({ left: { rootId: 'r1', path: 'new.txt' }, right: u(2) })
+    expect(ws.tabs.find((t) => t.view === 'diff')?.snapshotId).toBe('r1')
+  })
+  it('a comparison that is left with the file on both sides, or that is open already, is not kept', () => {
+    const side = { rootId: 'r1', path: 'a.txt' }
+    const same = reduce(reduce(start(), { type: 'open-diff', left: u(1), right: side }), saved('u:1', 'a.txt'))
+    expect(keys(same).filter((k) => k.startsWith('d:'))).toEqual([])
+    expect(keys(same)).not.toContain('u:1')
+    // The pair is open already (the file with a.txt): the new one goes and the old one stays.
+    const twice = run([{ type: 'root-opened', root: r1 }, file('r1', 'a.txt', true), file('r1', 'new.txt', true), { type: 'open-diff', left: { rootId: 'r1', path: 'new.txt' }, right: side }, { type: 'open-untitled' }, { type: 'open-diff', left: u(1), right: side }])
+    const ws = reduce(twice, saved('u:1', 'other.txt'))
+    expect(keys(ws).filter((k) => k.startsWith('d:'))).toHaveLength(2)
+    const merged = reduce(twice, saved('u:1', 'new.txt'))
+    expect(keys(merged).filter((k) => k.startsWith('d:'))).toEqual([diffKey({ rootId: 'r1', path: 'new.txt' }, side)])
+    expect(JSON.stringify(merged)).not.toContain('u:1')
+    expect(merged.active).toBe('f:r1:new.txt')
+  })
+  it('the comparisons of other tabs do not change', () => {
+    const a = { rootId: 'r1', path: 'a.txt' }
+    const b = { rootId: 'r1', path: 'b.txt' }
+    const ws = run([{ type: 'root-opened', root: r1 }, file('r1', 'a.txt', true), file('r1', 'b.txt', true), { type: 'open-diff', left: a, right: b }, { type: 'open-untitled' }])
+    const after = reduce(ws, saved())
+    expect(after.tabs.find((t) => t.key === diffKey(a, b))).toBe(ws.tabs.find((t) => t.key === diffKey(a, b)))
+  })
+  it('leaves no trace of the new text anywhere in the workspace', () => {
+    const side = { rootId: 'r1', path: 'a.txt' }
+    let ws = reduce(reduce(start(), { type: 'dirty', key: 'u:1', dirty: true }), { type: 'open-diff', left: u(1), right: side })
+    ws = reduce(ws, saved())
+    const text = JSON.stringify(ws)
+    expect(text).not.toContain('u:1')
+    expect(text).not.toContain('untitled')
+  })
+})
+
+describe('what is kept by the key of a tab, after the tab got another key', () => {
+  it('moveTabKeyed moves the value, keeps the rest, and gives back the same object when there is nothing to move', () => {
+    const zooms = { 'u:1': 2, 'f:r1:a.txt': 1.5 }
+    expect(moveTabKeyed(zooms, 'u:1', 'f:r1:new.txt')).toEqual({ 'f:r1:new.txt': 2, 'f:r1:a.txt': 1.5 })
+    expect(zooms).toEqual({ 'u:1': 2, 'f:r1:a.txt': 1.5 })
+    expect(moveTabKeyed(zooms, 'u:9', 'x')).toBe(zooms)
+    expect(moveTabKeyed(zooms, 'u:1', 'u:1')).toBe(zooms)
+    expect(moveTabKeyed(zooms, 'u:1', 'f:r1:a.txt')).toEqual({ 'f:r1:a.txt': 2 })
+  })
+  it('sideAfterSave turns the chosen new text into the file, and leaves any other side', () => {
+    const chosen = { rootId: '@untitled', path: 'u:1' }
+    expect(sideAfterSave(chosen, 'u:1', 'r1', 'new.txt')).toEqual({ rootId: 'r1', path: 'new.txt' })
+    expect(sideAfterSave({ rootId: '@untitled', path: 'u:2' }, 'u:1', 'r1', 'new.txt')).toEqual({ rootId: '@untitled', path: 'u:2' })
+    const file = { rootId: 'r1', path: 'u:1' }
+    expect(sideAfterSave(file, 'u:1', 'r1', 'new.txt')).toBe(file)
   })
 })

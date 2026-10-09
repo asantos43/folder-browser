@@ -114,6 +114,12 @@ export type Action =
   | { type: 'open-diff'; left: DiffSide; right: DiffSide }
   /** A new text file that exists only in the window, in a tab of its own (kept, beside the active tab, in the group that has the focus). */
   | { type: 'open-untitled'; /** The tab it was (`u:<n>`) when it comes back from the last session; else the lowest number that is free. */ key?: string }
+  /**
+   * A new text file (`u:<n>`) was saved as `path` of the root `rootId` (open already): its tab becomes the tab of that file (`f:<rootId>:<path>`, as the tree opens it), in the same
+   * place, group, pin and front-ness. When a tab of that file is open, the new text's tab goes and that one comes to the front. The comparisons that had the new text as a side now
+   * have the file. The text, the zoom and the like (outside `ws`) are moved by the caller: `moveBuffer`/`moveEditorBuffer`, `moveTabKeyed`.
+   */
+  | { type: 'untitled-saved'; key: string; rootId: string; path: string }
   | { type: 'open-file'; snapshotId: string; path: string; keep: boolean; /** Of an entry of a ZIP (`zip!/entry`). */ size?: number; /** Show the bytes (hexadecimal) instead of what the kind of the file gets. */ as?: 'hex'; /** The group to open it in (a tab of the file that is in the other group goes there); else the one that has the focus. */ group?: GroupId }
   /** A tab goes to a group (the second one is made if it was not there), next to the tab `at` when that one is in the group (before it, or `after` it), else after the one in front of the group; it comes to the front and the group has the focus. */
   | { type: 'move-to-group'; key: string; group: GroupId; at?: { key: string; after: boolean } }
@@ -141,6 +147,16 @@ export type Action =
   /** The side bar goes to a folder (or ZIP file) that is open. */
   | { type: 'select'; snapshotId: string }
   | { type: 'integrity'; event: IntegrityEvent }
+
+/** What is kept by the key of a tab (the zoom, and the like) after the tab got another key: the value moves; the same object comes back when `from` has none or is `to`. */
+export function moveTabKeyed<T>(map: Readonly<Record<string, T>>, from: string, to: string): Record<string, T> {
+  if (from === to || !(from in map)) return map as Record<string, T>
+  const { [from]: value, ...rest } = map
+  return { ...rest, [to]: value }
+}
+
+/** A side of a comparison after the new text `key` was saved as `path` of `rootId`: the file; any other side as it was. */
+export const sideAfterSave = (side: DiffSide, key: string, rootId: string, path: string): DiffSide => (side.rootId === UNTITLED_ROOT && side.path === key ? { rootId, path } : side)
 
 /** Pinned tabs come first, in the order they have; the rest keep theirs. */
 const arranged = (tabs: Tab[]): Tab[] => [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)]
@@ -247,6 +263,40 @@ function without(ws: Workspace, keys: Set<string>): Workspace {
   return { ...next, selected: ofRoot ?? (exists(ws.selected) ? ws.selected : (Object.keys(ws.roots)[0] ?? null)) }
 }
 
+/** The new text `key` saved as `path` of `rootId` (see `untitled-saved`). */
+function untitledSaved(ws: Workspace, key: string, rootId: string, path: string): Workspace {
+  const old = ws.tabs.find((t) => t.key === key)
+  if (!old || old.view !== 'untitled' || !rootId || rootId === UNTITLED_ROOT || !path) return ws
+  const fileTabKey = fileKey(rootId, path)
+  const merged = ws.tabs.some((t) => t.key === fileTabKey)
+  const isNewText = (side: DiffSide) => side.rootId === UNTITLED_ROOT && side.path === key
+  const taken = new Set(ws.tabs.map((t) => t.key))
+  const keys = new Map<string, string>([[key, fileTabKey]])
+  // The tabs that go: the new text's when the file has a tab, and a comparison that is left with the same file on both sides or that is already open with the file for a side.
+  const gone = new Set<string>(merged ? [key] : [])
+  const tabs: Tab[] = []
+  for (const t of ws.tabs) {
+    if (t.key === key) {
+      if (!merged) tabs.push({ key: fileTabKey, snapshotId: rootId, path, ...(old.group === 1 ? { group: 1 as const } : {}), preview: false, pinned: old.pinned })
+    } else if (t.diff && (isNewText(t.diff.left) || isNewText(t.diff.right))) {
+      const left = sideAfterSave(t.diff.left, key, rootId, path)
+      const right = sideAfterSave(t.diff.right, key, rootId, path)
+      const next = diffKey(left, right)
+      if ((left.rootId === right.rootId && left.path === right.path) || taken.has(next)) gone.add(t.key)
+      else {
+        keys.set(t.key, next)
+        tabs.push({ ...t, key: next, snapshotId: left.rootId, diff: { left, right } })
+      }
+    } else tabs.push(t)
+  }
+  const rekey = (k: string | null): string | null => (k === null || gone.has(k) ? null : (keys.get(k) ?? k))
+  const recent = [...new Set(ws.recent.map(rekey).filter((k): k is string => k !== null))]
+  const dirty = Object.fromEntries(Object.keys(ws.dirty).flatMap((k) => (rekey(k) === null ? [] : [[rekey(k)!, true as const]]))) as Record<string, true>
+  const next = normalize({ ...ws, tabs, active: rekey(ws.active), other: rekey(ws.other), recent, dirty })
+  // The file had a tab: it comes to the front (and its group has the focus). The side bar stays where it was.
+  return merged ? { ...normalize(withActive(next, fileTabKey)), selected: ws.selected } : next
+}
+
 export function reduce(ws: Workspace, action: Action): Workspace {
   switch (action.type) {
     case 'snapshot-opened': {
@@ -350,6 +400,8 @@ export function reduce(ws: Workspace, action: Action): Workspace {
       const tabs = at < 0 ? [...ws.tabs, tab] : [...ws.tabs.slice(0, at + 1), tab, ...ws.tabs.slice(at + 1)]
       return withActive({ ...ws, tabs: arranged(tabs) }, key)
     }
+    case 'untitled-saved':
+      return untitledSaved(ws, action.key, action.rootId, action.path)
     case 'open-diff': {
       const key = diffKey(action.left, action.right)
       const exists = (side: DiffSide) => (side.rootId === UNTITLED_ROOT ? ws.tabs.some((t) => t.key === side.path) : Boolean(ws.roots[side.rootId]))

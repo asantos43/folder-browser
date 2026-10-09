@@ -40,6 +40,15 @@ export function touchDraft(api: Pick<FbApi, 'drafts'>, key: string, rootId: stri
   known.set(key, entry)
 }
 
+/** The tab `key` has no draft any more (a new text was saved as a file): a write that waits is cancelled and the kept draft is let go. */
+export function releaseDraft(api: Pick<FbApi, 'drafts'>, key: string): void {
+  const entry = known.get(key)
+  if (!entry) return
+  if (entry.timer) clearTimeout(entry.timer)
+  known.delete(key)
+  void api.drafts.delete(entry.rootId, entry.path)
+}
+
 /** Writes at once the drafts that are waiting (the window is closing). */
 export async function flushDrafts(api: Pick<FbApi, 'drafts'>): Promise<void> {
   const waiting = [...known.entries()].filter(([, entry]) => entry.timer)

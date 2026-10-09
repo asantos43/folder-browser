@@ -6,14 +6,15 @@ import { useI18n } from '@/i18n/context.tsx'
 import { basename } from '@/lib/format.ts'
 import { readStored, writeStored } from '@/lib/storage.ts'
 import { fileClipboard } from './fileClipboard.ts'
+import { convertSavedUntitled } from './savedUntitled.ts'
 import { topmost } from './selection.ts'
 import { refusalNotice } from '@/state/messages.ts'
 import { useNotifications } from '@/state/notifications.ts'
 import { focusedGroup } from '@/state/groups.ts'
-import { empty, isHeldBack, isSnapshotTab, isSplit, reduce, released, type Action, type GroupId, type Tab } from '@/state/workspace.ts'
+import { empty, isHeldBack, isSnapshotTab, isSplit, moveTabKeyed, reduce, released, sideAfterSave, type Action, type GroupId, type Tab } from '@/state/workspace.ts'
 import type { DraggedFile } from './dnd.ts'
 import { bufferChanged, dropBuffer, keepBuffers, moveBuffer, saveAnyBuffer } from '@/state/buffers.ts'
-import { flushDrafts, setDraftsEnabled, syncDrafts, touchDraft } from '@/state/drafts.ts'
+import { flushDrafts, releaseDraft, setDraftsEnabled, syncDrafts, touchDraft } from '@/state/drafts.ts'
 import type { MessageKey } from '@/i18n/index.ts'
 import { emptyHistory, step, visit, type History } from '@/state/history.ts'
 import { isSession, keyOfEntry, sessionOf, type Session } from '@/state/session.ts'
@@ -472,7 +473,7 @@ export function Workbench() {
   const saveKey = useCallback(
     async (key: string, overwrite = false): Promise<boolean> => {
       const tab = wsNow.current.tabs.find((candidate) => candidate.key === key)
-      // A new text file has no file to write to: Save asks where (Save As), and the text is clean once it is written (the tab goes on being a new text, with the same name).
+      // A new text file has no file to write to: Save asks where (Save As). Once it is written the tab becomes the tab of that file, and the next Save writes that file.
       if (api && tab?.view === 'untitled') {
         const buffer = editorBuffers.get(key)
         if (!buffer) return false
@@ -480,9 +481,25 @@ export function Workbench() {
         const name = `${t('tabs.untitled', { n: untitledNumber(key) })}.txt`
         const result = await api.edit.saveAs(name, doc.toString(), { eol: 'lf', bom: false })
         if (result.saved) {
-          buffer.saved = doc
-          rawDispatch({ type: 'dirty', key, dirty: bufferChanged(key) })
-          notify({ level: 'info', text: t('edit.saved', { name: basename(result.path) }) })
+          const converted = await convertSavedUntitled(key, result.path, doc, {
+            roots: wsNow.current.roots,
+            openFolder: async (folder) => {
+              const [opened] = await api.openPaths([folder])
+              if (opened) handleResults([opened])
+              return opened?.ok && 'root' in opened ? opened.root : null
+            },
+            readVersion: async (rootId, path) => {
+              const opened = await api.edit.open(rootId, path)
+              return opened.ok ? opened.version : null
+            },
+            dispatch: rawDispatch,
+            moveKeyed: (from, to) => setZooms((all) => moveTabKeyed(all, from, to)),
+            chosenAfter: (from, rootId, path) => setCompareChosen((side) => (side ? sideAfterSave(side, from, rootId, path) : side)),
+            forgetRead,
+            releaseDraft: (draftKey) => releaseDraft(api, draftKey),
+          })
+          if (!converted.converted) rawDispatch({ type: 'dirty', key, dirty: bufferChanged(key) })
+          notify({ level: 'info', text: t(converted.converted && !converted.text ? 'edit.savedNotText' : 'edit.saved', { name: basename(result.path) }) })
           return true
         }
         if (result.reason === 'error') notify({ level: 'error', text: t('edit.saveFailed', { name, reason: result.message ?? t('edit.error.failed') }) })
