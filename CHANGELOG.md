@@ -17,6 +17,10 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 - **The menu item of a `.wsnp` that listed its files is now called "Show Contents"** (it was "Open as ZIP"; the action and the order of the menu are the same). Only the text changed: the files of a snapshot are listed in a tab, read-only, as before.
 - **Dependencies brought up to the newest versions their ranges allow** (`package.json` is unchanged; `package-lock.json` and `THIRD-PARTY-NOTICES.md` are): Electron 44.5.1 → 44.7.0, `@opendocument/odr-core` 7.4.0 → 7.5.0, `@codemirror/language` 6.12.4 → 6.13.1, `@codemirror/view` 6.43.13 → 6.43.14, `@codemirror/legacy-modes` 6.5.4 → 6.5.5, Vite 8.3.3 → 8.3.4, `@vitejs/plugin-react` 6.1.1 → 6.1.2, Playwright 1.63.0 → 1.64.0 and oxlint 1.86.0 → 1.87.0, with their indirect dependencies (78 versions changed, 26 packages added, 24 removed). Checked locally: lint, typecheck, 1,154 unit tests and 278 end-to-end tests pass (one link-click spec flaky, passing on its retry).
 
+### Fixed
+
+- **The password of a PDF is asked once per version of the file while the app is open** (issue #62): the password that opened a PDF is remembered by id + size + an FNV-1a hash of the first and last 4 KiB of its bytes (the rest of the file is never read), kept **only in memory** (never on disk, in `localStorage`, in drafts or in the session), forgotten when pdf.js rejects it, and asked again the next time the app starts. The form does not come back when another tab is in front and the PDF is brought back, or when the tab is closed and reopened in the same session. Tests: `pdfPasswords.test.ts`, `PdfView.test.tsx`, `e2e/pdfpassword.spec.ts`.
+
 ## [0.1.3] - 2026-10-07
 
 ### Added
