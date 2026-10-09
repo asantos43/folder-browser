@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AppInfo, DocOpen, EditBytesOpen, EditOpen, EditSave, OpResult, ExtractResult, IntegrityEvent, OpenResult, ListResult, FileListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
+import type { SettingsNotice, AppInfo, DocOpen, EditBytesOpen, EditOpen, EditSave, OpResult, ExtractResult, IntegrityEvent, OpenResult, ListResult, FileListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
 
 /** What the interface may ask of the main process: nothing else crosses the boundary (core/api.ts). */
 const on = <T>(channel: string, listener: (value: T) => void) => {
@@ -8,7 +8,14 @@ const on = <T>(channel: string, listener: (value: T) => void) => {
   return () => void ipcRenderer.removeListener(channel, handler)
 }
 
+const settingsInitial = ipcRenderer.sendSync('fb:settings-get-all') as { values: Record<string, unknown>; notices: SettingsNotice[] }
 const api: FbApi = {
+  settings: {
+    all: () => ({ ...settingsInitial.values }),
+    notices: () => [...settingsInitial.notices],
+    set: pairs => ipcRenderer.send('fb:settings-set', pairs),
+    onChanged: listener => on<readonly string[]>('fb:settings-changed', listener),
+  },
   platform: process.platform,
   setTitleBar: (colors) => ipcRenderer.send('fb:title-bar', colors),
   onCommand: (listener) => on<string>('fb:command', listener),

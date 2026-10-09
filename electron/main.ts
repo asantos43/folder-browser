@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { DraftStore } from '../core/drafts.ts'
 import { FavoriteFolders } from '../core/favorites.ts'
 import { RecentFiles } from '../core/recent.ts'
@@ -8,6 +8,7 @@ import { SignerStore } from '../core/signers.ts'
 import { pathsToOpen, userArgs } from './argv.ts'
 import { installMenu } from './menu.ts'
 import { SnapshotHost } from './snapshot-host.ts'
+import { flushBeforeQuit, SettingsHost } from './settings-host.ts'
 import { registerScheme } from './snapshot-view.ts'
 import { createMainWindow } from './window.ts'
 
@@ -24,6 +25,7 @@ if (process.argv.includes('--app-version')) {
 } else {
   let win: BrowserWindow | undefined
   let host: SnapshotHost | undefined
+  let settingsHost: SettingsHost | undefined
   const early: string[] = pathsToOpen(userArgs(process.argv, app.isPackaged, app.getAppPath(), process.cwd()), process.cwd())
 
   // macOS gives files through this event, also before the app is ready.
@@ -38,6 +40,7 @@ if (process.argv.includes('--app-version')) {
     win?.focus()
   })
   app.on('window-all-closed', () => {
+    void settingsHost?.flush().catch(() => {})
     if (process.platform !== 'darwin') app.quit()
   })
   app.on('before-quit', () => {
@@ -51,6 +54,9 @@ if (process.argv.includes('--app-version')) {
     drafts.prune(90)
     host = new SnapshotHost(new RecentFiles(path.join(app.getPath('userData'), 'recent-files.json')), new SignerStore(path.join(app.getPath('userData'), 'trusted-signers.json')), new SessionStore(path.join(app.getPath('userData'), 'session.json')), { recentFolders: new RecentFiles(path.join(app.getPath('userData'), 'recent-folders.json')), favorites: new FavoriteFolders(path.join(app.getPath('userData'), 'favorites.json')), drafts })
     host.registerIpc(() => win)
+    settingsHost = new SettingsHost(app.getPath('userData'), ipcMain, () => BrowserWindow.getAllWindows())
+    settingsHost.register()
+    flushBeforeQuit(app, settingsHost)
     void host.sweepOldCopies()
     win = createMainWindow(host)
     installMenu((command) => win?.webContents.send('fb:command', command))

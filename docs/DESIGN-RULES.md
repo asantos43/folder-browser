@@ -4,7 +4,9 @@ Moved out of `CLAUDE.md` to keep what every session loads small. The **invariant
 
 ## Settings registry
 
-`core/settings/` is pure TypeScript and remains unwired until the integration step. Declare defaults and validators once in the registry; core ids use `category.name`, plugin ids use `<plugin>:<name>`. `SettingsStore` owns values, retains unknown JSON keys, reports invalid known values and batches persistence through an injected atomic writer. Plugin contributions validate as a batch and return an idempotent removal function. Portable import is preview-only until explicitly applied; any `safety` option requires confirmation.
+`core/settings/` is pure TypeScript. Declare defaults and validators once in the registry; core ids use `category.name`, plugin ids use `<plugin>:<name>`. `SettingsStore` owns values, retains unknown JSON keys, reports invalid known values and batches persistence through an injected atomic writer. Plugin contributions validate as a batch and return an idempotent removal function. Portable import is preview-only until explicitly applied; any `safety` option requires confirmation.
+
+`electron/settings-host.ts` owns `settings.json` at the fixed `app.getPath('userData')` location. It loads and validates the file synchronously before the first window; the preload makes exactly one synchronous `fb:settings-get-all` request and caches values and notices. Only the top frame of `fb-ui://` may use the settings IPC. `fb:settings-set` accepts at most 100 `[id, value]` pairs per message, discards invalid pairs individually, and persists through a same-directory temporary file and rename, grouped over 100 ms. Actual changed ids are broadcast to every interface window on `fb:settings-changed`; pending writes flush before quit and when the last window closes. The renderer remains on `localStorage` until step 4b.
 
 ## Office documents
 
