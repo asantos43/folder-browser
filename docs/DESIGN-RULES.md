@@ -72,6 +72,18 @@ A video or a sound is played from `fb-media://<token>/`: the token comes from `f
 
 Open With… hands an application a copy (entries of a ZIP) or the file; the command is run without a shell, with `Exec` parsed from the `.desktop` file; the names that could run as programs are refused (`core/stage.ts`).
 
+## Command registry
+
+`core/commands/` is pure TypeScript data and logic: core ids have no colon; namespaced plugin ids use `<plugin-id>:<name>`. `CommandDef` is the shared source for a command's translation key, category, optional compiled `when`, default key chords and menu/palette placement. Menus, palette entries and native menu command ids are derived from the built-in registry; the palette constructs command items only while open. Preserve the current labels, order, groups, shortcuts and disabled states. `when` supports boolean keys, `!`, `&&`, `||`, parentheses, and string equality/inequality; parse once at registration, evaluate only own context properties, and never use `eval` or `new Function`. Handler maps are keyed by the command id union so every built-in handler is checked at compile time. Golden and registry-equivalence tests protect the visible menu data.
+
+## Key table
+
+`core/keys/` builds a Map of normalized chord → all command ids from `builtinKeyCommands`, derived from the registry's `keys`. Its legacy menu spelling `Ctrl` means `Mod`; explicit Control navigation and platform-specific tab defaults are data in `builtin.ts`. `Mod` is Command on macOS and Control elsewhere; `mac:` and `nonmac:` qualify defaults. Chords normalize modifier order, arrow aliases and letter case; events retain named-key case and all modifiers exactly as the frozen dispatcher did. Literal plus is `Mod++` or `Mod+Plus`; Shift is explicit. Invalid chords throw a clear error.
+
+Ambiguous bindings retain every id; resolve `when` only in the window. `commandFor` and native accelerators forward only unambiguous bindings; Copy stays with the focused editor/page. Removal preserves other ids on the chord. Display shortcuts and native accelerators share the formatter, with unchanged menu/palette golden snapshots. Budgets: construction below 2 ms, 100,000 event lookups below 100 ms (median of five); no per-event parsing or IPC is added.
+
+Plugins must pass `assertPluginChord`. `reserved.ts` documents the exact platform-qualified list: all built-in chords (including zoom, navigation and tabs); Mod+C/X/V/A/Z and Mod+Shift+Z, Ctrl+Y off macOS; Mod+Q, macOS Mod+H/Mod+Alt+H/Ctrl+Mod+F, Alt+F4 and F11; arrows/Home/End/PageUp/PageDown and Shift selection, Control word/document movement, macOS Alt word and Command line/document movement; Backspace/Delete and word deletion, Enter, Tab/Shift+Tab and Escape. It also protects the `defaultKeymap`/`historyKeymap` installed by `src/views/codeTheme.ts`: Alt+Up/Down and Shift+Alt+Up/Down, Mod+Enter, Mod+/, Mod+Alt+backslash, Mod+D, Ctrl+M, Alt+L, Ctrl+I, Mod+Shift+K, Ctrl+Shift+Z, and macOS Control editing aliases B/F/P/N/A/E/H/D/K/O/T/V/Shift+V. Unknown valid chords remain available. This step provides the guard; plugin installation is later work.
+
 ## Gotchas inherited from wsnp-viewer
 
 - A hidden view must be created with `offscreen: true` to be photographed. Closing the last hidden window must not quit the app (`window-all-closed`).

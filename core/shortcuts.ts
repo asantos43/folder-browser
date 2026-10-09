@@ -1,3 +1,5 @@
+import { builtinKeyTables } from './keys/table.ts'
+
 /** The keys of a keyboard event, as the window's `keydown` and the main process's `before-input-event` both give them. */
 export interface KeyLike {
   key: string
@@ -15,46 +17,8 @@ export type CommandName = 'newFile' | 'toggleSideBar' | 'openFile' | 'openFolder
  * or a snapshot's frame does (a frame never lets the interface see the key).
  */
 export function commandFor(e: KeyLike, mac: boolean): CommandName | null {
-  const mod = mac ? e.meta && !e.control : e.control && !e.meta
-  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
-  if (mod && !e.alt) {
-    // Zoom: Ctrl+= (and Ctrl++, which is Ctrl+Shift+= on most keyboards), Ctrl+-, Ctrl+0, as VS Code does.
-    if (key === '+' || (key === '=' && !e.shift)) return 'zoomIn'
-    if (key === '-' && !e.shift) return 'zoomOut'
-    if (key === '0' && !e.shift) return 'zoomReset'
-    // The command palette, as in VS Code (Ctrl+P is Print here).
-    if (e.shift && key === 'p') return 'commandPalette'
-    // Open Folder (Ctrl+Shift+O); in VS Code it is a chord, which the viewer has no way to wait for.
-    if (e.shift && key === 'o') return 'openFolder'
-    if (!e.shift) {
-      if (key === 'e') return 'quickOpen'
-      if (key === ',') return 'openSettings'
-      if (key === 'b') return 'toggleSideBar'
-      if (key === 'o') return 'openFile'
-      if (key === 'n') return 'newFile'
-      // Show or hide the hidden files, as a file manager's Ctrl+H does.
-      if (key === 'h') return 'toggleHidden'
-      if (key === 'f') return 'find'
-      if (key === 's') return 'save'
-      if (key === 'p') return 'print'
-      if (key === 'w') return 'closeEditor'
-      if (key === 'PageDown') return 'nextEditor'
-      if (key === 'PageUp') return 'previousEditor'
-      if (mac && /^[1-9]$/.test(key)) return `goToTab${key}` as CommandName
-    }
-  }
-  // The user guide: F1 (in VS Code it is the command palette, which has Ctrl+Shift+P here).
-  if (key === 'F1' && !e.control && !e.meta && !e.alt && !e.shift) return 'openGuide'
-  // Save All: Ctrl+Alt+S (in VS Code it is a chord, which the viewer has no way to wait for).
-  if (mod && e.alt && !e.shift && key === 's') return 'saveAll'
-  // Ctrl+Tab goes through the tabs in the order they were used, on every system, Control (not Command) as in VS Code.
-  if (e.control && !e.meta && !e.alt && key === 'Tab') return e.shift ? 'cycleRecentBack' : 'cycleRecent'
-  if (!mac && e.alt && !e.control && !e.meta && !e.shift && /^[1-9]$/.test(key)) return `goToTab${key}` as CommandName
-  // Back and forward through the tabs visited: Alt+Left and Alt+Right, and Control+- and Control+Shift+- on macOS, as VS Code has them.
-  if (!mac && e.alt && !e.control && !e.meta && !e.shift) {
-    if (key === 'ArrowLeft') return 'goBack'
-    if (key === 'ArrowRight') return 'goForward'
-  }
-  if (mac && e.control && !e.meta && !e.alt && key === '-') return e.shift ? 'goForward' : 'goBack'
-  return null
+  const ids = (mac ? builtinKeyTables.mac : builtinKeyTables.nonmac).lookup(e)
+  // The main process has no window context: only unambiguous chords may be forwarded.
+  // Copy stays with the focused editor/page, as before the table existed.
+  return ids.length === 1 && ids[0] !== 'copy' ? ids[0] as CommandName : null
 }
