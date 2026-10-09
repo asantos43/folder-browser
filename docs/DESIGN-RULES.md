@@ -68,6 +68,10 @@ A video or a sound is played from `fb-media://<token>/`: the token comes from `f
 
 Open With… hands an application a copy (entries of a ZIP) or the file; the command is run without a shell, with `Exec` parsed from the `.desktop` file; the names that could run as programs are refused (`core/stage.ts`).
 
+## Command registry
+
+`core/commands/` is pure TypeScript data and logic: core ids have no colon; namespaced plugin ids use `<plugin-id>:<name>`. `CommandDef` is the shared source for a command's translation key, category, optional compiled `when`, default key chords and menu/palette placement. The menu, palette and shortcut views are built from this registry when wired in a later step. `when` supports boolean keys, `!`, `&&`, `||`, parentheses, and string equality/inequality; parse once at registration, evaluate only own context properties, and never use `eval` or `new Function`. Handler maps are keyed by the command id union so built-in handlers are checked at compile time. Keep this step unwired to the application; equivalence against `src/workbench/commands.ts` protects the current menu data.
+
 ## Gotchas inherited from wsnp-viewer
 
 - A hidden view must be created with `offscreen: true` to be photographed. Closing the last hidden window must not quit the app (`window-all-closed`).
