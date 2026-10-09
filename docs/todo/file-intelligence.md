@@ -22,7 +22,7 @@ Each is an extension that **contributes detectors, schemas, outlines, inspectors
 - [ ] **Web and data pack**: OpenAPI (schema, an outline of paths), `package.json` and lockfiles (a summary of dependencies), tsconfig, ESLint, GraphQL, SQL (syntax per dialect), XML with XSD, Markdown front matter
 - [ ] **Security and crypto pack**: certificates and keys (PEM, DER, PKCS#12 with a password, SSH keys and `known_hosts`, GPG armour), JWT and JWK, hashes, a decoder of common encodings, a **secrets** rule set, and the **file safety triage** (see `docs/todo/safety.md`)
 - [ ] **Logs pack**: JSON lines, syslog, nginx and Apache access logs, a **filter by level, time and text**, a **follow** mode (`tail -f`), and a histogram of lines over time
-- [ ] **A community path**: the guide for authors (see "Extensions", phase 5) gets a recipe for each of these (a detector, a schema, an inspector, a tool entry), so that a person can add *their* type in an afternoon
+- [ ] **A community path**: the guide for authors (see "Extensions", phase 3b) gets a recipe for each of these (a detector, a schema, an inspector, a tool entry), so that a person can add *their* type in an afternoon
 - Not planned: a debugger, a language server for every language (the text editor stays light; hand a project to an IDE), and running a file's contents (a script, a manifest) on the user's behalf
 
 ## Decisions to make

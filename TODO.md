@@ -43,10 +43,10 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 
 **Later** (each a project; the order is a guess)
 - **ACLs** (M to L, "ACLs: access control lists"): read first (the entries, the mask, the effective permissions, a mark on files that have them), then edit; Linux, macOS and Windows each on their own model; after the Permissions work
-- **The distribution channel of extensions** as a real, operated service (M, "Extensions", phase 2b)
+- **The distribution channel of extensions** as a real, operated service (M, "Extensions", phase 6b)
 - **Redaction that really removes**, **repair of damaged files**, **comparing pictures, PDFs and structured data**, **portable mode** (L, M, M and S)
-- **Extension-first** (a rule for every complex item below: see "Extension-first", tags `[core]`/`[ext L0-L2]`)
-- **Extensions** (plugins), **all levels**: the package, side load and level 0, then the signed online catalog, then code in a box, then extensions that run as a process, off by default (L, "Extensions", `docs/EXTENSIONS-DESIGN.md`); after the registries of Settings, commands and keys exist
+- **Extension-first** (a rule for every complex item below: see "Extension-first", tags `[core]`/`[ext L0]`/`[ext L1]`)
+- **Extensions** (plugins), trust model decided 2026-10-09 (**a warning at install plus a safe mode**, full power, no sandbox, code in a separate process; L, "Extensions", `docs/EXTENSIONS-DESIGN.md`): phases in order: registries of Settings, commands and keys; host and level 0; the code process and the application's API; the authoring kit (zero entry cost); install warning, safe mode and activity log; the first extension (PDF pages, needs Local History); the curated, signed catalog; install from a repository
 - **Image editor**, phase A and B, with EXIF editing in place and the Save options (L, "Images")
 - **PDF** annotations, pages (select, rotate, delete, reorder) and merge (L, "PDFs")
 - **tar and tar.gz** (M to L), then **7z** (L, "Archives", groups 2 and 3)
@@ -69,7 +69,7 @@ Section names used in the roadmap and in the texts (for example "Settings", "Tex
 | [`files.md`](docs/todo/files.md) | files, folders and places; copy path and open a shell; sizes and counts; the safety net (local history, a tree that follows the disk); tools for files (checksums, duplicates, bulk rename, disk usage) |
 | [`media-metadata.md`](docs/todo/media-metadata.md) | metadata of media files in Properties |
 | [`search-git.md`](docs/todo/search-git.md) | search folders (find by name, extension and content, kept as a folder); Git, read only |
-| [`extensions.md`](docs/todo/extensions.md) | extensions (plugins): the safe system, side load, the online catalog, settings of an extension, the authoring guide (design: [`docs/EXTENSIONS-DESIGN.md`](docs/EXTENSIONS-DESIGN.md)) |
+| [`extensions.md`](docs/todo/extensions.md) | extensions (plugins): the trust model (warning at install plus safe mode), side load, the code process and API, the authoring kit, the catalog, install from a repository, settings of an extension (design: [`docs/EXTENSIONS-DESIGN.md`](docs/EXTENSIONS-DESIGN.md)) |
 | [`extension-first.md`](docs/todo/extension-first.md) | building the complex items on the extension model, and which item is core or an extension |
 | [`text.md`](docs/todo/text.md) | text editing, tables and diff; HTML preview; data files (SQLite, JSON, YAML, XML) |
 | [`text-tools.md`](docs/todo/text-tools.md) | text tools from Notepad++: case, lines, indentation, find and replace, cursors |
