@@ -36,6 +36,7 @@ function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, 
 }
 /** The names of the rows (each row also has its size and date). */
 const names = () => screen.queryAllByRole('treeitem').map((r) => r.querySelector('span.truncate')?.textContent ?? r.textContent)
+const chevronOf = (name: string): HTMLElement => screen.getByRole('treeitem', { name }).querySelector('[data-chevron]') as HTMLElement
 
 describe('ExplorerTree', () => {
   it('reads the root alone, and lists folders first without the hidden ones', async () => {
@@ -79,8 +80,46 @@ describe('ExplorerTree', () => {
     await waitFor(() => expect(names()).toEqual(['docs', 'readme.md', 'a.txt', 'pack.zip', 'page.wsnp']))
     expect(listDir).toHaveBeenCalledWith('docs')
     expect(screen.getByRole('treeitem', { name: 'docs' }).getAttribute('aria-expanded')).toBe('true')
-    fireEvent.click(screen.getByRole('treeitem', { name: 'docs' }))
+    // A click on the chevron closes it (a click on the name does not).
+    fireEvent.click(chevronOf('docs'))
     expect(names()).toEqual(['docs', 'a.txt', 'pack.zip', 'page.wsnp'])
+  })
+  it('a click on a folder name opens a closed folder and never closes an open one; the chevron toggles both ways', async () => {
+    show()
+    await waitFor(() => expect(names()).toHaveLength(4))
+    const docs = () => screen.getByRole('treeitem', { name: 'docs' })
+    fireEvent.click(docs())
+    await waitFor(() => expect(docs().getAttribute('aria-expanded')).toBe('true'))
+    fireEvent.click(docs())
+    fireEvent.click(docs())
+    expect(docs().getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(chevronOf('docs'))
+    expect(docs().getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(chevronOf('docs'))
+    await waitFor(() => expect(docs().getAttribute('aria-expanded')).toBe('true'))
+  })
+  it('a double click on a folder name leaves it in the opposite state to the one before the gesture: open → closed, closed → open', async () => {
+    show()
+    await waitFor(() => expect(names()).toHaveLength(4))
+    const docs = () => screen.getByRole('treeitem', { name: 'docs' })
+    const doubleClick = () => {
+      fireEvent.click(docs(), { detail: 1 })
+      fireEvent.click(docs(), { detail: 2 })
+      fireEvent.doubleClick(docs(), { detail: 2 })
+    }
+    // Closed before: the first click opens it and the double click does not close it again.
+    doubleClick()
+    await waitFor(() => expect(docs().getAttribute('aria-expanded')).toBe('true'))
+    // Open before: it closes.
+    doubleClick()
+    expect(docs().getAttribute('aria-expanded')).toBe('false')
+  })
+  it('Ctrl+click on a folder only marks it: it neither opens nor closes', async () => {
+    show()
+    await waitFor(() => expect(names()).toHaveLength(4))
+    fireEvent.click(screen.getByRole('treeitem', { name: 'docs' }), { ctrlKey: true })
+    expect(screen.getByRole('treeitem', { name: 'docs' }).getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByRole('treeitem', { name: 'docs' }).getAttribute('data-marked')).toBe('true')
   })
   it('opens a ZIP like a folder, and the folders in it', async () => {
     show()

@@ -281,7 +281,8 @@ test('dragging with Shift held copies instead of moving: a copy in the folder, a
   await expect.poll(() => fs.existsSync(onDisk('empty', 'docs', 'deep', 'n.txt'))).toBe(true)
   expect(fs.existsSync(onDisk('docs', 'deep', 'n.txt'))).toBe(true)
   // A copy into another folder, then a duplicate in its own folder (dropped on a row of the folder it is in): numbered.
-  await item(page, 'empty').click()
+  // The chevron closes `empty` (a click on its name only opens a closed folder).
+  await item(page, 'empty').locator('[data-chevron]').click()
   await expect(item(page, 'n.txt')).toHaveCount(0)
   await dragWithShift(page, item(page, 'b.txt'), item(page, 'docs'))
   await expect.poll(() => fs.existsSync(onDisk('docs', 'b.txt'))).toBe(true)

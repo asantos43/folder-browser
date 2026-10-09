@@ -229,6 +229,8 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
     for (const path of above) load(path)
   }, [activePath, load])
 
+  /** The folder that the first click of the current gesture opened (a double click must not close it again). */
+  const openedByClick = useRef<string | null>(null)
   const toggle = (path: string, force?: boolean) => {
     const opening = force ?? !open.has(path)
     setOpen((current) => {
@@ -653,14 +655,22 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
               onFocus={() => setFocused(entry.path)}
               onClick={(e) => {
                 if (markByClick(e, entry)) return
-                if (expandable) toggle(entry.path)
-                else if (entry.kind === 'wsnp') actions.openSnapshot(entry, false)
+                if (expandable) {
+                  // A click on the name selects the row and opens a closed folder; it never closes one (the chevron and a double click do). `detail` 1 starts a gesture: the second click of a
+                  // double click finds the folder already open, so it must not forget that the gesture itself opened it.
+                  if (e.detail <= 1) openedByClick.current = open.has(entry.path) ? null : entry.path
+                  if (!open.has(entry.path)) toggle(entry.path, true)
+                } else if (entry.kind === 'wsnp') actions.openSnapshot(entry, false)
                 else actions.open(entry, false)
               }}
               onDoubleClick={(e) => {
                 if (e.ctrlKey || e.metaKey || e.shiftKey) return
-                if (entry.kind === 'wsnp') actions.openSnapshot(entry, true)
-                else if (!expandable) actions.open(entry, true)
+                if (expandable) {
+                  // The double click leaves the folder in the opposite state to the one it had before the gesture: open before → it closes; closed before → the first click opened it, and it stays open.
+                  if (openedByClick.current !== entry.path) toggle(entry.path, false)
+                  openedByClick.current = null
+                } else if (entry.kind === 'wsnp') actions.openSnapshot(entry, true)
+                else actions.open(entry, true)
               }}
               draggable={(pinnable(entry) || canChange || entry.kind === 'file') && !renaming}
               onDragStart={(e) => {
@@ -718,7 +728,14 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
               style={{ paddingLeft: 8 + depth * 8 }}
               className={`flex h-[22px] cursor-pointer items-center gap-1 pr-2 outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus ${entry.hidden || cutRow(entry.path) ? 'opacity-60' : ''} ${dropOver === entry.path || marked.has(entry.path) ? 'bg-list-active text-list-active-fg' : selected ? 'bg-list-inactive focus-within:bg-list-active focus-within:text-list-active-fg' : 'hover:bg-list-hover'}`}
             >
-              <span className="flex w-4 shrink-0 justify-center">{expandable ? <Icon name={expanded ? 'chevron-down' : 'chevron-right'} className="text-[16px]" /> : null}</span>
+              <span
+                className="flex w-4 shrink-0 justify-center"
+                data-chevron={expandable ? '' : undefined}
+                onClick={expandable ? (e) => { e.stopPropagation(); toggle(entry.path) } : undefined}
+                onDoubleClick={expandable ? (e) => e.stopPropagation() : undefined}
+              >
+                {expandable ? <Icon name={expanded ? 'chevron-down' : 'chevron-right'} className="text-[16px]" /> : null}
+              </span>
               <Icon name={entry.kind === 'dir' ? (expanded ? 'folder-opened' : 'folder') : entry.kind === 'zip' ? 'file-zip' : fileIcon(undefined, entry.name)} className="shrink-0 text-[16px]" />
               {renaming ? (
                 <NameInput initial={entry.name} label={t('tree.nameInput')} problem={problem} onChange={() => setProblem(null)} onSubmit={(v) => void submit(v)} onCancel={stopEditing} />

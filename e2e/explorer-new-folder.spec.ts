@@ -82,3 +82,24 @@ test('New Folder from the header: a marked folder makes the new folder inside it
   // The second root was never touched.
   expect(fs.readFileSync(onOther('note.txt'), 'utf8')).toBe('a note')
 })
+
+test('a click on the name of a folder opens it and never closes it; the chevron closes it; a double click on the name closes an open folder (issue #71, part c)', async () => {
+  const page = await launch(work)
+  const docs = item(page, 'docs')
+  await expect(docs).toHaveAttribute('aria-expanded', 'false')
+  await docs.click()
+  await expect(docs).toHaveAttribute('aria-expanded', 'true')
+  // The name again: it stays open (it is the row the next New Folder… will use).
+  await docs.click()
+  await expect(docs).toHaveAttribute('aria-expanded', 'true')
+  // The chevron closes it, and opens it again.
+  await docs.locator('[data-chevron]').click()
+  await expect(docs).toHaveAttribute('aria-expanded', 'false')
+  await docs.locator('[data-chevron]').click()
+  await expect(docs).toHaveAttribute('aria-expanded', 'true')
+  // A double click on the name of an open folder closes it; on a closed one it ends open.
+  await docs.dblclick()
+  await expect(docs).toHaveAttribute('aria-expanded', 'false')
+  await docs.dblclick()
+  await expect(docs).toHaveAttribute('aria-expanded', 'true')
+})
