@@ -24,7 +24,7 @@ interface Item {
 const MAX_ITEMS = 100
 
 /** Every command of the menus that can run now, as "Menu: Command", and the colour themes. */
-function commandItems(t: Translate, commands: Commands, setTheme: Commands['setTheme']): Item[] {
+export function commandItems(t: Translate, commands: Commands, setTheme: Commands['setTheme']): Item[] {
   const items: Item[] = []
   const visit = (menu: string, entries: MenuEntry[], prefix = '') => {
     for (const entry of entries) {

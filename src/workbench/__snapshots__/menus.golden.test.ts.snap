@@ -1,0 +1,3435 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`menus and command palette golden behavior > darwin / en 1`] = `
+"{
+  "menus": [
+    {
+      "id": "file",
+      "label": "File",
+      "items": [
+        {
+          "id": "newFile",
+          "label": "New Text File",
+          "shortcut": "⌘N"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "openFolder",
+          "label": "Open Folder…",
+          "shortcut": "⇧⌘O"
+        },
+        {
+          "id": "open",
+          "label": "Open File…",
+          "shortcut": "⌘O"
+        },
+        {
+          "id": "openZip",
+          "label": "Open ZIP File…"
+        },
+        {
+          "id": "recent",
+          "label": "Open Recent",
+          "submenu": [
+            {
+              "id": "none",
+              "label": "No recent files",
+              "disabled": true
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "clear",
+              "label": "Clear Recently Opened",
+              "disabled": true
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "save",
+          "label": "Save",
+          "shortcut": "⌘S",
+          "disabled": true
+        },
+        {
+          "id": "saveAll",
+          "label": "Save All",
+          "shortcut": "⌥⌘S",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "saveAsWsnp",
+          "label": "Save as .wsnp…",
+          "disabled": true
+        },
+        {
+          "id": "savePdf",
+          "label": "Save as PDF…",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "print",
+          "label": "Print…",
+          "shortcut": "⌘P",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "preferences",
+          "label": "Preferences",
+          "submenu": [
+            {
+              "id": "settings",
+              "label": "Settings",
+              "shortcut": "⌘,"
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "close",
+          "label": "Close Editor",
+          "shortcut": "⌘W",
+          "disabled": true
+        },
+        {
+          "id": "closeAll",
+          "label": "Close All Editors",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "edit",
+      "label": "Edit",
+      "items": [
+        {
+          "id": "copy",
+          "label": "Copy",
+          "shortcut": "⌘C",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "find",
+          "label": "Find",
+          "shortcut": "⌘F",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "view",
+      "label": "View",
+      "items": [
+        {
+          "id": "palette",
+          "label": "Command Palette…",
+          "shortcut": "⇧⌘P"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sort",
+          "label": "Sort Files By",
+          "submenu": [
+            {
+              "id": "name",
+              "label": "Name",
+              "checked": true
+            },
+            {
+              "id": "modified",
+              "label": "Date Modified",
+              "checked": false
+            },
+            {
+              "id": "size",
+              "label": "Size",
+              "checked": false
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "ascending",
+              "label": "Ascending",
+              "checked": true
+            },
+            {
+              "id": "descending",
+              "label": "Descending",
+              "checked": false
+            }
+          ]
+        },
+        {
+          "id": "hidden",
+          "label": "Show Hidden Files",
+          "shortcut": "⌘H",
+          "checked": false
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "metadata",
+          "label": "Show Metadata",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sidebar",
+          "label": "Toggle Side Bar",
+          "shortcut": "⌘B"
+        }
+      ]
+    },
+    {
+      "id": "go",
+      "label": "Go",
+      "items": [
+        {
+          "id": "back",
+          "label": "Go Back",
+          "shortcut": "⌃-",
+          "disabled": true
+        },
+        {
+          "id": "forward",
+          "label": "Go Forward",
+          "shortcut": "⌃⇧-",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "goToFile",
+          "label": "Go to File…",
+          "shortcut": "⌘E",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "next",
+          "label": "Next Editor",
+          "shortcut": "⌘PageDown",
+          "disabled": true
+        },
+        {
+          "id": "previous",
+          "label": "Previous Editor",
+          "shortcut": "⌘PageUp",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "help",
+      "label": "Help",
+      "items": [
+        {
+          "id": "guide",
+          "label": "User Guide",
+          "shortcut": "F1"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "about",
+          "label": "About Folder Browser"
+        }
+      ]
+    }
+  ],
+  "paletteNothingOpen": [
+    {
+      "id": "File:newFile",
+      "label": "New Text File",
+      "description": "File",
+      "shortcut": "⌘N"
+    },
+    {
+      "id": "File:openFolder",
+      "label": "Open Folder…",
+      "description": "File",
+      "shortcut": "⇧⌘O"
+    },
+    {
+      "id": "File:open",
+      "label": "Open File…",
+      "description": "File",
+      "shortcut": "⌘O"
+    },
+    {
+      "id": "File:openZip",
+      "label": "Open ZIP File…",
+      "description": "File"
+    },
+    {
+      "id": "File:Preferences: settings",
+      "label": "Preferences: Settings",
+      "description": "File",
+      "shortcut": "⌘,"
+    },
+    {
+      "id": "View:palette",
+      "label": "Command Palette…",
+      "description": "View",
+      "shortcut": "⇧⌘P"
+    },
+    {
+      "id": "View:Sort Files By: name",
+      "label": "Sort Files By: Name",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: modified",
+      "label": "Sort Files By: Date Modified",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: size",
+      "label": "Sort Files By: Size",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: ascending",
+      "label": "Sort Files By: Ascending",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: descending",
+      "label": "Sort Files By: Descending",
+      "description": "View"
+    },
+    {
+      "id": "View:hidden",
+      "label": "Show Hidden Files",
+      "description": "View",
+      "shortcut": "⌘H"
+    },
+    {
+      "id": "View:sidebar",
+      "label": "Toggle Side Bar",
+      "description": "View",
+      "shortcut": "⌘B"
+    },
+    {
+      "id": "Help:guide",
+      "label": "User Guide",
+      "description": "Help",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Help:about",
+      "label": "About Folder Browser",
+      "description": "Help"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Color Theme: Dark+",
+      "description": "View"
+    },
+    {
+      "id": "theme:light",
+      "label": "Color Theme: Light+",
+      "description": "View"
+    }
+  ],
+  "paletteTextFileOpen": [
+    {
+      "id": "File:newFile",
+      "label": "New Text File",
+      "description": "File",
+      "shortcut": "⌘N"
+    },
+    {
+      "id": "File:openFolder",
+      "label": "Open Folder…",
+      "description": "File",
+      "shortcut": "⇧⌘O"
+    },
+    {
+      "id": "File:open",
+      "label": "Open File…",
+      "description": "File",
+      "shortcut": "⌘O"
+    },
+    {
+      "id": "File:openZip",
+      "label": "Open ZIP File…",
+      "description": "File"
+    },
+    {
+      "id": "File:save",
+      "label": "Save",
+      "description": "File",
+      "shortcut": "⌘S"
+    },
+    {
+      "id": "File:saveAll",
+      "label": "Save All",
+      "description": "File",
+      "shortcut": "⌥⌘S"
+    },
+    {
+      "id": "File:saveAsWsnp",
+      "label": "Save as .wsnp…",
+      "description": "File"
+    },
+    {
+      "id": "File:savePdf",
+      "label": "Save as PDF…",
+      "description": "File"
+    },
+    {
+      "id": "File:print",
+      "label": "Print…",
+      "description": "File",
+      "shortcut": "⌘P"
+    },
+    {
+      "id": "File:Preferences: settings",
+      "label": "Preferences: Settings",
+      "description": "File",
+      "shortcut": "⌘,"
+    },
+    {
+      "id": "File:close",
+      "label": "Close Editor",
+      "description": "File",
+      "shortcut": "⌘W"
+    },
+    {
+      "id": "File:closeAll",
+      "label": "Close All Editors",
+      "description": "File"
+    },
+    {
+      "id": "Edit:copy",
+      "label": "Copy",
+      "description": "Edit",
+      "shortcut": "⌘C"
+    },
+    {
+      "id": "Edit:find",
+      "label": "Find",
+      "description": "Edit",
+      "shortcut": "⌘F"
+    },
+    {
+      "id": "View:palette",
+      "label": "Command Palette…",
+      "description": "View",
+      "shortcut": "⇧⌘P"
+    },
+    {
+      "id": "View:Sort Files By: name",
+      "label": "Sort Files By: Name",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: modified",
+      "label": "Sort Files By: Date Modified",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: size",
+      "label": "Sort Files By: Size",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: ascending",
+      "label": "Sort Files By: Ascending",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: descending",
+      "label": "Sort Files By: Descending",
+      "description": "View"
+    },
+    {
+      "id": "View:hidden",
+      "label": "Show Hidden Files",
+      "description": "View",
+      "shortcut": "⌘H"
+    },
+    {
+      "id": "View:metadata",
+      "label": "Show Metadata",
+      "description": "View"
+    },
+    {
+      "id": "View:sidebar",
+      "label": "Toggle Side Bar",
+      "description": "View",
+      "shortcut": "⌘B"
+    },
+    {
+      "id": "Go:back",
+      "label": "Go Back",
+      "description": "Go",
+      "shortcut": "⌃-"
+    },
+    {
+      "id": "Go:forward",
+      "label": "Go Forward",
+      "description": "Go",
+      "shortcut": "⌃⇧-"
+    },
+    {
+      "id": "Go:goToFile",
+      "label": "Go to File…",
+      "description": "Go",
+      "shortcut": "⌘E"
+    },
+    {
+      "id": "Go:next",
+      "label": "Next Editor",
+      "description": "Go",
+      "shortcut": "⌘PageDown"
+    },
+    {
+      "id": "Go:previous",
+      "label": "Previous Editor",
+      "description": "Go",
+      "shortcut": "⌘PageUp"
+    },
+    {
+      "id": "Help:guide",
+      "label": "User Guide",
+      "description": "Help",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Help:about",
+      "label": "About Folder Browser",
+      "description": "Help"
+    },
+    {
+      "id": "view:zoomIn",
+      "label": "Zoom In",
+      "description": "View"
+    },
+    {
+      "id": "view:zoomOut",
+      "label": "Zoom Out",
+      "description": "View"
+    },
+    {
+      "id": "view:zoomReset",
+      "label": "Reset Zoom",
+      "description": "View"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Color Theme: Dark+",
+      "description": "View"
+    },
+    {
+      "id": "theme:light",
+      "label": "Color Theme: Light+",
+      "description": "View"
+    }
+  ]
+}"
+`;
+
+exports[`menus and command palette golden behavior > darwin / pt-BR 1`] = `
+"{
+  "menus": [
+    {
+      "id": "file",
+      "label": "Arquivo",
+      "items": [
+        {
+          "id": "newFile",
+          "label": "Novo Arquivo de Texto",
+          "shortcut": "⌘N"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "openFolder",
+          "label": "Abrir Pasta…",
+          "shortcut": "⇧⌘O"
+        },
+        {
+          "id": "open",
+          "label": "Abrir Arquivo…",
+          "shortcut": "⌘O"
+        },
+        {
+          "id": "openZip",
+          "label": "Abrir Arquivo ZIP…"
+        },
+        {
+          "id": "recent",
+          "label": "Abrir Recente",
+          "submenu": [
+            {
+              "id": "none",
+              "label": "Nenhum arquivo recente",
+              "disabled": true
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "clear",
+              "label": "Limpar Abertos Recentemente",
+              "disabled": true
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "save",
+          "label": "Salvar",
+          "shortcut": "⌘S",
+          "disabled": true
+        },
+        {
+          "id": "saveAll",
+          "label": "Salvar Tudo",
+          "shortcut": "⌥⌘S",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "saveAsWsnp",
+          "label": "Salvar como .wsnp…",
+          "disabled": true
+        },
+        {
+          "id": "savePdf",
+          "label": "Salvar como PDF…",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "print",
+          "label": "Imprimir…",
+          "shortcut": "⌘P",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "preferences",
+          "label": "Preferências",
+          "submenu": [
+            {
+              "id": "settings",
+              "label": "Configurações",
+              "shortcut": "⌘,"
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "close",
+          "label": "Fechar Editor",
+          "shortcut": "⌘W",
+          "disabled": true
+        },
+        {
+          "id": "closeAll",
+          "label": "Fechar Todos os Editores",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "edit",
+      "label": "Editar",
+      "items": [
+        {
+          "id": "copy",
+          "label": "Copiar",
+          "shortcut": "⌘C",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "find",
+          "label": "Localizar",
+          "shortcut": "⌘F",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "view",
+      "label": "Exibir",
+      "items": [
+        {
+          "id": "palette",
+          "label": "Paleta de Comandos…",
+          "shortcut": "⇧⌘P"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sort",
+          "label": "Ordenar Arquivos Por",
+          "submenu": [
+            {
+              "id": "name",
+              "label": "Nome",
+              "checked": true
+            },
+            {
+              "id": "modified",
+              "label": "Data de Modificação",
+              "checked": false
+            },
+            {
+              "id": "size",
+              "label": "Tamanho",
+              "checked": false
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "ascending",
+              "label": "Crescente",
+              "checked": true
+            },
+            {
+              "id": "descending",
+              "label": "Decrescente",
+              "checked": false
+            }
+          ]
+        },
+        {
+          "id": "hidden",
+          "label": "Mostrar Arquivos Ocultos",
+          "shortcut": "⌘H",
+          "checked": false
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "metadata",
+          "label": "Mostrar Metadados",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sidebar",
+          "label": "Alternar Barra Lateral",
+          "shortcut": "⌘B"
+        }
+      ]
+    },
+    {
+      "id": "go",
+      "label": "Ir",
+      "items": [
+        {
+          "id": "back",
+          "label": "Voltar",
+          "shortcut": "⌃-",
+          "disabled": true
+        },
+        {
+          "id": "forward",
+          "label": "Avançar",
+          "shortcut": "⌃⇧-",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "goToFile",
+          "label": "Ir para Arquivo…",
+          "shortcut": "⌘E",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "next",
+          "label": "Próximo Editor",
+          "shortcut": "⌘PageDown",
+          "disabled": true
+        },
+        {
+          "id": "previous",
+          "label": "Editor Anterior",
+          "shortcut": "⌘PageUp",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "help",
+      "label": "Ajuda",
+      "items": [
+        {
+          "id": "guide",
+          "label": "Guia do Usuário",
+          "shortcut": "F1"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "about",
+          "label": "Sobre o Folder Browser"
+        }
+      ]
+    }
+  ],
+  "paletteNothingOpen": [
+    {
+      "id": "Arquivo:newFile",
+      "label": "Novo Arquivo de Texto",
+      "description": "Arquivo",
+      "shortcut": "⌘N"
+    },
+    {
+      "id": "Arquivo:openFolder",
+      "label": "Abrir Pasta…",
+      "description": "Arquivo",
+      "shortcut": "⇧⌘O"
+    },
+    {
+      "id": "Arquivo:open",
+      "label": "Abrir Arquivo…",
+      "description": "Arquivo",
+      "shortcut": "⌘O"
+    },
+    {
+      "id": "Arquivo:openZip",
+      "label": "Abrir Arquivo ZIP…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:Preferências: settings",
+      "label": "Preferências: Configurações",
+      "description": "Arquivo",
+      "shortcut": "⌘,"
+    },
+    {
+      "id": "Exibir:palette",
+      "label": "Paleta de Comandos…",
+      "description": "Exibir",
+      "shortcut": "⇧⌘P"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: name",
+      "label": "Ordenar Arquivos Por: Nome",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: modified",
+      "label": "Ordenar Arquivos Por: Data de Modificação",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: size",
+      "label": "Ordenar Arquivos Por: Tamanho",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: ascending",
+      "label": "Ordenar Arquivos Por: Crescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: descending",
+      "label": "Ordenar Arquivos Por: Decrescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:hidden",
+      "label": "Mostrar Arquivos Ocultos",
+      "description": "Exibir",
+      "shortcut": "⌘H"
+    },
+    {
+      "id": "Exibir:sidebar",
+      "label": "Alternar Barra Lateral",
+      "description": "Exibir",
+      "shortcut": "⌘B"
+    },
+    {
+      "id": "Ajuda:guide",
+      "label": "Guia do Usuário",
+      "description": "Ajuda",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Ajuda:about",
+      "label": "Sobre o Folder Browser",
+      "description": "Ajuda"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Tema de Cores: Dark+",
+      "description": "Exibir"
+    },
+    {
+      "id": "theme:light",
+      "label": "Tema de Cores: Light+",
+      "description": "Exibir"
+    }
+  ],
+  "paletteTextFileOpen": [
+    {
+      "id": "Arquivo:newFile",
+      "label": "Novo Arquivo de Texto",
+      "description": "Arquivo",
+      "shortcut": "⌘N"
+    },
+    {
+      "id": "Arquivo:openFolder",
+      "label": "Abrir Pasta…",
+      "description": "Arquivo",
+      "shortcut": "⇧⌘O"
+    },
+    {
+      "id": "Arquivo:open",
+      "label": "Abrir Arquivo…",
+      "description": "Arquivo",
+      "shortcut": "⌘O"
+    },
+    {
+      "id": "Arquivo:openZip",
+      "label": "Abrir Arquivo ZIP…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:save",
+      "label": "Salvar",
+      "description": "Arquivo",
+      "shortcut": "⌘S"
+    },
+    {
+      "id": "Arquivo:saveAll",
+      "label": "Salvar Tudo",
+      "description": "Arquivo",
+      "shortcut": "⌥⌘S"
+    },
+    {
+      "id": "Arquivo:saveAsWsnp",
+      "label": "Salvar como .wsnp…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:savePdf",
+      "label": "Salvar como PDF…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:print",
+      "label": "Imprimir…",
+      "description": "Arquivo",
+      "shortcut": "⌘P"
+    },
+    {
+      "id": "Arquivo:Preferências: settings",
+      "label": "Preferências: Configurações",
+      "description": "Arquivo",
+      "shortcut": "⌘,"
+    },
+    {
+      "id": "Arquivo:close",
+      "label": "Fechar Editor",
+      "description": "Arquivo",
+      "shortcut": "⌘W"
+    },
+    {
+      "id": "Arquivo:closeAll",
+      "label": "Fechar Todos os Editores",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Editar:copy",
+      "label": "Copiar",
+      "description": "Editar",
+      "shortcut": "⌘C"
+    },
+    {
+      "id": "Editar:find",
+      "label": "Localizar",
+      "description": "Editar",
+      "shortcut": "⌘F"
+    },
+    {
+      "id": "Exibir:palette",
+      "label": "Paleta de Comandos…",
+      "description": "Exibir",
+      "shortcut": "⇧⌘P"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: name",
+      "label": "Ordenar Arquivos Por: Nome",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: modified",
+      "label": "Ordenar Arquivos Por: Data de Modificação",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: size",
+      "label": "Ordenar Arquivos Por: Tamanho",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: ascending",
+      "label": "Ordenar Arquivos Por: Crescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: descending",
+      "label": "Ordenar Arquivos Por: Decrescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:hidden",
+      "label": "Mostrar Arquivos Ocultos",
+      "description": "Exibir",
+      "shortcut": "⌘H"
+    },
+    {
+      "id": "Exibir:metadata",
+      "label": "Mostrar Metadados",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:sidebar",
+      "label": "Alternar Barra Lateral",
+      "description": "Exibir",
+      "shortcut": "⌘B"
+    },
+    {
+      "id": "Ir:back",
+      "label": "Voltar",
+      "description": "Ir",
+      "shortcut": "⌃-"
+    },
+    {
+      "id": "Ir:forward",
+      "label": "Avançar",
+      "description": "Ir",
+      "shortcut": "⌃⇧-"
+    },
+    {
+      "id": "Ir:goToFile",
+      "label": "Ir para Arquivo…",
+      "description": "Ir",
+      "shortcut": "⌘E"
+    },
+    {
+      "id": "Ir:next",
+      "label": "Próximo Editor",
+      "description": "Ir",
+      "shortcut": "⌘PageDown"
+    },
+    {
+      "id": "Ir:previous",
+      "label": "Editor Anterior",
+      "description": "Ir",
+      "shortcut": "⌘PageUp"
+    },
+    {
+      "id": "Ajuda:guide",
+      "label": "Guia do Usuário",
+      "description": "Ajuda",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Ajuda:about",
+      "label": "Sobre o Folder Browser",
+      "description": "Ajuda"
+    },
+    {
+      "id": "view:zoomIn",
+      "label": "Ampliar",
+      "description": "Exibir"
+    },
+    {
+      "id": "view:zoomOut",
+      "label": "Reduzir",
+      "description": "Exibir"
+    },
+    {
+      "id": "view:zoomReset",
+      "label": "Redefinir Zoom",
+      "description": "Exibir"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Tema de Cores: Dark+",
+      "description": "Exibir"
+    },
+    {
+      "id": "theme:light",
+      "label": "Tema de Cores: Light+",
+      "description": "Exibir"
+    }
+  ]
+}"
+`;
+
+exports[`menus and command palette golden behavior > linux / en 1`] = `
+"{
+  "menus": [
+    {
+      "id": "file",
+      "label": "File",
+      "items": [
+        {
+          "id": "newFile",
+          "label": "New Text File",
+          "shortcut": "Ctrl+N"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "openFolder",
+          "label": "Open Folder…",
+          "shortcut": "Ctrl+Shift+O"
+        },
+        {
+          "id": "open",
+          "label": "Open File…",
+          "shortcut": "Ctrl+O"
+        },
+        {
+          "id": "openZip",
+          "label": "Open ZIP File…"
+        },
+        {
+          "id": "recent",
+          "label": "Open Recent",
+          "submenu": [
+            {
+              "id": "none",
+              "label": "No recent files",
+              "disabled": true
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "clear",
+              "label": "Clear Recently Opened",
+              "disabled": true
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "save",
+          "label": "Save",
+          "shortcut": "Ctrl+S",
+          "disabled": true
+        },
+        {
+          "id": "saveAll",
+          "label": "Save All",
+          "shortcut": "Ctrl+Alt+S",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "saveAsWsnp",
+          "label": "Save as .wsnp…",
+          "disabled": true
+        },
+        {
+          "id": "savePdf",
+          "label": "Save as PDF…",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "print",
+          "label": "Print…",
+          "shortcut": "Ctrl+P",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "preferences",
+          "label": "Preferences",
+          "submenu": [
+            {
+              "id": "settings",
+              "label": "Settings",
+              "shortcut": "Ctrl+,"
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "close",
+          "label": "Close Editor",
+          "shortcut": "Ctrl+W",
+          "disabled": true
+        },
+        {
+          "id": "closeAll",
+          "label": "Close All Editors",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "exit",
+          "label": "Exit"
+        }
+      ]
+    },
+    {
+      "id": "edit",
+      "label": "Edit",
+      "items": [
+        {
+          "id": "copy",
+          "label": "Copy",
+          "shortcut": "Ctrl+C",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "find",
+          "label": "Find",
+          "shortcut": "Ctrl+F",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "view",
+      "label": "View",
+      "items": [
+        {
+          "id": "palette",
+          "label": "Command Palette…",
+          "shortcut": "Ctrl+Shift+P"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sort",
+          "label": "Sort Files By",
+          "submenu": [
+            {
+              "id": "name",
+              "label": "Name",
+              "checked": true
+            },
+            {
+              "id": "modified",
+              "label": "Date Modified",
+              "checked": false
+            },
+            {
+              "id": "size",
+              "label": "Size",
+              "checked": false
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "ascending",
+              "label": "Ascending",
+              "checked": true
+            },
+            {
+              "id": "descending",
+              "label": "Descending",
+              "checked": false
+            }
+          ]
+        },
+        {
+          "id": "hidden",
+          "label": "Show Hidden Files",
+          "shortcut": "Ctrl+H",
+          "checked": false
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "metadata",
+          "label": "Show Metadata",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sidebar",
+          "label": "Toggle Side Bar",
+          "shortcut": "Ctrl+B"
+        }
+      ]
+    },
+    {
+      "id": "go",
+      "label": "Go",
+      "items": [
+        {
+          "id": "back",
+          "label": "Go Back",
+          "shortcut": "Alt+Left",
+          "disabled": true
+        },
+        {
+          "id": "forward",
+          "label": "Go Forward",
+          "shortcut": "Alt+Right",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "goToFile",
+          "label": "Go to File…",
+          "shortcut": "Ctrl+E",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "next",
+          "label": "Next Editor",
+          "shortcut": "Ctrl+PageDown",
+          "disabled": true
+        },
+        {
+          "id": "previous",
+          "label": "Previous Editor",
+          "shortcut": "Ctrl+PageUp",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "help",
+      "label": "Help",
+      "items": [
+        {
+          "id": "guide",
+          "label": "User Guide",
+          "shortcut": "F1"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "about",
+          "label": "About Folder Browser"
+        }
+      ]
+    }
+  ],
+  "paletteNothingOpen": [
+    {
+      "id": "File:newFile",
+      "label": "New Text File",
+      "description": "File",
+      "shortcut": "Ctrl+N"
+    },
+    {
+      "id": "File:openFolder",
+      "label": "Open Folder…",
+      "description": "File",
+      "shortcut": "Ctrl+Shift+O"
+    },
+    {
+      "id": "File:open",
+      "label": "Open File…",
+      "description": "File",
+      "shortcut": "Ctrl+O"
+    },
+    {
+      "id": "File:openZip",
+      "label": "Open ZIP File…",
+      "description": "File"
+    },
+    {
+      "id": "File:Preferences: settings",
+      "label": "Preferences: Settings",
+      "description": "File",
+      "shortcut": "Ctrl+,"
+    },
+    {
+      "id": "File:exit",
+      "label": "Exit",
+      "description": "File"
+    },
+    {
+      "id": "View:palette",
+      "label": "Command Palette…",
+      "description": "View",
+      "shortcut": "Ctrl+Shift+P"
+    },
+    {
+      "id": "View:Sort Files By: name",
+      "label": "Sort Files By: Name",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: modified",
+      "label": "Sort Files By: Date Modified",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: size",
+      "label": "Sort Files By: Size",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: ascending",
+      "label": "Sort Files By: Ascending",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: descending",
+      "label": "Sort Files By: Descending",
+      "description": "View"
+    },
+    {
+      "id": "View:hidden",
+      "label": "Show Hidden Files",
+      "description": "View",
+      "shortcut": "Ctrl+H"
+    },
+    {
+      "id": "View:sidebar",
+      "label": "Toggle Side Bar",
+      "description": "View",
+      "shortcut": "Ctrl+B"
+    },
+    {
+      "id": "Help:guide",
+      "label": "User Guide",
+      "description": "Help",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Help:about",
+      "label": "About Folder Browser",
+      "description": "Help"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Color Theme: Dark+",
+      "description": "View"
+    },
+    {
+      "id": "theme:light",
+      "label": "Color Theme: Light+",
+      "description": "View"
+    }
+  ],
+  "paletteTextFileOpen": [
+    {
+      "id": "File:newFile",
+      "label": "New Text File",
+      "description": "File",
+      "shortcut": "Ctrl+N"
+    },
+    {
+      "id": "File:openFolder",
+      "label": "Open Folder…",
+      "description": "File",
+      "shortcut": "Ctrl+Shift+O"
+    },
+    {
+      "id": "File:open",
+      "label": "Open File…",
+      "description": "File",
+      "shortcut": "Ctrl+O"
+    },
+    {
+      "id": "File:openZip",
+      "label": "Open ZIP File…",
+      "description": "File"
+    },
+    {
+      "id": "File:save",
+      "label": "Save",
+      "description": "File",
+      "shortcut": "Ctrl+S"
+    },
+    {
+      "id": "File:saveAll",
+      "label": "Save All",
+      "description": "File",
+      "shortcut": "Ctrl+Alt+S"
+    },
+    {
+      "id": "File:saveAsWsnp",
+      "label": "Save as .wsnp…",
+      "description": "File"
+    },
+    {
+      "id": "File:savePdf",
+      "label": "Save as PDF…",
+      "description": "File"
+    },
+    {
+      "id": "File:print",
+      "label": "Print…",
+      "description": "File",
+      "shortcut": "Ctrl+P"
+    },
+    {
+      "id": "File:Preferences: settings",
+      "label": "Preferences: Settings",
+      "description": "File",
+      "shortcut": "Ctrl+,"
+    },
+    {
+      "id": "File:close",
+      "label": "Close Editor",
+      "description": "File",
+      "shortcut": "Ctrl+W"
+    },
+    {
+      "id": "File:closeAll",
+      "label": "Close All Editors",
+      "description": "File"
+    },
+    {
+      "id": "File:exit",
+      "label": "Exit",
+      "description": "File"
+    },
+    {
+      "id": "Edit:copy",
+      "label": "Copy",
+      "description": "Edit",
+      "shortcut": "Ctrl+C"
+    },
+    {
+      "id": "Edit:find",
+      "label": "Find",
+      "description": "Edit",
+      "shortcut": "Ctrl+F"
+    },
+    {
+      "id": "View:palette",
+      "label": "Command Palette…",
+      "description": "View",
+      "shortcut": "Ctrl+Shift+P"
+    },
+    {
+      "id": "View:Sort Files By: name",
+      "label": "Sort Files By: Name",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: modified",
+      "label": "Sort Files By: Date Modified",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: size",
+      "label": "Sort Files By: Size",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: ascending",
+      "label": "Sort Files By: Ascending",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: descending",
+      "label": "Sort Files By: Descending",
+      "description": "View"
+    },
+    {
+      "id": "View:hidden",
+      "label": "Show Hidden Files",
+      "description": "View",
+      "shortcut": "Ctrl+H"
+    },
+    {
+      "id": "View:metadata",
+      "label": "Show Metadata",
+      "description": "View"
+    },
+    {
+      "id": "View:sidebar",
+      "label": "Toggle Side Bar",
+      "description": "View",
+      "shortcut": "Ctrl+B"
+    },
+    {
+      "id": "Go:back",
+      "label": "Go Back",
+      "description": "Go",
+      "shortcut": "Alt+Left"
+    },
+    {
+      "id": "Go:forward",
+      "label": "Go Forward",
+      "description": "Go",
+      "shortcut": "Alt+Right"
+    },
+    {
+      "id": "Go:goToFile",
+      "label": "Go to File…",
+      "description": "Go",
+      "shortcut": "Ctrl+E"
+    },
+    {
+      "id": "Go:next",
+      "label": "Next Editor",
+      "description": "Go",
+      "shortcut": "Ctrl+PageDown"
+    },
+    {
+      "id": "Go:previous",
+      "label": "Previous Editor",
+      "description": "Go",
+      "shortcut": "Ctrl+PageUp"
+    },
+    {
+      "id": "Help:guide",
+      "label": "User Guide",
+      "description": "Help",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Help:about",
+      "label": "About Folder Browser",
+      "description": "Help"
+    },
+    {
+      "id": "view:zoomIn",
+      "label": "Zoom In",
+      "description": "View"
+    },
+    {
+      "id": "view:zoomOut",
+      "label": "Zoom Out",
+      "description": "View"
+    },
+    {
+      "id": "view:zoomReset",
+      "label": "Reset Zoom",
+      "description": "View"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Color Theme: Dark+",
+      "description": "View"
+    },
+    {
+      "id": "theme:light",
+      "label": "Color Theme: Light+",
+      "description": "View"
+    }
+  ]
+}"
+`;
+
+exports[`menus and command palette golden behavior > linux / pt-BR 1`] = `
+"{
+  "menus": [
+    {
+      "id": "file",
+      "label": "Arquivo",
+      "items": [
+        {
+          "id": "newFile",
+          "label": "Novo Arquivo de Texto",
+          "shortcut": "Ctrl+N"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "openFolder",
+          "label": "Abrir Pasta…",
+          "shortcut": "Ctrl+Shift+O"
+        },
+        {
+          "id": "open",
+          "label": "Abrir Arquivo…",
+          "shortcut": "Ctrl+O"
+        },
+        {
+          "id": "openZip",
+          "label": "Abrir Arquivo ZIP…"
+        },
+        {
+          "id": "recent",
+          "label": "Abrir Recente",
+          "submenu": [
+            {
+              "id": "none",
+              "label": "Nenhum arquivo recente",
+              "disabled": true
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "clear",
+              "label": "Limpar Abertos Recentemente",
+              "disabled": true
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "save",
+          "label": "Salvar",
+          "shortcut": "Ctrl+S",
+          "disabled": true
+        },
+        {
+          "id": "saveAll",
+          "label": "Salvar Tudo",
+          "shortcut": "Ctrl+Alt+S",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "saveAsWsnp",
+          "label": "Salvar como .wsnp…",
+          "disabled": true
+        },
+        {
+          "id": "savePdf",
+          "label": "Salvar como PDF…",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "print",
+          "label": "Imprimir…",
+          "shortcut": "Ctrl+P",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "preferences",
+          "label": "Preferências",
+          "submenu": [
+            {
+              "id": "settings",
+              "label": "Configurações",
+              "shortcut": "Ctrl+,"
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "close",
+          "label": "Fechar Editor",
+          "shortcut": "Ctrl+W",
+          "disabled": true
+        },
+        {
+          "id": "closeAll",
+          "label": "Fechar Todos os Editores",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "exit",
+          "label": "Sair"
+        }
+      ]
+    },
+    {
+      "id": "edit",
+      "label": "Editar",
+      "items": [
+        {
+          "id": "copy",
+          "label": "Copiar",
+          "shortcut": "Ctrl+C",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "find",
+          "label": "Localizar",
+          "shortcut": "Ctrl+F",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "view",
+      "label": "Exibir",
+      "items": [
+        {
+          "id": "palette",
+          "label": "Paleta de Comandos…",
+          "shortcut": "Ctrl+Shift+P"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sort",
+          "label": "Ordenar Arquivos Por",
+          "submenu": [
+            {
+              "id": "name",
+              "label": "Nome",
+              "checked": true
+            },
+            {
+              "id": "modified",
+              "label": "Data de Modificação",
+              "checked": false
+            },
+            {
+              "id": "size",
+              "label": "Tamanho",
+              "checked": false
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "ascending",
+              "label": "Crescente",
+              "checked": true
+            },
+            {
+              "id": "descending",
+              "label": "Decrescente",
+              "checked": false
+            }
+          ]
+        },
+        {
+          "id": "hidden",
+          "label": "Mostrar Arquivos Ocultos",
+          "shortcut": "Ctrl+H",
+          "checked": false
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "metadata",
+          "label": "Mostrar Metadados",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sidebar",
+          "label": "Alternar Barra Lateral",
+          "shortcut": "Ctrl+B"
+        }
+      ]
+    },
+    {
+      "id": "go",
+      "label": "Ir",
+      "items": [
+        {
+          "id": "back",
+          "label": "Voltar",
+          "shortcut": "Alt+Left",
+          "disabled": true
+        },
+        {
+          "id": "forward",
+          "label": "Avançar",
+          "shortcut": "Alt+Right",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "goToFile",
+          "label": "Ir para Arquivo…",
+          "shortcut": "Ctrl+E",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "next",
+          "label": "Próximo Editor",
+          "shortcut": "Ctrl+PageDown",
+          "disabled": true
+        },
+        {
+          "id": "previous",
+          "label": "Editor Anterior",
+          "shortcut": "Ctrl+PageUp",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "help",
+      "label": "Ajuda",
+      "items": [
+        {
+          "id": "guide",
+          "label": "Guia do Usuário",
+          "shortcut": "F1"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "about",
+          "label": "Sobre o Folder Browser"
+        }
+      ]
+    }
+  ],
+  "paletteNothingOpen": [
+    {
+      "id": "Arquivo:newFile",
+      "label": "Novo Arquivo de Texto",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+N"
+    },
+    {
+      "id": "Arquivo:openFolder",
+      "label": "Abrir Pasta…",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+Shift+O"
+    },
+    {
+      "id": "Arquivo:open",
+      "label": "Abrir Arquivo…",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+O"
+    },
+    {
+      "id": "Arquivo:openZip",
+      "label": "Abrir Arquivo ZIP…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:Preferências: settings",
+      "label": "Preferências: Configurações",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+,"
+    },
+    {
+      "id": "Arquivo:exit",
+      "label": "Sair",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Exibir:palette",
+      "label": "Paleta de Comandos…",
+      "description": "Exibir",
+      "shortcut": "Ctrl+Shift+P"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: name",
+      "label": "Ordenar Arquivos Por: Nome",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: modified",
+      "label": "Ordenar Arquivos Por: Data de Modificação",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: size",
+      "label": "Ordenar Arquivos Por: Tamanho",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: ascending",
+      "label": "Ordenar Arquivos Por: Crescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: descending",
+      "label": "Ordenar Arquivos Por: Decrescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:hidden",
+      "label": "Mostrar Arquivos Ocultos",
+      "description": "Exibir",
+      "shortcut": "Ctrl+H"
+    },
+    {
+      "id": "Exibir:sidebar",
+      "label": "Alternar Barra Lateral",
+      "description": "Exibir",
+      "shortcut": "Ctrl+B"
+    },
+    {
+      "id": "Ajuda:guide",
+      "label": "Guia do Usuário",
+      "description": "Ajuda",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Ajuda:about",
+      "label": "Sobre o Folder Browser",
+      "description": "Ajuda"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Tema de Cores: Dark+",
+      "description": "Exibir"
+    },
+    {
+      "id": "theme:light",
+      "label": "Tema de Cores: Light+",
+      "description": "Exibir"
+    }
+  ],
+  "paletteTextFileOpen": [
+    {
+      "id": "Arquivo:newFile",
+      "label": "Novo Arquivo de Texto",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+N"
+    },
+    {
+      "id": "Arquivo:openFolder",
+      "label": "Abrir Pasta…",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+Shift+O"
+    },
+    {
+      "id": "Arquivo:open",
+      "label": "Abrir Arquivo…",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+O"
+    },
+    {
+      "id": "Arquivo:openZip",
+      "label": "Abrir Arquivo ZIP…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:save",
+      "label": "Salvar",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+S"
+    },
+    {
+      "id": "Arquivo:saveAll",
+      "label": "Salvar Tudo",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+Alt+S"
+    },
+    {
+      "id": "Arquivo:saveAsWsnp",
+      "label": "Salvar como .wsnp…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:savePdf",
+      "label": "Salvar como PDF…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:print",
+      "label": "Imprimir…",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+P"
+    },
+    {
+      "id": "Arquivo:Preferências: settings",
+      "label": "Preferências: Configurações",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+,"
+    },
+    {
+      "id": "Arquivo:close",
+      "label": "Fechar Editor",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+W"
+    },
+    {
+      "id": "Arquivo:closeAll",
+      "label": "Fechar Todos os Editores",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:exit",
+      "label": "Sair",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Editar:copy",
+      "label": "Copiar",
+      "description": "Editar",
+      "shortcut": "Ctrl+C"
+    },
+    {
+      "id": "Editar:find",
+      "label": "Localizar",
+      "description": "Editar",
+      "shortcut": "Ctrl+F"
+    },
+    {
+      "id": "Exibir:palette",
+      "label": "Paleta de Comandos…",
+      "description": "Exibir",
+      "shortcut": "Ctrl+Shift+P"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: name",
+      "label": "Ordenar Arquivos Por: Nome",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: modified",
+      "label": "Ordenar Arquivos Por: Data de Modificação",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: size",
+      "label": "Ordenar Arquivos Por: Tamanho",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: ascending",
+      "label": "Ordenar Arquivos Por: Crescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: descending",
+      "label": "Ordenar Arquivos Por: Decrescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:hidden",
+      "label": "Mostrar Arquivos Ocultos",
+      "description": "Exibir",
+      "shortcut": "Ctrl+H"
+    },
+    {
+      "id": "Exibir:metadata",
+      "label": "Mostrar Metadados",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:sidebar",
+      "label": "Alternar Barra Lateral",
+      "description": "Exibir",
+      "shortcut": "Ctrl+B"
+    },
+    {
+      "id": "Ir:back",
+      "label": "Voltar",
+      "description": "Ir",
+      "shortcut": "Alt+Left"
+    },
+    {
+      "id": "Ir:forward",
+      "label": "Avançar",
+      "description": "Ir",
+      "shortcut": "Alt+Right"
+    },
+    {
+      "id": "Ir:goToFile",
+      "label": "Ir para Arquivo…",
+      "description": "Ir",
+      "shortcut": "Ctrl+E"
+    },
+    {
+      "id": "Ir:next",
+      "label": "Próximo Editor",
+      "description": "Ir",
+      "shortcut": "Ctrl+PageDown"
+    },
+    {
+      "id": "Ir:previous",
+      "label": "Editor Anterior",
+      "description": "Ir",
+      "shortcut": "Ctrl+PageUp"
+    },
+    {
+      "id": "Ajuda:guide",
+      "label": "Guia do Usuário",
+      "description": "Ajuda",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Ajuda:about",
+      "label": "Sobre o Folder Browser",
+      "description": "Ajuda"
+    },
+    {
+      "id": "view:zoomIn",
+      "label": "Ampliar",
+      "description": "Exibir"
+    },
+    {
+      "id": "view:zoomOut",
+      "label": "Reduzir",
+      "description": "Exibir"
+    },
+    {
+      "id": "view:zoomReset",
+      "label": "Redefinir Zoom",
+      "description": "Exibir"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Tema de Cores: Dark+",
+      "description": "Exibir"
+    },
+    {
+      "id": "theme:light",
+      "label": "Tema de Cores: Light+",
+      "description": "Exibir"
+    }
+  ]
+}"
+`;
+
+exports[`menus and command palette golden behavior > win32 / en 1`] = `
+"{
+  "menus": [
+    {
+      "id": "file",
+      "label": "File",
+      "items": [
+        {
+          "id": "newFile",
+          "label": "New Text File",
+          "shortcut": "Ctrl+N"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "openFolder",
+          "label": "Open Folder…",
+          "shortcut": "Ctrl+Shift+O"
+        },
+        {
+          "id": "open",
+          "label": "Open File…",
+          "shortcut": "Ctrl+O"
+        },
+        {
+          "id": "openZip",
+          "label": "Open ZIP File…"
+        },
+        {
+          "id": "recent",
+          "label": "Open Recent",
+          "submenu": [
+            {
+              "id": "none",
+              "label": "No recent files",
+              "disabled": true
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "clear",
+              "label": "Clear Recently Opened",
+              "disabled": true
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "save",
+          "label": "Save",
+          "shortcut": "Ctrl+S",
+          "disabled": true
+        },
+        {
+          "id": "saveAll",
+          "label": "Save All",
+          "shortcut": "Ctrl+Alt+S",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "saveAsWsnp",
+          "label": "Save as .wsnp…",
+          "disabled": true
+        },
+        {
+          "id": "savePdf",
+          "label": "Save as PDF…",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "print",
+          "label": "Print…",
+          "shortcut": "Ctrl+P",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "preferences",
+          "label": "Preferences",
+          "submenu": [
+            {
+              "id": "settings",
+              "label": "Settings",
+              "shortcut": "Ctrl+,"
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "close",
+          "label": "Close Editor",
+          "shortcut": "Ctrl+W",
+          "disabled": true
+        },
+        {
+          "id": "closeAll",
+          "label": "Close All Editors",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "exit",
+          "label": "Exit"
+        }
+      ]
+    },
+    {
+      "id": "edit",
+      "label": "Edit",
+      "items": [
+        {
+          "id": "copy",
+          "label": "Copy",
+          "shortcut": "Ctrl+C",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "find",
+          "label": "Find",
+          "shortcut": "Ctrl+F",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "view",
+      "label": "View",
+      "items": [
+        {
+          "id": "palette",
+          "label": "Command Palette…",
+          "shortcut": "Ctrl+Shift+P"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sort",
+          "label": "Sort Files By",
+          "submenu": [
+            {
+              "id": "name",
+              "label": "Name",
+              "checked": true
+            },
+            {
+              "id": "modified",
+              "label": "Date Modified",
+              "checked": false
+            },
+            {
+              "id": "size",
+              "label": "Size",
+              "checked": false
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "ascending",
+              "label": "Ascending",
+              "checked": true
+            },
+            {
+              "id": "descending",
+              "label": "Descending",
+              "checked": false
+            }
+          ]
+        },
+        {
+          "id": "hidden",
+          "label": "Show Hidden Files",
+          "shortcut": "Ctrl+H",
+          "checked": false
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "metadata",
+          "label": "Show Metadata",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sidebar",
+          "label": "Toggle Side Bar",
+          "shortcut": "Ctrl+B"
+        }
+      ]
+    },
+    {
+      "id": "go",
+      "label": "Go",
+      "items": [
+        {
+          "id": "back",
+          "label": "Go Back",
+          "shortcut": "Alt+Left",
+          "disabled": true
+        },
+        {
+          "id": "forward",
+          "label": "Go Forward",
+          "shortcut": "Alt+Right",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "goToFile",
+          "label": "Go to File…",
+          "shortcut": "Ctrl+E",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "next",
+          "label": "Next Editor",
+          "shortcut": "Ctrl+PageDown",
+          "disabled": true
+        },
+        {
+          "id": "previous",
+          "label": "Previous Editor",
+          "shortcut": "Ctrl+PageUp",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "help",
+      "label": "Help",
+      "items": [
+        {
+          "id": "guide",
+          "label": "User Guide",
+          "shortcut": "F1"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "about",
+          "label": "About Folder Browser"
+        }
+      ]
+    }
+  ],
+  "paletteNothingOpen": [
+    {
+      "id": "File:newFile",
+      "label": "New Text File",
+      "description": "File",
+      "shortcut": "Ctrl+N"
+    },
+    {
+      "id": "File:openFolder",
+      "label": "Open Folder…",
+      "description": "File",
+      "shortcut": "Ctrl+Shift+O"
+    },
+    {
+      "id": "File:open",
+      "label": "Open File…",
+      "description": "File",
+      "shortcut": "Ctrl+O"
+    },
+    {
+      "id": "File:openZip",
+      "label": "Open ZIP File…",
+      "description": "File"
+    },
+    {
+      "id": "File:Preferences: settings",
+      "label": "Preferences: Settings",
+      "description": "File",
+      "shortcut": "Ctrl+,"
+    },
+    {
+      "id": "File:exit",
+      "label": "Exit",
+      "description": "File"
+    },
+    {
+      "id": "View:palette",
+      "label": "Command Palette…",
+      "description": "View",
+      "shortcut": "Ctrl+Shift+P"
+    },
+    {
+      "id": "View:Sort Files By: name",
+      "label": "Sort Files By: Name",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: modified",
+      "label": "Sort Files By: Date Modified",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: size",
+      "label": "Sort Files By: Size",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: ascending",
+      "label": "Sort Files By: Ascending",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: descending",
+      "label": "Sort Files By: Descending",
+      "description": "View"
+    },
+    {
+      "id": "View:hidden",
+      "label": "Show Hidden Files",
+      "description": "View",
+      "shortcut": "Ctrl+H"
+    },
+    {
+      "id": "View:sidebar",
+      "label": "Toggle Side Bar",
+      "description": "View",
+      "shortcut": "Ctrl+B"
+    },
+    {
+      "id": "Help:guide",
+      "label": "User Guide",
+      "description": "Help",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Help:about",
+      "label": "About Folder Browser",
+      "description": "Help"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Color Theme: Dark+",
+      "description": "View"
+    },
+    {
+      "id": "theme:light",
+      "label": "Color Theme: Light+",
+      "description": "View"
+    }
+  ],
+  "paletteTextFileOpen": [
+    {
+      "id": "File:newFile",
+      "label": "New Text File",
+      "description": "File",
+      "shortcut": "Ctrl+N"
+    },
+    {
+      "id": "File:openFolder",
+      "label": "Open Folder…",
+      "description": "File",
+      "shortcut": "Ctrl+Shift+O"
+    },
+    {
+      "id": "File:open",
+      "label": "Open File…",
+      "description": "File",
+      "shortcut": "Ctrl+O"
+    },
+    {
+      "id": "File:openZip",
+      "label": "Open ZIP File…",
+      "description": "File"
+    },
+    {
+      "id": "File:save",
+      "label": "Save",
+      "description": "File",
+      "shortcut": "Ctrl+S"
+    },
+    {
+      "id": "File:saveAll",
+      "label": "Save All",
+      "description": "File",
+      "shortcut": "Ctrl+Alt+S"
+    },
+    {
+      "id": "File:saveAsWsnp",
+      "label": "Save as .wsnp…",
+      "description": "File"
+    },
+    {
+      "id": "File:savePdf",
+      "label": "Save as PDF…",
+      "description": "File"
+    },
+    {
+      "id": "File:print",
+      "label": "Print…",
+      "description": "File",
+      "shortcut": "Ctrl+P"
+    },
+    {
+      "id": "File:Preferences: settings",
+      "label": "Preferences: Settings",
+      "description": "File",
+      "shortcut": "Ctrl+,"
+    },
+    {
+      "id": "File:close",
+      "label": "Close Editor",
+      "description": "File",
+      "shortcut": "Ctrl+W"
+    },
+    {
+      "id": "File:closeAll",
+      "label": "Close All Editors",
+      "description": "File"
+    },
+    {
+      "id": "File:exit",
+      "label": "Exit",
+      "description": "File"
+    },
+    {
+      "id": "Edit:copy",
+      "label": "Copy",
+      "description": "Edit",
+      "shortcut": "Ctrl+C"
+    },
+    {
+      "id": "Edit:find",
+      "label": "Find",
+      "description": "Edit",
+      "shortcut": "Ctrl+F"
+    },
+    {
+      "id": "View:palette",
+      "label": "Command Palette…",
+      "description": "View",
+      "shortcut": "Ctrl+Shift+P"
+    },
+    {
+      "id": "View:Sort Files By: name",
+      "label": "Sort Files By: Name",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: modified",
+      "label": "Sort Files By: Date Modified",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: size",
+      "label": "Sort Files By: Size",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: ascending",
+      "label": "Sort Files By: Ascending",
+      "description": "View"
+    },
+    {
+      "id": "View:Sort Files By: descending",
+      "label": "Sort Files By: Descending",
+      "description": "View"
+    },
+    {
+      "id": "View:hidden",
+      "label": "Show Hidden Files",
+      "description": "View",
+      "shortcut": "Ctrl+H"
+    },
+    {
+      "id": "View:metadata",
+      "label": "Show Metadata",
+      "description": "View"
+    },
+    {
+      "id": "View:sidebar",
+      "label": "Toggle Side Bar",
+      "description": "View",
+      "shortcut": "Ctrl+B"
+    },
+    {
+      "id": "Go:back",
+      "label": "Go Back",
+      "description": "Go",
+      "shortcut": "Alt+Left"
+    },
+    {
+      "id": "Go:forward",
+      "label": "Go Forward",
+      "description": "Go",
+      "shortcut": "Alt+Right"
+    },
+    {
+      "id": "Go:goToFile",
+      "label": "Go to File…",
+      "description": "Go",
+      "shortcut": "Ctrl+E"
+    },
+    {
+      "id": "Go:next",
+      "label": "Next Editor",
+      "description": "Go",
+      "shortcut": "Ctrl+PageDown"
+    },
+    {
+      "id": "Go:previous",
+      "label": "Previous Editor",
+      "description": "Go",
+      "shortcut": "Ctrl+PageUp"
+    },
+    {
+      "id": "Help:guide",
+      "label": "User Guide",
+      "description": "Help",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Help:about",
+      "label": "About Folder Browser",
+      "description": "Help"
+    },
+    {
+      "id": "view:zoomIn",
+      "label": "Zoom In",
+      "description": "View"
+    },
+    {
+      "id": "view:zoomOut",
+      "label": "Zoom Out",
+      "description": "View"
+    },
+    {
+      "id": "view:zoomReset",
+      "label": "Reset Zoom",
+      "description": "View"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Color Theme: Dark+",
+      "description": "View"
+    },
+    {
+      "id": "theme:light",
+      "label": "Color Theme: Light+",
+      "description": "View"
+    }
+  ]
+}"
+`;
+
+exports[`menus and command palette golden behavior > win32 / pt-BR 1`] = `
+"{
+  "menus": [
+    {
+      "id": "file",
+      "label": "Arquivo",
+      "items": [
+        {
+          "id": "newFile",
+          "label": "Novo Arquivo de Texto",
+          "shortcut": "Ctrl+N"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "openFolder",
+          "label": "Abrir Pasta…",
+          "shortcut": "Ctrl+Shift+O"
+        },
+        {
+          "id": "open",
+          "label": "Abrir Arquivo…",
+          "shortcut": "Ctrl+O"
+        },
+        {
+          "id": "openZip",
+          "label": "Abrir Arquivo ZIP…"
+        },
+        {
+          "id": "recent",
+          "label": "Abrir Recente",
+          "submenu": [
+            {
+              "id": "none",
+              "label": "Nenhum arquivo recente",
+              "disabled": true
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "clear",
+              "label": "Limpar Abertos Recentemente",
+              "disabled": true
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "save",
+          "label": "Salvar",
+          "shortcut": "Ctrl+S",
+          "disabled": true
+        },
+        {
+          "id": "saveAll",
+          "label": "Salvar Tudo",
+          "shortcut": "Ctrl+Alt+S",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "saveAsWsnp",
+          "label": "Salvar como .wsnp…",
+          "disabled": true
+        },
+        {
+          "id": "savePdf",
+          "label": "Salvar como PDF…",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "print",
+          "label": "Imprimir…",
+          "shortcut": "Ctrl+P",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "preferences",
+          "label": "Preferências",
+          "submenu": [
+            {
+              "id": "settings",
+              "label": "Configurações",
+              "shortcut": "Ctrl+,"
+            }
+          ]
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "close",
+          "label": "Fechar Editor",
+          "shortcut": "Ctrl+W",
+          "disabled": true
+        },
+        {
+          "id": "closeAll",
+          "label": "Fechar Todos os Editores",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "exit",
+          "label": "Sair"
+        }
+      ]
+    },
+    {
+      "id": "edit",
+      "label": "Editar",
+      "items": [
+        {
+          "id": "copy",
+          "label": "Copiar",
+          "shortcut": "Ctrl+C",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "find",
+          "label": "Localizar",
+          "shortcut": "Ctrl+F",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "view",
+      "label": "Exibir",
+      "items": [
+        {
+          "id": "palette",
+          "label": "Paleta de Comandos…",
+          "shortcut": "Ctrl+Shift+P"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sort",
+          "label": "Ordenar Arquivos Por",
+          "submenu": [
+            {
+              "id": "name",
+              "label": "Nome",
+              "checked": true
+            },
+            {
+              "id": "modified",
+              "label": "Data de Modificação",
+              "checked": false
+            },
+            {
+              "id": "size",
+              "label": "Tamanho",
+              "checked": false
+            },
+            {
+              "separator": true
+            },
+            {
+              "id": "ascending",
+              "label": "Crescente",
+              "checked": true
+            },
+            {
+              "id": "descending",
+              "label": "Decrescente",
+              "checked": false
+            }
+          ]
+        },
+        {
+          "id": "hidden",
+          "label": "Mostrar Arquivos Ocultos",
+          "shortcut": "Ctrl+H",
+          "checked": false
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "metadata",
+          "label": "Mostrar Metadados",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "sidebar",
+          "label": "Alternar Barra Lateral",
+          "shortcut": "Ctrl+B"
+        }
+      ]
+    },
+    {
+      "id": "go",
+      "label": "Ir",
+      "items": [
+        {
+          "id": "back",
+          "label": "Voltar",
+          "shortcut": "Alt+Left",
+          "disabled": true
+        },
+        {
+          "id": "forward",
+          "label": "Avançar",
+          "shortcut": "Alt+Right",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "goToFile",
+          "label": "Ir para Arquivo…",
+          "shortcut": "Ctrl+E",
+          "disabled": true
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "next",
+          "label": "Próximo Editor",
+          "shortcut": "Ctrl+PageDown",
+          "disabled": true
+        },
+        {
+          "id": "previous",
+          "label": "Editor Anterior",
+          "shortcut": "Ctrl+PageUp",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "help",
+      "label": "Ajuda",
+      "items": [
+        {
+          "id": "guide",
+          "label": "Guia do Usuário",
+          "shortcut": "F1"
+        },
+        {
+          "separator": true
+        },
+        {
+          "id": "about",
+          "label": "Sobre o Folder Browser"
+        }
+      ]
+    }
+  ],
+  "paletteNothingOpen": [
+    {
+      "id": "Arquivo:newFile",
+      "label": "Novo Arquivo de Texto",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+N"
+    },
+    {
+      "id": "Arquivo:openFolder",
+      "label": "Abrir Pasta…",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+Shift+O"
+    },
+    {
+      "id": "Arquivo:open",
+      "label": "Abrir Arquivo…",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+O"
+    },
+    {
+      "id": "Arquivo:openZip",
+      "label": "Abrir Arquivo ZIP…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:Preferências: settings",
+      "label": "Preferências: Configurações",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+,"
+    },
+    {
+      "id": "Arquivo:exit",
+      "label": "Sair",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Exibir:palette",
+      "label": "Paleta de Comandos…",
+      "description": "Exibir",
+      "shortcut": "Ctrl+Shift+P"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: name",
+      "label": "Ordenar Arquivos Por: Nome",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: modified",
+      "label": "Ordenar Arquivos Por: Data de Modificação",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: size",
+      "label": "Ordenar Arquivos Por: Tamanho",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: ascending",
+      "label": "Ordenar Arquivos Por: Crescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: descending",
+      "label": "Ordenar Arquivos Por: Decrescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:hidden",
+      "label": "Mostrar Arquivos Ocultos",
+      "description": "Exibir",
+      "shortcut": "Ctrl+H"
+    },
+    {
+      "id": "Exibir:sidebar",
+      "label": "Alternar Barra Lateral",
+      "description": "Exibir",
+      "shortcut": "Ctrl+B"
+    },
+    {
+      "id": "Ajuda:guide",
+      "label": "Guia do Usuário",
+      "description": "Ajuda",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Ajuda:about",
+      "label": "Sobre o Folder Browser",
+      "description": "Ajuda"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Tema de Cores: Dark+",
+      "description": "Exibir"
+    },
+    {
+      "id": "theme:light",
+      "label": "Tema de Cores: Light+",
+      "description": "Exibir"
+    }
+  ],
+  "paletteTextFileOpen": [
+    {
+      "id": "Arquivo:newFile",
+      "label": "Novo Arquivo de Texto",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+N"
+    },
+    {
+      "id": "Arquivo:openFolder",
+      "label": "Abrir Pasta…",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+Shift+O"
+    },
+    {
+      "id": "Arquivo:open",
+      "label": "Abrir Arquivo…",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+O"
+    },
+    {
+      "id": "Arquivo:openZip",
+      "label": "Abrir Arquivo ZIP…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:save",
+      "label": "Salvar",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+S"
+    },
+    {
+      "id": "Arquivo:saveAll",
+      "label": "Salvar Tudo",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+Alt+S"
+    },
+    {
+      "id": "Arquivo:saveAsWsnp",
+      "label": "Salvar como .wsnp…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:savePdf",
+      "label": "Salvar como PDF…",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:print",
+      "label": "Imprimir…",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+P"
+    },
+    {
+      "id": "Arquivo:Preferências: settings",
+      "label": "Preferências: Configurações",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+,"
+    },
+    {
+      "id": "Arquivo:close",
+      "label": "Fechar Editor",
+      "description": "Arquivo",
+      "shortcut": "Ctrl+W"
+    },
+    {
+      "id": "Arquivo:closeAll",
+      "label": "Fechar Todos os Editores",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Arquivo:exit",
+      "label": "Sair",
+      "description": "Arquivo"
+    },
+    {
+      "id": "Editar:copy",
+      "label": "Copiar",
+      "description": "Editar",
+      "shortcut": "Ctrl+C"
+    },
+    {
+      "id": "Editar:find",
+      "label": "Localizar",
+      "description": "Editar",
+      "shortcut": "Ctrl+F"
+    },
+    {
+      "id": "Exibir:palette",
+      "label": "Paleta de Comandos…",
+      "description": "Exibir",
+      "shortcut": "Ctrl+Shift+P"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: name",
+      "label": "Ordenar Arquivos Por: Nome",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: modified",
+      "label": "Ordenar Arquivos Por: Data de Modificação",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: size",
+      "label": "Ordenar Arquivos Por: Tamanho",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: ascending",
+      "label": "Ordenar Arquivos Por: Crescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:Ordenar Arquivos Por: descending",
+      "label": "Ordenar Arquivos Por: Decrescente",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:hidden",
+      "label": "Mostrar Arquivos Ocultos",
+      "description": "Exibir",
+      "shortcut": "Ctrl+H"
+    },
+    {
+      "id": "Exibir:metadata",
+      "label": "Mostrar Metadados",
+      "description": "Exibir"
+    },
+    {
+      "id": "Exibir:sidebar",
+      "label": "Alternar Barra Lateral",
+      "description": "Exibir",
+      "shortcut": "Ctrl+B"
+    },
+    {
+      "id": "Ir:back",
+      "label": "Voltar",
+      "description": "Ir",
+      "shortcut": "Alt+Left"
+    },
+    {
+      "id": "Ir:forward",
+      "label": "Avançar",
+      "description": "Ir",
+      "shortcut": "Alt+Right"
+    },
+    {
+      "id": "Ir:goToFile",
+      "label": "Ir para Arquivo…",
+      "description": "Ir",
+      "shortcut": "Ctrl+E"
+    },
+    {
+      "id": "Ir:next",
+      "label": "Próximo Editor",
+      "description": "Ir",
+      "shortcut": "Ctrl+PageDown"
+    },
+    {
+      "id": "Ir:previous",
+      "label": "Editor Anterior",
+      "description": "Ir",
+      "shortcut": "Ctrl+PageUp"
+    },
+    {
+      "id": "Ajuda:guide",
+      "label": "Guia do Usuário",
+      "description": "Ajuda",
+      "shortcut": "F1"
+    },
+    {
+      "id": "Ajuda:about",
+      "label": "Sobre o Folder Browser",
+      "description": "Ajuda"
+    },
+    {
+      "id": "view:zoomIn",
+      "label": "Ampliar",
+      "description": "Exibir"
+    },
+    {
+      "id": "view:zoomOut",
+      "label": "Reduzir",
+      "description": "Exibir"
+    },
+    {
+      "id": "view:zoomReset",
+      "label": "Redefinir Zoom",
+      "description": "Exibir"
+    },
+    {
+      "id": "theme:dark",
+      "label": "Tema de Cores: Dark+",
+      "description": "Exibir"
+    },
+    {
+      "id": "theme:light",
+      "label": "Tema de Cores: Light+",
+      "description": "Exibir"
+    }
+  ]
+}"
+`;
