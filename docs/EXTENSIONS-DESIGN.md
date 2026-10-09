@@ -236,6 +236,8 @@ packages are release assets of the extension's own repository or of the catalog'
 | A repository source: a tag moved after review, a branch that changes under the user, a replaced archive | the install is pinned to a **commit hash**; the lock file records source, commit and tree hash; an update is shown as a diff between commits and confirmed; a tag that moved is reported |
 | A malicious or look-alike repository (`owner/repo` typo) | the warning shows the full repository URL, the commit and the publisher; nothing is trusted because of a name; the catalog's namespace rule applies only to the catalog |
 | Credentials for a private repository leaking | the application does not store tokens in `settings.json`: it asks the `gh` or Git credential helper or uses the system's key store (`safeStorage`); a token is never sent anywhere but the repository's host |
+| A dependency tree that hides an extension (a harmless layer that pulls a harmful one), a cycle, a duplicated API name, a dependency whose source changes | the install warning lists the **whole tree** (origin, version, publisher, signed or not, declared uses of each); cycles and duplicate names are install errors; the lock records the resolved tree with commits; an update shows who depends on what changed |
+| A call between extensions carrying a huge value, or a malformed one | the host mediates and validates every call as `unknown`; large data only as references; an inline size limit with a message |
 | Exfiltration by an extension | **not prevented** (accepted); the API itself sends nothing; the declared `network` is shown at install |
 | A busy loop, a memory bomb | the process is separate, the host stops it, the user can kill it, a safe mode |
 | UI spoofing (a panel that looks like the application's own dialog) | an extension's panel is labelled with its name and a "from an extension" mark; the application's own dialogs (the install warning among them) are never drawn by an extension |
@@ -262,6 +264,42 @@ The most complex items of `TODO.md` (a 7z or tar reader, an audio decoder, subti
 **Extension-shaped before the extension system exists.** The near-term items must not wait. Until the extension points are real, such a feature is written **as if it were an extension**: its own folder (`extensions/<id>/` with a `plugin.json` that already says its level and declared uses), its code reaching the application **only through an internal host interface shaped like the future API** (typed calls, no imports of the application's internals), its data in its own folder, its dependencies bundled with it, and its tests running against a **fake host**. Moving it into the box later is then a build step, not a rewrite.
 
 See "Extension-first" in `TODO.md` for which item goes where.
+
+## 9b. Plugins on plugins (the onion)
+
+**The owner's concept (2026-10-09):** "plugins on top of plugins, like an onion, where plugins can export an API of their own that other plugins can consume." An extension can **export a contract** and other extensions **depend on it**, in layers. The core is the centre; each layer uses the ones inside it.
+
+**The manifest.**
+```jsonc
+{
+  "id": "acme.pdf-pages",
+  "version": "1.2.0",
+  "exports": [
+    { "api": "pdf-pages", "version": "1.2.0", "types": "types/pdf-pages.d.ts" }   // name, semver, the contract as a .d.ts
+  ],
+  "dependsOn": [
+    { "api": "pdf-pages", "range": "^1.0.0",
+      "source": { "repo": "acme/pdf-pages", "ref": "v1.2.0", "commit": "9f3c…" } }   // the source may be a repository (§5b), the catalog or a file
+  ]
+}
+```
+`exports` lists the APIs this extension offers (a name, a semver version, the `.d.ts` of the contract inside the package). `dependsOn` lists the APIs it needs (the name, a semver range and **where to get it**; the source is the same as an install source, so a missing dependency can be fetched from a repository, §5b, or the catalog). The `uses` declaration (§3) is separate: it says what the extension itself touches.
+
+**Layers without cycles.** The host builds the graph from the manifests. Extensions load **in the order of their dependencies** (an inner layer starts before the one that needs it; it starts on demand, when a layer outside it activates). **A cycle is an install error** (it names the cycle). Two installed extensions may not export the same `api` name (an error that names both).
+
+**An exported API is a call mediated by the application.** Extensions run in **separate processes** (§4), so a call from one to another **goes through the host**: the consumer asks the host, the host finds the provider, forwards the call, returns the answer. Calls are **asynchronous and typed** by the contract; the host validates the shape of arguments and results as `unknown` (the same rule as every other call). **Large data pass as references, not as bytes**: a call carries a **file reference** (a path the API's guard knows, or a handle to a file or a stream the host holds), never a copy of the contents; a result that is big is likewise a reference to a (temporary) file or a stream. **Performance budget:** a 500-page PDF must never be copied between processes; a call that carries only small values adds under a millisecond locally beyond the process hop; the host limits the size of an inline value (a few hundred KB) and refuses more with a message that says to pass a reference. Cancellation and progress travel with the call.
+
+**Clear failure.** A missing, disabled or incompatible dependency **turns off the extension that depends on it**, with a message that says **what to install** (the API name, the range wanted, the source the manifest gave). Before removing, disabling or updating an extension that others depend on, the application **warns and lists them**, and the user chooses. Safe mode (§4) turns all off, layers included.
+
+**The install warning covers the whole tree.** Installing a layer shows **every extension it brings, transitively**: each one's origin (repository URL and commit, or catalog), version, publisher, signed or not, and declared uses, so the user confirms the whole tree at once. The **lock file** (§5b) records the **resolved tree** (every extension, its source and the commit installed, who depends on whom), so the same install reproduces on another computer. An update of one layer shows who depends on it and whether the contract's version changed.
+
+**Versions.** The exported contract is semver: **changing it in a way that breaks a consumer is a major-version change** (removing or renaming a method, changing a type, requiring a new argument); a new method is minor; a fix is patch. The host checks, before activating, that an installed provider's version satisfies the consumer's `range`; two consumers wanting incompatible majors of one API is a clear error (one provider version at a time in the first version, see the open questions).
+
+**Planned, not implemented now: intercepting calls.** Later, an extension may **wrap** another's exported call, in the style of the `next(e)` of Claude Code's mods: the outer layer receives the call, may change it, calls `next` and may change the result. **The risk is real**: an outer layer can break the inner ones (a changed argument, a swallowed error, a delay on every call, an order between two wrappers). So it is **not built in the first version**, but the contract format is made **compatible**: every exported method is an async function with a plain-data signature (so it can later be wrapped without changing the types), the provider's name and version travel with each call, and the manifest reserves an `"intercepts"` key that the validator **rejects for now**. When it is built: an explicit declaration, a fixed and visible order, a limit on depth, an activity-log line for each wrapped call, and the wrapped extension's author can see (and refuse) that it is wrapped.
+
+**The authoring kit covers it** (§10): `fb-plugin new --depends-on <api>` makes a skeleton with the dependency's `.d.ts` and a consumer stub; `validate` checks the exported contract against the `.d.ts`, the semver bump against the previous published contract, the ranges and the graph (cycles, duplicates); the `test` harness **simulates the dependency** (a fake provider built from the `.d.ts`, or a recorded one), so a layer can be tested **without the inner layers installed**; the guide has a chapter and a worked example for exporting and consuming.
+
+**The guide example.** A base extension `pdf-pages` (rotate, delete and reorder pages, the first real extension, phase 5) **exports** `pdf-pages` (operations on pages of a PDF, taking and returning file references). `pdf-merge` and `pdf-annotate` **depend on** `pdf-pages` and use its operations instead of reimplementing them. It also tests the onion: install `pdf-merge` from a repository and see the warning list `pdf-pages` too.
 
 ## 10. Authoring: zero entry cost
 
@@ -301,3 +339,4 @@ So the **authoring kit is part of the API, not an afterthought**: it is born tog
 6. **Installing from a repository** (§5b): how does the application authenticate to a **private** repository (reuse the `gh` or Git credential helper, the system's key store, or an access token pasted by the user)? How does it fetch without Git installed (the host's archive at a commit, with git-over-HTTPS as a fallback), and for hosts other than GitHub? How is the commit pinned and verified (the commit hash plus a hash of the tree in the lock file; what to do when a force-push removes the commit)? What is the `fb-marketplace.json` format exactly, and do we reuse Claude Code's `marketplace.json` shape field for field?
 7. **The word** in the interface: Extensions (the proposal) or Plugins.
 8. **The authoring kit** (§10): which agent(s) and how many ideas count as the acceptance test (the proposal: five one-sentence ideas of different kinds, a fresh agent each, all five working first time)? Are the skill and `AGENTS.md` shipped in the repository, in the application, or both? Is the `.d.ts` a separate npm package, and does `fb-plugin` become a package too (`npx fb-plugin new`)? How does "create from a sentence" work in `new` (a template picked by keywords, or the agent writes it and the tool only validates)? Does the development mode reload from an unpacked folder only?
+9. **The onion** (§9b): how are versions resolved when two consumers want different majors of one API (one provider version at a time and an error, or several side by side)? What happens to the layers outside when an inner layer is updated (the update shows the consumers and the contract's change; do consumers stay on until a check passes, or are they turned off until updated)? How is an outer layer tested without the inner ones (the fake provider generated from the `.d.ts`; how faithful must it be)? Where exactly is the line for a "large" inline value, and what is the reference type (a temporary file, a handle, a stream)? Does a dependency come with the install of the outer layer automatically after the warning, or does the user install each? Is `intercepts` worth building at all?
