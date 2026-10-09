@@ -31,6 +31,8 @@ export interface ShownSource {
   key: string
   language: Language
   detected: Language
+  /** A new text whose language its text chose (shown as "(detected)"). */
+  auto?: boolean
 }
 const slot = createGroupSlot<ShownSource>()
 export const shownSource = {

@@ -19,6 +19,21 @@ describe('DraftStore', () => {
     expect(store.put(text())).toBe(true)
     expect(store.get('/home/me/work', 'docs/a.txt')).toEqual(text())
   })
+  it('keeps the language of a new text and whether the user chose it; a draft without them (or with them wrong) is still valid', () => {
+    const untitled = { rootPath: '@untitled', path: 'u:1' }
+    store.put(text({ ...untitled, language: 'html', manual: true } as Partial<Draft>))
+    expect(store.get('@untitled', 'u:1')).toMatchObject({ language: 'html', manual: true })
+    store.put(text(untitled))
+    const old = store.get('@untitled', 'u:1') as { text: string; language?: string; manual?: boolean }
+    expect(old.text).toBe('unsaved words')
+    expect(old.language).toBeUndefined()
+    expect(old.manual).toBeUndefined()
+    store.put(text({ ...untitled, language: 5, manual: 'yes' } as unknown as Partial<Draft>))
+    const wrong = store.get('@untitled', 'u:1') as { text: string; language?: string; manual?: boolean }
+    expect(wrong.text).toBe('unsaved words')
+    expect(wrong.language).toBeUndefined()
+    expect(wrong.manual).toBeUndefined()
+  })
   it('replaces the draft of the same file, keeps the drafts of other files apart, and forgets one on request', () => {
     store.put(text())
     store.put(text({ text: 'newer' } as Partial<Draft>))

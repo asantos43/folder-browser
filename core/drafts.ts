@@ -18,6 +18,9 @@ export interface DraftMeta {
   /** Of a text draft: how its lines end and whether it has the byte order mark. */
   eol?: LineEnding
   bom?: boolean
+  /** Of a new text (Untitled-N): its language (a `Language` of `core/filekind.ts`) and whether the user chose it. A draft without them is plain text, not chosen. */
+  language?: string
+  manual?: boolean
   /** ISO 8601: when the draft was last written. */
   at: string
 }
@@ -71,6 +74,9 @@ export class DraftStore {
       const raw = JSON.parse(fs.readFileSync(path.join(this.dir, `${id}.json`), 'utf8')) as Partial<DraftMeta> & { text?: unknown }
       if (raw.version !== 1 || typeof raw.rootPath !== 'string' || typeof raw.path !== 'string' || (raw.kind !== 'text' && raw.kind !== 'bytes') || !isVersion(raw.base) || typeof raw.at !== 'string') return null
       if (raw.kind === 'text' && typeof raw.text !== 'string') return null
+      // The optional fields of a new text: whatever is not of the right type is let go (the draft stays valid).
+      if (typeof raw.language !== 'string' || raw.language.length > 40) delete raw.language
+      if (typeof raw.manual !== 'boolean') delete raw.manual
       return raw as DraftMeta & { text?: string }
     } catch {
       return null

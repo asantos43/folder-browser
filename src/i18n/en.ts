@@ -508,6 +508,7 @@ export const en = {
   'text.language.markdown': 'Markdown',
   'text.language.yaml': 'YAML',
   'text.language.plain': 'Plain Text',
+  'text.languageDetected': '{language} (detected)',
   'text.language.python': "Python",
   'text.language.c': "C",
   'text.language.cpp': "C++",

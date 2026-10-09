@@ -1,3 +1,4 @@
+import type { EditorView } from '@codemirror/view'
 import { FORMATTABLE, type Language } from '@core/filekind.ts'
 
 /** A file bigger than this is shown as it is: laying out megabytes of minified code would freeze the tab. */
@@ -40,4 +41,16 @@ export async function formatSource(text: string, language: Language): Promise<st
   } catch {
     return text
   }
+}
+
+/** Lays the text of an editor out for reading, as an edit (undo brings it back); the caret stays where it was as far as the new text reaches. */
+export async function formatEditor(editor: EditorView, language: Language, current: () => EditorView | null = () => editor): Promise<void> {
+  const source = editor.state.doc.toString()
+  if (!canFormat(language, source.length)) return
+  const formatted = await formatSource(source, language)
+  const now = current()
+  if (formatted === source || !now) return
+  const head = Math.min(now.state.selection.main.head, formatted.length)
+  now.dispatch({ changes: { from: 0, to: now.state.doc.length, insert: formatted }, selection: { anchor: head }, userEvent: 'input.format' })
+  now.focus()
 }
