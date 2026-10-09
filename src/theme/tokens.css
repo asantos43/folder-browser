@@ -109,6 +109,8 @@
   --wsnp-line-number-active: #c6c6c6;
   --wsnp-line-highlight: #ffffff0a;
   --wsnp-selection: #264f78;
+  /* The selection of a PDF: the text layer is invisible over the page drawn by the canvas, and an opaque colour paints opaque blocks over the glyphs; this is `--wsnp-selection` at 40 % so the page shows through. */
+  --wsnp-pdf-selection: #264f7866;
   /* The line between the Explorer and the editors, and between two editor groups (the Settings choose another colour). Visible on the black of Dark+. */
   --wsnp-divider: #3c3c3c;
   --wsnp-find-match: #ea5c0055;
@@ -218,6 +220,7 @@
   --wsnp-line-number-active: #0b216f;
   --wsnp-line-highlight: #0000000a;
   --wsnp-selection: #add6ff;
+  --wsnp-pdf-selection: #add6ff66;
   --wsnp-divider: transparent;
   --wsnp-find-match: #ea5c0055;
   --wsnp-find-current: #a8ac94;
