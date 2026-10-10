@@ -160,6 +160,11 @@ export function resetSettings(definitions: readonly SettingDefinition[]): void {
   if (bridge) for (let offset = 0; offset < definitions.length; offset += 100) bridge.reset(definitions.slice(offset, offset + 100).map(d => d.id))
 }
 
+/** Settle the renderer batch before exporting, previewing or replacing settings. */
+export function flushSettingChanges(): void {
+  if (pending.size) sendNow()
+}
+
 const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean'
 
 /** Long lines of a text file wrap at the edge of the window (VS Code's Word Wrap, Alt+Z). Off by default, as in VS Code. */

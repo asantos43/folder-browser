@@ -15,6 +15,7 @@ beforeEach(() => {
   values = {}
   settings = {
     all: vi.fn(() => ({ ...values })), notices: () => [], set: vi.fn(), reset: vi.fn(),
+    export: vi.fn(), previewImport: vi.fn(), applyImport: vi.fn(), resetAll: vi.fn(), showFile: vi.fn(),
     onChanged: vi.fn((cb) => { changed = cb; return () => {} }),
   }
   window.fb = { settings } as FbApi
@@ -33,6 +34,16 @@ it('reads the initial bridge once and validates invalid values', async () => {
   expect(wordWrap.get()).toBe(true)
   expect(showHidden.get()).toBe(false)
   expect(settings.all).toHaveBeenCalledTimes(1)
+})
+
+it('settles the pending renderer batch before a portable operation', async () => {
+  const { wordWrap, flushSettingChanges } = await import('./setting.ts')
+  wordWrap.set(true); wordWrap.set(false)
+  expect(settings.set).toHaveBeenCalledTimes(1)
+  flushSettingChanges()
+  expect(settings.set).toHaveBeenLastCalledWith([['editor.wordWrap', false]])
+  vi.advanceTimersByTime(100)
+  expect(settings.set).toHaveBeenCalledTimes(2)
 })
 
 it('reset uses the bridge and cancels an older queued value so it cannot resurrect the modification', async () => {

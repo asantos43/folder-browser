@@ -1,7 +1,9 @@
 import { memo, useDeferredValue, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import type { MessageKey, Translate } from '@/i18n/index.ts'
-import { resetSettings, settingFor } from '@/state/setting.ts'
+import { resetSettings, settingFor, flushSettingChanges } from '@/state/setting.ts'
+import { ConfirmDialog } from '@/components/ConfirmDialog.tsx'
+import type { SettingsPortableResult } from '@core/api.ts'
 import type { ThemeSetting } from '@/theme/theme.ts'
 import { settingsRegistry, type SettingDefinition } from '@core/settings/registry.ts'
 import '@core/settings/builtin.ts'
@@ -91,8 +93,36 @@ export function SettingsView(_props: { theme: ThemeSetting; setTheme: (theme: Th
   const [query, setQuery] = useState('')
   const deferredQuery = useDeferredValue(query)
   const [onlyModified, setOnlyModified] = useState(false)
+  const [preview, setPreview] = useState<Extract<SettingsPortableResult, { preview: unknown }> | undefined>()
+  const [safety, setSafety] = useState(false)
+  const [reset, setReset] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const run = async (action: () => Promise<SettingsPortableResult>) => {
+    setBusy(true); setError(''); flushSettingChanges()
+    try {
+      const result = await action()
+      if ('error' in result) setError(result.error)
+      if ('preview' in result) { setPreview(result); setSafety(false) }
+    } catch (cause) { setError(String(cause)) }
+    finally { setBusy(false) }
+  }
+  const apply = () => {
+    const pending = preview!
+    setPreview(undefined); setSafety(false)
+    void run(() => window.fb!.settings.applyImport(pending.token, true, pending.needsConfirm))
+  }
   return <div data-settings-page aria-label={t('settings.title')} className="h-full min-h-0 flex-1 overflow-auto bg-editor p-6 text-editor-fg select-text">
     <div className="mx-auto max-w-[720px]">
+      <div role="toolbar" aria-label={t('settings.title')} className="mb-5 flex flex-wrap gap-2">
+        <button className={control} disabled={busy || !window.fb?.settings} onClick={() => void run(() => window.fb!.settings.export())}>{t('settings.export')}</button>
+        <button className={control} disabled={busy || !window.fb?.settings} onClick={() => void run(() => window.fb!.settings.previewImport())}>{t('settings.import')}</button>
+        <button className={control} disabled={busy || !window.fb?.settings} onClick={() => setReset(true)}>{t('settings.resetAll')}</button>
+        <button className={control} disabled={busy || !window.fb?.settings} onClick={() => void run(() => window.fb!.settings.showFile())}>{t('settings.showFile')}</button>
+      </div>
+      {error ? <p role="alert">{t('settings.portableError', { message: error })}</p> : null}
+      {preview ? <ConfirmDialog danger title={safety ? t('settings.safetyTitle') : t('settings.importSummary')} message={safety ? t('settings.safetyConfirm') : preview.preview.changes.length ? t('settings.importHint') : t('settings.noChanges')} details={!safety ? <ul className="m-0 max-h-[45vh] overflow-auto pl-5 select-text">{preview.preview.changes.map(change => <li key={change.id}>{`${change.id}: ${JSON.stringify(change.before) ?? '—'} → ${JSON.stringify(change.after)}`}{change.reason ? ` (${t(change.reason === 'Unknown setting' ? 'settings.unknown' : 'settings.invalid')})` : ''}</li>)}</ul> : null} hint={preview.needsConfirm && !safety ? t('settings.safetyConfirm') : undefined} confirmLabel={t('settings.apply')} onCancel={() => { setPreview(undefined); setSafety(false) }} onConfirm={() => preview.needsConfirm && !safety ? setSafety(true) : apply()} /> : null}
+      {reset ? <ConfirmDialog danger title={t('settings.resetAll')} message={t('settings.resetAllConfirm')} confirmLabel={t('settings.resetAll')} onCancel={() => setReset(false)} onConfirm={() => { setReset(false); void run(() => window.fb!.settings.resetAll(true)) }} /> : null}
       <input type="search" aria-label={t('settings.search')} placeholder={t('settings.search')} value={query} onChange={event => setQuery(event.target.value)} className={`${control} mb-5 w-full`} />
       <label className="mb-5 flex items-center gap-2"><input type="checkbox" role="switch" checked={onlyModified} onChange={event => setOnlyModified(event.target.checked)} />{t('settings.onlyModified')}</label>
       <SettingsList entries={entries} query={deferredQuery} onlyModified={onlyModified} values={values} />
