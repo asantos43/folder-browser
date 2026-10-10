@@ -2,6 +2,20 @@ import type { MessageKey } from './en.ts'
 
 /** Português do Brasil: as mesmas chaves do inglês (o tipo confere). */
 export const ptBR: Record<MessageKey, string> = {
+  "settings.export": "Exportar…",
+  "settings.import": "Importar…",
+  "settings.resetAll": "Restaurar tudo…",
+  "settings.showFile": "Mostrar arquivo de configurações",
+  "settings.importSummary": "Resumo da importação",
+  "settings.noChanges": "Nenhuma mudança.",
+  "settings.importHint": "Chaves desconhecidas e valores inválidos são ignorados. Só as mudanças válidas listadas serão aplicadas.",
+  "settings.safetyTitle": "Confirmar mudanças de segurança",
+  "settings.safetyConfirm": "Esta importação altera opções de segurança. Confirme essas mudanças explicitamente antes de aplicar.",
+  "settings.apply": "Aplicar",
+  "settings.unknown": "Chave desconhecida; ignorada",
+  "settings.invalid": "Valor inválido; ignorado",
+  "settings.resetAllConfirm": "Restaurar todas as configurações registradas ao padrão?",
+  "settings.portableError": "Falha na operação de configurações: {message}",
   'settings.svgView': 'SVG',
   'settings.csvView': 'CSV / TSV',
   'settings.markdownView': 'Markdown',

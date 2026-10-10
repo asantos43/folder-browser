@@ -1,4 +1,5 @@
 import type { OpError, OpResult } from './fs/ops.ts'
+import type { ImportPreview } from './settings/portable.ts'
 import type { Draft } from './drafts.ts'
 import type { EditBytesOpen, EditError, EditOpen, EditSave, FileVersion, LineEnding } from './fs/edit.ts'
 import type { ExtractResult } from './extract.ts'
@@ -84,9 +85,10 @@ export interface AppInfo {
 export type MediaOpen = { token: string; url: string; kind: 'video' | 'audio'; mime: string; size: number } | { error: 'no-file' | 'too-large' | 'unsupported' }
 
 export type SettingsNotice = { id: string; message: string }
+export type SettingsPortableResult = { error: string } | { canceled: true } | { changed: string[] } | { preview: ImportPreview; token: number; needsConfirm: boolean }
 export interface FbApi {
   keys: { get(): import('./keys/user.ts').KeysSnapshot; set(entries: readonly import('./keys/user.ts').UserKey[]): void; onChanged(listener: (snapshot: import('./keys/user.ts').KeysSnapshot) => void): () => void }
-  settings: { all(): Record<string, unknown>; notices(): readonly SettingsNotice[]; set(pairs: readonly (readonly [string, unknown])[]): void; reset(ids: readonly string[]): void; onChanged(listener: (ids: readonly string[]) => void): () => void }
+  settings: { all(): Record<string, unknown>; notices(): readonly SettingsNotice[]; set(pairs: readonly (readonly [string, unknown])[]): void; reset(ids: readonly string[]): void; export(): Promise<SettingsPortableResult>; previewImport(): Promise<SettingsPortableResult>; applyImport(token: number, confirmed: boolean, safetyConfirmed: boolean): Promise<SettingsPortableResult>; resetAll(confirmed: boolean): Promise<SettingsPortableResult>; showFile(): Promise<SettingsPortableResult>; onChanged(listener: (ids: readonly string[]) => void): () => void }
   platform: string
   /** The colours of the title bar (the native window buttons are drawn with them on Windows and Linux). */
   setTitleBar(colors: { color: string; symbolColor: string }): void

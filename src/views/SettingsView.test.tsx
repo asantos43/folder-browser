@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { settingsRegistry, type SettingInput } from '@core/settings/registry.ts'
 import { builtinSettings } from '@core/settings/builtin.ts'
 import { settingFor } from '@/state/setting.ts'
@@ -17,7 +17,7 @@ function page() { return render(<I18nProvider language="en"><SettingsView theme=
 const row = (id: string) => document.querySelector(`[data-setting="${id}"]`) as HTMLElement
 const search = (query: string) => fireEvent.change(screen.getByRole('searchbox'), { target: { value: query } })
 beforeEach(() => { for (const d of settingsRegistry.all()) settingFor(d).reset() })
-afterEach(() => { cleanup(); removals.splice(0).forEach(remove => remove()) })
+afterEach(() => { cleanup(); removals.splice(0).forEach(remove => remove()); vi.unstubAllGlobals() })
 
 it('generates all 17 builtins and one editable control for each declared type', () => {
   const definitions: SettingInput[] = [
@@ -105,5 +105,55 @@ it('declares translated labels/descriptions and choice/category keys for all bui
       expect(ptBR[key as keyof typeof ptBR], key).toBeTruthy()
     }
   }
+})
+
+it('shows the import summary before applying, asks again for safety, and confirms reset', async () => {
+  const api = {
+    export: vi.fn(async () => ({ changed: [] })), showFile: vi.fn(async () => ({ changed: [] })),
+    previewImport: vi.fn(async () => ({ token: 7, needsConfirm: true, preview: { changes: [
+      { id: 'guard:enabled', before: false, after: true, needsConfirm: true },
+      { id: 'unknown:key', after: 2, reason: 'Unknown setting', needsConfirm: false },
+      { id: 'appearance.theme', before: 'auto', after: 42, reason: 'Invalid value', needsConfirm: false },
+    ] } })),
+    applyImport: vi.fn(async () => ({ changed: ['guard:enabled'] })), resetAll: vi.fn(async () => ({ changed: [] })),
+  }
+  vi.stubGlobal('fb', { settings: api })
+  page()
+  fireEvent.click(screen.getByRole('button', { name: 'Export…' }))
+  await vi.waitFor(() => expect(api.export).toHaveBeenCalledOnce())
+  await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Import…' }).hasAttribute('disabled')).toBe(false))
+  fireEvent.click(screen.getByRole('button', { name: 'Show Settings File' }))
+  await vi.waitFor(() => expect(api.showFile).toHaveBeenCalledOnce())
+  await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Import…' }).hasAttribute('disabled')).toBe(false))
+  fireEvent.click(screen.getByRole('button', { name: 'Import…' }))
+  await screen.findByRole('alertdialog', { name: 'Import summary' })
+  expect(screen.getByText(/guard:enabled: false → true/)).toBeTruthy()
+  expect(screen.getByText(/Unknown setting; skipped/)).toBeTruthy()
+  expect(screen.getByText(/Invalid value; skipped/)).toBeTruthy()
+  expect(api.applyImport).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  expect(screen.getByRole('alertdialog', { name: 'Confirm safety changes' })).toBeTruthy()
+  expect(api.applyImport).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(api.applyImport).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Import…' }))
+  await screen.findByRole('alertdialog', { name: 'Import summary' })
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' })); fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  await vi.waitFor(() => expect(api.applyImport).toHaveBeenCalledWith(7, true, true))
+  await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Reset All…' }).hasAttribute('disabled')).toBe(false))
+  fireEvent.click(screen.getByRole('button', { name: 'Reset All…' }))
+  expect(api.resetAll).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(api.resetAll).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Reset All…' }))
+  fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Reset All…' }))
+  await vi.waitFor(() => expect(api.resetAll).toHaveBeenCalledWith(true))
+})
+
+it('keeps portable command translations in parity', () => {
+  for (const key of Object.keys(en).filter(key => key.startsWith('settings.'))) {
+    expect(ptBR[key as keyof typeof en], key).toBeTruthy()
+  }
+  expect(Object.keys(en).sort()).toEqual(Object.keys(ptBR).sort())
 })
 
