@@ -21,11 +21,21 @@ function setPlatform(value: typeof platforms[number]) {
   Object.defineProperty(window, 'fb', { configurable: true, value: { platform: value } })
 }
 const noop = () => {}
+it('File install command uses the same handler and translates in both languages', () => {
+  for (const language of languages) {
+    const c = commandsWith(false), calls: string[] = []; c.installPlugin = () => { calls.push('install') }
+    const menu = MENUS.find(menu => menu.id === 'file')!.entries(translator(language), c)
+    const entry = menu.find(item => !('separator' in item) && item.id === 'installPlugin')
+    expect(entry && !('separator' in entry) && entry.label).toBe(translator(language)('plugins.install'))
+    if (entry && !('separator' in entry)) entry.run?.()
+    expect(calls).toEqual(['install'])
+  }
+})
 /** Every flag of the context on or off; `recent` is the one the menu turns into `hasRecent`. */
 function commandsWith(on: boolean, only?: string): Commands {
   const flag = (key: string) => only === undefined ? on : only === key
   return {
-    toggleSideBar: noop, setTheme: noop, openFile: noop, newFile: noop, openFolder: noop, openZip: noop, openGuide: noop, toggleHidden: noop,
+    toggleSideBar: noop, setTheme: noop, openFile: noop, newFile: noop, openFolder: noop, openZip: noop, installPlugin: noop, openGuide: noop, toggleHidden: noop,
     showHidden: false, sortKey: 'name', sortDescending: false, setSortKey: noop, setSortDescending: noop, print: noop, savePdf: noop, saveAsWsnp: noop,
     quickOpen: noop, commandPalette: noop, goBack: noop, goForward: noop, copy: noop, find: noop, openRecent: noop, clearRecent: noop, closeEditor: noop, closeAll: noop,
     save: noop, saveAll: noop, canSave: flag('canSave'), canSaveAll: flag('canSaveAll'), nextEditor: noop, previousEditor: noop, showMetadata: noop, openSettings: noop, showAbout: noop,

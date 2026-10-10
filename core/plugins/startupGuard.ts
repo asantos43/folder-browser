@@ -65,7 +65,13 @@ export function violations(files: FileRecord[]): string[] {
     if (path.startsWith('core/plugins/')) continue
     const imports = classifyImports(source)
     for (const { specifier, kind } of imports) {
+      // Only the first authorized IPC request in main reaches the Electron shell.
+      // Its sole runtime core-plugin dependency is the install-time host facade.
+      if (/(?:^|\/)plugins-host(?:\.ts)?$/.test(specifier) && kind !== 'type') {
+        if (path !== 'electron/main.ts' || kind !== 'dynamic') out.push(`${path}: eager or unauthorized plugin shell import`)
+      }
       if (PLUGIN_HOST_PATH.test(specifier) && kind !== 'type') {
+        if (path === 'electron/plugins-host.ts' && specifier === '../core/plugins/host.ts') continue
         // `import type` is erased by the compiler. Anything else (static, dynamic, require)
         // reaches the host at run time: only the panel UI may do it, and only for the
         // pure contract (`summary.ts`), never for the package reader, the settings or the IPC.

@@ -2,11 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type { InstallOutcome, PluginSummary, PluginsApi, RemoveOptions } from '@core/plugins/summary.ts'
 
 /**
- * Provided by the host at the top of the interface once the preload exposes `window.fb.plugins`.
- * Without a provider, the panel shows "Plugins are not available in this build".
- * 2.5: provide window.fb.plugins here
+ * Uses the real preload by default. A provider can override it for component tests.
+ * An explicit undefined provider preserves the unavailable-build state.
  */
-const PluginsApiContext = createContext<PluginsApi | undefined>(undefined)
+const PluginsApiContext = createContext<PluginsApi | undefined | null>(null)
 
 export function PluginsProvider({ value, children }: { value: PluginsApi | undefined; children: ReactNode }) {
   return <PluginsApiContext.Provider value={value}>{children}</PluginsApiContext.Provider>
@@ -18,6 +17,7 @@ export interface PluginsActions {
   remove(id: string, opts: RemoveOptions): Promise<void>
   openFolder(id: string): Promise<void>
   install(): Promise<InstallOutcome>
+  installPaths(paths: string[]): Promise<InstallOutcome>
 }
 
 export interface PluginsState {
@@ -25,6 +25,7 @@ export interface PluginsState {
   available: boolean
   items: PluginSummary[]
   loading: boolean
+  error: string | null
   refresh(): Promise<void>
   actions: PluginsActions
 }
@@ -35,6 +36,7 @@ const NOOP_ACTIONS: PluginsActions = {
   remove: async () => {},
   openFolder: async () => {},
   install: async () => ({ cancelled: true }),
+  installPaths: async () => ({ cancelled: true }),
 }
 
 /**
@@ -43,9 +45,11 @@ const NOOP_ACTIONS: PluginsActions = {
  * the page stays cheap when the host batches.
  */
 export function usePlugins(): PluginsState {
-  const api = useContext(PluginsApiContext)
+  const provided = useContext(PluginsApiContext)
+  const api = provided === null ? window.fb?.plugins : provided
   const [items, setItems] = useState<PluginSummary[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const inFlight = useRef(false)
   const dirty = useRef(false)
   const scheduled = useRef<number | null>(null)
@@ -56,6 +60,9 @@ export function usePlugins(): PluginsState {
     try {
       const next = await api.list()
       setItems(next)
+      setError(null)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
       setLoading(false)
     }
@@ -90,7 +97,7 @@ export function usePlugins(): PluginsState {
   }, [api, refresh])
 
   if (!api) {
-    return { available: false, items: [], loading: false, refresh: async () => {}, actions: NOOP_ACTIONS }
+    return { available: false, items: [], loading: false, error: null, refresh: async () => {}, actions: NOOP_ACTIONS }
   }
   const actions: PluginsActions = {
     setEnabled: (id, enabled) => api.setEnabled(id, enabled),
@@ -98,6 +105,7 @@ export function usePlugins(): PluginsState {
     remove: (id, opts) => api.remove(id, opts),
     openFolder: (id) => api.openFolder(id),
     install: () => api.install(),
+    installPaths: paths => api.installPaths(paths),
   }
-  return { available: true, items, loading, refresh, actions }
+  return { available: true, items, loading, error, refresh, actions }
 }

@@ -49,7 +49,7 @@ function fakeApi(overrides: Partial<{ items: PluginSummary[], installResult: Ins
   const listeners = new Set<() => void>()
   const onChange = (cb: () => void) => { listeners.add(cb); return () => { listeners.delete(cb) } }
   return {
-    api: { list, setEnabled, remove, disableAll, openFolder, install, onChange },
+    api: { list, setEnabled, remove, disableAll, openFolder, install, installPaths: install, onChange },
     list, setEnabled, remove, disableAll, openFolder, install, listeners,
     fireChange: () => listeners.forEach(l => l()),
   }
@@ -67,6 +67,34 @@ beforeEach(() => {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+
+it('drops packages and folders through preload disk paths and prevents opening them as normal files', async () => {
+  const fake = fakeApi({ installResult: { ok: true, id: 'acme.demo' } })
+  const pathForFile = vi.fn((file: File) => `/drop/${file.name}`)
+  vi.stubGlobal('fb', { pathForFile })
+  page(fake.api)
+  const listener = vi.fn(); window.addEventListener('drop', listener)
+  try {
+    fireEvent.drop(screen.getByRole('region', { name: 'Plugins' }), { dataTransfer: { types: ['Files'], files: [new File(['zip'], 'sample.fbplugin'), new File([], 'folder')] } })
+    await vi.waitFor(() => expect(fake.api.installPaths).toHaveBeenCalledWith(['/drop/sample.fbplugin', '/drop/folder']))
+    expect(pathForFile).toHaveBeenCalledTimes(2); expect(listener).not.toHaveBeenCalled()
+  } finally { window.removeEventListener('drop', listener) }
+})
+
+it('shows a short drop refusal and keeps the install button usable', async () => {
+  const fake = fakeApi({ installResult: { ok: false, code: 'plugins.path.invalid', message: 'Choose a plugin file.' } })
+  vi.stubGlobal('fb', { pathForFile: () => '/drop/wrong.txt' }); page(fake.api)
+  fireEvent.drop(screen.getByRole('region', { name: 'Plugins' }), { dataTransfer: { types: ['Files'], files: [new File([], 'wrong.txt')] } })
+  await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Choose a plugin file.'))
+  await vi.waitFor(() => expect((screen.getByRole('button', { name: 'Install Plugin from File…' }) as HTMLButtonElement).disabled).toBe(false))
+})
+
+it('shows compiler notices after installation without claiming to apply contributions', async () => {
+  const fake = fakeApi({ installResult: { ok: true, id: 'acme.demo', notices: [{ code: 'compile.locale.unknown', message: 'Unknown locale key.' }] } })
+  page(fake.api); fireEvent.click(screen.getByRole('button', { name: 'Install Plugin from File…' }))
+  await vi.waitFor(() => expect(screen.getByRole('status').textContent).toContain('Unknown locale key.'))
+  expect(screen.getByText(/Their contributions will be applied in a later version/)).toBeTruthy()
+})
 
 it('shows the "not available" message when no provider is set', () => {
   page()
@@ -202,6 +230,7 @@ it('shows the install refusal in plain words, and shows nothing when the user ca
   await vi.waitFor(() => expect(text(screen.getByRole('alert'))).toContain('Could not install: not a valid package'))
   // A successful install clears the previous error.
   fake.install.mockResolvedValueOnce({ ok: true, id: 'new.id' })
+  await vi.waitFor(() => expect((screen.getByRole('button', { name: 'Install Plugin from File…' }) as HTMLButtonElement).disabled).toBe(false))
   fireEvent.click(screen.getByRole('button', { name: 'Install Plugin from File…' }))
   await vi.waitFor(() => expect(fake.install).toHaveBeenCalledTimes(3))
   await vi.waitFor(() => expect(screen.queryByRole('alert')).toBeNull())

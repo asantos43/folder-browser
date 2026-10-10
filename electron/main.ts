@@ -12,6 +12,7 @@ import { flushBeforeQuit, SettingsHost } from './settings-host.ts'
 import { KeysHost } from './keys-host.ts'
 import { registerScheme } from './snapshot-view.ts'
 import { createMainWindow } from './window.ts'
+import type { PluginsHost } from './plugins-host.ts'
 
 // Both the interface (fb-ui://) and the snapshots (wsnp://) are custom schemes: registered before the app is ready.
 registerScheme()
@@ -28,6 +29,8 @@ if (process.argv.includes('--app-version')) {
   let host: SnapshotHost | undefined
   let settingsHost: SettingsHost | undefined
   let keysHost: KeysHost | undefined
+  // The shell and every core/plugins module stay in a separate lazy bundle.
+  let pluginsHost: Promise<PluginsHost> | undefined
   const early: string[] = pathsToOpen(userArgs(process.argv, app.isPackaged, app.getAppPath(), process.cwd()), process.cwd())
 
   // macOS gives files through this event, also before the app is ready.
@@ -55,11 +58,24 @@ if (process.argv.includes('--app-version')) {
     // Changes not saved are kept here (a hot exit); the ones nobody came back to for three months go.
     const drafts = new DraftStore(path.join(app.getPath('userData'), 'drafts'))
     drafts.prune(90)
-    host = new SnapshotHost(new RecentFiles(path.join(app.getPath('userData'), 'recent-files.json')), new SignerStore(path.join(app.getPath('userData'), 'trusted-signers.json')), new SessionStore(path.join(app.getPath('userData'), 'session.json')), { recentFolders: new RecentFiles(path.join(app.getPath('userData'), 'recent-folders.json')), favorites: new FavoriteFolders(path.join(app.getPath('userData'), 'favorites.json')), drafts })
+    const signers = new SignerStore(path.join(app.getPath('userData'), 'trusted-signers.json'))
+    host = new SnapshotHost(new RecentFiles(path.join(app.getPath('userData'), 'recent-files.json')), signers, new SessionStore(path.join(app.getPath('userData'), 'session.json')), { recentFolders: new RecentFiles(path.join(app.getPath('userData'), 'recent-folders.json')), favorites: new FavoriteFolders(path.join(app.getPath('userData'), 'favorites.json')), drafts })
     host.configureRunner(app.getPath('userData'), () => settingsHost?.store.get('files.openWithCommands') ?? [])
     host.registerIpc(() => win)
     settingsHost = new SettingsHost(app.getPath('userData'), ipcMain, () => BrowserWindow.getAllWindows())
     settingsHost.register()
+    for (const channel of ['list', 'set-enabled', 'remove', 'disable-all', 'open-folder', 'install', 'install-paths'] as const) {
+      ipcMain.handle(`fb:plugins-${channel}`, async (event, ...args: unknown[]) => {
+        const owner = BrowserWindow.getAllWindows().find(item => item.webContents === event.sender)
+        if (!owner || event.senderFrame !== event.sender.mainFrame || !event.senderFrame?.url.startsWith('fb-ui://')) throw new Error('This page cannot manage plugins.')
+        pluginsHost ??= import('./plugins-host.ts').then(({ PluginsHost, systemPluginDialogs, pluginTranslator }) => {
+          const t = pluginTranslator(app.getLocale())
+          return new PluginsHost({ userData: app.getPath('userData'), appVersion: app.getVersion(), registry: settingsHost!.registry, store: settingsHost!.store, signerStore: signers },
+            ipcMain, () => BrowserWindow.getAllWindows(), systemPluginDialogs(t, !app.isPackaged && process.env.FB_PLUGIN_TEST === '1'), t)
+        }).catch(error => { pluginsHost = undefined; throw error })
+        return (await pluginsHost).handle(event, channel, args)
+      })
+    }
     flushBeforeQuit(app, settingsHost)
     keysHost = new KeysHost(app.getPath('userData'), ipcMain, () => BrowserWindow.getAllWindows(), process.platform === 'darwin', () => installMenu(command => win?.webContents.send('fb:command', command)))
     keysHost.register()

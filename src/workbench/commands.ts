@@ -19,6 +19,7 @@ export interface Commands {
   openFolder: () => void
   /** Asks for a ZIP file to browse (the folder picker of Linux and Windows cannot choose a file). */
   openZip: () => void
+  installPlugin: () => void
   /** Opens the user guide in a tab. */
   openGuide: () => void
   toggleHidden: () => void
@@ -115,7 +116,7 @@ function registeredEntry(id: BuiltinCommandId, t: Translate, c: Commands): MenuE
   const available = registry.available(contextOf(c)).some((command) => command.id === id)
   const keyLabel = effectiveKeyTable(isMac()).shortcut(id)
   const actions: Partial<Record<BuiltinCommandId, () => void>> = {
-    newFile: c.newFile, openFolder: c.openFolder, openFile: c.openFile, openZip: c.openZip, clearRecent: c.clearRecent,
+    newFile: c.newFile, openFolder: c.openFolder, openFile: c.openFile, openZip: c.openZip, installPlugin: c.installPlugin, clearRecent: c.clearRecent,
     save: c.save, saveAll: c.saveAll, saveAsWsnp: c.saveAsWsnp, savePdf: c.savePdf, print: c.print,
     openSettings: c.openSettings, closeEditor: c.closeEditor, closeAll: c.closeAll, copy: c.copy, find: c.find,
     commandPalette: c.commandPalette, toggleHidden: c.toggleHidden, toggleSideBar: c.toggleSideBar, goBack: c.goBack,

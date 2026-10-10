@@ -236,6 +236,8 @@ The first entry gives **Hide / show the side bar** the key `Ctrl+Alt+J` (`Ctrl` 
 
 ## Settings, Help and About
 
+**Settings ▸ Plugins** or **File ▸ Install Plugin from File…** installs a local `.fbplugin` file or unpacked plugin folder after confirmation; you can also drop either on the Plugins page, enable/disable, open its folder or remove it keeping/deleting its settings, but contributions are not applied yet.
+
 ![The Settings tab](images/settings.png)
 
 **Settings** (the gear in the activity bar, **File ▸ Preferences ▸ Settings**, or `Ctrl+,`) opens in a tab with a box that filters them: **Color Theme** (Dark+, Light+ or Auto), **Divider Line Colour** (the line between the Explorer and the editors, and between two editor groups: the theme's own, or a colour you pick), **Display Language** (English, Brazilian Portuguese or automatic), whether to **reopen what was open**, **Show hidden files**, and for source files **Word Wrap** and **Format source files**. The other choices (Markdown, SVG, CSV, the sort order and comparisons) also appear here and remain available where they are used. Settings are kept on your computer, in the application's own folder, and nowhere else: see [`../PRIVACY.md`](../PRIVACY.md).

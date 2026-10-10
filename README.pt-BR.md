@@ -30,6 +30,8 @@ Ele **não** pretende substituir um editor ou uma IDE para um projeto inteiro: p
 
 ## O que faz
 
+**Configurações ▸ Plugins** e **Arquivo ▸ Instalar Plugin de um Arquivo…** instalam e gerenciam arquivos `.fbplugin` locais ou pastas descompactadas de plugins; as contribuições ainda não são aplicadas.
+
 | | |
 | --- | --- |
 | **Lugares** | Uma barra lateral com **Home, Documentos, Downloads, Música, Imagens, Vídeos, Área de trabalho, Lixeira**, suas **pastas recentes** e suas **pastas favoritas** (arraste uma pasta para fixá-la). |

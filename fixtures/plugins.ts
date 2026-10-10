@@ -1,5 +1,7 @@
 import { createHash, sign, type KeyObject } from 'node:crypto'
 import { writeZip } from '../core/archive/writer.ts'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 
 /** Synthetic plugin data only. No real files, processes or network. */
 export function minimalManifest() {
@@ -8,6 +10,27 @@ export function minimalManifest() {
 }
 
 export interface KeyPair { publicKey: KeyObject; privateKey: KeyObject }
+/** Materialise synthetic unpacked data, shared by host and real-boundary tests. */
+export async function buildPluginFolder(dir: string, options: Parameters<typeof buildPlugin>[0] = {}) {
+  const fixture = await buildPlugin(options)
+  for (const entry of fixture.entries) {
+    const file = path.join(dir, entry.name)
+    await fs.mkdir(path.dirname(file), { recursive: true })
+    await fs.writeFile(file, entry.data)
+  }
+  return dir
+}
+/** The installer intentionally publishes read-only directories. Restore fixture permissions. */
+export async function removePluginFixture(dir: string): Promise<void> {
+  async function writable(file: string): Promise<void> {
+    const st = await fs.lstat(file)
+    if (st.isSymbolicLink()) return
+    await fs.chmod(file, st.isDirectory() ? 0o755 : 0o644)
+    if (st.isDirectory()) for (const name of await fs.readdir(file)) await writable(path.join(file, name))
+  }
+  await writable(dir)
+  await fs.rm(dir, { recursive: true, force: true })
+}
 /** Builds the same byte layout for a ZIP or an unpacked fixture. */
 export async function buildPlugin(options: {
   file?: string; files?: Record<string, Buffer | string>; manifest?: Record<string, unknown>; signWith?: KeyPair

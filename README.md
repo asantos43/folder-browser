@@ -30,6 +30,8 @@ It is **not** meant to replace an editor or an IDE for a whole project: for that
 
 ## What it does
 
+**Settings ▸ Plugins** and **File ▸ Install Plugin from File…** install and manage local `.fbplugin` files or unpacked plugin folders; contributions are not applied yet.
+
 | | |
 | --- | --- |
 | **Places** | A side bar with **Home, Documents, Downloads, Music, Pictures, Videos, Desktop, Trash**, your **recent folders** and **favourite folders** (drag a folder to pin it). |
