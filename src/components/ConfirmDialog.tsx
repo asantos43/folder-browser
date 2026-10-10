@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 
 /** A question with two answers, in a modal dialog: Esc and Cancel say no, and the focus starts on Cancel when `danger` (the destructive answer is never the one Enter gives). */
-export function ConfirmDialog({ title, message, hint, confirmLabel, danger = false, onConfirm, onCancel }: { title: string; message: string; /** A line under the message, smaller (what a key held down would change). */ hint?: string; confirmLabel: string; danger?: boolean; onConfirm: () => void; onCancel: () => void }) {
+export function ConfirmDialog({ title, message, hint, details, confirmLabel, danger = false, onConfirm, onCancel }: { title: string; message: string; /** A line under the message, smaller (what a key held down would change). */ hint?: string; details?: ReactNode; confirmLabel: string; danger?: boolean; onConfirm: () => void; onCancel: () => void }) {
   const { t } = useI18n()
   const cancel = useRef<HTMLButtonElement>(null)
   const confirm = useRef<HTMLButtonElement>(null)
@@ -28,6 +28,7 @@ export function ConfirmDialog({ title, message, hint, confirmLabel, danger = fal
       >
         <h2 className="m-0 text-[16px] font-normal">{title}</h2>
         <p className="m-0 text-fg-muted select-text">{message}</p>
+        {details}
         {hint ? <p className="m-0 text-[12px] text-fg-muted">{hint}</p> : null}
         <div className="flex justify-end gap-2">
           <button ref={cancel} type="button" onClick={onCancel} className={`${button} ${danger ? 'bg-button text-button-fg hover:bg-button-hover' : 'hover:bg-toolbar-hover'}`}>
