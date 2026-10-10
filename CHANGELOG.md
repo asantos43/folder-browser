@@ -10,6 +10,8 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Added
 
+- **Plugin package reader** (phase 2, step 2.2): read-only folder/ZIP verification with bounded streaming, complete file hashes, optional Ed25519 signatures and trust labels; hostile-package and performance tests. No installation or execution.
+
 - **Plugin manifest** (phase 2, step 2.1): strict bounded `plugin.json` validation, JSON Schema and synthetic fixtures; detached frozen data, stable error codes and reuse of contribution/command validators. Declarative only; nothing loads plugins at startup.
   Schema string leaves now cover blank text, safe paths, https casing and chord endings; field-specific diagnostics identify defaults, categories and exec arguments. The runtime remains the validation authority.
 
