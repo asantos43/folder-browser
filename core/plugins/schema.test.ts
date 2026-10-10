@@ -33,7 +33,7 @@ cases('theme path', contributes.themes.items!.properties!.tokens, ['contributes'
 cases('keymap path', contributes.keymaps.items!.properties!.keys, ['contributes', 'keymaps', '0', 'keys'], [['ok.json', true], ['a\rb.json', false]])
 cases('locale path', contributes.locales.items!.properties!.file, ['contributes', 'locales', '0', 'file'], [['ok.json', true], ['a\tb.json', false]])
 for (const [value, valid] of [['ok', true], ['a\0b', false], ['a\nb', false]] as const) rows.push({ name: 'files path', leaf: root.files.propertyNames!, value, valid, set(raw, v) { raw.files = { [v as string]: `sha256:${'ab'.repeat(32)}` } } })
-cases('homepage', root.homepage, ['homepage'], [['HTTPS://example.org', true], ['https://example.org', true], [' HTTPS://example.org ', true], ['https:example.org', true], ['h\tttps://example.org', true], ['http://example.org', false], ['javascript:alert(1)', false]])
+cases('homepage', root.homepage, ['homepage'], [['\u0001https://example.org', true], ['\u001fHTTPS://example.org', true], ['HTTPS://example.org', true], ['https://example.org', true], [' HTTPS://example.org ', true], ['https:example.org', true], ['h\tttps://example.org', true], ['http://example.org', false], ['javascript:alert(1)', false]])
 cases('keywords', config.keywords.items!, ['contributes', 'configuration', 'properties', 'count', 'keywords', '0'], [['', true], [' ', true], ['ok', true], ['a\0b', true], [12, false], ['x'.repeat(4097), false]])
 cases('chord', command.keys.items!, ['contributes', 'commands', '0', 'keys', '0'], [['Ctrl+', false], ['Ctrl+ ', false], ['', false], [' ', false], ['a\0b', false], ['\0', false], ['Ctrl+Q', true], ['+', true], ['Ctrl++', true], ['Ctrl+Plus', true]])
 

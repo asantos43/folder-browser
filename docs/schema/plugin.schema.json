@@ -80,7 +80,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 2048,
-      "pattern": "^\\s*[hH][\\t\\r\\n]*[tT][\\t\\r\\n]*[tT][\\t\\r\\n]*[pP][\\t\\r\\n]*[sS][\\t\\r\\n]*:"
+      "pattern": "^[\\s\\u0001-\\u001f]*[hH][\\t\\r\\n]*[tT][\\t\\r\\n]*[tT][\\t\\r\\n]*[pP][\\t\\r\\n]*[sS][\\t\\r\\n]*:"
     },
     "engines": {
       "type": "object",
