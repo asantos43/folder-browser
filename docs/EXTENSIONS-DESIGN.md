@@ -53,6 +53,10 @@ files…               themes/*.json, keymaps/*.json, locales/*.json, snippets/*
 
 **Decided (2026-10-09), the package and the signature:** `.fbplugin` is a ZIP with `plugin.json`, the code and an **optional ed25519 signature**. A plugin without a signature **can be installed** (the warning says so). The same layout works as **a folder in a repository**. See section 11, decision 1.
 
+`SIGNATURE` is UTF-8 JSON: `{"alg":"ed25519","key":"ed25519:<64 hexadecimal digits>","sig":"<128 hexadecimal digits>"}`. The signature covers the **exact bytes of `plugin.json`**, including any UTF-8 BOM or whitespace; its declared SHA-256 file hashes cover all other content except `SIGNATURE` itself. `publisher.key` must exist and equal the signature key. Invalid signatures are errors; only an absent signature is unsigned. The displayed fingerprint is SHA-256 of the 32 raw public-key bytes (`fingerprintOf`). Verification uses `node:crypto.verify(null, …)` with the raw Ed25519 key wrapped in DER/SPKI: the existing WSNP signature verifier expects a different record and archive layout.
+
+The read-only reader accepts a folder or ZIP and never extracts or writes. Exported ceilings are 50 MiB total, 2,000 entries, 16 MiB per file, 256 KiB manifest, 100:1 expansion per file and in total, 255 characters per component, 1,024 per path and 16 directory levels. Options can only tighten these limits; the manifest parser's stricter limits still apply. Inflation is counted and stopped when it crosses a ceiling, even when the ZIP directory lies. Every file except `plugin.json` and `SIGNATURE`, including README and icons, must have a verified `sha256:` declaration. Level 0 refuses executable/script extensions; `main` only identifies code and must be declared, without running anything.
+
 ```jsonc
 // plugin.json
 {
