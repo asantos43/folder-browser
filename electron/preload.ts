@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import type { KeysSnapshot } from '../core/keys/user.ts'
 import type { SettingsNotice, AppInfo, DocOpen, EditBytesOpen, EditOpen, EditSave, OpResult, ExtractResult, IntegrityEvent, OpenResult, ListResult, FileListResult, MediaOpen, OpenWithResult, PlacesData, PrintResult, RestoreResult, SaveResult, FbApi, ZipList } from '../core/api.ts'
 
 /** What the interface may ask of the main process: nothing else crosses the boundary (core/api.ts). */
@@ -9,9 +10,16 @@ const on = <T>(channel: string, listener: (value: T) => void) => {
 }
 
 const settingsInitial = ipcRenderer.sendSync('fb:settings-get-all') as { values: Record<string, unknown>; notices: SettingsNotice[] }
+let keysCache = ipcRenderer.sendSync('fb:keys-get') as KeysSnapshot
+ipcRenderer.on('fb:keys-changed', (_event, snapshot: KeysSnapshot) => { keysCache = snapshot })
 /** Asks the main process, which also settles every `set` sent before (the messages of one window keep their order). */
 const settingsValues = () => (ipcRenderer.sendSync('fb:settings-get-all') as typeof settingsInitial).values
 const api: FbApi = {
+  keys: {
+    get: () => ({ entries: keysCache.entries.map(entry => ({ ...entry })), warnings: keysCache.warnings.map(warning => ({ ...warning })) }),
+    set: entries => ipcRenderer.send('fb:keys-set', entries),
+    onChanged: listener => on<KeysSnapshot>('fb:keys-changed', listener),
+  },
   settings: {
     all: () => ({ ...settingsValues() }),
     notices: () => [...settingsInitial.notices],

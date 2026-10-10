@@ -1,6 +1,6 @@
 import { app, Menu, type MenuItemConstructorOptions } from 'electron'
 import { builtinCommands, type BuiltinCommandId } from '../core/commands/builtin.ts'
-import { builtinKeyTables } from '../core/keys/table.ts'
+import { effectiveKeyTable } from '../core/keys/effective.ts'
 
 const menuCommandIds = new Set(builtinCommands.filter((command) => 'menu' in command && command.menu).map((command) => command.id))
 function commandId(id: BuiltinCommandId): string {
@@ -19,7 +19,7 @@ export function installMenu(sendCommand: (command: string) => void): void {
     return
   }
   // Native accelerators only forward unambiguous chords; when is resolved in the window.
-  const accelerator = (id: BuiltinCommandId) => builtinKeyTables.mac.accelerator(id)
+  const accelerator = (id: BuiltinCommandId) => effectiveKeyTable(true).accelerator(id)
   const template: MenuItemConstructorOptions[] = [
     { label: app.name, submenu: [{ label: `About ${app.name}`, click: () => send('showAbout') }, { type: 'separator' }, { label: 'Settings…', accelerator: accelerator('openSettings'), click: () => send('openSettings') }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }] },
     {

@@ -1,5 +1,6 @@
 import type { Chooser, DirEntry, OpenResult, OpenWithResult, Place, PlacesData, RootInfo, SaveResult } from '@core/api.ts'
 import { commandFor, type CommandName } from '@core/shortcuts.ts'
+import { setUserKeys } from '@core/keys/effective.ts'
 import { runBuiltinCommand, type BuiltinHandlers } from '@core/commands/builtin.ts'
 import { Allotment } from 'allotment'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
@@ -56,7 +57,7 @@ import type { Signers } from './signature.ts'
 import { TitleBar } from './TitleBar.tsx'
 import { activeSnapshotId, activeTabOf, canFind, canPrint, canSaveWsnp, printRequestOf, zoomTargetOf } from './availability.ts'
 import { shortcut } from './commands.ts'
-import { isMac, platform, type Commands } from './commands.ts'
+import { contextOf, isMac, platform, type Commands } from './commands.ts'
 
 const SIDE_BAR_WIDTH = 300
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
@@ -78,6 +79,20 @@ export function Workbench() {
   const sortBackwards = sortDescending.use()
   const { notifications, notify, dismiss } = useNotifications()
   useSettingsNotices(notify)
+  const [keysRevision, refreshKeys] = useState(() => { setUserKeys(window.fb?.keys?.get().entries ?? [], isMac()); return 0 })
+  useEffect(() => {
+    const showWarnings = (snapshot: import('@core/keys/user.ts').KeysSnapshot) => {
+      for (const warning of snapshot.warnings) notify({ level: 'error', text: `keybindings.json: ${warning.message}` })
+    }
+    const keys = window.fb?.keys
+    if (keys) showWarnings(keys.get())
+    return keys?.onChanged(snapshot => {
+      setUserKeys(snapshot.entries, isMac())
+      refreshKeys(value => value + 1)
+      showWarnings(snapshot)
+    })
+  }, [notify])
+  const keyContext = useRef<ReturnType<typeof contextOf>>({ hasRecent: false, canSave: false, canSaveAll: false, canSaveWsnp: false, canPrint: false, hasEditor: false, canFind: false, canGoBack: false, canGoForward: false, hasSnapshots: false, canZoom: false })
   const [ws, rawDispatch] = useReducer(reduce, empty)
   const wsNow = useRef(ws)
   wsNow.current = ws
@@ -653,7 +668,7 @@ export function Workbench() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const command = commandFor({ key: event.key, control: event.ctrlKey, meta: event.metaKey, shift: event.shiftKey, alt: event.altKey }, isMac())
+      const command = commandFor({ key: event.key, control: event.ctrlKey, meta: event.metaKey, shift: event.shiftKey, alt: event.altKey }, isMac(), keyContext.current)
       if (!command) return
       event.preventDefault()
       run(command)
@@ -753,8 +768,10 @@ export function Workbench() {
       canGoForward: step(history, 1, new Set(ws.tabs.map((tab) => tab.key)), ws.active) !== null,
       recent,
     }),
-    [toggleSideBar, setSetting, run, api, handleResults, refreshRecent, ws, recent, savePdfTab, saveConverted, go, history, hiddenShown, sortBy, sortBackwards],
+    [toggleSideBar, setSetting, run, api, handleResults, refreshRecent, ws, recent, savePdfTab, saveConverted, go, history, hiddenShown, sortBy, sortBackwards, keysRevision],
   )
+
+  keyContext.current = contextOf(commands)
 
   /** An item of a folder has a new path: its tabs follow it (and the zoom each had). */
   const pathChanged = useCallback((rootId: string, from: string, to: string) => {

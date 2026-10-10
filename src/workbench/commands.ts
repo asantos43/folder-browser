@@ -7,6 +7,7 @@ import { builtinCommands, type BuiltinCommandId } from '@core/commands/builtin.t
 import { createRegistry, type CommandDef } from '@core/commands/registry.ts'
 import { formatChord } from '@core/keys/chord.ts'
 import { builtinKeyTables } from '@core/keys/table.ts'
+import { effectiveKeyTable } from '@core/keys/effective.ts'
 
 /** What the workbench can do; the menus, the keyboard and the native menu of macOS all end up here. */
 export interface Commands {
@@ -77,6 +78,8 @@ export const isMac = (): boolean => platform() === 'darwin'
 
 /** VS Code writes a shortcut as `Ctrl+Shift+P`, and on macOS as symbols in the order ⌃⌥⇧⌘. */
 export function shortcut(keys: string): string {
+  const ids = (isMac() ? builtinKeyTables.mac : builtinKeyTables.nonmac).get(keys.replace(/^Ctrl\+/, 'Mod+'))
+  if (ids.length === 1) return effectiveKeyTable(isMac()).shortcut(ids[0]) ?? ''
   return formatChord(keys.replace(/^Ctrl\+/, 'Mod+'), isMac())
 }
 
@@ -99,7 +102,7 @@ const headers: Array<Pick<MenuDef, 'id' | 'label'>> = [
   { id: 'go', label: 'menu.go' }, { id: 'help', label: 'menu.help' },
 ]
 
-function contextOf(c: Commands) {
+export function contextOf(c: Commands) {
   return {
     hasRecent: c.recent.length > 0, canSave: c.canSave, canSaveAll: c.canSaveAll, canSaveWsnp: c.canSaveWsnp,
     canPrint: c.canPrint, hasEditor: c.hasEditor, canFind: c.canFind, canGoBack: c.canGoBack,
@@ -110,7 +113,7 @@ function contextOf(c: Commands) {
 function registeredEntry(id: BuiltinCommandId, t: Translate, c: Commands): MenuEntry {
   const definition = definitions.get(id)!
   const available = registry.available(contextOf(c)).some((command) => command.id === id)
-  const keyLabel = (isMac() ? builtinKeyTables.mac : builtinKeyTables.nonmac).shortcut(id)
+  const keyLabel = effectiveKeyTable(isMac()).shortcut(id)
   const actions: Partial<Record<BuiltinCommandId, () => void>> = {
     newFile: c.newFile, openFolder: c.openFolder, openFile: c.openFile, openZip: c.openZip, clearRecent: c.clearRecent,
     save: c.save, saveAll: c.saveAll, saveAsWsnp: c.saveAsWsnp, savePdf: c.savePdf, print: c.print,
