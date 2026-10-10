@@ -30,6 +30,7 @@ export interface PackageOptions {
 export interface PackageError { code: string; path?: string; message: string }
 export interface PackageFile { path: string; size: number; sha256: string }
 export interface PluginPackage {
+  readonly manifestBytes: Buffer; readonly signatureBytes?: Buffer
   manifest: PluginManifest; files: readonly PackageFile[]; totalBytes: number
   signature: SignatureState; trust: TrustLabel; hasCode: boolean
   readFile(path: string): Promise<Buffer>
@@ -201,11 +202,13 @@ export async function readPackage(source: PackageSource, options: PackageOptions
       if (entry.name === 'icon.png' && !data.bytes.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) refuse('file.icon', entry.name)
       files.push(Object.freeze({ path: entry.name, size: data.size, sha256: data.sha256 }))
     }
+    let signatureBytes: Buffer | undefined
     let signature: SignatureState = { signed: false }
     const signed = entries.get('SIGNATURE')
     if (signed) {
-      if (signed.size > 16 * 1024) refuse('signature.invalid', 'SIGNATURE')
+      if (signed.size > 4 * 1024) refuse('signature.invalid', 'SIGNATURE')
       const data = await consume(signed, true)
+      signatureBytes = data.bytes
       let record: { alg?: unknown; key?: unknown; sig?: unknown }
       try { record = JSON.parse(data.bytes.toString('utf8')) } catch { refuse('signature.invalid', 'SIGNATURE') }
       if (!record || record.alg !== 'ed25519' || typeof record.key !== 'string' || !/^ed25519:[0-9a-fA-F]{64}$/.test(record.key) || typeof record.sig !== 'string' || !/^[0-9a-fA-F]{128}$/.test(record.sig)) refuse('signature.invalid', 'SIGNATURE')
@@ -236,10 +239,11 @@ export async function readPackage(source: PackageSource, options: PackageOptions
       active.add(result); result.once('close', () => { sourceStream.destroy(); active.delete(sourceStream); active.delete(result) })
       return result
     }
-    return { ok: true, package: { manifest, files: Object.freeze(files), totalBytes, signature,
+    return { ok: true, package: Object.defineProperties({ manifest, manifestBytes, ...(signatureBytes ? { signatureBytes } : {}), files: Object.freeze(files), totalBytes, signature,
       trust: trustLabel(signature, options.signerStore, source.kind === 'folder' && options.origin?.kind === 'catalog' ? { kind: 'folder' } : options.origin ?? { kind: source.kind === 'zip' ? 'file' : 'folder' }),
       hasCode: manifest.hasCode, openStream, close,
-      async readFile(name) { const chunks: Buffer[] = []; for await (const chunk of await openStream(name)) chunks.push(chunk as Buffer); return Buffer.concat(chunks) } } }
+      async readFile(name: string) { const chunks: Buffer[] = []; for await (const chunk of await openStream(name)) chunks.push(chunk as Buffer); return Buffer.concat(chunks) } },
+      { manifestBytes: { writable: false }, ...(signatureBytes ? { signatureBytes: { writable: false } } : {}) }) }
   } catch (error) {
     await close()
     return { ok: false, errors: [error instanceof Refused ? error.detail : { code: 'package.entry.invalid', message: error instanceof Error ? error.message : 'Cannot read package' }] }
