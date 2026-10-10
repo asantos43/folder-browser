@@ -28,6 +28,19 @@ async function unpack(entries: { name: string; data: Buffer | string }[]) {
   return folder
 }
 describe('package reader', () => {
+  it('exposes exact manifest/signature bytes, absent for unsigned packages', async () => {
+    for (const signed of [false, true]) {
+      const fixture = await buildPlugin({ file, ...(signed ? { signWith: generateKeyPairSync('ed25519') } : {}) })
+      const result = await readPackage({ kind: 'zip', file })
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw new Error('fixture refused')
+      try {
+        expect(result.package.manifestBytes).toEqual(Buffer.from(fixture.entries[0].data))
+        const signature = fixture.entries.find(e => e.name === 'SIGNATURE')
+        expect(result.package.signatureBytes).toEqual(signature ? Buffer.from(signature.data) : undefined)
+      } finally { await result.package.close() }
+    }
+  })
   it.each(hostilePluginNames())('refuses hostile name $name without writes', async ({ bytes, code: expected }) => {
     expect(code(await readBytes(bytes))).toBe(expected)
   })
