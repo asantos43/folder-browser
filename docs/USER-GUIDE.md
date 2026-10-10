@@ -219,6 +219,15 @@ The file is checked when it opens, and again in the background: its **structure*
 
 The shortcuts work wherever the focus is, also inside a page or a document.
 
+## Your own keys
+
+Every command has a built-in key (the table above). To add, change or remove one, create a file named `keybindings.json` in the application's own folder (`~/.config/folder-browser` on Linux, `%APPDATA%\folder-browser` on Windows, `~/Library/Application Support/folder-browser` on macOS; the same folder as `settings.json`). It does not exist until you make it, and nothing changes while it does not. It is a list (between `[` and `]`, entries separated by commas), for example:
+
+- `{ "key": "Ctrl+Alt+J", "command": "toggleSideBar" }`
+- `{ "key": "Ctrl+B", "command": "-toggleSideBar" }`
+
+The first entry gives **Hide / show the side bar** the key `Ctrl+Alt+J` (`Ctrl` is `⌘` on macOS); the second, with a `-` before the command, **removes** the built-in `Ctrl+B` from it. The new key shows in the menus and in the command palette, and works also while a page of a snapshot has the focus. An optional `"when"` (for example `"hasEditor"`) limits a key to when that is true; such a key does not work while a snapshot's page has the focus. The file is read when the application starts and again a moment after you save it. An entry that is wrong (a key that cannot be read, a command that does not exist, or a key the editor or the system needs, such as `Ctrl+V`) is skipped with a message, and the other entries still apply; a file that cannot be read at all is left as it is, and only the built-in keys are used.
+
 ## Settings, Help and About
 
 ![The Settings tab](images/settings.png)

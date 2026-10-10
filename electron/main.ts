@@ -9,6 +9,7 @@ import { pathsToOpen, userArgs } from './argv.ts'
 import { installMenu } from './menu.ts'
 import { SnapshotHost } from './snapshot-host.ts'
 import { flushBeforeQuit, SettingsHost } from './settings-host.ts'
+import { KeysHost } from './keys-host.ts'
 import { registerScheme } from './snapshot-view.ts'
 import { createMainWindow } from './window.ts'
 
@@ -26,6 +27,7 @@ if (process.argv.includes('--app-version')) {
   let win: BrowserWindow | undefined
   let host: SnapshotHost | undefined
   let settingsHost: SettingsHost | undefined
+  let keysHost: KeysHost | undefined
   const early: string[] = pathsToOpen(userArgs(process.argv, app.isPackaged, app.getAppPath(), process.cwd()), process.cwd())
 
   // macOS gives files through this event, also before the app is ready.
@@ -44,6 +46,7 @@ if (process.argv.includes('--app-version')) {
     if (process.platform !== 'darwin') app.quit()
   })
   app.on('before-quit', () => {
+    keysHost?.dispose()
     host?.cleanup()
     void host?.registry.closeAll()
   })
@@ -57,6 +60,8 @@ if (process.argv.includes('--app-version')) {
     settingsHost = new SettingsHost(app.getPath('userData'), ipcMain, () => BrowserWindow.getAllWindows())
     settingsHost.register()
     flushBeforeQuit(app, settingsHost)
+    keysHost = new KeysHost(app.getPath('userData'), ipcMain, () => BrowserWindow.getAllWindows(), process.platform === 'darwin', () => installMenu(command => win?.webContents.send('fb:command', command)))
+    keysHost.register()
     void host.sweepOldCopies()
     win = createMainWindow(host)
     installMenu((command) => win?.webContents.send('fb:command', command))

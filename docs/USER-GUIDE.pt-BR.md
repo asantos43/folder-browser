@@ -219,6 +219,15 @@ O arquivo é verificado quando abre, e de novo em segundo plano: a **estrutura**
 
 Os atalhos funcionam onde quer que esteja o foco, também dentro de uma página ou de um documento.
 
+## Suas próprias teclas
+
+Cada comando tem uma tecla própria (a tabela acima). Para acrescentar, mudar ou tirar uma, crie um arquivo chamado `keybindings.json` na pasta do próprio aplicativo (`~/.config/folder-browser` no Linux, `%APPDATA%\folder-browser` no Windows, `~/Library/Application Support/folder-browser` no macOS; a mesma pasta de `settings.json`). Ele não existe até você criá-lo, e nada muda enquanto não existir. É uma lista (entre `[` e `]`, com as entradas separadas por vírgula), por exemplo:
+
+- `{ "key": "Ctrl+Alt+J", "command": "toggleSideBar" }`
+- `{ "key": "Ctrl+B", "command": "-toggleSideBar" }`
+
+A primeira entrada dá a **Ocultar / mostrar a barra lateral** a tecla `Ctrl+Alt+J` (`Ctrl` é `⌘` no macOS); a segunda, com um `-` antes do comando, **tira** dele o `Ctrl+B` embutido. A tecla nova aparece nos menus e na paleta de comandos, e funciona também enquanto a página de um snapshot está com o foco. Um `"when"` opcional (por exemplo `"hasEditor"`) limita a tecla a quando aquilo é verdadeiro; essa tecla não funciona enquanto a página de um snapshot está com o foco. O arquivo é lido quando o aplicativo abre e de novo um instante depois de você salvá-lo. Uma entrada errada (uma tecla que não dá para ler, um comando que não existe, ou uma tecla de que o editor ou o sistema precisam, como `Ctrl+V`) é pulada com uma mensagem, e as outras valem; um arquivo que não pode ser lido de jeito nenhum fica como está, e só valem as teclas embutidas.
+
 ## Configurações, Ajuda e Sobre
 
 ![A aba de Configurações](images/settings.png)

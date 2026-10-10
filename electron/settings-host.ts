@@ -14,7 +14,7 @@ type IpcLike = Pick<IpcMain, 'on' | 'removeListener'>
 type SyncEvent = Pick<IpcMainEvent, 'sender' | 'senderFrame' | 'returnValue'>
 type Sender = { send(channel: string, ...args: unknown[]): void }
 
-async function atomicWrite(file: string, contents: string): Promise<void> {
+export async function atomicWrite(file: string, contents: string): Promise<void> {
   const temporary = `${file}.${process.pid}.${Math.random().toString(16).slice(2)}.tmp`
   try {
     await fsp.mkdir(path.dirname(file), { recursive: true })
