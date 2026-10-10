@@ -175,3 +175,19 @@ it('keeps portable command translations in parity', () => {
   expect(Object.keys(en).sort()).toEqual(Object.keys(ptBR).sort())
 })
 
+it('does not load the Plugins panel until the Plugins section is opened (lazy load)', async () => {
+  // Direct test of the lazy load: the panel's region is not in the document until the user
+  // opens the Plugins section. Until then, `React.lazy` never triggers the dynamic import.
+  page()
+  // General section is the default: the Plugins region is not rendered, so the dynamic
+  // import of PluginsPanel has not been triggered.
+  expect(screen.queryByRole('region', { name: 'Plugins' })).toBeNull()
+  // Open the Plugins section: the panel mounts (here it shows the "not available"
+  // message because the test does not provide a PluginsApi provider).
+  fireEvent.click(screen.getByRole('button', { name: 'Plugins' }))
+  await screen.findByRole('region', { name: 'Plugins' })
+  // Close it: the panel unmounts.
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  await vi.waitFor(() => expect(screen.queryByRole('region', { name: 'Plugins' })).toBeNull())
+})
+

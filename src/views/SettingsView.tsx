@@ -1,4 +1,4 @@
-import { memo, useDeferredValue, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { lazy, memo, Suspense, useDeferredValue, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import type { MessageKey, Translate } from '@/i18n/index.ts'
 import { resetSettings, settingFor, flushSettingChanges } from '@/state/setting.ts'
@@ -10,6 +10,9 @@ import '@core/settings/builtin.ts'
 import { SettingControl } from './SettingControl.tsx'
 import { SettingsRows } from './SettingsRows.tsx'
 import { KeyboardPanel } from './KeyboardPanel.tsx'
+
+// Loaded only when the Plugins section is opened, so its code is not in the start-up path.
+const PluginsPanel = lazy(() => import('./PluginsPanel.tsx').then(m => ({ default: m.PluginsPanel })))
 
 function Setting({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
   return (
@@ -28,7 +31,12 @@ export const modified = (definition: SettingDefinition, value: unknown): boolean
 const text = (t: Translate, key: string | null | undefined): string => key ? t(key as MessageKey) || key : ''
 export type SearchEntry = { definition: SettingDefinition; search: string }
 export function indexSettings(definitions: readonly SettingDefinition[], t: Translate): SearchEntry[] {
-  return definitions.filter(d => d.label !== null).map(definition => ({ definition, search: normalizeSearch([text(t, definition.label), text(t, definition.description), ...(definition.keywords ?? []).map(key => text(t, key))].join(' ')) }))
+  return definitions.filter(d => d.label !== null).map(definition => {
+    const parts = [text(t, definition.label), text(t, definition.description), ...(definition.keywords ?? []).map(key => text(t, key))]
+    // A plugin setting is namespaced (`<pluginId>:<name>`): the prefix lets the Plugins page jump straight to its options.
+    if (definition.id.includes(':')) parts.push(definition.id.split(':')[0])
+    return { definition, search: normalizeSearch(parts.join(' ')) }
+  })
 }
 export function filterSettings(entries: readonly SearchEntry[], query: string, onlyModified: boolean, values: Record<string, unknown>): SettingDefinition[] {
   const needle = normalizeSearch(query.trim())
@@ -92,7 +100,7 @@ export function SettingsView(_props: { theme: ThemeSetting; setTheme: (theme: Th
   const snapshot = useSyncExternalStore(subscription, () => JSON.stringify(Object.fromEntries(entries.map(({ definition }, index) => [definition.id, stores[index].get()]))))
   const values = useMemo(() => JSON.parse(snapshot) as Record<string, unknown>, [snapshot])
   const [query, setQuery] = useState('')
-  const [section, setSection] = useState<'general' | 'keyboard'>('general')
+  const [section, setSection] = useState<'general' | 'keyboard' | 'plugins'>('general')
   const deferredQuery = useDeferredValue(query)
   const [onlyModified, setOnlyModified] = useState(false)
   const [preview, setPreview] = useState<Extract<SettingsPortableResult, { preview: unknown }> | undefined>()
@@ -119,8 +127,9 @@ export function SettingsView(_props: { theme: ThemeSetting; setTheme: (theme: Th
       <nav aria-label={t('settings.title')} className="mb-4 flex gap-2">
         <button className={control} aria-pressed={section === 'general'} onClick={() => setSection('general')}>{t('settings.title')}</button>
         <button className={control} aria-pressed={section === 'keyboard'} onClick={() => setSection('keyboard')}>{t('keyboard.title')}</button>
+        <button className={control} aria-pressed={section === 'plugins'} onClick={() => setSection('plugins')}>{t('plugins.title')}</button>
       </nav>
-      {section === 'keyboard' ? <KeyboardPanel /> : <>
+      {section === 'keyboard' ? <KeyboardPanel /> : section === 'plugins' ? <Suspense fallback={null}><PluginsPanel onJumpToSettings={id => { setSection('general'); setQuery(id); setOnlyModified(false) }} /></Suspense> : <>
       <div role="toolbar" aria-label={t('settings.title')} className="mb-5 flex flex-wrap gap-2">
         <button className={control} disabled={busy || !window.fb?.settings} onClick={() => void run(() => window.fb!.settings.export())}>{t('settings.export')}</button>
         <button className={control} disabled={busy || !window.fb?.settings} onClick={() => void run(() => window.fb!.settings.previewImport())}>{t('settings.import')}</button>
