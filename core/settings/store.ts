@@ -15,6 +15,7 @@ export class SettingsStore {
   private pending = false
   private timer: ReturnType<typeof setTimeout> | undefined
   private dirty = false
+  private writing: Promise<void> | undefined
   private registry: SettingsRegistry
   private writer: AtomicWriter
   private intervalMs: number
@@ -65,12 +66,17 @@ export class SettingsStore {
   private schedule(): void {
     if (this.pending) return
     this.pending = true
-    if (this.intervalMs > 0) this.timer = setTimeout(() => { void this.flush() }, this.intervalMs)
-    else queueMicrotask(() => { void this.flush() })
+    if (this.intervalMs > 0) this.timer = setTimeout(() => { void this.flush().catch(() => {}) }, this.intervalMs)
+    else queueMicrotask(() => { void this.flush().catch(() => {}) })
   }
   async flush(): Promise<void> {
     if (this.timer) clearTimeout(this.timer)
     this.timer = undefined; this.pending = false
+    if (this.writing) {
+      await this.writing
+      if (this.dirty) await this.flush()
+      return
+    }
     if (!this.dirty) return
     this.dirty = false
     const out: Document = { ...this.unknown }
@@ -82,8 +88,9 @@ export class SettingsStore {
       else out[id] = value
     }
     if (Object.keys(plugins).length) out.plugins = plugins
-    try { await this.writer(JSON.stringify(out, null, 2)) }
-    catch (error) { this.dirty = true; throw error }
+    const writing = this.writer(JSON.stringify(out, null, 2)).catch(error => { this.dirty = true; throw error })
+    this.writing = writing
+    try { await writing } finally { if (this.writing === writing) this.writing = undefined }
     if (this.dirty) this.schedule()
   }
 }

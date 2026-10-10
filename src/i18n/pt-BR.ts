@@ -2,6 +2,7 @@ import type { MessageKey } from './en.ts'
 
 /** Português do Brasil: as mesmas chaves do inglês (o tipo confere). */
 export const ptBR: Record<MessageKey, string> = {
+  'settings.fileNotice': 'Algumas opções não puderam ser carregadas; os padrões estão em uso. {id}: {message}',
   'app.name': 'Folder Browser',
   'menu.file': 'Arquivo',
   'menu.edit': 'Editar',

@@ -1,5 +1,6 @@
 /** English text of the interface. The Brazilian Portuguese file has the same keys (the type checks it). */
 export const en = {
+  'settings.fileNotice': 'Some settings could not be loaded; defaults are in use. {id}: {message}',
   'app.name': 'Folder Browser',
   'menu.file': 'File',
   'menu.edit': 'Edit',

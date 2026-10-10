@@ -21,6 +21,16 @@ describe('settings store and portable settings', () => {
     const r = registry(); const write = vi.fn(async (_s:string) => {}); const s = new SettingsStore(r,write)
     s.set('editor.wordWrap',true); s.reset('editor.wordWrap'); await s.flush(); expect(s.get('editor.wordWrap')).toBe(false)
   })
+  it('never runs two writes at once: a flush during a write waits, then writes what changed meanwhile', async () => {
+    let active = 0, peak = 0; const releases: Array<() => void> = []; const written: string[] = []
+    const write = async (contents: string) => { active++; peak = Math.max(peak, active); written.push(contents); await new Promise<void>(resolve => releases.push(resolve)); active-- }
+    const s = new SettingsStore(registry(), write)
+    s.set('editor.wordWrap', true); const first = s.flush()
+    await Promise.resolve(); s.set('editor.wordWrap', false); s.set('editor.wordWrap', true); s.set('appearance.theme', 'dark'); const second = s.flush()
+    await Promise.resolve(); expect(written).toHaveLength(1)
+    releases[0]!(); await vi.waitFor(() => expect(written).toHaveLength(2)); releases[1]!(); await Promise.all([first, second])
+    expect(peak).toBe(1); expect(JSON.parse(written[1]!)['appearance.theme']).toBe('dark')
+  })
   it('keeps unknown values, warns and defaults invalid known values, and refuses oversized input', () => {
     const s = new SettingsStore(registry(),async()=>{})
     expect(s.load('{"future.value":7,"editor.wordWrap":"yes"}')).toHaveLength(1)

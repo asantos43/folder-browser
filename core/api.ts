@@ -83,7 +83,9 @@ export interface AppInfo {
 /** A video or a sound opened to be played: its address, for the media element, and what it is. */
 export type MediaOpen = { token: string; url: string; kind: 'video' | 'audio'; mime: string; size: number } | { error: 'no-file' | 'too-large' | 'unsupported' }
 
+export type SettingsNotice = { id: string; message: string }
 export interface FbApi {
+  settings: { all(): Record<string, unknown>; notices(): readonly SettingsNotice[]; set(pairs: readonly (readonly [string, unknown])[]): void; onChanged(listener: (ids: readonly string[]) => void): () => void }
   platform: string
   /** The colours of the title bar (the native window buttons are drawn with them on Windows and Linux). */
   setTitleBar(colors: { color: string; symbolColor: string }): void
