@@ -87,7 +87,7 @@ export type MediaOpen = { token: string; url: string; kind: 'video' | 'audio'; m
 export type SettingsNotice = { id: string; message: string }
 export type SettingsPortableResult = { error: string } | { canceled: true } | { changed: string[] } | { preview: ImportPreview; token: number; needsConfirm: boolean }
 export interface FbApi {
-  keys: { get(): import('./keys/user.ts').KeysSnapshot; set(entries: readonly import('./keys/user.ts').UserKey[]): void; onChanged(listener: (snapshot: import('./keys/user.ts').KeysSnapshot) => void): () => void }
+  keys: { recording(active: boolean): boolean; get(): import('./keys/user.ts').KeysSnapshot; set(entries: readonly import('./keys/user.ts').UserKey[]): Promise<import('./keys/user.ts').KeysResult>; export(): Promise<import('./keys/user.ts').KeysPortableResult>; previewImport(): Promise<import('./keys/user.ts').KeysPortableResult>; applyImport(token: number, confirmed: boolean): Promise<import('./keys/user.ts').KeysPortableResult>; onChanged(listener: (snapshot: import('./keys/user.ts').KeysSnapshot) => void): () => void }
   settings: { all(): Record<string, unknown>; notices(): readonly SettingsNotice[]; set(pairs: readonly (readonly [string, unknown])[]): void; reset(ids: readonly string[]): void; export(): Promise<SettingsPortableResult>; previewImport(): Promise<SettingsPortableResult>; applyImport(token: number, confirmed: boolean, safetyConfirmed: boolean): Promise<SettingsPortableResult>; resetAll(confirmed: boolean): Promise<SettingsPortableResult>; showFile(): Promise<SettingsPortableResult>; onChanged(listener: (ids: readonly string[]) => void): () => void }
   platform: string
   /** The colours of the title bar (the native window buttons are drawn with them on Windows and Linux). */

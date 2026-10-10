@@ -221,7 +221,9 @@ The shortcuts work wherever the focus is, also inside a page or a document.
 
 ## Your own keys
 
-Every command has a built-in key (the table above). To add, change or remove one, create a file named `keybindings.json` in the application's own folder (`~/.config/folder-browser` on Linux, `%APPDATA%\folder-browser` on Windows, `~/Library/Application Support/folder-browser` on macOS; the same folder as `settings.json`). It does not exist until you make it, and nothing changes while it does not. It is a list (between `[` and `]`, entries separated by commas), for example:
+Open **Settings ▸ Keyboard** to search commands by title, id or key, or show only modified keys. Each row shows its category and effective key. Choose **Record key**, press a chord and review it before Apply: Escape cancels, modifiers alone do nothing, reserved chords are refused and conflicts with other commands are shown before you confirm. **Remove key** clears the shortcut; **Reset** restores that command, and **Reset All…** asks before restoring every key. **Export…** saves `keybindings.json`; **Import…** opens a JSON file up to 256 KB and previews valid entries, skipped warnings and conflicts. Only Apply replaces your user keys; Cancel keeps them. Changes immediately update menus and the command palette.
+
+Every command has a built-in key (the table above). You can also edit a file named `keybindings.json` in the application's own folder (`~/.config/folder-browser` on Linux, `%APPDATA%\folder-browser` on Windows, `~/Library/Application Support/folder-browser` on macOS; the same folder as `settings.json`). It is created when you save keys in the panel or make it yourself, and nothing changes while it does not. It is a list (between `[` and `]`, entries separated by commas), for example:
 
 - `{ "key": "Ctrl+Alt+J", "command": "toggleSideBar" }`
 - `{ "key": "Ctrl+B", "command": "-toggleSideBar" }`

@@ -9,6 +9,7 @@ import { settingsRegistry, type SettingDefinition } from '@core/settings/registr
 import '@core/settings/builtin.ts'
 import { SettingControl } from './SettingControl.tsx'
 import { SettingsRows } from './SettingsRows.tsx'
+import { KeyboardPanel } from './KeyboardPanel.tsx'
 
 function Setting({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
   return (
@@ -91,6 +92,7 @@ export function SettingsView(_props: { theme: ThemeSetting; setTheme: (theme: Th
   const snapshot = useSyncExternalStore(subscription, () => JSON.stringify(Object.fromEntries(entries.map(({ definition }, index) => [definition.id, stores[index].get()]))))
   const values = useMemo(() => JSON.parse(snapshot) as Record<string, unknown>, [snapshot])
   const [query, setQuery] = useState('')
+  const [section, setSection] = useState<'general' | 'keyboard'>('general')
   const deferredQuery = useDeferredValue(query)
   const [onlyModified, setOnlyModified] = useState(false)
   const [preview, setPreview] = useState<Extract<SettingsPortableResult, { preview: unknown }> | undefined>()
@@ -114,6 +116,11 @@ export function SettingsView(_props: { theme: ThemeSetting; setTheme: (theme: Th
   }
   return <div data-settings-page aria-label={t('settings.title')} className="h-full min-h-0 flex-1 overflow-auto bg-editor p-6 text-editor-fg select-text">
     <div className="mx-auto max-w-[720px]">
+      <nav aria-label={t('settings.title')} className="mb-4 flex gap-2">
+        <button className={control} aria-pressed={section === 'general'} onClick={() => setSection('general')}>{t('settings.title')}</button>
+        <button className={control} aria-pressed={section === 'keyboard'} onClick={() => setSection('keyboard')}>{t('keyboard.title')}</button>
+      </nav>
+      {section === 'keyboard' ? <KeyboardPanel /> : <>
       <div role="toolbar" aria-label={t('settings.title')} className="mb-5 flex flex-wrap gap-2">
         <button className={control} disabled={busy || !window.fb?.settings} onClick={() => void run(() => window.fb!.settings.export())}>{t('settings.export')}</button>
         <button className={control} disabled={busy || !window.fb?.settings} onClick={() => void run(() => window.fb!.settings.previewImport())}>{t('settings.import')}</button>
@@ -126,6 +133,7 @@ export function SettingsView(_props: { theme: ThemeSetting; setTheme: (theme: Th
       <input type="search" aria-label={t('settings.search')} placeholder={t('settings.search')} value={query} onChange={event => setQuery(event.target.value)} className={`${control} mb-5 w-full`} />
       <label className="mb-5 flex items-center gap-2"><input type="checkbox" role="switch" checked={onlyModified} onChange={event => setOnlyModified(event.target.checked)} />{t('settings.onlyModified')}</label>
       <SettingsList entries={entries} query={deferredQuery} onlyModified={onlyModified} values={values} />
+      </>}
     </div>
   </div>
 }
