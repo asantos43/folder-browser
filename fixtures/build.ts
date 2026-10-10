@@ -36,8 +36,8 @@ export interface WsnpOptions {
 const bytesOf = (data: Buffer | string): Buffer => (typeof data === 'string' ? Buffer.from(data) : data)
 
 export function manifestFor(files: FixtureFile[], options: WsnpOptions = {}): Record<string, unknown> {
-  const url = options.url ?? 'https://harbortimes.example/'
-  const title = options.title ?? 'Harbor news'
+  const url = options.url ?? 'https://meadowtimes.example/'
+  const title = options.title ?? 'Meadow news'
   const source = { url, canonical: '', language: 'en' }
   const listed = files.map((f) => {
     const bytes = bytesOf(f.data)
@@ -83,7 +83,7 @@ const generated = (path: string, type: string, data: Buffer | string): FixtureFi
 
 // ---------------------------------------------------------------- a small page that works
 
-const SAMPLE_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Harbor news</title>
+const SAMPLE_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Meadow news</title>
 <link rel="stylesheet" href="assets/styles/site.css"></head><body>
 <h2 id="item">Item 1</h2><button id="next" type="button">Next</button>
 <img id="logo" src="assets/images/logo.png" alt="">
@@ -99,20 +99,20 @@ const SAMPLE_CSS = `h2{color:rgb(0,128,128)}@font-face{font-family:F;src:url(../
 export function sampleFiles(): FixtureFile[] {
   return [
     generated('index.html', 'text/html', SAMPLE_HTML),
-    { path: 'assets/styles/site.css', type: 'text/css', data: SAMPLE_CSS, url: 'https://harbortimes.example/site.css' },
-    { path: 'assets/fonts/f.woff2', type: 'font/woff2', data: Buffer.from('wOF2-not-a-real-font'), url: 'https://harbortimes.example/f.woff2' },
-    { path: 'assets/images/logo.png', type: 'image/png', data: PNG_1X1, url: 'https://harbortimes.example/logo.png' },
+    { path: 'assets/styles/site.css', type: 'text/css', data: SAMPLE_CSS, url: 'https://meadowtimes.example/site.css' },
+    { path: 'assets/fonts/f.woff2', type: 'font/woff2', data: Buffer.from('wOF2-not-a-real-font'), url: 'https://meadowtimes.example/f.woff2' },
+    { path: 'assets/images/logo.png', type: 'image/png', data: PNG_1X1, url: 'https://meadowtimes.example/logo.png' },
     generated('_wsnp/offline.js', 'text/javascript', SAMPLE_JS),
   ]
 }
 
 /** A richer snapshot for the interface tests: source, pictures, a font, and files that cannot be shown (PDF, ZIP, video) with links to them. */
-export const RICH_PDF = makePdf([{ lines: ['Harbor report', 'Page one of two'] }, { lines: ['Harbor report', 'Page two of two'] }])
+export const RICH_PDF = makePdf([{ lines: ['Meadow report', 'Page one of two'] }, { lines: ['Meadow report', 'Page two of two'] }])
 /** A ZIP inside the snapshot: folders, text, JSON, a picture, and a ZIP inside it. */
 export const INNER_ZIP = zipSync([{ name: 'deep.txt', data: 'a file in a ZIP in a ZIP' }])
 export const RICH_ZIP = zipSync([
   { name: 'docs/' },
-  { name: 'docs/readme.txt', data: 'Harbor notes: the ferry leaves at noon.\n' },
+  { name: 'docs/readme.txt', data: 'Meadow notes: the ferry leaves at noon.\n' },
   { name: 'docs/data.json', data: '{"boats":3,"open":true}' },
   { name: 'img/' },
   { name: 'img/dot.png', data: PNG_1X1 },
@@ -125,12 +125,12 @@ export function richFiles(): FixtureFile[] {
   page.data = String(page.data).replace('</body>', '<p><a id="pdf" href="assets/files/report.pdf">The report (PDF)</a> <a id="zip" href="assets/files/bundle.zip">All files (ZIP)</a> <a id="pic" href="assets/images/mark.svg">The mark</a> <a id="hash" href="#end">Go to the end</a> <a id="zipblank" href="assets/files/bundle.zip" target="_blank" rel="noopener">ZIP in a new window</a> <a id="zipdl" href="assets/files/bundle.zip" download>ZIP to download</a></p><p id="end">The end of the page.</p></body>')
   return [
     ...files,
-    { path: 'assets/files/report.pdf', type: 'application/pdf', data: RICH_PDF, url: 'https://harbortimes.example/report.pdf' },
-    { path: 'assets/files/bundle.zip', type: 'application/zip', data: RICH_ZIP, url: 'https://harbortimes.example/bundle.zip' },
-    { path: 'assets/files/data.json', type: 'application/json', data: '{"items":[1,2,3],"ok":true,"name":"harbor"}', url: 'https://harbortimes.example/data.json' },
-    { path: 'assets/images/mark.svg', type: 'image/svg+xml', data: '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="18" fill="teal"/></svg>', url: 'https://harbortimes.example/mark.svg' },
-    { path: 'assets/files/setup.exe', type: 'application/octet-stream', data: Buffer.from('MZ not a program'), url: 'https://harbortimes.example/setup.exe' },
-    { path: 'assets/media/clip.mp4', type: 'video/mp4', data: Buffer.alloc(2048, 1), url: 'https://harbortimes.example/clip.mp4' },
+    { path: 'assets/files/report.pdf', type: 'application/pdf', data: RICH_PDF, url: 'https://meadowtimes.example/report.pdf' },
+    { path: 'assets/files/bundle.zip', type: 'application/zip', data: RICH_ZIP, url: 'https://meadowtimes.example/bundle.zip' },
+    { path: 'assets/files/data.json', type: 'application/json', data: '{"items":[1,2,3],"ok":true,"name":"meadow"}', url: 'https://meadowtimes.example/data.json' },
+    { path: 'assets/images/mark.svg', type: 'image/svg+xml', data: '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="18" fill="teal"/></svg>', url: 'https://meadowtimes.example/mark.svg' },
+    { path: 'assets/files/setup.exe', type: 'application/octet-stream', data: Buffer.from('MZ not a program'), url: 'https://meadowtimes.example/setup.exe' },
+    { path: 'assets/media/clip.mp4', type: 'video/mp4', data: Buffer.alloc(2048, 1), url: 'https://meadowtimes.example/clip.mp4' },
   ]
 }
 export const writeRichWsnp = (path: string, options: WsnpOptions = {}) => writeWsnp(path, richFiles(), options)
@@ -247,10 +247,10 @@ export interface PageKeepZipOptions {
 /** A plain ZIP as PageKeep writes it: flat `assets/`, one inline script, `snapshot.json`. */
 export async function writePageKeepZip(path: string, options: PageKeepZipOptions = {}): Promise<void> {
   const html = `<!DOCTYPE html>
-<!-- Saved by PageKeep from https://harbortimes.example/news on 2026-09-25T17:42:40.614Z -->
-<html lang="en"><head><meta charset="utf-8"><title>Harbor news</title>
-<meta name="description" content="News from the harbor.">
-<link rel="canonical" href="https://harbortimes.example/news">
+<!-- Saved by PageKeep from https://meadowtimes.example/news on 2026-09-25T17:42:40.614Z -->
+<html lang="en"><head><meta charset="utf-8"><title>Meadow news</title>
+<meta name="description" content="News from the meadow.">
+<link rel="canonical" href="https://meadowtimes.example/news">
 <link rel="stylesheet" href="assets/site-1x05wni.css">
 <style>.hero{background:url(assets/logo-1qg48nw.png)}</style></head><body>
 <h2 id="item">Item 1</h2><button id="next" type="button">Next</button>
@@ -264,22 +264,22 @@ let i = 1; document.getElementById('next').onclick = () => { i++; document.getEl
   const css = `@import url(base-2b7c.css);h2{color:rgb(0,128,128)}@font-face{font-family:F;src:url("font-2ab.woff2") format("woff2")}body{font-family:F,sans-serif}`
   const resource = (url: string, file: string, bytes: number, source: string, type: string) => ({ url, file: `assets/${file}`, bytes, source, ...(options.old ? {} : { type }) })
   const files: [string, Buffer, string, string, string][] = [
-    ['site-1x05wni.css', Buffer.from(css), 'https://harbortimes.example/site.css', 'network', 'text/css'],
-    ['base-2b7c.css', Buffer.from('p{margin:0}'), 'https://harbortimes.example/base.css', 'page', 'text/css'],
-    ['font-2ab.woff2', Buffer.from('wOF2-not-a-real-font'), 'https://harbortimes.example/font.woff2', 'page', 'font/woff2'],
-    ['logo-1qg48nw.png', PNG_1X1, 'https://harbortimes.example/logo.png', 'page', 'image/png'],
-    ['notes-9zz9zz.pdf', Buffer.from('%PDF-1.4 not a real pdf'), 'https://harbortimes.example/notes.pdf', 'network', 'application/pdf'],
+    ['site-1x05wni.css', Buffer.from(css), 'https://meadowtimes.example/site.css', 'network', 'text/css'],
+    ['base-2b7c.css', Buffer.from('p{margin:0}'), 'https://meadowtimes.example/base.css', 'page', 'text/css'],
+    ['font-2ab.woff2', Buffer.from('wOF2-not-a-real-font'), 'https://meadowtimes.example/font.woff2', 'page', 'font/woff2'],
+    ['logo-1qg48nw.png', PNG_1X1, 'https://meadowtimes.example/logo.png', 'page', 'image/png'],
+    ['notes-9zz9zz.pdf', Buffer.from('%PDF-1.4 not a real pdf'), 'https://meadowtimes.example/notes.pdf', 'network', 'application/pdf'],
   ]
   const snapshot = {
-    source_url: 'https://harbortimes.example/news',
-    title: 'Harbor news',
+    source_url: 'https://meadowtimes.example/news',
+    title: 'Meadow news',
     captured_at: '2026-09-25T17:42:40.614Z',
     tool: options.old ? 'Page Snapshot 1.0.0' : 'PageKeep 1.5.0',
     debugger: 'used',
     editors: {},
     carousels: {},
     resources: files.map(([file, data, url, source, type]) => resource(url, file, data.length, source, type)),
-    failed: [{ url: 'https://harbortimes.example/gone.png', reason: 'HTTP 404' }],
+    failed: [{ url: 'https://meadowtimes.example/gone.png', reason: 'HTTP 404' }],
   }
   await writeZip(path, [
     { name: 'index.html', data: html, compress: true },
@@ -309,24 +309,24 @@ export function makePng(width: number, height: number, rgb: [number, number, num
   return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', header), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))])
 }
 
-export const LONG_PDF = makePdf(Array.from({ length: 12 }, (_, i) => ({ lines: ['Harbor handbook', `Chapter ${i + 1}`] })))
+export const LONG_PDF = makePdf(Array.from({ length: 12 }, (_, i) => ({ lines: ['Meadow handbook', `Chapter ${i + 1}`] })))
 export const BROKEN_PDF = Buffer.from('%PDF-1.4\nthis is not a PDF at all, only the start of one\n')
 
 export function viewerFiles(): FixtureFile[] {
   return [
     ...richFiles(),
-    { path: 'assets/images/photo.png', type: 'image/png', data: makePng(320, 160), url: 'https://harbortimes.example/photo.png' },
-    { path: 'assets/images/tiny.png', type: 'image/png', data: makePng(8, 4, [200, 0, 0]), url: 'https://harbortimes.example/tiny.png' },
-    { path: 'assets/files/handbook.pdf', type: 'application/pdf', data: LONG_PDF, url: 'https://harbortimes.example/handbook.pdf' },
+    { path: 'assets/images/photo.png', type: 'image/png', data: makePng(320, 160), url: 'https://meadowtimes.example/photo.png' },
+    { path: 'assets/images/tiny.png', type: 'image/png', data: makePng(8, 4, [200, 0, 0]), url: 'https://meadowtimes.example/tiny.png' },
+    { path: 'assets/files/handbook.pdf', type: 'application/pdf', data: LONG_PDF, url: 'https://meadowtimes.example/handbook.pdf' },
     // Source for the text viewer: minified as a saved page has it, one very long line, Markdown and YAML served as plain text.
     { path: 'assets/styles/min.css', type: 'text/css', data: 'body{margin:0;font:14px/1.4 sans-serif}.card{display:flex;gap:8px}.card>h2{color:#0a7}@media (min-width:600px){.card{gap:16px}}' },
     { path: 'assets/files/min.js', type: 'text/javascript', data: 'function add(a,b){return a+b}const items=[1,2,3].map(function(x){return add(x,1)});if(items.length>2){console.log("ok")}' },
-    { path: 'assets/files/min.json', type: 'application/json', data: '{"name":"harbor","big":12345678901234567890,"items":[{"id":1,"tags":["a","b"]},{"id":2,"tags":[]}],"nested":{"deep":{"ok":true}}}' },
+    { path: 'assets/files/min.json', type: 'application/json', data: '{"name":"meadow","big":12345678901234567890,"items":[{"id":1,"tags":["a","b"]},{"id":2,"tags":[]}],"nested":{"deep":{"ok":true}}}' },
     { path: 'assets/files/page.html', type: 'text/html', data: '<!doctype html><html><head><title>t</title><style>p{color:red}</style></head><body><div><p>one</p><p>two <b>bold</b></p><ul><li>a</li><li>b</li></ul></div><script>var x=1;function f(){return x}</script></body></html>' },
     { path: 'assets/files/long.txt', type: 'text/plain', data: `${'all work and no play makes jack a dull boy '.repeat(60)}THE END\nsecond line\n` },
     { path: 'assets/files/notes.md', type: 'text/plain', data: '# Notes\n\n* one\n* two\n\n```js\nconst a = 1\n```\n' },
-    { path: 'assets/files/config.yml', type: 'application/octet-stream', data: 'name: harbor\nitems:\n  - id: 1\n  - id: 2\n' },
-    { path: 'assets/files/broken.pdf', type: 'application/pdf', data: BROKEN_PDF, url: 'https://harbortimes.example/broken.pdf' },
+    { path: 'assets/files/config.yml', type: 'application/octet-stream', data: 'name: meadow\nitems:\n  - id: 1\n  - id: 2\n' },
+    { path: 'assets/files/broken.pdf', type: 'application/pdf', data: BROKEN_PDF, url: 'https://meadowtimes.example/broken.pdf' },
   ]
 }
 export const writeViewerWsnp = (path: string, options: WsnpOptions = {}) => writeWsnp(path, viewerFiles(), options)

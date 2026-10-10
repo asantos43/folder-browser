@@ -19,7 +19,7 @@ test.afterEach(async () => {
 
 async function launch(env: Record<string, string> = {}): Promise<Page> {
   const file = path.join(dir, 'viewer.wsnp')
-  await writeViewerWsnp(file, { title: 'Harbor Times', url: 'https://harbortimes.example/' })
+  await writeViewerWsnp(file, { title: 'Meadow Times', url: 'https://meadowtimes.example/' })
   app = await electron.launch({ args: ['.', `--user-data-dir=${path.join(dir, 'profile')}`, ...noSandbox, file], env: { ...process.env, ...env } as Record<string, string> })
   const page = await app.firstWindow()
   await page.getByRole('tab').first().waitFor()
@@ -129,7 +129,7 @@ test.describe('Find', () => {
     // Each tab has its own search: the bar closed when the tab changed.
     await expect(page.getByRole('search')).toHaveCount(0)
     await page.keyboard.press('ControlOrMeta+f')
-    await findBox(page).fill('harbor')
+    await findBox(page).fill('meadow')
     await expect(counter(page, /^1 of \d+$/)).toBeVisible()
   })
 

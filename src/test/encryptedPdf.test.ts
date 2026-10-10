@@ -5,11 +5,11 @@ import { makeEncryptedPdf } from '../../fixtures/pdf.ts'
 describe('makeEncryptedPdf', () => {
   it('asks for a password, refuses a wrong one, and opens with the right one', async () => {
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    const data = new Uint8Array(makeEncryptedPdf([{ lines: ['secret page'] }], 'harbor'))
+    const data = new Uint8Array(makeEncryptedPdf([{ lines: ['secret page'] }], 'meadow'))
     const open = (password?: string) => pdfjs.getDocument({ data: data.slice(), password, verbosity: 0 }).promise
     await expect(open()).rejects.toMatchObject({ name: 'PasswordException', code: 1 })
     await expect(open('wrong')).rejects.toMatchObject({ name: 'PasswordException', code: 2 })
-    const page = await (await open('harbor')).getPage(1)
+    const page = await (await open('meadow')).getPage(1)
     expect((await page.getTextContent()).items.map((item) => ('str' in item ? item.str : '')).join('')).toBe('secret page')
   })
 })

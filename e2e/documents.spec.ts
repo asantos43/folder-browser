@@ -45,7 +45,7 @@ test('a Word file is drawn as a page, with its formatting', async () => {
   const page = await launch(work)
   await item(page, 'report.docx').dblclick()
   const doc = frameOf(page, 'report.docx')
-  await expect(doc.getByText('Harbor report')).toBeVisible()
+  await expect(doc.getByText('Meadow report')).toBeVisible()
   await expect(doc.locator('b, strong').filter({ hasText: 'ferry' }).or(doc.locator('span').filter({ hasText: /^ferry$/ }))).toBeVisible()
   await expect(doc.locator('table')).toContainText('North')
   await expect(doc.locator('section.docx, section')).not.toHaveCount(0)
@@ -55,7 +55,7 @@ test('a PowerPoint file is drawn slide by slide', async () => {
   const page = await launch(work)
   await item(page, 'deck.pptx').dblclick()
   const doc = frameOf(page, 'deck.pptx')
-  await expect(doc.getByText('Harbor deck')).toBeVisible()
+  await expect(doc.getByText('Meadow deck')).toBeVisible()
   await expect(doc.getByText('Yellow box')).toBeVisible()
   await expect(doc.getByText('Second slide')).toBeVisible()
 })
@@ -94,7 +94,7 @@ test('a document is drawn once and kept: going to another tab and back does not 
   const page = await launch(work)
   await item(page, 'report.docx').dblclick()
   const doc = frameOf(page, 'report.docx')
-  await expect(doc.getByText('Harbor report')).toBeVisible()
+  await expect(doc.getByText('Meadow report')).toBeVisible()
   // A mark in the frame's own window: it is gone if the frame is made again.
   const frame = page.frames().find((f) => f.url().startsWith('fb-doc://'))!
   await frame.evaluate(() => void ((window as unknown as { __kept: number }).__kept = 42))
@@ -102,7 +102,7 @@ test('a document is drawn once and kept: going to another tab and back does not 
   await expect(page.getByRole('table', { name: 'Table of boats.csv' })).toBeVisible()
   await expect(page.locator('iframe[title="Document: report.docx"]')).toBeHidden()
   await page.getByRole('tab', { name: /^report\.docx/ }).click()
-  await expect(doc.getByText('Harbor report')).toBeVisible()
+  await expect(doc.getByText('Meadow report')).toBeVisible()
   expect(await frame.evaluate(() => (window as unknown as { __kept?: number }).__kept)).toBe(42)
   // Closing its tab lets it go: the page of that document is gone.
   await page.getByRole('tab', { name: /^report\.docx/ }).getByRole('button', { name: /close/i }).click()
@@ -112,7 +112,7 @@ test('a document is drawn once and kept: going to another tab and back does not 
 test('Open as Hex in the menu of the tree shows any file as its bytes, beside the file in its own kind, and the tab comes back at the next start', async () => {
   const page = await launch(work)
   await item(page, 'report.docx').dblclick()
-  await expect(frameOf(page, 'report.docx').getByText('Harbor report')).toBeVisible()
+  await expect(frameOf(page, 'report.docx').getByText('Meadow report')).toBeVisible()
   await item(page, 'report.docx').click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Open as Hex' }).click()
   const hex = page.getByRole('grid', { name: 'Hexadecimal view of report.docx' })
@@ -131,7 +131,7 @@ test('Open as Hex in the menu of the tree shows any file as its bytes, beside th
 test('the frame of a document is cut off: it has no network, no way into the window, and the page of the interface cannot be reached from it', async () => {
   const page = await launch(work)
   await item(page, 'report.docx').dblclick()
-  await expect(frameOf(page, 'report.docx').getByText('Harbor report')).toBeVisible()
+  await expect(frameOf(page, 'report.docx').getByText('Meadow report')).toBeVisible()
   const frame = page.frames().find((f) => f.url().startsWith('fb-doc://'))!
   expect(frame).toBeTruthy()
   const reach = await frame.evaluate(async () => {
@@ -178,7 +178,7 @@ async function wheel(page: Page, selector: string, deltaY: number) {
 test('a document has the zoom of its tab: the keys, the wheel over the page, the status bar and Ctrl+0; each tab has its own', async () => {
   const page = await launch(work)
   await item(page, 'report.docx').dblclick()
-  await expect(frameOf(page, 'report.docx').getByText('Harbor report')).toBeVisible()
+  await expect(frameOf(page, 'report.docx').getByText('Meadow report')).toBeVisible()
   const start = await layoutWidth(page)
   await page.keyboard.press('ControlOrMeta+=')
   await page.keyboard.press('ControlOrMeta+=')
@@ -190,7 +190,7 @@ test('a document has the zoom of its tab: the keys, the wheel over the page, the
   await wheel(page, 'iframe[title="Document: report.docx"]', 120)
   await expect(status(page)).toContainText('125%')
   // With the focus inside the page (another process) the keys work too.
-  await frameOf(page, 'report.docx').getByText('Harbor report').click()
+  await frameOf(page, 'report.docx').getByText('Meadow report').click()
   await page.keyboard.press('ControlOrMeta+-')
   await expect(status(page)).toContainText('110%')
   await page.getByRole('button', { name: 'Zoom In' }).click()
@@ -201,7 +201,7 @@ test('a document has the zoom of its tab: the keys, the wheel over the page, the
   // Another tab has its own zoom.
   await page.keyboard.press('ControlOrMeta+=')
   await item(page, 'deck.pptx').dblclick()
-  await expect(frameOf(page, 'deck.pptx').getByText('Harbor deck')).toBeVisible()
+  await expect(frameOf(page, 'deck.pptx').getByText('Meadow deck')).toBeVisible()
   await expect(status(page)).toContainText('100%')
 })
 
@@ -242,7 +242,7 @@ test('a table and the bytes of a file have the zoom of their tab', async () => {
 test('Ctrl+F finds in a document: the matches are counted, selected one after the other, and Escape clears them; in a workbook, in the sheet that is shown', async () => {
   const page = await launch(work)
   await item(page, 'report.docx').dblclick()
-  await expect(frameOf(page, 'report.docx').getByText('Harbor report')).toBeVisible()
+  await expect(frameOf(page, 'report.docx').getByText('Meadow report')).toBeVisible()
   await page.keyboard.press('ControlOrMeta+f')
   const box = page.getByRole('textbox', { name: 'Find' })
   await box.fill('o')
@@ -289,7 +289,7 @@ test.describe('print', () => {
     const out = path.join(dir, 'printed.pdf')
     printTo = out
     const page = await launch(work)
-    for (const [name, text] of [['report.docx', 'Harbor report'], ['notes.odt', 'Writer heading'], ['deck.pptx', 'Harbor deck'], ['boats.ods', 'Gull']] as const) {
+    for (const [name, text] of [['report.docx', 'Meadow report'], ['notes.odt', 'Writer heading'], ['deck.pptx', 'Meadow deck'], ['boats.ods', 'Gull']] as const) {
       await item(page, name).dblclick()
       await expect(page.locator(`iframe[title="Document: ${name}"]`)).toBeVisible()
       await expect(page.getByRole('status')).toHaveCount(0)

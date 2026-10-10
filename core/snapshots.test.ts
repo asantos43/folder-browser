@@ -162,7 +162,7 @@ describe('a ZIP saved by PageKeep', () => {
     const info = infoOf(outcome.snapshot)
     expect(info.path).toBe(zip)
     expect(info.converted).toMatchObject({ tool: 'Page Snapshot 1.0.0', unrecorded: ['viewport', 'pixel-ratio', 'load-whole-page'] })
-    expect(info.manifest.title).toBe('Harbor news')
+    expect(info.manifest.title).toBe('Meadow news')
     expect(info.files.map((f) => f.path)).toContain('assets/images/logo-1qg48nw.png')
     const page = await registry.serve(outcome.snapshot.id, '/')
     expect(page.status).toBe(200)

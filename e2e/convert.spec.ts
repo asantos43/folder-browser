@@ -80,7 +80,7 @@ test('Save as .wsnp writes a file that passes the checks of the format and opens
   expect(options.filters[0].extensions).toEqual(['wsnp'])
   const opened = await openWsnp(target)
   if (!opened.ok) throw new Error(JSON.stringify(opened.issues))
-  expect(opened.manifest).toMatchObject({ title: 'Harbor news', converted_from: { format: 'zip', tool: 'PageKeep 1.5.0' }, generator: { name: 'Folder Browser' } })
+  expect(opened.manifest).toMatchObject({ title: 'Meadow news', converted_from: { format: 'zip', tool: 'PageKeep 1.5.0' }, generator: { name: 'Folder Browser' } })
   expect((await verifyContents(opened.archive, opened.manifest)).problems).toEqual([])
   await opened.archive.close()
   expect(fs.readdirSync(dir).filter((n) => n.endsWith('.part'))).toEqual([])

@@ -42,14 +42,14 @@ test.describe('laid out for reading', () => {
     await openFile(page, ['assets', 'files'], 'min.json')
     await expect(page.getByText('Formatted')).toBeVisible()
     expect(await lineCount(page)).toBeGreaterThan(10)
-    await expect(content(page)).toContainText('"name": "harbor",')
+    await expect(content(page)).toContainText('"name": "meadow",')
     // What the file says is not changed by laying it out: the number too big for a double is as it was.
     await expect(content(page)).toContainText('12345678901234567890')
     await expect(languageName(page, 'JSON')).toBeVisible()
     await formatButton(page).click()
     await expect(page.getByText('As saved')).toBeVisible()
     expect(await lineCount(page)).toBe(1)
-    await expect(content(page)).toContainText('{"name":"harbor","big":12345678901234567890')
+    await expect(content(page)).toContainText('{"name":"meadow","big":12345678901234567890')
   })
 
   test('minified HTML, CSS and JavaScript are laid out too, with their own indentation', async () => {
@@ -96,7 +96,7 @@ test.describe('laid out for reading', () => {
     await expect(page.getByText('Formatted')).toBeVisible()
     await page.getByRole('toolbar').getByRole('button', { name: 'Save As…' }).click()
     await expect(page.getByRole('status')).toContainText('Saved saved.json.')
-    expect(fs.readFileSync(target, 'utf8')).toBe('{"name":"harbor","big":12345678901234567890,"items":[{"id":1,"tags":["a","b"]},{"id":2,"tags":[]}],"nested":{"deep":{"ok":true}}}')
+    expect(fs.readFileSync(target, 'utf8')).toBe('{"name":"meadow","big":12345678901234567890,"items":[{"id":1,"tags":["a","b"]},{"id":2,"tags":[]}],"nested":{"deep":{"ok":true}}}')
   })
 })
 

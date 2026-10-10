@@ -26,7 +26,7 @@ const second = () => path.join(dir, 'second.wsnp')
 async function files() {
   if (made) return
   made = true
-  await writeViewerWsnp(viewer(), { title: 'Harbor Times', url: 'https://harbortimes.example/' })
+  await writeViewerWsnp(viewer(), { title: 'Meadow Times', url: 'https://meadowtimes.example/' })
   await writeSampleWsnp(second(), { title: 'Second page', url: 'https://second.example/' })
 }
 async function launch(...args: string[]): Promise<Page> {

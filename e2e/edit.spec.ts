@@ -16,7 +16,7 @@ test.beforeEach(() => {
   fs.mkdirSync(path.join(work, 'docs'), { recursive: true })
   fs.writeFileSync(path.join(work, 'a.txt'), 'first line\nsecond line\n')
   fs.writeFileSync(path.join(work, 'b.txt'), 'the b file\n')
-  fs.writeFileSync(path.join(work, 'data.json'), '{"name":"harbor","items":[1,2,3]}')
+  fs.writeFileSync(path.join(work, 'data.json'), '{"name":"meadow","items":[1,2,3]}')
   fs.writeFileSync(path.join(work, 'win.txt'), Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('one\r\ntwo\r\n')]))
   fs.writeFileSync(path.join(work, 'latin.txt'), Buffer.from([0x63, 0x61, 0x66, 0xe9, 0x0a]))
   fs.writeFileSync(path.join(work, 'big.log'), 'a log line of text\n'.repeat(300_000))
@@ -152,12 +152,12 @@ test('what cannot be edited is shown as it is, and says why: another encoding, a
 test('Format Document lays a minified file out as an edit that is undone with Ctrl+Z', async () => {
   const page = await launch(work)
   await open(page, 'data.json')
-  await expect(editor(page)).toContainText('{"name":"harbor"')
+  await expect(editor(page)).toContainText('{"name":"meadow"')
   await page.getByRole('button', { name: /Lay the text out/ }).click()
-  await expect(editor(page)).toContainText('"name": "harbor"')
+  await expect(editor(page)).toContainText('"name": "meadow"')
   await expect(tab(page, 'data.json')).toContainText('Modified')
   await page.keyboard.press('ControlOrMeta+z')
-  await expect(editor(page)).toContainText('{"name":"harbor"')
+  await expect(editor(page)).toContainText('{"name":"meadow"')
 })
 
 test('Save All writes every tab with changes; Save in the File menu is off when there is nothing to save', async () => {

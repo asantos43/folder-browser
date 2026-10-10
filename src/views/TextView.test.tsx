@@ -13,7 +13,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const MIN_JSON = '{"name":"harbor","items":[{"id":1},{"id":2}],"ok":true}'
+const MIN_JSON = '{"name":"meadow","items":[{"id":1},{"id":2}],"ok":true}'
 const show = (text: string, language: Parameters<typeof TextView>[0]['language'], size = text.length, onSave = vi.fn(), actions: { onHex?: () => void; onOpenWith?: () => void } = {}) => {
   render(
     <I18nProvider language="en">
@@ -29,7 +29,7 @@ describe('TextView: formatting', () => {
     show(MIN_JSON, 'json')
     await waitFor(() => expect(screen.getByText('Formatted')).toBeTruthy())
     // (The label comes before the editor has the new text: wait for the text too.)
-    await waitFor(() => expect(content()).toContain('"name": "harbor",'))
+    await waitFor(() => expect(content()).toContain('"name": "meadow",'))
     expect(screen.getByText(/\d+ lines/).textContent).not.toBe('1 lines')
     expect(screen.getByText('JSON')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Show the file laid out/ }).getAttribute('aria-pressed')).toBe('true')
@@ -38,7 +38,7 @@ describe('TextView: formatting', () => {
     show(MIN_JSON, 'json')
     await waitFor(() => expect(screen.getByText('Formatted')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: /Show the file laid out/ }))
-    await waitFor(() => expect(content()).toContain('{"name":"harbor","items"'))
+    await waitFor(() => expect(content()).toContain('{"name":"meadow","items"'))
     expect(screen.getByText('As saved')).toBeTruthy()
     expect(screen.getByText('1 lines')).toBeTruthy()
     expect(localStorage.getItem('fb:formatSource')).toBe('false')

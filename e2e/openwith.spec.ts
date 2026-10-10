@@ -27,7 +27,7 @@ const handedOver = () => (fs.existsSync(log()) ? fs.readFileSync(log(), 'utf8').
 /** The folder for temporary files is the test's own, so the copies can be counted; the system's chooser is replaced by a log. */
 async function launch(extraEnv: Record<string, string> = {}, logHandOver = true): Promise<Page> {
   const file = path.join(dir, 'viewer.wsnp')
-  await writeViewerWsnp(file, { title: 'Harbor Times', url: 'https://harbortimes.example/' })
+  await writeViewerWsnp(file, { title: 'Meadow Times', url: 'https://meadowtimes.example/' })
   const tmp = path.join(dir, 'tmp')
   app = await electron.launch({ args: ['.', `--user-data-dir=${path.join(dir, 'profile')}`, ...noSandbox, file], env: { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp, ...(logHandOver ? { WSNP_OPEN_WITH_LOG: log() } : {}), ...extraEnv } as Record<string, string> })
   const page = await app.firstWindow()

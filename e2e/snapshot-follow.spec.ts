@@ -19,7 +19,7 @@ test.beforeEach(async () => {
   fs.mkdirSync(path.join(beta, 'saved'), { recursive: true })
   fs.writeFileSync(path.join(alpha, 'notes.txt'), 'notes of alpha')
   fs.writeFileSync(path.join(beta, 'other.txt'), 'other')
-  await writeRichWsnp(path.join(beta, 'saved', 'harbor.wsnp'), { title: 'Harbor Times', url: 'https://harbortimes.example/' })
+  await writeRichWsnp(path.join(beta, 'saved', 'meadow.wsnp'), { title: 'Meadow Times', url: 'https://meadowtimes.example/' })
 })
 test.afterEach(async () => {
   await app?.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((w) => w.destroy())).catch(() => {})
@@ -50,17 +50,17 @@ test('the tab of a snapshot takes the Files to the folder that contains the .wsn
   // The snapshot of beta, opened from its tree (a folder below the root): the Files show beta.
   await open.getByText('beta', { exact: true }).click()
   await item(page, 'saved').click()
-  await item(page, 'harbor.wsnp').dblclick()
-  const snapshotTab = page.getByRole('tab', { name: /harbor\.wsnp/ })
+  await item(page, 'meadow.wsnp').dblclick()
+  const snapshotTab = page.getByRole('tab', { name: /meadow\.wsnp/ })
   await expect(snapshotTab).toHaveAttribute('aria-selected', 'true')
-  await expect(item(page, 'harbor.wsnp')).toHaveAttribute('aria-selected', 'true')
+  await expect(item(page, 'meadow.wsnp')).toHaveAttribute('aria-selected', 'true')
   // Back to the text: the Files are alpha's again.
   await textTab.click()
   await expect.poll(() => rowNames(page)).toEqual(['notes.txt'])
   await expect(item(page, 'notes.txt')).toHaveAttribute('aria-selected', 'true')
   // To the snapshot: beta, the folder open down to the .wsnp, whose row is the highlighted one. The files of the snapshot are not listed.
   await snapshotTab.click()
-  await expect.poll(() => rowNames(page)).toEqual(['saved', 'harbor.wsnp', 'other.txt'])
-  await expect(item(page, 'harbor.wsnp')).toHaveAttribute('aria-selected', 'true')
+  await expect.poll(() => rowNames(page)).toEqual(['saved', 'meadow.wsnp', 'other.txt'])
+  await expect(item(page, 'meadow.wsnp')).toHaveAttribute('aria-selected', 'true')
   await expect(item(page, 'manifest.json')).toHaveCount(0)
 })

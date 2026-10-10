@@ -8,7 +8,7 @@ import { makeDemoFolder } from './demo-folder.ts'
 
 const out = path.resolve(import.meta.dirname, '../docs/images')
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fb-shots-'))
-const demo = await makeDemoFolder(path.join(work, 'Harbor Times'))
+const demo = await makeDemoFolder(path.join(work, 'Meadow Times'))
 fs.mkdirSync(out, { recursive: true })
 
 const app = await electron.launch({ args: ['.', `--user-data-dir=${path.join(work, 'profile')}`, '--lang=en-US', demo], env: { ...process.env, XDG_DATA_HOME: path.join(work, 'data') } })
@@ -175,7 +175,7 @@ await step('pdf', async () => {
 await step('image', async () => {
   await closeAll()
   await item('photos').click()
-  await item('harbor.png').dblclick()
+  await item('meadow.png').dblclick()
   await shot('image')
 })
 
@@ -199,7 +199,7 @@ await step('documents', async () => {
 
 await step('snapshot', async () => {
   await closeAll()
-  await item('harbor-times.wsnp').dblclick()
+  await item('meadow-times.wsnp').dblclick()
   await page.getByRole('contentinfo').getByRole('button', { name: /Intact/ }).waitFor()
   await shot('snapshot')
 })

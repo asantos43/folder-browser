@@ -14,7 +14,7 @@ test.beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fb-e2e-pdfpw-'))
   work = path.join(dir, 'work')
   fs.mkdirSync(work, { recursive: true })
-  fs.writeFileSync(path.join(work, 'secret.pdf'), makeEncryptedPdf([{ lines: ['the secret page'] }, { lines: ['page two'] }], 'harbor'))
+  fs.writeFileSync(path.join(work, 'secret.pdf'), makeEncryptedPdf([{ lines: ['the secret page'] }, { lines: ['page two'] }], 'meadow'))
   fs.writeFileSync(path.join(work, 'open.pdf'), makePdf([{ lines: ['nothing secret'] }]))
 })
 test.afterEach(async () => {
@@ -43,7 +43,7 @@ test('a PDF with a password asks for it; a wrong one asks again, the right one d
   await expect(page.getByRole('alert')).toHaveText('That password is not right. Try again.')
   await expect(field).toHaveValue('')
   await expect(field).toBeFocused()
-  await field.fill('harbor')
+  await field.fill('meadow')
   await page.getByRole('button', { name: 'Open', exact: true }).click()
   await expect(page.getByRole('img', { name: 'Page 1' })).toBeVisible()
   await expect(page.getByRole('img', { name: 'Page 2' })).toBeVisible()
@@ -71,7 +71,7 @@ test('the password of a PDF is remembered while the app is open: switching tabs 
   await item(page, 'secret.pdf').dblclick()
   const field = page.getByLabel('Password', { exact: true })
   await expect(page.getByText(/protected with a password/)).toBeVisible()
-  await field.fill('harbor')
+  await field.fill('meadow')
   await page.getByRole('button', { name: 'Open', exact: true }).click()
   await expect(page.getByRole('img', { name: 'Page 1' })).toBeVisible()
   // Open a second file from the folder and switch back to the PDF tab: the form does not come back, the pages stay drawn.

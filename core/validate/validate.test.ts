@@ -46,7 +46,7 @@ describe('openWsnp: a good file', () => {
     const result = await openWsnp(target)
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.manifest.title).toBe('Harbor news')
+    expect(result.manifest.title).toBe('Meadow news')
     expect(result.manifest.pages[0].entry).toBe('index.html')
     expect(result.archive.get('index.html')).toBeTruthy()
     await result.archive.close()

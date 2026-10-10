@@ -58,7 +58,7 @@ describe('convertPageKeepZip', () => {
     if (!opened.ok) throw new Error(JSON.stringify(opened.issues))
     expect((await verifyContents(opened.archive, opened.manifest)).problems).toEqual([])
     await opened.archive.close()
-    expect(report.manifest).toMatchObject({ format: 'wsnp', format_version: '1.0', title: 'Harbor news', source: { url: 'https://harbortimes.example/news', canonical: 'https://harbortimes.example/news', language: 'en' }, converted_from: { format: 'zip', tool: old ? 'Page Snapshot 1.0.0' : 'PageKeep 1.5.0' } })
+    expect(report.manifest).toMatchObject({ format: 'wsnp', format_version: '1.0', title: 'Meadow news', source: { url: 'https://meadowtimes.example/news', canonical: 'https://meadowtimes.example/news', language: 'en' }, converted_from: { format: 'zip', tool: old ? 'Page Snapshot 1.0.0' : 'PageKeep 1.5.0' } })
   })
 
   it('moves each asset into its folder by type, keeps the names, and points the page and the stylesheets to the new places', async () => {

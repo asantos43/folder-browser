@@ -4,7 +4,7 @@ O Folder Browser mostra as pastas do seu computador e o que há nelas. Abre **pa
 
 ## Abrir uma pasta
 
-![O Folder Browser com a pasta Harbor Times aberta: a árvore à esquerda e um arquivo Markdown à direita](images/workbench.png)
+![O Folder Browser com a pasta Meadow Times aberta: a árvore à esquerda e um arquivo Markdown à direita](images/workbench.png)
 
 - **Arquivo ▸ Abrir Pasta…** (`Ctrl+Shift+O`, `⇧⌘O` no macOS), ou **arraste** uma pasta, um ZIP ou qualquer arquivo para a janela, ou diga um deles na linha de comando.
 - Um **arquivo ZIP** abre como uma pasta, também um ZIP dentro de um ZIP. O seletor de **Abrir Pasta…** só escolhe pastas no Linux e no Windows (os diálogos desses sistemas não escolhem os dois), então um arquivo ZIP se abre com **Arquivo ▸ Abrir Arquivo ZIP…**, o **ícone de zip na barra de atividades** (a coluna de ícones à esquerda, abaixo de Abrir Pasta), o ícone de zip de Pastas Abertas, ou o botão **Abrir Arquivo ZIP** quando nenhuma pasta está aberta); no macOS **Abrir Pasta…** aceita os dois. Um arquivo dito sozinho abre numa aba, com a pasta dele aberta ao lado.

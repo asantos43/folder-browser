@@ -16,7 +16,7 @@ test.beforeEach(() => {
   work = path.join(dir, 'work')
   fs.mkdirSync(path.join(work, 'src', 'deep'), { recursive: true })
   fs.mkdirSync(path.join(work, 'node_modules', 'pkg'), { recursive: true })
-  fs.writeFileSync(path.join(work, 'readme.txt'), 'the readme of the harbor')
+  fs.writeFileSync(path.join(work, 'readme.txt'), 'the readme of the meadow')
   fs.writeFileSync(path.join(work, 'src', 'deep', 'schedule.txt'), 'ferry at noon')
   fs.writeFileSync(path.join(work, 'src', 'main.ts'), 'export const x = 1\n')
   fs.writeFileSync(path.join(work, '.secret.txt'), 'hidden')

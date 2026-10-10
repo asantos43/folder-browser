@@ -28,9 +28,9 @@ async function launch(...files: string[]): Promise<Page> {
   await page.getByTestId('titlebar').waitFor()
   return page
 }
-async function harbor(name = 'harbor.wsnp', title = 'Harbor Times') {
+async function meadow(name = 'meadow.wsnp', title = 'Meadow Times') {
   const file = path.join(dir, name)
-  await writeRichWsnp(file, { title, url: 'https://harbortimes.example/' })
+  await writeRichWsnp(file, { title, url: 'https://meadowtimes.example/' })
   return file
 }
 const frameOf = (page: Page, title: string) => page.frameLocator(`iframe[title="Snapshot: ${title}"]`)
@@ -51,12 +51,12 @@ async function stubDialogs(saveTo: string) {
 const external = () => app!.evaluate(() => (globalThis as unknown as { __external: string[] }).__external)
 
 test('the files named on the command line open, each in a tab of its own, and the page works', async () => {
-  const a = await harbor()
+  const a = await meadow()
   const b = path.join(dir, 'second.wsnp')
   await writeSampleWsnp(b, { title: 'Second page', url: 'https://second.example/' })
   const page = await launch(a, b)
   await expect(tabs(page)).toHaveCount(2)
-  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'second.wsnp'])
+  expect(await tabNames(page)).toEqual(['meadow.wsnp', 'second.wsnp'])
   await expect(activeTab(page)).toContainText('second.wsnp')
   // Each is a page in a tab: no list of open snapshots, and the side bar is the folder they are in.
   await expect(page.getByRole('listbox', { name: 'Open Snapshots' })).toHaveCount(0)
@@ -68,7 +68,7 @@ test('the files named on the command line open, each in a tab of its own, and th
   await expect(frameOf(page, 'second.wsnp').locator('h2')).toHaveText('Item 2')
   // Another tab shows another snapshot; the first keeps its own state.
   await tabs(page).first().click()
-  await expect(frameOf(page, 'harbor.wsnp').locator('h2')).toHaveText('Item 1')
+  await expect(frameOf(page, 'meadow.wsnp').locator('h2')).toHaveText('Item 1')
   await tabs(page).nth(1).click()
   await expect(frameOf(page, 'second.wsnp').locator('h2')).toHaveText('Item 2')
   // The status bar is about the selected snapshot, and its integrity is checked in the background.
@@ -77,17 +77,17 @@ test('the files named on the command line open, each in a tab of its own, and th
 })
 
 test('the breadcrumbs, the tab and the status bar say what the snapshot is', async () => {
-  const page = await launch(await harbor())
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnp')
-  await expect(activeTab(page)).toHaveAttribute('title', `${path.join(dir, 'harbor.wsnp')}\nhttps://harbortimes.example/`)
+  const page = await launch(await meadow())
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('meadow.wsnp')
+  await expect(activeTab(page)).toHaveAttribute('title', `${path.join(dir, 'meadow.wsnp')}\nhttps://meadowtimes.example/`)
   const status = page.getByRole('contentinfo')
-  await expect(status).toContainText('harbortimes.example')
+  await expect(status).toContainText('meadowtimes.example')
   await expect(status).toContainText('Intact')
   await expect(status).toContainText('folder-browser fixtures 0.0.0')
 })
 
 test('source is coloured, and a picture is shown with its size', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await goToFile(page, 'index.html')
   await expect(page.locator('.cm-content')).toContainText('<h2 id="item">Item 1</h2>')
   // A tag has the colour of a tag in the theme (a variable, not a fixed colour).
@@ -99,7 +99,7 @@ test('source is coloured, and a picture is shown with its size', async () => {
 })
 
 test('a file that cannot be shown is offered with Save As from its tab, and saved byte for byte', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   const clip = path.join(dir, 'saved-clip.mp4')
   await stubDialogs(clip)
   await goToFile(page, 'clip.mp4')
@@ -111,10 +111,10 @@ test('a file that cannot be shown is offered with Save As from its tab, and save
 })
 
 test('a click on a link to a ZIP lists it in a tab, and it can be saved from there; to a PDF, a picture or text opens a tab; a #link stays in the page', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   const target = path.join(dir, 'from-link.zip')
   await stubDialogs(target)
-  const frame = frameOf(page, 'harbor.wsnp')
+  const frame = frameOf(page, 'meadow.wsnp')
   await frame.locator('#zip').click()
   await expect(tabs(page)).toHaveCount(2)
   await expect(activeTab(page)).toContainText('bundle.zip')
@@ -135,31 +135,31 @@ test('a click on a link to a ZIP lists it in a tab, and it can be saved from the
   await tabs(page).first().click()
   await frame.locator('#hash').click()
   await expect(frame.locator('#end')).toBeVisible()
-  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'mark.svg'])
+  expect(await tabNames(page)).toEqual(['meadow.wsnp', 'mark.svg'])
   expect(await external()).toEqual([])
 })
 
 test('a link to a file with target=_blank or download opens its tab as a plain link does', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await stubDialogs(path.join(dir, 'unused'))
-  const frame = frameOf(page, 'harbor.wsnp')
+  const frame = frameOf(page, 'meadow.wsnp')
   for (const id of ['#zipblank', '#zipdl']) {
     await frame.locator(id).click()
     await expect(tabs(page)).toHaveCount(2)
     await expect(activeTab(page)).toContainText('bundle.zip')
     await tabs(page).first().click()
   }
-  expect(await tabNames(page)).toEqual(['harbor.wsnp', 'bundle.zip'])
+  expect(await tabNames(page)).toEqual(['meadow.wsnp', 'bundle.zip'])
   expect(await external()).toEqual([])
 })
 
 test('a click on a web link opens the default browser and nothing else; no tab, and the page stays', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await stubDialogs(path.join(dir, 'unused'))
-  await frameOf(page, 'harbor.wsnp').locator('#ext').click()
+  await frameOf(page, 'meadow.wsnp').locator('#ext').click()
   await expect.poll(external).toEqual(['https://example.com/more'])
   await expect(tabs(page)).toHaveCount(1)
-  await expect(frameOf(page, 'harbor.wsnp').locator('h2')).toHaveText('Item 1')
+  await expect(frameOf(page, 'meadow.wsnp').locator('h2')).toHaveText('Item 1')
 })
 
 test('nothing reaches the network from a snapshot in a tab', async () => {
@@ -185,7 +185,7 @@ test('files that cannot be opened are refused in plain words, and the newer, the
   await writeNewer(files.newer)
   await writeApplication(files.app)
   await writeProtected(files.locked)
-  const page = await launch(files.bad, files.newer, files.app, files.locked, await harbor())
+  const page = await launch(files.bad, files.newer, files.app, files.locked, await meadow())
   await expect(tabs(page)).toHaveCount(1)
   await expect(page.getByRole('alert')).toContainText('Could not open Bad.wsnp: This is not a WSNP file: it is not a ZIP archive.')
   const notes = page.getByRole('status')
@@ -233,15 +233,15 @@ test('editing the manifest of a file makes it not valid: a changed hash is caugh
 })
 
 test('the metadata of a snapshot is shown in a tab: what the manifest says, what was checked, and the manifest itself', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   // The View menu is in the window on Windows and Linux only (macOS has a native one), so the test goes through the tab's own menu.
   await tabs(page).first().click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Show Metadata' }).click()
-  await expect(activeTab(page)).toContainText('Metadata: harbor.wsnp')
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpMetadata')
+  await expect(activeTab(page)).toContainText('Metadata: meadow.wsnp')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('meadow.wsnpMetadata')
   const view = page.getByLabel('Metadata', { exact: true })
   await expect(view).toContainText('folder-browser fixtures 0.0.0')
-  await expect(view).toContainText('https://harbortimes.example/')
+  await expect(view).toContainText('https://meadowtimes.example/')
   await expect(view).toContainText('1280 × 800')
   await expect(view).toContainText('The file follows the format')
   await expect(view).toContainText('All 11 files are intact.')
@@ -258,19 +258,19 @@ test('the metadata of a snapshot is shown in a tab: what the manifest says, what
 })
 
 test('the metadata can be copied as JSON', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await tabs(page).first().click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Show Metadata' }).click()
   await page.getByRole('button', { name: 'Copy as JSON' }).click()
   await expect.poll(() => app!.evaluate(async ({ clipboard }) => (await clipboard.readText()).length)).toBeGreaterThan(100)
   const copied = JSON.parse(await app!.evaluate(({ clipboard }) => clipboard.readText())) as { format: string; title: string; files: unknown[] }
-  expect(copied).toMatchObject({ format: 'wsnp', title: 'Harbor Times' })
+  expect(copied).toMatchObject({ format: 'wsnp', title: 'Meadow Times' })
   expect(copied.files).toHaveLength(11)
 })
 
 test('a second launch hands its file to the running app, which shows it in a new tab', async () => {
-  const first = await harbor('one.wsnp', 'One')
-  const second = await harbor('two.wsnp', 'Two')
+  const first = await meadow('one.wsnp', 'One')
+  const second = await meadow('two.wsnp', 'Two')
   const page = await launch(first)
   await expect(tabs(page)).toHaveCount(1)
   const electronPath = (await import('electron')).default as unknown as string
@@ -289,7 +289,7 @@ test('a second launch hands its file to the running app, which shows it in a new
 test('closing tabs: Ctrl+W, the × button, the middle click, the context menu; the last one leaves the empty editor', async () => {
   const names = ['a', 'b', 'c', 'd']
   const files: string[] = []
-  for (const n of names) files.push(await harbor(`${n}.wsnp`, n.toUpperCase()))
+  for (const n of names) files.push(await meadow(`${n}.wsnp`, n.toUpperCase()))
   const page = await launch(...files)
   await expect(tabs(page)).toHaveCount(4)
   await page.keyboard.press('ControlOrMeta+W')
@@ -308,7 +308,7 @@ test('closing tabs: Ctrl+W, the × button, the middle click, the context menu; t
 
 test('the tab context menu: pin, close others, close to the right, close all', async () => {
   const files: string[] = []
-  for (const n of ['a', 'b', 'c', 'd']) files.push(await harbor(`${n}.wsnp`, n.toUpperCase()))
+  for (const n of ['a', 'b', 'c', 'd']) files.push(await meadow(`${n}.wsnp`, n.toUpperCase()))
   const page = await launch(...files)
   await tabs(page).nth(2).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Pin' }).click()
@@ -327,7 +327,7 @@ test('the tab context menu: pin, close others, close to the right, close all', a
 
 test('Ctrl+Tab goes through the tabs in the order they were used, and Alt+1 goes to the first', async () => {
   const files: string[] = []
-  for (const n of ['a', 'b', 'c']) files.push(await harbor(`${n}.wsnp`, n.toUpperCase()))
+  for (const n of ['a', 'b', 'c']) files.push(await meadow(`${n}.wsnp`, n.toUpperCase()))
   const page = await launch(...files)
   await tabs(page).nth(0).click()
   await tabs(page).nth(2).click()
@@ -346,7 +346,7 @@ test('Ctrl+Tab goes through the tabs in the order they were used, and Alt+1 goes
 
 test('tabs can be dragged to a new place', async () => {
   const files: string[] = []
-  for (const n of ['a', 'b', 'c']) files.push(await harbor(`${n}.wsnp`, n.toUpperCase()))
+  for (const n of ['a', 'b', 'c']) files.push(await meadow(`${n}.wsnp`, n.toUpperCase()))
   const page = await launch(...files)
   // A page keeps its state when its tab moves: moving an iframe in the document would reload it.
   await tabs(page).first().click()
@@ -369,7 +369,7 @@ test('tabs can be dragged to a new place', async () => {
 
 test('dragging a file over the window says it can be dropped, and the window never navigates to it', async () => {
   const page = await launch()
-  const file = await harbor('dropped.wsnp', 'Dropped')
+  const file = await meadow('dropped.wsnp', 'Dropped')
   expect(fs.existsSync(file)).toBe(true)
   await page.evaluate(() => {
     const data = new DataTransfer()
@@ -382,7 +382,7 @@ test('dragging a file over the window says it can be dropped, and the window nev
 
 test('Open Recent lists the files opened before, by name, and opens one', async () => {
   test.skip(!htmlMenu, 'macOS has the native menu')
-  const file = await harbor('recent-one.wsnp', 'Recent One')
+  const file = await meadow('recent-one.wsnp', 'Recent One')
   const page = await launch(file)
   await expect(tabs(page)).toHaveCount(1)
   // (Closed on purpose: what is open at the end comes back at the next start.)
@@ -404,8 +404,8 @@ test('Open Recent lists the files opened before, by name, and opens one', async 
 })
 
 test('the interface offers nothing more to a snapshot than its own files', async () => {
-  const page = await launch(await harbor())
-  const frame = frameOf(page, 'harbor.wsnp')
+  const page = await launch(await meadow())
+  const frame = frameOf(page, 'meadow.wsnp')
   await expect(frame.locator('html')).toHaveAttribute('data-offline', 'ready')
   // From inside the frame: the interface, its storage and the other files of the profile are out of reach.
   const seen = await frame.locator('html').evaluate(() => ({

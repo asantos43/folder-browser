@@ -3,11 +3,11 @@ import { canFormat, FORMAT_LIMIT, formatSource } from './format.ts'
 
 describe('formatSource: lays a file out for reading, and only lays it out', () => {
   it('puts JSON one member to a line, indented, and does not parse it: a number too big for a double stays as it is', async () => {
-    const out = await formatSource('{"name":"harbor","big":12345678901234567890,"items":[{"id":1,"tags":["a","b"]},{"id":2,"tags":[]}]}', 'json')
+    const out = await formatSource('{"name":"meadow","big":12345678901234567890,"items":[{"id":1,"tags":["a","b"]},{"id":2,"tags":[]}]}', 'json')
     expect(out.split('\n').length).toBeGreaterThan(8)
-    expect(out).toContain('  "name": "harbor",')
+    expect(out).toContain('  "name": "meadow",')
     expect(out).toContain('12345678901234567890')
-    expect(JSON.parse(out)).toEqual(JSON.parse('{"name":"harbor","big":12345678901234567890,"items":[{"id":1,"tags":["a","b"]},{"id":2,"tags":[]}]}'))
+    expect(JSON.parse(out)).toEqual(JSON.parse('{"name":"meadow","big":12345678901234567890,"items":[{"id":1,"tags":["a","b"]},{"id":2,"tags":[]}]}'))
   })
   it('lays out minified HTML, with its script and style, an element to a line', async () => {
     const out = await formatSource('<!doctype html><html><head><title>t</title><style>p{color:red}</style></head><body><div><p>one</p><ul><li>a</li><li>b</li></ul></div><script>var x=1;function f(){return x}</script></body></html>', 'html')
