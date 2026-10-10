@@ -16,7 +16,7 @@ function setPlatform(value: typeof platforms[number]) {
 function commands(open: boolean): Commands {
   const noop = () => {}
   return {
-    toggleSideBar: noop, setTheme: noop, openFile: noop, newFile: noop, openFolder: noop, openZip: noop, openGuide: noop,
+    toggleSideBar: noop, setTheme: noop, openFile: noop, newFile: noop, openFolder: noop, openZip: noop, installPlugin: noop, openGuide: noop,
     toggleHidden: noop, showHidden: false, sortKey: 'name', sortDescending: false, setSortKey: noop, setSortDescending: noop,
     print: noop, savePdf: noop, saveAsWsnp: noop, quickOpen: noop, commandPalette: noop, goBack: noop, goForward: noop,
     copy: noop, find: noop, openRecent: noop, clearRecent: noop, closeEditor: noop, closeAll: noop, save: noop, saveAll: noop,

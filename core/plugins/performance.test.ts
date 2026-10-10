@@ -77,6 +77,23 @@ it('extracts the guard into a pure `violations(files)` function', () => {
   expect(report).not.toContain('src/views/SettingsView.tsx')
 })
 
+it('permits the lazy IPC shell but rejects eager shell imports and direct parser/compiler dependencies', () => {
+  expect(violations([
+    { path: 'electron/main.ts', source: "ipcMain.handle('fb:plugins-list', () => import('./plugins-host.ts'))" },
+    { path: 'electron/plugins-host.ts', source: "import { PluginHost } from '../core/plugins/host.ts'" },
+  ])).toEqual([])
+  for (const [path, source] of [
+    ['electron/main.ts', "import { PluginsHost } from './plugins-host.ts'"],
+    ['electron/window.ts', "import('./plugins-host.ts')"],
+    ['electron/plugins-host.ts', "import { readPackage } from '../core/plugins/package.ts'"],
+    ['electron/plugins-host.ts', "import { compilePlugin } from '../core/plugins/compile.ts'"],
+  ]) expect(violations([{ path, source }])).not.toEqual([])
+  const main = readFileSync('electron/main.ts', 'utf8')
+  expect(main.indexOf("import('./plugins-host.ts')")).toBeGreaterThan(main.indexOf('ipcMain.handle(`fb:plugins-'))
+  expect(main).not.toMatch(/(?:readIndex|cleanStaging|readPackage)\(/)
+  expect(readFileSync('electron/preload.ts', 'utf8')).not.toMatch(/sendSync\(['"]fb:plugins-/)
+})
+
 it('classifies `import type` and dynamic `import()` separately from static imports', () => {
   const source = `
     import type { A } from '@core/plugins/summary.ts'

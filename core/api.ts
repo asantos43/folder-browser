@@ -1,4 +1,5 @@
 import type { OpError, OpResult } from './fs/ops.ts'
+import type { PluginsApi } from './plugins/summary.ts'
 import type { ImportPreview } from './settings/portable.ts'
 import type { Draft } from './drafts.ts'
 import type { EditBytesOpen, EditError, EditOpen, EditSave, FileVersion, LineEnding } from './fs/edit.ts'
@@ -88,6 +89,7 @@ export type MediaOpen = { token: string; url: string; kind: 'video' | 'audio'; m
 export type SettingsNotice = { id: string; message: string }
 export type SettingsPortableResult = { error: string } | { canceled: true } | { changed: string[] } | { preview: ImportPreview; token: number; needsConfirm: boolean }
 export interface FbApi {
+  plugins: PluginsApi
   keys: { recording(active: boolean): boolean; get(): import('./keys/user.ts').KeysSnapshot; set(entries: readonly import('./keys/user.ts').UserKey[]): Promise<import('./keys/user.ts').KeysResult>; export(): Promise<import('./keys/user.ts').KeysPortableResult>; previewImport(): Promise<import('./keys/user.ts').KeysPortableResult>; applyImport(token: number, confirmed: boolean): Promise<import('./keys/user.ts').KeysPortableResult>; onChanged(listener: (snapshot: import('./keys/user.ts').KeysSnapshot) => void): () => void }
   settings: { all(): Record<string, unknown>; notices(): readonly SettingsNotice[]; set(pairs: readonly (readonly [string, unknown])[]): void; reset(ids: readonly string[]): void; export(): Promise<SettingsPortableResult>; previewImport(): Promise<SettingsPortableResult>; applyImport(token: number, confirmed: boolean, safetyConfirmed: boolean): Promise<SettingsPortableResult>; resetAll(confirmed: boolean): Promise<SettingsPortableResult>; showFile(): Promise<SettingsPortableResult>; onChanged(listener: (ids: readonly string[]) => void): () => void }
   platform: string

@@ -1,4 +1,4 @@
-// The contract between the Plugins page and the future plugin host (steps 2.3 and 2.5).
+// The contract between the Plugins page and the lazy plugin host (step 2.5a).
 // Pure types, no Electron, no IPC, no DOM: the renderer imports these and the host will
 // implement them on top of the package reader and the installed index.
 
@@ -45,12 +45,12 @@ export interface RemoveOptions { keepSettings: boolean }
 
 /** What `install()` returns: success, refusal (with a one-line fix), or user cancellation. */
 export type InstallOutcome =
-  | { ok: true; id: string }
+  | { ok: true; id: string; notices?: readonly { code: string; message: string }[] }
   | { ok: false; code: string; message: string }
   | { cancelled: true }
 
 /**
- * The interface the host will expose on `window.fb.plugins` (step 2.5). The renderer
+ * The interface the host exposes on `window.fb.plugins` (step 2.5a). The renderer
  * reads it through `usePlugins()` and never imports `window.fb` itself.
  */
 export interface PluginsApi {
@@ -60,6 +60,8 @@ export interface PluginsApi {
   disableAll(): Promise<void>
   openFolder(id: string): Promise<void>
   install(): Promise<InstallOutcome>
+  /** Disk paths supplied by a file drop; the host validates every selected source. */
+  installPaths(paths: string[]): Promise<InstallOutcome>
   /** Subscribe to changes; the panel refreshes through this, debounced to one call per frame. */
   onChange(callback: () => void): () => void
 }

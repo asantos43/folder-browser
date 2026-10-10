@@ -6,6 +6,7 @@ export const builtinCommands = [
   { id: 'openFolder', title: 'menu.openFolder', category: 'file', keys: ['Ctrl+Shift+O'], menu: { menu: 'file', group: 'open', order: 0 }, palette: true },
   { id: 'openFile', title: 'menu.openFile', category: 'file', keys: ['Ctrl+O'], menu: { menu: 'file', group: 'open', order: 1 }, palette: true },
   { id: 'openZip', title: 'menu.openZip', category: 'file', menu: { menu: 'file', group: 'open', order: 2 }, palette: true },
+  { id: 'installPlugin', title: 'plugins.install', category: 'file', menu: { menu: 'file', group: 'open', order: 3 }, palette: true },
   { id: 'clearRecent', title: 'menu.clearRecent', category: 'file', when: 'hasRecent', menu: { menu: 'file', group: 'recent', order: 0 }, palette: true },
   { id: 'save', title: 'menu.save', category: 'file', when: 'canSave', keys: ['Ctrl+S'], menu: { menu: 'file', group: 'save', order: 0 }, palette: true },
   { id: 'saveAll', title: 'menu.saveAll', category: 'file', when: 'canSaveAll', keys: ['Ctrl+Alt+S'], menu: { menu: 'file', group: 'save', order: 1 }, palette: true },

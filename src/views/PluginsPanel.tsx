@@ -128,7 +128,7 @@ export interface PluginsPanelProps {
 
 export function PluginsPanel({ onJumpToSettings }: PluginsPanelProps = {}) {
   const { t } = useI18n()
-  const { available, items, loading, actions } = usePlugins()
+  const { available, items, loading, error, actions } = usePlugins()
   const [query, setQuery] = useState('')
   const deferred = useDeferredValue(query)
   const needle = useMemo(() => normalizeSearch(deferred.trim()), [deferred])
@@ -139,6 +139,8 @@ export function PluginsPanel({ onJumpToSettings }: PluginsPanelProps = {}) {
   const [removing, setRemoving] = useState<PluginSummary | null>(null)
   const [confirmingDisableAll, setConfirmingDisableAll] = useState(false)
   const [installError, setInstallError] = useState<string | null>(null)
+  const [installNotices, setInstallNotices] = useState<string | null>(null)
+  const installing = useRef(false)
   const [disableAllError, setDisableAllError] = useState<string | null>(null)
   // Short, accessible message shown on the row when a toggle / open-folder action fails.
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({})
@@ -202,18 +204,27 @@ export function PluginsPanel({ onJumpToSettings }: PluginsPanelProps = {}) {
     }
   }
   const handleSettings = (id: string) => { onJumpToSettings?.(id) }
-  const handleInstall = async () => {
+  const handleInstall = async (paths?: string[]) => {
+    if (installing.current) return
+    installing.current = true
+    setBusy(true)
     let result
     try {
-      result = await actions.install()
+      result = paths ? await actions.installPaths(paths) : await actions.install()
     } catch (cause) {
       // The host promise rejected: show the message in plain words; no further state changes.
       setInstallError(cause instanceof Error ? cause.message : String(cause))
       return
+    } finally {
+      installing.current = false
+      setBusy(false)
     }
     if ('cancelled' in result) return
     if (!result.ok) setInstallError(result.message)
-    else setInstallError(null) // a fresh install that succeeds clears any previous error
+    else {
+      setInstallError(null)
+      setInstallNotices(result.notices?.map(notice => notice.message).join(' ') ?? null)
+    }
   }
   const handleDisableAll = async () => {
     setBusy(true)
@@ -229,16 +240,27 @@ export function PluginsPanel({ onJumpToSettings }: PluginsPanelProps = {}) {
   }
 
   return (
-    <section role="region" aria-label={t('plugins.title')} className="flex flex-col">
+    <section role="region" aria-label={t('plugins.title')} data-plugin-drop className="flex flex-col"
+      onDragOver={event => { if (event.dataTransfer.types.includes('Files')) event.preventDefault() }}
+      onDrop={event => {
+        if (!event.dataTransfer.types.includes('Files')) return
+        event.preventDefault()
+        event.stopPropagation()
+        const paths = Array.from(event.dataTransfer.files).map(file => window.fb?.pathForFile(file) ?? '').filter(Boolean)
+        void handleInstall(paths)
+      }}>
       <h2 className="m-0 mb-3 border-b border-group-border pb-1 text-[13px] font-bold uppercase text-fg-muted">{t('plugins.title')}</h2>
       <p className="m-0 mb-3 text-[13px] text-fg-muted">{t('plugins.intro')}</p>
+      <p className="m-0 mb-3 text-[12px] text-fg-muted">{t('plugins.dropHint')}</p>
       <div role="toolbar" aria-label={t('plugins.title')} className="mb-3 flex flex-wrap gap-2">
-        <button type="button" className={control} onClick={handleInstall}>{t('plugins.install')}</button>
+        <button type="button" className={control} disabled={busy} onClick={() => void handleInstall()}>{t('plugins.install')}</button>
         <button type="button" className={control} disabled={!anyEnabled || busy} onClick={() => setConfirmingDisableAll(true)}>{t('plugins.disableAll')}</button>
       </div>
       <input type="search" aria-label={t('plugins.search')} placeholder={t('plugins.search')} value={query} onChange={event => setQuery(event.target.value)} className={`${control} mb-3 w-full`} />
       {anyDeveloper ? <p role="status" aria-live="polite" className="mb-3 border border-group-border bg-widget p-2 text-[12px] text-fg-muted">{t('plugins.developerMode')}</p> : null}
-      {installError ? <p role="alert" className="mb-3 text-[13px] text-error"><bdi>{t('plugins.installFailed', { message: installError })}</bdi></p> : null}
+      {installError ? <p role="alert" className="mb-3 line-clamp-1 text-[13px] text-error" title={installError}><bdi>{t('plugins.installFailed', { message: truncate(installError, ERROR_LIMIT).visible })}</bdi></p> : null}
+      {error ? <p role="alert" className="mb-3 line-clamp-1 text-[13px] text-error"><bdi>{error}</bdi></p> : null}
+      {installNotices ? <p role="status" className="mb-3 line-clamp-1 text-[13px] text-fg-muted" title={installNotices}><bdi>{truncate(installNotices, ERROR_LIMIT).visible}</bdi></p> : null}
       {disableAllError ? <p role="alert" className="mb-3 text-[13px] text-error"><bdi>{t('plugins.disableAllFailed', { message: disableAllError })}</bdi></p> : null}
       {visible.length === 0
         ? <p className="text-fg-muted">{items.length ? t('settings.noMatch', { query: deferred }) : t('plugins.empty')}</p>

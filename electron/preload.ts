@@ -14,7 +14,25 @@ let keysCache = ipcRenderer.sendSync('fb:keys-get') as KeysSnapshot
 ipcRenderer.on('fb:keys-changed', (_event, snapshot: KeysSnapshot) => { keysCache = snapshot })
 /** Asks the main process, which also settles every `set` sent before (the messages of one window keep their order). */
 const settingsValues = () => (ipcRenderer.sendSync('fb:settings-get-all') as typeof settingsInitial).values
+const invokePlugin = async (channel: string, ...args: unknown[]) => {
+  try { return await ipcRenderer.invoke(channel, ...args) }
+  catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause)
+    // Electron decorates rejected invokes with an IPC channel; keep the host's plain refusal.
+    throw new Error(message.replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/, '').replace(/[\r\n\u2028\u2029]/g, ' ').slice(0, 300))
+  }
+}
 const api: FbApi = {
+  plugins: {
+    list: () => invokePlugin('fb:plugins-list'),
+    setEnabled: (id, enabled) => invokePlugin('fb:plugins-set-enabled', id, enabled),
+    remove: (id, options) => invokePlugin('fb:plugins-remove', id, options),
+    disableAll: () => invokePlugin('fb:plugins-disable-all'),
+    openFolder: id => invokePlugin('fb:plugins-open-folder', id),
+    install: () => invokePlugin('fb:plugins-install'),
+    installPaths: paths => invokePlugin('fb:plugins-install-paths', paths),
+    onChange: listener => on<undefined>('fb:plugins-changed', () => listener()),
+  },
   keys: {
     recording: active => ipcRenderer.sendSync('fb:keys-recording', active) === true,
     get: () => ({ entries: keysCache.entries.map(entry => ({ ...entry })), warnings: keysCache.warnings.map(warning => ({ ...warning })) }),

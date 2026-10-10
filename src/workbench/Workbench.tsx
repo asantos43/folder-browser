@@ -624,11 +624,17 @@ export function Workbench() {
   // ---- commands: from the menu, from the keyboard, and from the native menu of macOS
   const cycle = useRef<{ list: string[]; at: number } | null>(null)
   const run = useCallback(
-    (command: CommandName | 'cycleEnd' | 'showAbout' | 'copy' | 'savePdf' | 'saveAsWsnp') => {
+    (command: CommandName | 'cycleEnd' | 'showAbout' | 'copy' | 'savePdf' | 'saveAsWsnp' | 'installPlugin') => {
       const current = wsNow.current
       const handlers: BuiltinHandlers = {
         newFile: () => dispatch({ type: 'open-untitled' }), openFolder: () => void api?.openFolderDialog().then(handleResults),
         openFile: () => void api?.openDialog().then(handleResults), openZip: () => void api?.openZipDialog().then(handleResults),
+        installPlugin: () => {
+          void api?.plugins.install().then(result => {
+            if ('ok' in result && !result.ok) notify({ level: 'error', text: t('plugins.installFailed', { message: result.message }) })
+            if ('ok' in result && result.ok && result.notices?.length) notify({ level: 'info', text: result.notices.map(notice => notice.message).join(' ').slice(0, 300) })
+          }).catch(error => notify({ level: 'error', text: t('plugins.installFailed', { message: error instanceof Error ? error.message : String(error) }) }))
+        },
         clearRecent: () => void api?.recent.clear().then(refreshRecent), save: () => current.active && current.dirty[current.active] ? void saveKey(current.active) : undefined,
         saveAll: () => Object.keys(current.dirty).length ? void saveKeys(Object.keys(current.dirty)) : undefined,
         saveAsWsnp: () => current.active && canSaveWsnp(current) ? void saveConverted(activeTabOf(current)!.snapshotId) : undefined,
@@ -663,7 +669,7 @@ export function Workbench() {
         if (tab) dispatch({ type: 'activate', key: tab.key })
       }
     },
-    [api, handleResults, toggleSideBar, copySelection, printTab, savePdfTab, saveConverted, go, zoomTab, saveKey, saveKeys],
+    [api, handleResults, toggleSideBar, copySelection, printTab, savePdfTab, saveConverted, go, zoomTab, saveKey, saveKeys, notify, t],
   )
 
   useEffect(() => {
@@ -679,7 +685,7 @@ export function Workbench() {
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKeyUp)
     window.addEventListener('blur', onBlur)
-    const off = api?.onCommand((command) => run(command as CommandName | 'cycleEnd' | 'showAbout' | 'copy' | 'savePdf' | 'saveAsWsnp'))
+    const off = api?.onCommand((command) => run(command as CommandName | 'cycleEnd' | 'showAbout' | 'copy' | 'savePdf' | 'saveAsWsnp' | 'installPlugin'))
     return () => {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onKeyUp)
@@ -692,14 +698,20 @@ export function Workbench() {
   useEffect(() => {
     let depth = 0
     const hasFiles = (e: DragEvent) => e.dataTransfer?.types.includes('Files') ?? false
-    const enter = (e: DragEvent) => hasFiles(e) && (depth++, setDragging(true))
-    const over = (e: DragEvent) => hasFiles(e) && e.preventDefault()
+    const onPlugins = (e: DragEvent) => e.target instanceof Element && !!e.target.closest('[data-plugin-drop]')
+    const enter = (e: DragEvent) => hasFiles(e) && !onPlugins(e) && (depth++, setDragging(true))
+    const over = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      if (onPlugins(e)) { depth = 0; setDragging(false) }
+    }
     const leave = (e: DragEvent) => hasFiles(e) && ((depth = Math.max(0, depth - 1)) === 0 ? setDragging(false) : undefined)
     const drop = (e: DragEvent) => {
       if (!hasFiles(e)) return
       e.preventDefault()
       depth = 0
       setDragging(false)
+      if (onPlugins(e)) return
       const paths = [...(e.dataTransfer?.files ?? [])].map((f) => api?.pathForFile(f) ?? '').filter(Boolean)
       if (paths.length) void api?.openPaths(paths).then(handleResults)
     }
@@ -723,6 +735,7 @@ export function Workbench() {
       newFile: () => run('newFile'),
       openFolder: () => run('openFolder'),
       openZip: () => run('openZip'),
+      installPlugin: () => run('installPlugin'),
       toggleHidden: () => run('toggleHidden'),
       showHidden: hiddenShown,
       sortKey: sortBy,

@@ -3,7 +3,7 @@ import { cleanup, render } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { PluginsProvider, usePlugins } from '@/plugins/usePlugins.tsx'
 import type { PluginSummary, PluginsApi } from '@core/plugins/summary.ts'
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
 function Probe({ out }: { out: { items: PluginSummary[] } }) { out.items = usePlugins().items; return null }
 function setup() {
@@ -34,4 +34,26 @@ it('never runs two list() calls at once, even for a change during the first load
   const s = setup()
   s.fire(); await frame()
   expect(s.max()).toBe(1)
+})
+
+it('uses the real preload API without an injected provider and unsubscribes when closed', async () => {
+  const list = vi.fn(async () => [p('real')]), unsubscribe = vi.fn()
+  const installPaths = vi.fn(async () => ({ ok: true, id: 'real' } as const))
+  vi.stubGlobal('fb', { plugins: { list, onChange: vi.fn(() => unsubscribe), installPaths } })
+  let actions: ReturnType<typeof usePlugins>['actions'] | undefined
+  function Real() { const state = usePlugins(); actions = state.actions; return <span>{state.items[0]?.id}</span> }
+  const view = render(<Real />)
+  await frame(); expect(view.container.textContent).toBe('real')
+  expect(list).toHaveBeenCalledTimes(1)
+  expect(await actions!.installPaths(['/drop/plugin.fbplugin'])).toEqual({ ok: true, id: 'real' })
+  expect(installPaths).toHaveBeenCalledWith(['/drop/plugin.fbplugin'])
+  view.unmount(); expect(unsubscribe).toHaveBeenCalledTimes(1)
+})
+
+it('shows a list rejection as state instead of an unhandled promise', async () => {
+  const api = { list: vi.fn(async () => { throw new Error('Cannot read plugins') }), onChange: () => () => {} } as unknown as PluginsApi
+  let error: string | null = null
+  function Failure() { error = usePlugins().error; return null }
+  render(<PluginsProvider value={api}><Failure /></PluginsProvider>); await frame()
+  expect(error).toBe('Cannot read plugins')
 })

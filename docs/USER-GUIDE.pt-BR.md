@@ -236,6 +236,8 @@ A primeira entrada dá a **Ocultar / mostrar a barra lateral** a tecla `Ctrl+Alt
 
 ## Configurações, Ajuda e Sobre
 
+**Configurações ▸ Plugins** ou **Arquivo ▸ Instalar Plugin de um Arquivo…** instala um arquivo `.fbplugin` local ou uma pasta descompactada de plugin após confirmação; você também pode soltar um deles na página Plugins, habilitar/desabilitar, abrir sua pasta ou remover mantendo/apagando suas opções, mas as contribuições ainda não são aplicadas.
+
 ![A aba de Configurações](images/settings.png)
 
 As **Configurações** (a engrenagem na barra de atividades, **Arquivo ▸ Preferências ▸ Configurações**, ou `Ctrl+,`) abrem numa aba com uma caixa que as filtra: **Tema de Cor** (Dark+, Light+ ou Auto), **Cor da Linha Divisória** (a linha entre o Explorer e os editores, e entre dois grupos de editor: a do tema, ou uma cor que você escolhe), **Idioma de Exibição** (inglês, português do Brasil ou automático), se deve **reabrir o que estava aberto**, **Mostrar arquivos ocultos**, e para código **Quebra de Linha** e **Formatar arquivos de código**. As outras escolhas (Markdown, SVG, CSV, a ordem e as comparações) também aparecem aqui e continuam disponíveis onde são usadas. As configurações ficam no seu computador, na pasta do próprio aplicativo, e em nenhum outro lugar: veja [`../PRIVACY.md`](../PRIVACY.md).

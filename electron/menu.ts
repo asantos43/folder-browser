@@ -29,6 +29,7 @@ export function installMenu(sendCommand: (command: string) => void): void {
         { type: 'separator' },
         { label: 'Open File…', accelerator: accelerator('openFile'), click: () => send('openFile') },
         { label: 'Open ZIP File…', click: () => send('openZip') },
+        { label: app.getLocale().toLowerCase().startsWith('pt') ? 'Instalar Plugin de um Arquivo…' : 'Install Plugin from File…', click: () => send('installPlugin') },
         { type: 'separator' },
         { label: 'Save', accelerator: accelerator('save'), click: () => send('save') },
         { label: 'Save All', accelerator: accelerator('saveAll'), click: () => send('saveAll') },
