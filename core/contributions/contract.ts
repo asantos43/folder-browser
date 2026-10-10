@@ -1,0 +1,54 @@
+/** Menu destinations. Context destinations are reserved and rejected by this gate. */
+export type MenuPoint = 'menubar/file' | 'menubar/edit' | 'menubar/view' | 'menubar/go' | 'menubar/tools' | 'menubar/help' | 'context/tree' | 'context/tab' | 'context/editor'
+
+/** Declarative command; its handler is supplied separately by the trusted host. */
+export interface ContributionCommand {
+  id: string
+  title: string
+  category: string
+  when?: string
+  palette?: boolean
+}
+
+/** A default chord for a command owned by this plugin, never a reserved chord. */
+export interface ContributionKey {
+  command: string
+  key: string
+}
+
+/** Registry option. Namespaced ids persist under plugins.<pluginId> in SettingsStore. */
+export interface SettingDef {
+  id: string
+  type: 'boolean' | 'choice' | 'number' | 'string' | 'colour' | 'list'
+  default: boolean | number | string | readonly string[]
+  category: string
+  label: string | null
+  choices?: readonly (boolean | number | string)[]
+  min?: number
+  max?: number
+  safety?: boolean
+  description?: string
+  keywords?: readonly string[]
+  choiceLabels?: readonly string[]
+  categoryLabel?: string
+  restart?: boolean
+}
+
+/** Stable placement: group, declared order, then id; when uses the command grammar. */
+export interface ContributionMenuItem {
+  id: string
+  command: string
+  point: MenuPoint
+  group: string
+  order: number
+  when?: string
+}
+
+/** Install-time data only: at most 500 entries combined, all ids owned by pluginId. */
+export interface Contribution {
+  pluginId: string
+  commands?: readonly ContributionCommand[]
+  keys?: readonly ContributionKey[]
+  settings?: readonly SettingDef[]
+  menuItems?: readonly ContributionMenuItem[]
+}
