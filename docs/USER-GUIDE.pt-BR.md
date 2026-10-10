@@ -221,7 +221,9 @@ Os atalhos funcionam onde quer que esteja o foco, também dentro de uma página 
 
 ## Suas próprias teclas
 
-Cada comando tem uma tecla própria (a tabela acima). Para acrescentar, mudar ou tirar uma, crie um arquivo chamado `keybindings.json` na pasta do próprio aplicativo (`~/.config/folder-browser` no Linux, `%APPDATA%\folder-browser` no Windows, `~/Library/Application Support/folder-browser` no macOS; a mesma pasta de `settings.json`). Ele não existe até você criá-lo, e nada muda enquanto não existir. É uma lista (entre `[` e `]`, com as entradas separadas por vírgula), por exemplo:
+Abra **Configurações ▸ Teclado** para buscar comandos por título, id ou tecla, ou mostrar somente os modificados. Cada linha mostra a categoria e a tecla efetiva. Escolha **Gravar tecla**, pressione um acorde e confira antes de Aplicar: Esc cancela, só modificadores não gravam, acordes reservados são recusados e conflitos com outros comandos aparecem antes de confirmar. **Remover tecla** tira o atalho; **Restaurar** devolve a tecla padrão daquele comando, e **Restaurar tudo…** pede confirmação. **Exportar…** salva `keybindings.json`; **Importar…** abre um JSON de até 256 KB e mostra as entradas válidas, avisos de entradas ignoradas e conflitos. Somente Aplicar substitui suas teclas; Cancelar mantém tudo. As mudanças aparecem imediatamente nos menus e na paleta de comandos.
+
+Cada comando tem uma tecla própria (a tabela acima). Você também pode editar um arquivo chamado `keybindings.json` na pasta do próprio aplicativo (`~/.config/folder-browser` no Linux, `%APPDATA%\folder-browser` no Windows, `~/Library/Application Support/folder-browser` no macOS; a mesma pasta de `settings.json`). Ele é criado quando você salva teclas no painel ou o cria manualmente, e nada muda enquanto não existir. É uma lista (entre `[` e `]`, com as entradas separadas por vírgula), por exemplo:
 
 - `{ "key": "Ctrl+Alt+J", "command": "toggleSideBar" }`
 - `{ "key": "Ctrl+B", "command": "-toggleSideBar" }`

@@ -13,11 +13,11 @@ function make(seed?: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fb-keys-')); dirs.push(dir)
   const file = path.join(dir, 'keybindings.json')
   if (seed !== undefined) fs.writeFileSync(file, seed)
-  const handlers = new Map<string, (...args: any[]) => void>()
+  const handlers = new Map<string, (...args: any[]) => any>()
   const frame = { url: 'fb-ui://app/index.html' }
   const sender = Object.assign(new EventEmitter(), { mainFrame: frame, getURL: () => frame.url, send: vi.fn() })
   const win = { webContents: sender, isDestroyed: () => false } as any
-  const host = new KeysHost(dir, { on: (channel: string, cb: (...args: any[]) => void) => { handlers.set(channel, cb) }, removeListener: vi.fn() } as any, () => [win], false)
+  const host = new KeysHost(dir, { on: (channel: string, cb: (...args: any[]) => void) => { handlers.set(channel, cb) }, removeListener: vi.fn(), handle: (channel: string, cb: (...args: any[]) => any) => { handlers.set(channel, cb) }, removeHandler: vi.fn() } as any, () => [win], false)
   hosts.push(host); host.register()
   return { host, file, handlers, sender, frame, win, event: { sender, senderFrame: frame, returnValue: null } as any }
 }
@@ -35,12 +35,12 @@ it('preserves corrupt files, rejects child/foreign IPC and writes valid entries 
   expect(x.host.snapshot.warnings).toHaveLength(1)
   expect(fs.readFileSync(x.file, 'utf8')).toBe('{broken')
   const set = x.handlers.get('fb:keys-set')!, get = x.handlers.get('fb:keys-get')!
-  set({ ...x.event, senderFrame: { url: 'fb-ui://app/child' } }, binding)
-  set({ ...x.event, sender: {} }, binding)
-  set(x.event, [{ key: 'Mod+V', command: 'toggleSideBar' }])
-  await x.host.flush()
+  expect(await set({ ...x.event, senderFrame: { url: 'fb-ui://app/child' } }, binding)).toEqual({ error: 'refused' })
+  expect(await set({ ...x.event, sender: {} }, binding)).toEqual({ error: 'refused' })
+  expect(await set(x.event, [{ key: 'Mod+V', command: 'toggleSideBar' }])).toMatchObject({ ok: false })
+  expect(await set(x.event, binding, 'extra')).toMatchObject({ ok: false })
   expect(fs.readFileSync(x.file, 'utf8')).toBe('{broken')
-  set(x.event, binding); await x.host.flush()
+  expect(await set(x.event, binding)).toEqual({ ok: true, warnings: [] })
   expect(JSON.parse(fs.readFileSync(x.file, 'utf8'))).toEqual(binding)
   expect(fs.readdirSync(path.dirname(x.file))).toEqual(['keybindings.json'])
   get(x.event); expect(x.event.returnValue.entries).toEqual(binding)
@@ -72,4 +72,36 @@ it('the main bridge forwards user keys, leaves removals and conditional chords a
   expect(press('b')).not.toHaveBeenCalled()
   expect(press('l', true)).not.toHaveBeenCalled()
   expect(x.sender.send).not.toHaveBeenCalled()
+})
+it('recording suspends native forwarding only for a validated top frame and resumes afterwards', () => {
+  const x = make(JSON.stringify(binding))
+  installShortcuts(x.win, false)
+  const record = x.handlers.get('fb:keys-recording')!
+  const press = () => {
+    const event = { preventDefault: vi.fn() }
+    x.sender.emit('before-input-event', event, { type: 'keyDown', key: 'j', control: true, alt: true, shift: false, meta: false })
+    return event.preventDefault
+  }
+  record({ ...x.event, senderFrame: { url: 'fb-ui://app/child' } }, true)
+  expect(press()).toHaveBeenCalledOnce()
+  record(x.event, 'true'); expect(press()).toHaveBeenCalledOnce()
+  record(x.event, true); expect(x.event.returnValue).toBe(true)
+  x.sender.send.mockClear(); expect(press()).not.toHaveBeenCalled(); expect(x.sender.send).not.toHaveBeenCalled()
+  record(x.event, false); expect(press()).toHaveBeenCalledOnce()
+})
+it('a reload or crash of the interface while recording resumes the native shortcuts, and no listener piles up', () => {
+  const x = make(JSON.stringify(binding))
+  installShortcuts(x.win, false)
+  const record = x.handlers.get('fb:keys-recording')!
+  const press = () => {
+    const event = { preventDefault: vi.fn() }
+    x.sender.emit('before-input-event', event, { type: 'keyDown', key: 'j', control: true, alt: true, shift: false, meta: false })
+    return event.preventDefault
+  }
+  for (const gone of ['did-navigate', 'render-process-gone']) {
+    record(x.event, true); expect(press()).not.toHaveBeenCalled()
+    x.sender.emit(gone); expect(press()).toHaveBeenCalledOnce()
+  }
+  for (let i = 0; i < 20; i++) { record(x.event, true); record(x.event, false) }
+  expect(x.sender.listenerCount('did-navigate')).toBe(0); expect(x.sender.listenerCount('render-process-gone')).toBe(0)
 })

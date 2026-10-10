@@ -93,7 +93,7 @@ export interface MenuDef {
  * VS Code's menus, trimmed to what the viewer does (docs/UI-DESIGN.md, "Behaviour taken from VS Code"). Items of features
  * that do not exist yet are disabled, not hidden, so the structure is the final one.
  */
-const registry = createRegistry()
+export const registry = createRegistry()
 for (const definition of builtinCommands) registry.register(definition)
 const definitions = new Map<string, Readonly<CommandDef>>(builtinCommands.map((definition) => [definition.id, definition] as const))
 const labels: Record<string, string> = { openFile: 'open', openSettings: 'settings', closeEditor: 'close', commandPalette: 'palette', toggleHidden: 'hidden', clearRecent: 'clear', showMetadata: 'metadata', toggleSideBar: 'sidebar', goBack: 'back', goForward: 'forward', quickOpen: 'goToFile', nextEditor: 'next', previousEditor: 'previous', openGuide: 'guide', showAbout: 'about' }

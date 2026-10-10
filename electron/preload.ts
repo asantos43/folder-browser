@@ -16,8 +16,12 @@ ipcRenderer.on('fb:keys-changed', (_event, snapshot: KeysSnapshot) => { keysCach
 const settingsValues = () => (ipcRenderer.sendSync('fb:settings-get-all') as typeof settingsInitial).values
 const api: FbApi = {
   keys: {
+    recording: active => ipcRenderer.sendSync('fb:keys-recording', active) === true,
     get: () => ({ entries: keysCache.entries.map(entry => ({ ...entry })), warnings: keysCache.warnings.map(warning => ({ ...warning })) }),
-    set: entries => ipcRenderer.send('fb:keys-set', entries),
+    set: entries => ipcRenderer.invoke('fb:keys-set', entries),
+    export: () => ipcRenderer.invoke('fb:keys-export'),
+    previewImport: () => ipcRenderer.invoke('fb:keys-import-preview'),
+    applyImport: (token, confirmed) => ipcRenderer.invoke('fb:keys-import-apply', token, confirmed),
     onChanged: listener => on<KeysSnapshot>('fb:keys-changed', listener),
   },
   settings: {

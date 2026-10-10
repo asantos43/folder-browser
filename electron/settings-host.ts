@@ -18,10 +18,27 @@ export interface SettingsDialogs {
   open(win: BrowserWindow): Promise<string | undefined>
   show(file: string): Promise<void>
 }
-const systemDialogs: SettingsDialogs = {
-  async save(win) { const { dialog } = await import('electron'); const result = await dialog.showSaveDialog(win, { defaultPath: 'settings.json', filters: [{ name: 'JSON', extensions: ['json'] }] }); return result.canceled ? undefined : result.filePath },
+export const jsonDialogs = (defaultPath: string): SettingsDialogs => ({
+  async save(win) { const { dialog } = await import('electron'); const result = await dialog.showSaveDialog(win, { defaultPath, filters: [{ name: 'JSON', extensions: ['json'] }] }); return result.canceled ? undefined : result.filePath },
   async open(win) { const { dialog } = await import('electron'); const result = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] }); return result.canceled ? undefined : result.filePaths[0] },
   async show(file) { const { shell } = await import('electron'); shell.showItemInFolder(file) },
+})
+const systemDialogs = jsonDialogs('settings.json')
+
+/** Bounded asynchronous read shared by settings and keyboard imports. */
+export async function readBoundedJson(file: string, limit: number, message: string): Promise<string> {
+  const reader = await fsp.open(file, 'r')
+  try {
+    const bytes = Buffer.alloc(limit + 1)
+    let size = 0
+    while (size < bytes.length) {
+      const read = await reader.read(bytes, size, bytes.length - size, null)
+      if (!read.bytesRead) break
+      size += read.bytesRead
+    }
+    if (size > limit) throw new Error(message)
+    return bytes.subarray(0, size).toString('utf8')
+  } finally { await reader.close() }
 }
 type SyncEvent = Pick<IpcMainEvent, 'sender' | 'senderFrame'> & { returnValue?: unknown }
 type Sender = { send(channel: string, ...args: unknown[]): void }
@@ -123,19 +140,7 @@ export class SettingsHost {
       const ticket = ++this.sequence
       const file = await this.dialogs.open(windowFor(event))
       if (!file) return { canceled: true }
-      const reader = await fsp.open(file, 'r')
-      let json: string
-      try {
-        const bytes = Buffer.alloc(SETTINGS_FILE_LIMIT + 1)
-        let size = 0
-        while (size < bytes.length) {
-          const read = await reader.read(bytes, size, bytes.length - size, null)
-          if (!read.bytesRead) break
-          size += read.bytesRead
-        }
-        if (size > SETTINGS_FILE_LIMIT) throw new Error('Settings file exceeds 256 KB')
-        json = bytes.subarray(0, size).toString('utf8')
-      } finally { await reader.close() }
+      const json = await readBoundedJson(file, SETTINGS_FILE_LIMIT, 'Settings file exceeds 256 KB')
       const preview = previewImport(json, this.registry, this.store)
       this.previews.set(event.sender, { token: ticket, preview })
       return { preview, token: ticket, needsConfirm: preview.changes.some(change => change.needsConfirm) }

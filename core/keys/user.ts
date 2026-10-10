@@ -9,6 +9,8 @@ export interface UserKey { key: string; command: string; when?: string }
 export interface KeyWarning { entry: number; message: string }
 export interface KeyConflict { key: string; commands: string[] }
 export interface KeysSnapshot { entries: UserKey[]; warnings: KeyWarning[] }
+export type KeysResult = { ok: boolean; warnings: KeyWarning[] }
+export type KeysPortableResult = KeysResult | { error: string } | { canceled: true } | { token: number; preview: KeysSnapshot & { conflicts: KeyConflict[] } }
 
 /** Invalid entries are isolated; an invalid document never yields partial bindings. */
 export function validateUserKeys(value: unknown, commands: readonly KeyCommand[], mac: boolean): KeysSnapshot {
