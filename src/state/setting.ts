@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { SortKey } from '@core/fs/sort.ts'
 import { readStored, writeStored } from '@/lib/storage.ts'
+import { settingsRegistry, type SettingDefinition } from '@core/settings/registry.ts'
 
 const ids: Record<string, string> = {
   wordWrap: 'editor.wordWrap', svgView: 'files.svgView', csvView: 'files.csvView',
@@ -14,6 +15,8 @@ const bridge = typeof window === 'undefined' ? undefined : window.fb?.settings
 const initial = bridge?.all() ?? {}
 const readers = new Map<string, Set<(next: unknown) => void>>()
 const pending = new Map<string, unknown>()
+const stores = new Map<string, Setting<unknown>>()
+let resettingSection = false
 let timer: ReturnType<typeof setTimeout> | undefined
 let migrating = false
 let migrated = true
@@ -23,7 +26,7 @@ function sendNow(): void {
   if (pending.size === 0) return
   const pairs = [...pending.entries()]
   pending.clear()
-  bridge!.set(pairs)
+  for (let offset = 0; offset < pairs.length; offset += 100) bridge!.set(pairs.slice(offset, offset + 100))
   if (migrating) {
     migrating = false
     migrated = true
@@ -73,8 +76,10 @@ bridge?.onChanged((changed) => {
 
 /** A setting kept on this computer that more than one part of the interface reads and changes (word wrap, formatting): a value, and a hook. */
 export interface Setting<T> {
+  subscribe: (listener: () => void) => () => void
   get: () => T
   set: (value: T) => void
+  reset: () => void
   /** Reads the value again from storage (a test that cleared it). */
   reload: () => void
   use: () => T
@@ -113,12 +118,20 @@ export function createSetting<T>(key: string, fallback: T, valid: (value: unknow
       })
     }
   }
-  return {
+  const store: Setting<T> = {
+    subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } },
     get: () => value,
     set: (next) => {
       value = next
       if (bridge) queue(id, next)
       else writeStored(key, next)
+      tell()
+    },
+    reset: () => {
+      pending.delete(id)
+      value = fallback
+      if (bridge && !resettingSection) bridge.reset([id])
+      else writeStored(key, fallback)
       tell()
     },
     reload: () => {
@@ -128,6 +141,23 @@ export function createSetting<T>(key: string, fallback: T, valid: (value: unknow
     },
     use: () => useSyncExternalStore((listener) => (listeners.add(listener), () => void listeners.delete(listener)), () => value),
   }
+  stores.set(id, store as Setting<unknown>)
+  return store
+}
+
+/** Generated controls share the very same stores as toolbars, theme and language. */
+export function settingFor(definition: SettingDefinition): Setting<unknown> {
+  const existing = stores.get(definition.id)
+  if (existing) return existing
+  const legacy = Object.keys(ids).find(key => ids[key] === definition.id) ?? definition.id
+  return createSetting(legacy, definition.default, (value): value is unknown => settingsRegistry.validate(definition.id, value))
+}
+
+export function resetSettings(definitions: readonly SettingDefinition[]): void {
+  resettingSection = true
+  try { for (const definition of definitions) settingFor(definition).reset() }
+  finally { resettingSection = false }
+  if (bridge) for (let offset = 0; offset < definitions.length; offset += 100) bridge.reset(definitions.slice(offset, offset + 100).map(d => d.id))
 }
 
 const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean'

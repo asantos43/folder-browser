@@ -2,17 +2,24 @@ export type SettingType = 'boolean' | 'choice' | 'number' | 'string' | 'colour' 
 export type SettingDefinition = {
   id: string; type: SettingType; default: unknown; category: string; label: string | null
   choices?: readonly unknown[]; min?: number; max?: number; safety?: boolean
+  description?: string; keywords?: readonly string[]; choiceLabels?: readonly string[]; categoryLabel?: string; restart?: boolean
 }
 export type SettingInput = Omit<SettingDefinition, 'id'> & { id: string }
 
 export class SettingsRegistry {
   private entries = new Map<string, SettingDefinition>()
+  private listeners = new Set<() => void>()
+  private revision = 0
+  subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
+  version = (): number => this.revision
+  private changed(): void { this.revision++; for (const listener of this.listeners) listener() }
   defineSetting(input: SettingInput): SettingDefinition {
     if (!/^[a-z][\w-]*(?:\.[a-z][\w-]*)+$/.test(input.id) && !/^[a-z][\w-]*:[a-z][\w.-]*$/.test(input.id)) throw new Error(`Invalid setting id: ${input.id}`)
     if (this.entries.has(input.id)) throw new Error(`Setting id already defined: ${input.id}`)
     const def = Object.freeze({ ...input, choices: input.choices && Object.freeze([...input.choices]) })
     if (!this.isValid(def, def.default)) throw new Error(`Invalid default for setting ${def.id}`)
     this.entries.set(def.id, def)
+    this.changed()
     return def
   }
   get(id: string): SettingDefinition | undefined { return this.entries.get(id) }
@@ -25,7 +32,7 @@ export class SettingsRegistry {
     for (const id of ids) if (this.entries.has(id)) throw new Error(`Setting id already defined: ${id}`)
     const added = inputs.map(x => this.defineSetting(x))
     let removed = false
-    return () => { if (!removed) { for (const item of added) this.entries.delete(item.id); removed = true } }
+    return () => { if (!removed) { for (const item of added) this.entries.delete(item.id); removed = true; this.changed() } }
   }
   private isValid(d: SettingDefinition, v: unknown): boolean {
     switch (d.type) {

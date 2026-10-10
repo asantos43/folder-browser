@@ -85,7 +85,7 @@ export type MediaOpen = { token: string; url: string; kind: 'video' | 'audio'; m
 
 export type SettingsNotice = { id: string; message: string }
 export interface FbApi {
-  settings: { all(): Record<string, unknown>; notices(): readonly SettingsNotice[]; set(pairs: readonly (readonly [string, unknown])[]): void; onChanged(listener: (ids: readonly string[]) => void): () => void }
+  settings: { all(): Record<string, unknown>; notices(): readonly SettingsNotice[]; set(pairs: readonly (readonly [string, unknown])[]): void; reset(ids: readonly string[]): void; onChanged(listener: (ids: readonly string[]) => void): () => void }
   platform: string
   /** The colours of the title bar (the native window buttons are drawn with them on Windows and Linux). */
   setTitleBar(colors: { color: string; symbolColor: string }): void

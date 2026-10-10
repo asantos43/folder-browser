@@ -17,7 +17,7 @@ function Notices() {
 
 it.each(['en', 'pt-BR'] as const)('shows settings diagnostics once with the existing notifications in %s', (language) => {
   const settings: FbApi['settings'] = {
-    all: () => ({}), set: () => {}, onChanged: () => () => {},
+    all: () => ({}), set: () => {}, reset: () => {}, onChanged: () => () => {},
     notices: () => [{ id: 'settings.json', message: 'Invalid JSON' }],
   }
   window.fb = { settings } as FbApi

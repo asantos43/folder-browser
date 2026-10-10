@@ -23,6 +23,19 @@ const make = (seed?: string, writer = vi.fn(async (_contents: string) => {})) =>
 afterEach(() => { for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true }) })
 
 describe('SettingsHost', () => {
+  it('resets known ids through the store, rejects child frames and bounded malformed requests', () => {
+    const x = make()
+    const event = { sender: x.sender, senderFrame: x.frame }
+    const reset = x.handlers.get('fb:settings-reset')!
+    x.set(event, [['files.showHidden', true]])
+    reset({ ...event, senderFrame: { url: 'fb-ui://app/child' } }, ['files.showHidden'])
+    reset(event, Array(101).fill('files.showHidden'))
+    reset(event, 'files.showHidden')
+    expect(x.host.store.get('files.showHidden')).toBe(true)
+    reset(event, [null, 'unknown.key', 'files.showHidden'])
+    expect(x.host.store.get('files.showHidden')).toBe(false)
+    expect(x.sent.at(-1)).toEqual(['fb:settings-changed', ['files.showHidden']])
+  })
   it('refuses a sender outside the top interface frame', () => {
     const x = make(); const event: any = { sender: x.sender, senderFrame: { url: 'fb-ui://app/child' }, returnValue: null }
     x.sync(event); expect(event.returnValue.notices[0].message).toBe('refused')

@@ -14,7 +14,7 @@ beforeEach(() => {
   localStorage.setItem('fb:settings-migrated', 'true')
   values = {}
   settings = {
-    all: vi.fn(() => ({ ...values })), notices: () => [], set: vi.fn(),
+    all: vi.fn(() => ({ ...values })), notices: () => [], set: vi.fn(), reset: vi.fn(),
     onChanged: vi.fn((cb) => { changed = cb; return () => {} }),
   }
   window.fb = { settings } as FbApi
@@ -33,6 +33,17 @@ it('reads the initial bridge once and validates invalid values', async () => {
   expect(wordWrap.get()).toBe(true)
   expect(showHidden.get()).toBe(false)
   expect(settings.all).toHaveBeenCalledTimes(1)
+})
+
+it('reset uses the bridge and cancels an older queued value so it cannot resurrect the modification', async () => {
+  const { wordWrap } = await import('./setting.ts')
+  wordWrap.set(true)
+  wordWrap.set(true)
+  wordWrap.reset()
+  expect(wordWrap.get()).toBe(false)
+  expect(settings.reset).toHaveBeenCalledExactlyOnceWith(['editor.wordWrap'])
+  vi.advanceTimersByTime(100)
+  expect(settings.set).toHaveBeenCalledTimes(1)
 })
 
 it('sends the first change at once and groups the next 100 ms into one call with the last value of each id', async () => {

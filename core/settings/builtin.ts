@@ -1,22 +1,22 @@
-import { defineSetting } from './registry.ts'
+import { defineSetting, type SettingInput } from './registry.ts'
 
-const add = (id: string, type: 'boolean'|'choice'|'colour', value: unknown, category: string, label: string | null, choices?: readonly unknown[]) => defineSetting({ id, type, default: value, category, label, choices })
+const add = (id: string, type: SettingInput['type'], value: unknown, category: string, label: string, description: string, choices?: readonly unknown[], choiceLabels?: readonly string[]) => defineSetting({ id, type, default: value, category, label, description, choices, choiceLabels, categoryLabel: `settings.${category}` })
 export const builtinSettings = [
-  add('editor.wordWrap','boolean',false,'editor','settings.wordWrap'),
-  add('files.svgView','choice','image','files',null,['image','code']),
-  add('files.csvView','choice','table','files',null,['table','text']),
-  add('editor.markdownView','choice','formatted','editor',null,['formatted','text']),
-  add('editor.markdownWide','boolean',false,'editor',null),
-  add('editor.markdownWrapCode','boolean',false,'editor',null),
-  add('tabs.reopenSession','boolean',true,'tabs','settings.reopen'),
-  add('appearance.dividerColour','colour','','appearance','settings.divider'),
-  add('editor.hotExit','boolean',true,'editor','settings.hotExit'),
-  add('files.showHidden','boolean',false,'files','settings.showHidden'),
-  defineSetting({id:'files.sortKey',type:'choice',default:'name',category:'files',label:null,choices:['name','modified','size']}),
-  add('files.sortDescending','boolean',false,'files',null),
-  add('editor.formatSource','boolean',true,'editor','settings.formatSource'),
-  defineSetting({id:'diff.layout',type:'choice',default:'side',category:'diff',label:null,choices:['side','inline']}),
-  add('diff.collapseUnchanged','boolean',true,'diff',null),
-  defineSetting({id:'appearance.theme',type:'choice',default:'auto',category:'appearance',label:'settings.colorTheme',choices:['auto','light','dark']}),
-  defineSetting({id:'system.language',type:'choice',default:'auto',category:'system',label:'settings.language',choices:['auto','en','pt-BR']}),
+  add('appearance.theme','choice','auto','appearance','settings.colorTheme','settings.themeHint',['auto','light','dark'],['settings.themeAuto','settings.themeLight','settings.themeDark']),
+  add('system.language','choice','auto','appearance','settings.language','settings.languageHint',['auto','en','pt-BR'],['settings.languageAuto','settings.english','settings.portuguese']),
+  add('appearance.dividerColour','colour','','appearance','settings.divider','settings.dividerHint'),
+  add('tabs.reopenSession','boolean',true,'startup','settings.reopen','settings.reopenHint'),
+  add('editor.hotExit','boolean',true,'startup','settings.hotExit','settings.hotExitHint'),
+  add('files.showHidden','boolean',false,'files','settings.showHidden','settings.showHiddenHint'),
+  add('files.svgView','choice','image','files','settings.svgView','svg.imageTitle',['image','code'],['svg.image','svg.code']),
+  add('files.csvView','choice','table','files','settings.csvView','csv.tableTitle',['table','text'],['csv.table','csv.text']),
+  add('files.sortKey','choice','name','files','sort.by','settings.sortHint',['name','modified','size'],['sort.name','sort.modified','sort.size']),
+  add('files.sortDescending','boolean',false,'files','sort.descending','settings.descendingHint'),
+  add('editor.wordWrap','boolean',false,'editor','settings.wordWrap','settings.wordWrapHint'),
+  add('editor.formatSource','boolean',true,'editor','settings.formatSource','settings.formatSourceHint'),
+  add('editor.markdownView','choice','formatted','editor','settings.markdownView','markdown.formattedTitle',['formatted','text'],['markdown.formatted','markdown.text']),
+  add('editor.markdownWide','boolean',false,'editor','markdown.wide','markdown.wideTitle'),
+  add('editor.markdownWrapCode','boolean',false,'editor','markdown.wrapCode','markdown.wrapCodeTitle'),
+  add('diff.layout','choice','side','diff','settings.diffLayout','diff.sideBySideTitle',['side','inline'],['diff.sideBySide','diff.inline']),
+  add('diff.collapseUnchanged','boolean',true,'diff','diff.collapse','diff.collapseTitle'),
 ]
