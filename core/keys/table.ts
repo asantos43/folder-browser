@@ -24,6 +24,15 @@ export function createKeyTable(commands: readonly KeyCommand[], mac: boolean) {
     defaults.set(command.id, [...(defaults.get(command.id) ?? []), chord])
   }
   return {
+    /** Detached declarations for inspection/export, in registration order. */
+    entries(): readonly KeyCommand[] { return [...defaults].map(([id, keys]) => ({ id, keys: [...keys] })) },
+    /** Install an already validated default; the contribution gate resolves collisions first. */
+    add(id: string, chord: string): void {
+      const normalized = normalizeChord(chord, mac)
+      const ids = bindings.get(normalized) ?? empty
+      if (!ids.includes(id)) bindings.set(normalized, Object.freeze([...ids, id]))
+      defaults.set(id, [...(defaults.get(id) ?? []), chord])
+    },
     lookup(e: KeyLike): readonly string[] { return bindings.get(eventChord(e)) ?? empty },
     get(chord: string): readonly string[] { return bindings.get(normalizeChord(chord, mac)) ?? empty },
     shortcut(id: string, style: 'display' | 'accelerator' = 'display'): string | undefined {
