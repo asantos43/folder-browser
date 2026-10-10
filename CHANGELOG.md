@@ -10,6 +10,8 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Added
 
+- **Plugin settings core** (phase 2, step 2.4a): compile declarative options into the settings registry with bounded validation, atomic installation, cached reads, rename migration, reset and optional purge. Portable settings revalidate installed declarations and request confirmation for future reach-changing options; no startup imports, UI, IPC or plugin execution.
+
 - **Plugin manifest** (phase 2, step 2.1): strict bounded `plugin.json` validation, JSON Schema and synthetic fixtures; detached frozen data, stable error codes and reuse of contribution/command validators. Declarative only; nothing loads plugins at startup.
   Schema string leaves now cover blank text, safe paths, https casing and chord endings; field-specific diagnostics identify defaults, categories and exec arguments. The runtime remains the validation authority.
 
