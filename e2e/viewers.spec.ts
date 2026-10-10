@@ -129,7 +129,7 @@ test.describe('PDFs', () => {
     await expect(toolbar(page)).toContainText('of 12')
     // The first page is drawn, with its text in a layer that can be selected and copied.
     await expect.poll(() => page.locator('[data-page="1"] canvas').evaluate((c: HTMLCanvasElement) => c.width)).toBeGreaterThan(0)
-    await expect(page.locator('[data-page="1"] .textLayer')).toContainText('Harbor handbook')
+    await expect(page.locator('[data-page="1"] .textLayer')).toContainText('Meadow handbook')
     await expect(page.locator('[data-page="1"] .textLayer')).toContainText('Chapter 1')
     // A page far away is not kept drawn.
     expect(await page.locator('[data-page="12"] canvas').evaluate((c: HTMLCanvasElement) => c.width)).toBe(0)
@@ -219,7 +219,7 @@ test.describe('PDFs', () => {
     page.on('requestfailed', (request) => failures.push(request.url()))
     page.on('console', (message) => message.type() === 'error' && failures.push(message.text()))
     await openFile(page, ['assets', 'files'], 'handbook.pdf')
-    await expect(page.locator('[data-page="1"] .textLayer')).toContainText('Harbor handbook')
+    await expect(page.locator('[data-page="1"] .textLayer')).toContainText('Meadow handbook')
     expect(failures.filter((f) => !/woff2|font/i.test(f))).toEqual([])
   })
 })

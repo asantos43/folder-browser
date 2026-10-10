@@ -295,7 +295,7 @@ describe('FileView: CSV', () => {
 })
 
 describe('FileView: Markdown', () => {
-  const MD = '# Harbor notes\n\nThe ferry leaves at **noon**.\n\n- [site](https://example.com/x)\n- <b>raw</b>\n- [bad](javascript:alert(1))\n\n![the map](assets/map.png)\n'
+  const MD = '# Meadow notes\n\nThe ferry leaves at **noon**.\n\n- [site](https://example.com/x)\n- <b>raw</b>\n- [bad](javascript:alert(1))\n\n![the map](assets/map.png)\n'
   const markdown = (zoom = 1) => {
     window.fb = { readFile: vi.fn(async () => ({ bytes: new TextEncoder().encode(MD) })), openExternal: vi.fn(async () => {}) } as unknown as FbApi
     render(
@@ -306,20 +306,20 @@ describe('FileView: Markdown', () => {
   }
   it('opens formatted, with a button for the text and one for the formatting, and the choice is kept', async () => {
     markdown()
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Harbor notes' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Meadow notes' })).toBeTruthy())
     expect(document.querySelector('strong')?.textContent).toBe('noon')
     expect(document.querySelector('.cm-content')).toBeNull()
     expect(screen.getByRole('button', { name: 'Show the Markdown formatted, as it reads' }).getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: 'Show the Markdown as text' }))
-    await waitFor(() => expect(document.querySelector('.cm-content')?.textContent).toContain('# Harbor notes'))
+    await waitFor(() => expect(document.querySelector('.cm-content')?.textContent).toContain('# Meadow notes'))
     expect(screen.getByRole('button', { name: 'Show the Markdown as text' }).getAttribute('aria-pressed')).toBe('true')
     expect(localStorage.getItem('fb:markdownView')).toBe('"text"')
     fireEvent.click(screen.getByRole('button', { name: 'Show the Markdown formatted, as it reads' }))
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Harbor notes' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Meadow notes' })).toBeTruthy())
   })
   it('shows raw HTML as text, drops a link that is not a web address, and loads no picture', async () => {
     markdown()
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Harbor notes' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Meadow notes' })).toBeTruthy())
     const page = document.querySelector('.markdown-body')!
     expect(page.querySelector('b')).toBeNull()
     expect(page.textContent).toContain('<b>raw</b>')
@@ -338,7 +338,7 @@ describe('FileView: Markdown', () => {
   })
   it('can be as wide as the window, and its code blocks can wrap; both choices are kept', async () => {
     markdown()
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Harbor notes' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Meadow notes' })).toBeTruthy())
     const page = () => document.querySelector('.markdown-body')!
     expect(page().classList.contains('wide')).toBe(false)
     expect(page().classList.contains('wrap-code')).toBe(false)

@@ -4,7 +4,7 @@ Folder Browser looks at the folders on your computer and at what is in them. It 
 
 ## Opening a folder
 
-![Folder Browser with the folder Harbor Times open: the tree on the left, a Markdown file on the right](images/workbench.png)
+![Folder Browser with the folder Meadow Times open: the tree on the left, a Markdown file on the right](images/workbench.png)
 
 - **File ▸ Open Folder…** (`Ctrl+Shift+O`, `⇧⌘O` on macOS), or **drag** a folder, a ZIP file or any file onto the window, or name one on the command line.
 - A **ZIP file** opens as a folder, also a ZIP inside a ZIP. The folder picker of **Open Folder…** chooses folders only on Linux and Windows (as those systems' dialogs cannot choose both), so a ZIP file is opened with **File ▸ Open ZIP File…**, the **zip icon in the activity bar** (the column of icons on the left, under Open Folder), the zip icon of Open Folders, or the **Open ZIP File** button when no folder is open); on macOS **Open Folder…** takes either. A file that you name on its own opens in a tab, with its folder opened beside it.

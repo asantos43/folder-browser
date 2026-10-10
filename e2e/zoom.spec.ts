@@ -19,7 +19,7 @@ test.afterEach(async () => {
 
 async function launch(...extra: string[]): Promise<Page> {
   const file = path.join(dir, 'viewer.wsnp')
-  if (!fs.existsSync(file)) await writeViewerWsnp(file, { title: 'Harbor Times', url: 'https://harbortimes.example/' })
+  if (!fs.existsSync(file)) await writeViewerWsnp(file, { title: 'Meadow Times', url: 'https://meadowtimes.example/' })
   app = await electron.launch({ args: ['.', `--user-data-dir=${path.join(dir, 'profile')}`, ...noSandbox, file, ...extra] })
   const page = await app.firstWindow()
   await page.getByRole('tab').first().waitFor()
@@ -207,7 +207,7 @@ test.describe('the address of a link', () => {
 
   // (The rich page has links to the web, to a file of the snapshot and inside the page.)
   const launchRich = async () => {
-    await writeRichWsnp(path.join(dir, 'viewer.wsnp'), { title: 'Harbor Times', url: 'https://harbortimes.example/' })
+    await writeRichWsnp(path.join(dir, 'viewer.wsnp'), { title: 'Meadow Times', url: 'https://meadowtimes.example/' })
     return launch()
   }
 

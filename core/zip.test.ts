@@ -12,7 +12,7 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }))
 const sample = () =>
   zipBuffer([
     { name: 'docs/' },
-    { name: 'docs/readme.txt', data: 'hello harbor' },
+    { name: 'docs/readme.txt', data: 'hello meadow' },
     { name: 'docs/deep/data.json', data: '{"a":1}' },
     { name: 'top.txt', data: 'top', store: true },
   ])
@@ -39,7 +39,7 @@ describe('openZipBuffer', () => {
 
   it('reads an entry whole, stored or DEFLATE, and refuses one over the limit before reading it', async () => {
     const zip = await openZipBuffer(await sample())
-    expect((await zip.read('docs/readme.txt', 1000)).toString()).toBe('hello harbor')
+    expect((await zip.read('docs/readme.txt', 1000)).toString()).toBe('hello meadow')
     expect((await zip.read('top.txt', 1000)).toString()).toBe('top')
     await expect(zip.read('docs/readme.txt', 5)).rejects.toMatchObject({ code: 'too-large' })
     await expect(zip.read('nope', 10)).rejects.toMatchObject({ code: 'missing' })
@@ -97,7 +97,7 @@ describe('extractEntries', () => {
     const zip = await openZipBuffer(await sample())
     const report = await extractEntries(zip, zip.entries, dir)
     expect(report).toMatchObject({ extracted: 3, skipped: [] })
-    expect(fs.readFileSync(path.join(dir, 'docs/readme.txt'), 'utf8')).toBe('hello harbor')
+    expect(fs.readFileSync(path.join(dir, 'docs/readme.txt'), 'utf8')).toBe('hello meadow')
     expect(fs.readFileSync(path.join(dir, 'docs/deep/data.json'), 'utf8')).toBe('{"a":1}')
     expect(fs.readFileSync(path.join(dir, 'top.txt'), 'utf8')).toBe('top')
   })
@@ -132,6 +132,6 @@ describe('extractEntries', () => {
     const zip = await openZipBuffer(await sample())
     const target = path.join(dir, 'picked.txt')
     await extractToFile(zip, 'docs/readme.txt', target)
-    expect(fs.readFileSync(target, 'utf8')).toBe('hello harbor')
+    expect(fs.readFileSync(target, 'utf8')).toBe('hello meadow')
   })
 })

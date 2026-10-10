@@ -16,15 +16,15 @@ test.afterEach(async () => {
 test('user keys cross the real snapshot frame bridge, remove defaults and reload on disk', async () => {
   const profile = path.join(dir, 'profile'), folder = path.join(dir, 'folder')
   fs.mkdirSync(profile); fs.mkdirSync(folder)
-  const snapshot = path.join(folder, 'harbor.wsnp')
-  await writeRichWsnp(snapshot, { title: 'Harbor Times', url: 'https://harbortimes.example/' })
+  const snapshot = path.join(folder, 'meadow.wsnp')
+  await writeRichWsnp(snapshot, { title: 'Meadow Times', url: 'https://meadowtimes.example/' })
   const file = path.join(profile, 'keybindings.json')
   const entries = [{ key: 'Mod+B', command: '-toggleSideBar' }, { key: 'Mod+Alt+J', command: 'toggleSideBar' }]
   fs.writeFileSync(file, JSON.stringify(entries))
   app = await electron.launch({ args: ['.', `--user-data-dir=${profile}`, ...(process.platform === 'linux' ? ['--no-sandbox'] : []), folder, snapshot], env: { ...process.env, LANG: 'en_US.UTF-8', XDG_DATA_HOME: path.join(dir, 'data') } })
   const page = await app.firstWindow()
   await page.getByTestId('titlebar').waitFor()
-  const frame = page.frameLocator('iframe[title="Snapshot: harbor.wsnp"]')
+  const frame = page.frameLocator('iframe[title="Snapshot: meadow.wsnp"]')
   const focusSnapshot = async () => {
     await frame.locator('body').click({ position: { x: 20, y: 20 } })
     await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe('IFRAME')

@@ -28,7 +28,7 @@ async function launch(...files: string[]): Promise<Page> {
 }
 async function signed(name: string, title: string, signer: Signer, options: SignedOptions = {}) {
   const file = path.join(dir, name)
-  await writeSignedWsnp(file, richFiles(), signer, { title, url: 'https://harbortimes.example/', ...options })
+  await writeSignedWsnp(file, richFiles(), signer, { title, url: 'https://meadowtimes.example/', ...options })
   return file
 }
 const status = (page: Page) => page.getByRole('contentinfo')

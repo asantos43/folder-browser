@@ -8,7 +8,7 @@ afterEach(cleanup)
 
 // A line of each language that has more than one kind of token, so a language that is wired gives coloured spans and one that is not gives none.
 const SAMPLES: Record<Exclude<Language, 'plain'>, string> = {
-  json: '{"name": "harbor", "items": [1, 2, true, null]}',
+  json: '{"name": "meadow", "items": [1, 2, true, null]}',
   html: '<!doctype html><div class="a" id="b">text <b>bold</b></div>',
   css: '.card > h2 { color: #0a7; margin: 0 }',
   javascript: 'const add = (a, b) => { return a + b } // add',
@@ -17,7 +17,7 @@ const SAMPLES: Record<Exclude<Language, 'plain'>, string> = {
   tsx: 'const el: JSX.Element = <div className="a">{1}</div>',
   xml: '<svg width="40"><circle cx="20" r="18"/></svg>',
   markdown: '# Title\n\n* one\n* `code`\n',
-  yaml: 'name: harbor\nitems:\n  - id: 1\n',
+  yaml: 'name: meadow\nitems:\n  - id: 1\n',
   python: 'def add(a, b):\n    return a + b  # add\n',
   c: '#include <stdio.h>\nint main(void) { printf("hi"); return 0; }',
   cpp: 'class Boat { public: int n = 3; }; // boat',
@@ -42,16 +42,16 @@ const SAMPLES: Record<Exclude<Language, 'plain'>, string> = {
   shell: 'if [ -f "$FILE" ]; then echo "found $FILE"; fi # check',
   powershell: 'function Add-Two { param($a) return $a + 2 } # add',
   sql: "SELECT name, COUNT(*) FROM boats WHERE open = 1 GROUP BY name; -- boats",
-  toml: '[package]\nname = "harbor"\nversion = "1.0"\n',
-  properties: '# comment\nname=harbor\nopen=true\n',
+  toml: '[package]\nname = "meadow"\nversion = "1.0"\n',
+  properties: '# comment\nname=meadow\nopen=true\n',
   dockerfile: 'FROM node:24\nRUN npm ci # install\n',
-  cmake: 'cmake_minimum_required(VERSION 3.20)\nproject(harbor) # name\n',
+  cmake: 'cmake_minimum_required(VERSION 3.20)\nproject(meadow) # name\n',
   diff: '--- a/boat.txt\n+++ b/boat.txt\n@@ -1 +1 @@\n-old\n+new\n',
   protobuf: 'message Boat { string name = 1; int32 n = 2; } // boat',
   scss: '$c: #0a7; .card { h2 { color: $c; } } // card',
   sass: '$c: #0a7\n.card\n  color: $c\n',
   less: '@c: #0a7; .card { h2 { color: @c; } } // card',
-  pascal: 'program Harbor;\nvar n: Integer;\nbegin n := 3; { boat } end.\n',
+  pascal: 'program Meadow;\nvar n: Integer;\nbegin n := 3; { boat } end.\n',
 }
 
 describe('CodeView: the languages it knows are coloured', () => {

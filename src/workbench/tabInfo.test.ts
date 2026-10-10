@@ -7,20 +7,20 @@ import { describeTabs, isEditable, kindOf, snapshotTitle, sourceTitle } from './
 const t = translator('en')
 const run = (...actions: Action[]): Workspace => actions.reduce(reduce, empty)
 /** Two files that say the same (the same page, saved twice) but are two files. */
-const same = (id: string, path: string) => snapshotInfo(id, 'Harbor Times — Local news', { path, manifest: { ...snapshotInfo(id).manifest, title: 'Harbor Times — Local news', source: { url: 'https://harbortimes.example/', canonical: '', language: 'en' } } })
+const same = (id: string, path: string) => snapshotInfo(id, 'Meadow Times — Local news', { path, manifest: { ...snapshotInfo(id).manifest, title: 'Meadow Times — Local news', source: { url: 'https://meadowtimes.example/', canonical: '', language: 'en' } } })
 
 describe('the title of a snapshot in the tabs', () => {
   it('is the name of its file, not the title of its page nor its address', () => {
-    const ws = run({ type: 'snapshot-opened', snapshot: same('a', '/home/me/news/harbor-2026-03-01.wsnp') })
-    expect(snapshotTitle(ws, 'a')).toBe('harbor-2026-03-01.wsnp')
-    expect(sourceTitle(ws, 'a')).toBe('harbor-2026-03-01.wsnp')
-    expect(describeTabs(ws, t).get('s:a')?.label).toBe('harbor-2026-03-01.wsnp')
+    const ws = run({ type: 'snapshot-opened', snapshot: same('a', '/home/me/news/meadow-2026-03-01.wsnp') })
+    expect(snapshotTitle(ws, 'a')).toBe('meadow-2026-03-01.wsnp')
+    expect(sourceTitle(ws, 'a')).toBe('meadow-2026-03-01.wsnp')
+    expect(describeTabs(ws, t).get('s:a')?.label).toBe('meadow-2026-03-01.wsnp')
   })
   it('tells two files of the same page and the same address apart, by their names', () => {
-    const ws = run({ type: 'snapshot-opened', snapshot: same('a', '/home/me/news/harbor-2026-03-01.wsnp') }, { type: 'snapshot-opened', snapshot: same('b', '/home/me/news/harbor-2026-04-01.wsnp') })
+    const ws = run({ type: 'snapshot-opened', snapshot: same('a', '/home/me/news/meadow-2026-03-01.wsnp') }, { type: 'snapshot-opened', snapshot: same('b', '/home/me/news/meadow-2026-04-01.wsnp') })
     const views = describeTabs(ws, t)
-    expect(views.get('s:a')?.label).toBe('harbor-2026-03-01.wsnp')
-    expect(views.get('s:b')?.label).toBe('harbor-2026-04-01.wsnp')
+    expect(views.get('s:a')?.label).toBe('meadow-2026-03-01.wsnp')
+    expect(views.get('s:b')?.label).toBe('meadow-2026-04-01.wsnp')
     expect(views.get('s:a')?.description).toBe('')
   })
   it('says the folder when two files of the same name are open (in two folders)', () => {
@@ -30,14 +30,14 @@ describe('the title of a snapshot in the tabs', () => {
     expect(views.get('s:b')?.description).toBe('/home/me/2027')
   })
   it('has, in the tooltip of a page, where the file is and the address the page was saved from', () => {
-    const ws = run({ type: 'snapshot-opened', snapshot: same('a', '/home/me/news/harbor.wsnp') })
-    expect(describeTabs(ws, t).get('s:a')?.tooltip).toBe('/home/me/news/harbor.wsnp\nhttps://harbortimes.example/')
+    const ws = run({ type: 'snapshot-opened', snapshot: same('a', '/home/me/news/meadow.wsnp') })
+    expect(describeTabs(ws, t).get('s:a')?.tooltip).toBe('/home/me/news/meadow.wsnp\nhttps://meadowtimes.example/')
   })
   it('names the metadata tab and the files of a snapshot by the file too', () => {
-    const ws = run({ type: 'snapshot-opened', snapshot: same('a', '/home/me/news/harbor.wsnp') }, { type: 'open-metadata', snapshotId: 'a' }, { type: 'open-file', snapshotId: 'a', path: 'index.html', keep: true })
+    const ws = run({ type: 'snapshot-opened', snapshot: same('a', '/home/me/news/meadow.wsnp') }, { type: 'open-metadata', snapshotId: 'a' }, { type: 'open-file', snapshotId: 'a', path: 'index.html', keep: true })
     const views = describeTabs(ws, t)
-    expect(views.get('m:a')?.label).toBe('Metadata: harbor.wsnp')
-    expect(views.get('f:a:index.html')?.tooltip).toBe('harbor.wsnp › index.html')
+    expect(views.get('m:a')?.label).toBe('Metadata: meadow.wsnp')
+    expect(views.get('f:a:index.html')?.tooltip).toBe('meadow.wsnp › index.html')
   })
 })
 

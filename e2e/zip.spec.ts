@@ -24,9 +24,9 @@ async function launch(file: string): Promise<Page> {
   await page.getByRole('tab').first().waitFor()
   return page
 }
-async function harbor(extra: { path: string; type: string; data: Buffer }[] = []) {
-  const file = path.join(dir, 'harbor.wsnp')
-  await writeWsnp(file, [...richFiles(), ...extra], { title: 'Harbor Times', url: 'https://harbortimes.example/' })
+async function meadow(extra: { path: string; type: string; data: Buffer }[] = []) {
+  const file = path.join(dir, 'meadow.wsnp')
+  await writeWsnp(file, [...richFiles(), ...extra], { title: 'Meadow Times', url: 'https://meadowtimes.example/' })
   return file
 }
 async function openZip(page: Page, name = 'bundle.zip') {
@@ -45,17 +45,17 @@ const selectedText = (page: Page, n: number) => page.getByText(new RegExp(`^${n}
 const names = (page: Page) => page.getByRole('row').evaluateAll((rows) => rows.slice(1).map((r) => r.querySelectorAll('[role=cell]')[1]?.textContent ?? ''))
 
 test('a ZIP in a snapshot opens as a list of its files, with sizes, and a summary', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await openZip(page)
   expect(await names(page)).toEqual(['docs/', 'docs/readme.txt', 'docs/data.json', 'img/', 'img/dot.png', 'top.txt', 'nested.zip'])
   await expect(row(page, 'docs/readme.txt').getByRole('cell').nth(2)).toHaveText('40 B')
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpassetsfilesbundle.zip')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('meadow.wsnpassetsfilesbundle.zip')
   await expect(page.getByText(/7 items/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Save As…' })).toBeVisible()
 })
 
 test('selected entries are extracted to a folder, folders of the ZIP kept, and the status says where', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await openZip(page)
   const out = path.join(dir, 'out')
   fs.mkdirSync(out)
@@ -65,13 +65,13 @@ test('selected entries are extracted to a folder, folders of the ZIP kept, and t
   await expect(page.getByRole('button', { name: 'Extract Selected…' })).toContainText('Extract 2 Selected…')
   await page.getByRole('button', { name: 'Extract Selected…' }).click()
   await expect(page.getByRole('status')).toContainText(`Extracted 2 files to ${out}.`)
-  expect(fs.readFileSync(path.join(out, 'docs/readme.txt'), 'utf8')).toBe('Harbor notes: the ferry leaves at noon.\n')
+  expect(fs.readFileSync(path.join(out, 'docs/readme.txt'), 'utf8')).toBe('Meadow notes: the ferry leaves at noon.\n')
   expect(fs.readFileSync(path.join(out, 'img/dot.png')).equals(PNG_1X1)).toBe(true)
   expect(fs.existsSync(path.join(out, 'top.txt'))).toBe(false)
 })
 
 test('the boxes select, Extract All writes everything, and a file that is there is never overwritten', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await openZip(page)
   const out = path.join(dir, 'all')
   fs.mkdirSync(out)
@@ -90,7 +90,7 @@ test('the boxes select, Extract All writes everything, and a file that is there 
 })
 
 test('the context menu extracts one file under the name the user picks, or views it', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await openZip(page)
   const target = path.join(dir, 'picked-name.txt')
   await answer({ save: target })
@@ -112,12 +112,12 @@ test('the context menu extracts one file under the name the user picks, or views
 })
 
 test('a double click views an entry in a tab of its own: text as source, a picture as a picture, a ZIP as a list again', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await openZip(page)
   await row(page, 'docs/data.json').dblclick()
   await expect(page.getByRole('tab', { selected: true })).toContainText('data.json')
   await expect(page.locator('.cm-content')).toContainText('"boats": 3')
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpassetsfilesbundle.zipdocsdata.json')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('meadow.wsnpassetsfilesbundle.zipdocsdata.json')
   await page.getByRole('tab', { name: /bundle.zip/ }).click()
   await row(page, 'img/dot.png').dblclick()
   await expect(page.getByRole('img', { name: 'dot.png' })).toBeVisible()
@@ -127,7 +127,7 @@ test('a double click views an entry in a tab of its own: text as source, a pictu
   expect(await names(page)).toEqual(['deep.txt'])
   await row(page, 'deep.txt').dblclick()
   await expect(page.locator('.cm-content')).toContainText('a file in a ZIP in a ZIP')
-  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('harbor.wsnpassetsfilesbundle.zipnested.zipdeep.txt')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toHaveText('meadow.wsnpassetsfilesbundle.zipnested.zipdeep.txt')
 })
 
 test('a text entry of a kind the viewer does not know opens as text, a binary one is shown in hexadecimal, and Markdown has a button for its text', async () => {
@@ -135,9 +135,9 @@ test('a text entry of a kind the viewer does not know opens as text, a binary on
     { name: 'tool.py', data: 'print("ferry")\n' },
     { name: 'notes.xyz', data: 'Notes of no known kind.\nSecond line.\n' },
     { name: 'blob.xyz', data: Buffer.from([1, 2, 0, 3, 255, 254]) },
-    { name: 'GUIDE.md', data: '# Harbor guide\n\nThe ferry leaves at **noon**.\n\n![map](map.png)\n' },
+    { name: 'GUIDE.md', data: '# Meadow guide\n\nThe ferry leaves at **noon**.\n\n![map](map.png)\n' },
   ])
-  const page = await launch(await harbor([{ path: 'assets/files/mixed.zip', type: 'application/zip', data: mixed }]))
+  const page = await launch(await meadow([{ path: 'assets/files/mixed.zip', type: 'application/zip', data: mixed }]))
   await openZip(page, 'mixed.zip')
   await row(page, 'tool.py').dblclick()
   await expect(page.locator('.cm-content')).toContainText('print("ferry")')
@@ -149,18 +149,18 @@ test('a text entry of a kind the viewer does not know opens as text, a binary on
   await expect(page.getByRole('grid', { name: 'Hexadecimal view of blob.xyz' }).getByRole('row')).toContainText('01020003fffe')
   await page.getByRole('tab', { name: /mixed.zip/ }).click()
   await row(page, 'GUIDE.md').dblclick()
-  await expect(page.getByRole('heading', { name: 'Harbor guide' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Meadow guide' })).toBeVisible()
   await expect(page.locator('strong')).toHaveText('noon')
   await expect(page.locator('.markdown-body img')).toHaveCount(0)
   await page.getByRole('button', { name: 'Show the Markdown as text' }).click()
-  await expect(page.locator('.cm-content')).toContainText('# Harbor guide')
+  await expect(page.locator('.cm-content')).toContainText('# Meadow guide')
   await page.getByRole('button', { name: 'Show the Markdown formatted, as it reads' }).click()
-  await expect(page.getByRole('heading', { name: 'Harbor guide' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Meadow guide' })).toBeVisible()
 })
 
 test('source files of many languages, and HTML, open as highlighted text, with the language named', async () => {
   const sources: [string, string, string][] = [
-    ['unit.pas', 'program Harbor;\nvar n: Integer;\nbegin n := 3; end.\n', 'Pascal'],
+    ['unit.pas', 'program Meadow;\nvar n: Integer;\nbegin n := 3; end.\n', 'Pascal'],
     ['defs.inc', '{ include } const Max = 10;\n', 'Pascal'],
     ['build.sh', '#!/bin/sh\nif [ -f "$F" ]; then echo "found"; fi\n', 'Shell Script'],
     ['tool.py', 'def add(a, b):\n    return a + b\n', 'Python'],
@@ -169,7 +169,7 @@ test('source files of many languages, and HTML, open as highlighted text, with t
     ['page.html', '<!doctype html><html><body><p class="a">hi</p></body></html>', 'HTML'],
   ]
   const zip = zipSync(sources.map(([name, data]) => ({ name, data })))
-  const page = await launch(await harbor([{ path: 'assets/files/src.zip', type: 'application/zip', data: zip }]))
+  const page = await launch(await meadow([{ path: 'assets/files/src.zip', type: 'application/zip', data: zip }]))
   await openZip(page, 'src.zip')
   for (const [name, , language] of sources) {
     await row(page, name).dblclick()
@@ -182,7 +182,7 @@ test('source files of many languages, and HTML, open as highlighted text, with t
 
 test('the language of a file can be changed from the status bar, and set back to what was detected', async () => {
   const zip = zipSync([{ name: 'defs.inc', data: '<?php\nfunction add($a, $b) { return $a + $b; }\n' }])
-  const page = await launch(await harbor([{ path: 'assets/files/inc.zip', type: 'application/zip', data: zip }]))
+  const page = await launch(await meadow([{ path: 'assets/files/inc.zip', type: 'application/zip', data: zip }]))
   await openZip(page, 'inc.zip')
   await row(page, 'defs.inc').dblclick()
   const toolbar = page.getByRole('toolbar')
@@ -205,7 +205,7 @@ test('the language of a file can be changed from the status bar, and set back to
 })
 
 test('the page of a snapshot opened from the tree is shown as highlighted source', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await goToFile(page, 'index.html')
   await expect(page.getByRole('tab', { selected: true })).toContainText('index.html')
   await expect(page.locator('.cm-content')).toContainText('<')
@@ -213,7 +213,7 @@ test('the page of a snapshot opened from the tree is shown as highlighted source
 })
 
 test('an entry opened from a ZIP can be saved from its own tab', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await openZip(page)
   await row(page, 'docs/readme.txt').dblclick()
   await expect(page.locator('.cm-content')).toContainText('the ferry leaves at noon')
@@ -221,11 +221,11 @@ test('an entry opened from a ZIP can be saved from its own tab', async () => {
   await answer({ save: target })
   await page.getByRole('toolbar').getByRole('button', { name: 'Save As…' }).click()
   await expect(page.getByRole('status')).toContainText('Saved saved-readme.txt.')
-  expect(fs.readFileSync(target, 'utf8')).toBe('Harbor notes: the ferry leaves at noon.\n')
+  expect(fs.readFileSync(target, 'utf8')).toBe('Meadow notes: the ferry leaves at noon.\n')
 })
 
 test('the keyboard walks the list: arrows select, Space ticks, Enter views', async () => {
-  const page = await launch(await harbor())
+  const page = await launch(await meadow())
   await openZip(page)
   await page.getByRole('table').locator('[aria-multiselectable]').focus()
   await page.keyboard.press('ArrowDown')
@@ -243,7 +243,7 @@ test('the keyboard walks the list: arrows select, Space ticks, Enter views', asy
 
 test('a ZIP that cannot be read says so, and can still be saved; an empty one says it is empty', async () => {
   const empty = Buffer.concat([Buffer.from([0x50, 0x4b, 0x05, 0x06]), Buffer.alloc(18)])
-  const page = await launch(await harbor([{ path: 'assets/files/empty.zip', type: 'application/zip', data: empty }, { path: 'assets/files/broken.zip', type: 'application/zip', data: Buffer.from('PK\u0003\u0004 not really a zip at all') }]))
+  const page = await launch(await meadow([{ path: 'assets/files/empty.zip', type: 'application/zip', data: empty }, { path: 'assets/files/broken.zip', type: 'application/zip', data: Buffer.from('PK\u0003\u0004 not really a zip at all') }]))
   await goToFile(page, 'empty.zip')
   await expect(page.getByText('This ZIP file is empty.')).toBeVisible()
   await goToFile(page, 'broken.zip')
@@ -253,7 +253,7 @@ test('a ZIP that cannot be read says so, and can still be saved; an empty one sa
 
 test('a hostile ZIP: names that leave the folder and links are listed as unsafe and never written', async () => {
   const hostile = renameInZip(await zipBuffer([{ name: 'xx/evil.txt', data: 'x' }, { name: 'link', data: '/etc/passwd', symlink: true }, { name: 'fine.txt', data: 'fine' }]), 'xx/evil.txt', '../evil.txt')
-  const page = await launch(await harbor([{ path: 'assets/files/hostile.zip', type: 'application/zip', data: hostile }]))
+  const page = await launch(await meadow([{ path: 'assets/files/hostile.zip', type: 'application/zip', data: hostile }]))
   await openZip(page, 'hostile.zip')
   await expect(row(page, '../evil.txt')).toHaveAttribute('title', 'Its name is not safe to write to disk.')
   await expect(row(page, 'link')).toHaveAttribute('title', 'A link to another file: it is not followed.')

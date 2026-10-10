@@ -20,7 +20,7 @@ test.beforeEach(() => {
   // The desktop's own list of the user's folders (without it, Documents and Downloads are the home folder itself).
   fs.mkdirSync(path.join(dir, 'config'), { recursive: true })
   fs.writeFileSync(path.join(dir, 'config', 'user-dirs.dirs'), ['DESKTOP', 'DOWNLOAD', 'DOCUMENTS', 'MUSIC', 'PICTURES', 'VIDEOS'].map((k) => `XDG_${k}_DIR="${home}/${{ DESKTOP: 'Desktop', DOWNLOAD: 'Downloads', DOCUMENTS: 'Documents', MUSIC: 'Music', PICTURES: 'Pictures', VIDEOS: 'Videos' }[k]}"`).join('\n'))
-  fs.writeFileSync(path.join(home, 'Documents', 'letter.txt'), 'dear harbor')
+  fs.writeFileSync(path.join(home, 'Documents', 'letter.txt'), 'dear meadow')
   fs.writeFileSync(path.join(home, 'projects', 'alpha', 'main.c'), 'int main(void) {}')
   fs.mkdirSync(path.join(data, 'Trash', 'files'), { recursive: true })
   fs.mkdirSync(path.join(data, 'Trash', 'info'))
@@ -58,7 +58,7 @@ test('a click on a place opens its folder as the root of the tree, and lights it
   await expect(item(page, 'letter.txt')).toBeVisible()
   await expect(place(page, 'Documents')).toHaveAttribute('aria-selected', 'true')
   await item(page, 'letter.txt').dblclick()
-  await expect(page.locator('.cm-content')).toContainText('dear harbor')
+  await expect(page.locator('.cm-content')).toContainText('dear meadow')
   // The folder that was opened is among the recent ones.
   await expect(recent(page)).toHaveText(['Documents'])
 })

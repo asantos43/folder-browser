@@ -19,7 +19,7 @@ test.afterEach(async () => {
 
 async function launch(env: Record<string, string> = {}): Promise<Page> {
   const file = path.join(dir, 'viewer.wsnp')
-  await writeViewerWsnp(file, { title: 'Harbor Times', url: 'https://harbortimes.example/' })
+  await writeViewerWsnp(file, { title: 'Meadow Times', url: 'https://meadowtimes.example/' })
   app = await electron.launch({ args: ['.', `--user-data-dir=${path.join(dir, 'profile')}`, ...noSandbox, file], env: { ...process.env, ...env } as Record<string, string> })
   const page = await app.firstWindow()
   await page.getByRole('tab').first().waitFor()
@@ -64,7 +64,7 @@ test.describe('Save as PDF', () => {
     await expect(page.getByRole('status')).toContainText('Saved page.pdf.')
     await isPdf(out)
     expect(fs.statSync(out).size).toBeGreaterThan(1000)
-    expect(await suggested()).toBe('Harbor Times.pdf')
+    expect(await suggested()).toBe('Meadow Times.pdf')
     // The view that drew it is gone, and so is nothing else: the interface is where it was.
     expect(await app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
     await expect(page.getByRole('tab')).toHaveCount(1)

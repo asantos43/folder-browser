@@ -19,7 +19,7 @@ test.beforeEach(() => {
   work = path.join(dir, 'work')
   fs.mkdirSync(work, { recursive: true })
   // Three lines so a single span is wide enough to highlight without crossing glyphs of two lines.
-  fs.writeFileSync(path.join(work, 'page.pdf'), makePdf([{ lines: ['Harbor handbook', 'Chapter one: arrival', 'Chapter two: departure'] }]))
+  fs.writeFileSync(path.join(work, 'page.pdf'), makePdf([{ lines: ['Meadow handbook', 'Chapter one: arrival', 'Chapter two: departure'] }]))
 })
 test.afterEach(async () => {
   await app?.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((w) => w.destroy())).catch(() => {})

@@ -13,8 +13,8 @@ let app: ElectronApplication | undefined
 test.beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fb-e2e-root-'))
   work = path.join(dir, 'work')
-  fs.mkdirSync(path.join(work, 'projects', 'harbor'), { recursive: true })
-  fs.writeFileSync(path.join(work, 'projects', 'harbor', 'plan.txt'), 'the plan of the harbor')
+  fs.mkdirSync(path.join(work, 'projects', 'meadow'), { recursive: true })
+  fs.writeFileSync(path.join(work, 'projects', 'meadow', 'plan.txt'), 'the plan of the meadow')
   fs.writeFileSync(path.join(work, 'projects', 'notes.txt'), 'notes')
   fs.writeFileSync(path.join(work, 'top.txt'), 'top')
   fs.writeFileSync(path.join(work, 'pack.zip'), zipSync([{ name: 'inside/a.txt', data: 'in a zip' }]))
@@ -41,7 +41,7 @@ test('Open as Explorer Root in the menu of a folder makes it the root of the Fil
   await item(page, 'projects').click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Open as Explorer Root' }).click()
   // The Files now start in `projects`: its entries are the top of the tree, and the title says so.
-  await expect.poll(() => rowNames(page)).toEqual(['harbor', 'notes.txt'])
+  await expect.poll(() => rowNames(page)).toEqual(['meadow', 'notes.txt'])
   await expect(page.getByText(/FILES — PROJECTS/i)).toBeVisible()
   const open = page.getByRole('listbox', { name: 'Open Folders' })
   await expect(open.getByText('projects')).toBeVisible()
