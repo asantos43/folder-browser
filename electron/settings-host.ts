@@ -95,10 +95,19 @@ export class SettingsHost {
   }
 }
 
-export interface QuitApp { on(event: 'before-quit', listener: (event: { preventDefault(): void }) => void): void; quit(): void }
+export interface QuitApp { on(event: 'before-quit' | 'will-quit', listener: (event: { preventDefault(): void }) => void): void; quit(): void }
 export function flushBeforeQuit(app: QuitApp, host: SettingsHost): void {
   let flushing = false
   let done = false
+  let finalFlush = false
+  // The windows are closed by now: a change a window sent while it was closing has arrived after the first flush and is written before the process ends.
+  app.on('will-quit', event => {
+    if (finalFlush) return
+    event.preventDefault()
+    finalFlush = true
+    // `quit` inside the event that is already quitting is ignored: it goes in the next turn.
+    void host.flush().then(() => undefined, () => undefined).then(() => setImmediate(() => app.quit()))
+  })
   app.on('before-quit', event => {
     if (done) return
     event.preventDefault()

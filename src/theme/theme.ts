@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { readStored, writeStored } from '@/lib/storage.ts'
+import { createSetting } from '@/state/setting.ts'
 
 export type ThemeSetting = 'auto' | 'dark' | 'light'
 export type ThemeName = 'dark' | 'light'
 
 const isSetting = (v: unknown): v is ThemeSetting => v === 'auto' || v === 'dark' || v === 'light'
+const themeSetting = createSetting<ThemeSetting>('theme', 'auto', isSetting)
 
 /** The theme in use: the user's choice, or the system's when it is "auto" (VS Code's "Auto Detect Color Scheme"). */
 export const resolveTheme = (setting: ThemeSetting, systemPrefersDark: boolean): ThemeName => (setting === 'auto' ? (systemPrefersDark ? 'dark' : 'light') : setting)
@@ -22,7 +23,7 @@ export function applyTheme(theme: ThemeName): void {
 }
 
 export function useTheme(): { setting: ThemeSetting; theme: ThemeName; setSetting: (s: ThemeSetting) => void } {
-  const [setting, setSettingState] = useState<ThemeSetting>(() => readStored('theme', 'auto', isSetting))
+  const setting = themeSetting.use()
   const [systemDark, setSystemDark] = useState(() => systemQuery()?.matches ?? true)
   const theme = resolveTheme(setting, systemDark)
 
@@ -39,14 +40,12 @@ export function useTheme(): { setting: ThemeSetting; theme: ThemeName; setSettin
   return {
     setting,
     theme,
-    setSetting: (s) => {
-      setSettingState(s)
-      writeStored('theme', s)
-    },
+    setSetting: themeSetting.set,
   }
 }
 
 /** Before the first render, so the window does not flash the wrong theme. */
 export function applyInitialTheme(): void {
-  applyTheme(resolveTheme(readStored('theme', 'auto', isSetting), systemQuery()?.matches ?? true))
+  if (!window.fb?.settings) themeSetting.reload()
+  applyTheme(resolveTheme(themeSetting.get(), systemQuery()?.matches ?? true))
 }

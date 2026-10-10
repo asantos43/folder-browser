@@ -62,6 +62,22 @@ describe('SettingsHost', () => {
     await Promise.resolve(); expect(quitCalls).toBe(0)
     release(); await vi.waitFor(() => expect(quitCalls).toBe(1))
   })
+  it('writes a change that arrives after the first flush, when the windows have closed', async () => {
+    const x = make()
+    const handlers = new Map<string, (event: { preventDefault(): void }) => void>()
+    let quitCalls = 0
+    flushBeforeQuit({ on: (event, cb) => { handlers.set(event, cb) }, quit: () => { quitCalls++ } }, x.host)
+    handlers.get('before-quit')!({ preventDefault: () => {} })
+    await vi.waitFor(() => expect(quitCalls).toBe(1))
+    expect(x.writer).not.toHaveBeenCalled()
+    // A window that was closing sent its last change after that flush.
+    x.set({ sender: x.sender, senderFrame: x.frame }, [['appearance.theme', 'dark']])
+    let prevented = false; handlers.get('will-quit')!({ preventDefault: () => { prevented = true } })
+    await vi.waitFor(() => expect(quitCalls).toBe(2))
+    expect(prevented).toBe(true); expect(x.writer).toHaveBeenCalledTimes(1)
+    let again = false; handlers.get('will-quit')!({ preventDefault: () => { again = true } })
+    expect(again).toBe(false)
+  })
   it('quits anyway when the final write fails', async () => {
     const x = make(undefined, vi.fn(async () => { throw new Error('disk full') }))
     x.set({ sender: x.sender, senderFrame: x.frame }, [['appearance.theme', 'dark']])

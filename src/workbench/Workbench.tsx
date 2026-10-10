@@ -11,6 +11,7 @@ import { convertSavedUntitled } from './savedUntitled.ts'
 import { topmost } from './selection.ts'
 import { refusalNotice } from '@/state/messages.ts'
 import { useNotifications } from '@/state/notifications.ts'
+import { useSettingsNotices } from '@/state/settingsNotices.ts'
 import { focusedGroup } from '@/state/groups.ts'
 import { empty, isHeldBack, isSnapshotTab, isSplit, moveTabKeyed, reduce, released, sideAfterSave, type Action, type GroupId, type Tab } from '@/state/workspace.ts'
 import type { DraggedFile } from './dnd.ts'
@@ -76,6 +77,7 @@ export function Workbench() {
   const sortBy = sortKey.use()
   const sortBackwards = sortDescending.use()
   const { notifications, notify, dismiss } = useNotifications()
+  useSettingsNotices(notify)
   const [ws, rawDispatch] = useReducer(reduce, empty)
   const wsNow = useRef(ws)
   wsNow.current = ws

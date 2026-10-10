@@ -9,9 +9,11 @@ const on = <T>(channel: string, listener: (value: T) => void) => {
 }
 
 const settingsInitial = ipcRenderer.sendSync('fb:settings-get-all') as { values: Record<string, unknown>; notices: SettingsNotice[] }
+/** Asks the main process, which also settles every `set` sent before (the messages of one window keep their order). */
+const settingsValues = () => (ipcRenderer.sendSync('fb:settings-get-all') as typeof settingsInitial).values
 const api: FbApi = {
   settings: {
-    all: () => ({ ...settingsInitial.values }),
+    all: () => ({ ...settingsValues() }),
     notices: () => [...settingsInitial.notices],
     set: pairs => ipcRenderer.send('fb:settings-set', pairs),
     onChanged: listener => on<readonly string[]>('fb:settings-changed', listener),

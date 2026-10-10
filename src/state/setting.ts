@@ -2,6 +2,75 @@ import { useSyncExternalStore } from 'react'
 import type { SortKey } from '@core/fs/sort.ts'
 import { readStored, writeStored } from '@/lib/storage.ts'
 
+const ids: Record<string, string> = {
+  wordWrap: 'editor.wordWrap', svgView: 'files.svgView', csvView: 'files.csvView',
+  markdownView: 'editor.markdownView', markdownWide: 'editor.markdownWide', markdownWrapCode: 'editor.markdownWrapCode',
+  reopenSession: 'tabs.reopenSession', dividerColour: 'appearance.dividerColour', hotExit: 'editor.hotExit',
+  showHidden: 'files.showHidden', sortKey: 'files.sortKey', sortDescending: 'files.sortDescending',
+  formatSource: 'editor.formatSource', diffLayout: 'diff.layout', diffCollapse: 'diff.collapseUnchanged',
+  theme: 'appearance.theme', language: 'system.language',
+}
+const bridge = typeof window === 'undefined' ? undefined : window.fb?.settings
+const initial = bridge?.all() ?? {}
+const readers = new Map<string, Set<(next: unknown) => void>>()
+const pending = new Map<string, unknown>()
+let timer: ReturnType<typeof setTimeout> | undefined
+let migrating = false
+let migrated = true
+try { migrated = localStorage.getItem('fb:settings-migrated') === 'true' } catch { /* Storage is optional. */ }
+
+function sendNow(): void {
+  if (pending.size === 0) return
+  const pairs = [...pending.entries()]
+  pending.clear()
+  bridge!.set(pairs)
+  if (migrating) {
+    migrating = false
+    migrated = true
+    writeStored('settings-migrated', true)
+  }
+}
+
+/** The first change goes at once (a window closed a moment later keeps it); the changes of the next 100 ms go together, the last value of each id. */
+function arm(): void {
+  timer = setTimeout(() => {
+    timer = undefined
+    if (pending.size === 0) return
+    sendNow()
+    arm()
+  }, 100)
+}
+
+function queue(id: string, value: unknown, now = true): void {
+  pending.set(id, value)
+  if (timer !== undefined) return
+  if (now) sendNow()
+  arm()
+}
+
+// A window that closes inside the 100 ms must not lose the last change.
+if (bridge && typeof window !== 'undefined') {
+  const leave = () => {
+    if (timer !== undefined) clearTimeout(timer)
+    timer = undefined
+    if (pending.size === 0) return
+    sendNow()
+    // The window may be gone before an asynchronous message is delivered: a synchronous call is a barrier that the main process answers after it has the sets.
+    bridge.all()
+  }
+  window.addEventListener('pagehide', leave)
+  window.addEventListener('beforeunload', leave)
+}
+
+bridge?.onChanged((changed) => {
+  const latest = bridge.all()
+  for (const id of changed) {
+    // A newer local value is still on its way to the main process: this event is its predecessor.
+    if (pending.has(id)) continue
+    for (const read of readers.get(id) ?? []) read(latest[id])
+  }
+})
+
 /** A setting kept on this computer that more than one part of the interface reads and changes (word wrap, formatting): a value, and a hook. */
 export interface Setting<T> {
   get: () => T
@@ -13,17 +82,48 @@ export interface Setting<T> {
 
 export function createSetting<T>(key: string, fallback: T, valid: (value: unknown) => value is T): Setting<T> {
   const listeners = new Set<() => void>()
-  let value = readStored(key, fallback, valid)
+  const id = ids[key] ?? key
+  let value = bridge ? (valid(initial[id]) ? initial[id] : fallback) : readStored(key, fallback, valid)
   const tell = () => listeners.forEach((l) => l())
+  if (bridge) {
+    const receive = (next: unknown) => {
+      const accepted = valid(next) ? next : fallback
+      if (Object.is(value, accepted)) return
+      value = accepted
+      tell()
+    }
+    const registered = readers.get(id) ?? new Set()
+    registered.add(receive)
+    readers.set(id, registered)
+    if (!migrated && (!Object.hasOwn(initial, id) || JSON.stringify(initial[id]) === JSON.stringify(fallback))) {
+      const legacy = readStored<unknown>(key, undefined, valid)
+      if (valid(legacy)) {
+        value = legacy
+        queue(id, legacy, false)
+      }
+    }
+    // Module imports register all 17 options synchronously, including theme/language.
+    if (!migrated && !migrating) {
+      migrating = true
+      queueMicrotask(() => {
+        if (timer !== undefined) return
+        migrating = false
+        migrated = true
+        writeStored('settings-migrated', true)
+      })
+    }
+  }
   return {
     get: () => value,
     set: (next) => {
       value = next
-      writeStored(key, next)
+      if (bridge) queue(id, next)
+      else writeStored(key, next)
       tell()
     },
     reload: () => {
-      value = readStored(key, fallback, valid)
+      const stored = bridge?.all()[id]
+      value = bridge ? (valid(stored) ? stored : fallback) : readStored(key, fallback, valid)
       tell()
     },
     use: () => useSyncExternalStore((listener) => (listeners.add(listener), () => void listeners.delete(listener)), () => value),
