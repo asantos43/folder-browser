@@ -17,11 +17,11 @@ Part of the plan in [`TODO.md`](../../TODO.md) (the index, the performance rule 
 
 Common to every phase: the **performance rule** at the top of `TODO.md` (a budget before the code, a test that fails when it is exceeded, numbers in the pull request); a change is complete with its tests, `CHANGELOG.md` lines, `TODO.md` boxes and docs (the README and the guides in both languages). Cost: S days, M a week or two, L weeks.
 
-Phase 1: the registries (prerequisite; size M; **blocked by**: nothing; it is the Settings framework, the command registry and the key table, each useful alone)
-- [ ] **The settings registry and framework** (see `docs/todo/settings.md`): a registry the Settings page is built from that **accepts contributions**, a file the application owns (`settings.json`), JSON, export and import, validated on every write and read
-- [ ] **The command registry** (palette, menus and shortcuts built from typed entries; the built-in features use it too) and the **editable key table** with the **reserved keys** (`Ctrl+S`, `Ctrl+W`, `Delete`…) a plugin cannot bind
+Phase 1: the registries (**done 2026-10-10**, steps 1 to 9) (prerequisite; size M; **blocked by**: nothing; it is the Settings framework, the command registry and the key table, each useful alone)
+- [x] **The settings registry and framework** (see `docs/todo/settings.md`): a registry the Settings page is built from that **accepts contributions**, a file the application owns (`settings.json`), JSON, export and import, validated on every write and read
+- [x] **The command registry** (palette, menus and shortcuts built from typed entries; the built-in features use it too) and the **editable key table** with the **reserved keys** (`Ctrl+S`, `Ctrl+W`, `Delete`…) a plugin cannot bind
 - [x] **Open With custom command** and the runner that starts a program **without a shell**, one argument per value (`{file}` is one argument), used later by level 0 entries
-- [ ] **Registries for the other contribution points**: themes (colour tokens in `theme/tokens.css` as data), key schemes, languages (file type to language) and locales
+- [ ] **Registries for the other contribution points** (moved to phase 2, see "Left out of phase 1"): themes (colour tokens in `theme/tokens.css` as data), key schemes, languages (file type to language) and locales
 - **Budget**: the start of the application does **not** get slower; reading a registry is O(1); the Settings page opens in one frame with 500 entries; a search in it does not block typing. **Closed by**: unit tests of every registry (a duplicate id, a wrong type, an out-of-range value, reset, export and import), the reserved keys refused, the runner tested with arguments that contain quotes, `$`, `&` and a leading `-` (no shell, one argument), an e2e spec that changes a setting, restarts and finds it, and the start-up time measured before and after
 
 Phase 1 in steps (the plan of 2026-10-09; each step is one pull request, delegated with a short briefing; the map of what exists today is the first paragraph of the table)
