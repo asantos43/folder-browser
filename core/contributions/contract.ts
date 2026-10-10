@@ -16,7 +16,7 @@ export interface ContributionKey {
   key: string
 }
 
-/** Registry option. Namespaced ids persist under plugins.<pluginId> in SettingsStore. */
+/** Registry option. SettingsStore uses the whole pluginId as one key of plugins, including dots. */
 export interface SettingDef {
   id: string
   type: 'boolean' | 'choice' | 'number' | 'string' | 'colour' | 'list'

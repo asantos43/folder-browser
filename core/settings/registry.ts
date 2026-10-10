@@ -37,7 +37,8 @@ export class SettingsRegistry {
     return removed
   }
   defineSetting(input: SettingInput): SettingDefinition {
-    if (!/^[a-z][\w-]*(?:\.[a-z][\w-]*)+$/.test(input.id) && !/^[a-z][\w-]*:[a-z][\w.-]*$/.test(input.id)) throw new Error(`Invalid setting id: ${input.id}`)
+    const plugin = input.id.split(':')[0]
+    if (!/^[a-z][\w-]*(?:\.[a-z][\w-]*)+$/.test(input.id) && !(plugin.length <= 64 && /^[a-z][a-z0-9-]*(\.[a-z0-9-]+)*:[a-z][\w.-]*$/.test(input.id) && !plugin.split('.').some(part => ['__proto__', 'constructor', 'prototype'].includes(part)))) throw new Error(`Invalid setting id: ${input.id}`)
     if (this.entries.has(input.id)) throw new Error(`Setting id already defined: ${input.id}`)
     const def = Object.freeze({ ...input, choices: input.choices && Object.freeze([...input.choices]) })
     if (!this.isValid(def, def.default)) throw new Error(`Invalid default for setting ${def.id}`)

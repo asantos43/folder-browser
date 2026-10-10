@@ -33,9 +33,9 @@ it('keeps contributions out of every production startup import (including transi
     if (entry.isDirectory()) return walk(path)
     return /\.(?:ts|tsx)$/.test(path) && !/\.(?:test|spec)\./.test(path) ? [path] : []
   })
-  // Stronger than checking just main.ts/main.tsx: no production module outside
-  // this new directory may import/re-export/require the gate, even dynamically.
-  for (const path of ['src', 'electron', 'core'].flatMap(walk).filter(path => !path.startsWith('core/contributions/'))) {
+  // Stronger than checking just main.ts/main.tsx: only the gate and the new
+  // install-time manifest parser may consume it. Plugins have their own startup scan.
+  for (const path of ['src', 'electron', 'core'].flatMap(walk).filter(path => !path.startsWith('core/contributions/') && !path.startsWith('core/plugins/'))) {
     const source = readFileSync(path, 'utf8')
     const imports = [...source.matchAll(/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?|\brequire\s*\(\s*)['"]([^'"]+)['"]/g)].map(match => match[1])
     expect(imports.filter(specifier => /(?:^|\/)contributions(?:\/|$)/.test(specifier)), path).toEqual([])
