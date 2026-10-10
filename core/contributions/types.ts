@@ -9,17 +9,18 @@ const forbidden = new Set(['__proto__', 'constructor', 'prototype'])
 function fail(message: string): never { throw new TypeError(`Invalid contribution: ${message}`) }
 
 /** Copy bounded plain data without invoking getters or retaining caller-owned objects. */
-function copy(value: unknown, depth = 0, budget = { nodes: 0 }): unknown {
+export interface ContributionLimits { stringLength?: number; arrayLength?: number; allowTextControls?: boolean }
+function copy(value: unknown, limits: ContributionLimits, depth = 0, budget = { nodes: 0 }): unknown {
   if (++budget.nodes > 20000 || depth > 5) fail('data exceeds node/depth limit')
   if (value === null || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) return value
-  if (typeof value === 'string') { if (value.length > 256 || [...value].some(char => char.charCodeAt(0) < 32)) fail('strings must be short (256 characters)'); return value }
+  if (typeof value === 'string') { if (value.length > (limits.stringLength ?? 256) || (!limits.allowTextControls && [...value].some(char => char.charCodeAt(0) < 32))) fail(`strings must be short (${limits.stringLength ?? 256} characters)`); return value }
   if (Array.isArray(value)) {
-    if (value.length > 500) fail('at most 500 items')
+    if (value.length > (limits.arrayLength ?? 500)) fail(`at most ${limits.arrayLength ?? 500} items`)
     if (Reflect.ownKeys(value).some(key => key !== 'length' && (typeof key !== 'string' || !/^(0|[1-9]\d*)$/.test(key)))) fail('unexpected array property')
     return Array.from({ length: value.length }, (_, index) => {
       const descriptor = Object.getOwnPropertyDescriptor(value, String(index))
       if (!descriptor || !('value' in descriptor)) fail('sparse arrays/accessors forbidden')
-      return copy(descriptor.value, depth + 1, budget)
+      return copy(descriptor.value, limits, depth + 1, budget)
     })
   }
   if (!value || typeof value !== 'object' || (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) fail('expected plain data')
@@ -28,7 +29,7 @@ function copy(value: unknown, depth = 0, budget = { nodes: 0 }): unknown {
     if (typeof key !== 'string' || forbidden.has(key)) fail('forbidden property')
     const descriptor = Object.getOwnPropertyDescriptor(value, key)!
     if (!descriptor.enumerable || !('value' in descriptor)) fail('accessors/non-enumerable properties forbidden')
-    result[key] = copy(descriptor.value, depth + 1, budget)
+    result[key] = copy(descriptor.value, limits, depth + 1, budget)
   }
   return result
 }
@@ -45,10 +46,10 @@ function optional(item: Record<string, unknown>, name: string, type: 'boolean' |
 function condition(item: Record<string, unknown>): void { if (Object.hasOwn(item, 'when')) compileWhen(text(item.when)) }
 
 /** Strictly validate the entire declaration before any live registry is touched. */
-export function validateContribution(input: unknown): Contribution {
-  const data = object(copy(input), ['pluginId', 'commands', 'keys', 'settings', 'menuItems'])
+export function validateContribution(input: unknown, limits: ContributionLimits = {}): Contribution {
+  const data = object(copy(input, limits), ['pluginId', 'commands', 'keys', 'settings', 'menuItems'])
   const pluginId = text(data.pluginId)
-  if (!/^[a-z][a-z0-9-]{0,63}$/.test(pluginId) || forbidden.has(pluginId)) fail('invalid pluginId')
+  if (pluginId.length > 64 || !/^[a-z][a-z0-9-]*(\.[a-z0-9-]+)*$/.test(pluginId) || pluginId.split('.').some(part => forbidden.has(part))) fail('invalid pluginId')
   const owned = (value: unknown): string => {
     const id = text(value)
     if (!id.startsWith(`${pluginId}:`) || !/^[a-z][\w.-]*$/.test(id.slice(pluginId.length + 1)) || id.split(/[:.]/).some(part => forbidden.has(part))) fail(`id must be prefixed with ${pluginId}:`)

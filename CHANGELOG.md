@@ -10,6 +10,9 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Added
 
+- **Plugin manifest** (phase 2, step 2.1): strict bounded `plugin.json` validation, JSON Schema and synthetic fixtures; detached frozen data, stable error codes and reuse of contribution/command validators. Declarative only; nothing loads plugins at startup.
+  Schema string leaves now cover blank text, safe paths, https casing and chord endings; field-specific diagnostics identify defaults, categories and exec arguments. The runtime remains the validation authority.
+
 - **Open With commands** (plugins step 9): Settings ▸ Files can register named programs with one literal argument per line and `{file}`, `{dir}`, `{name}` tokens. Available for disk files, ZIP entries and `.wsnp` files, with a native confirmation on first use and after changing the program, arguments or working directory. Commands start without a shell; ZIP entries use read-only copies, and importing settings never confirms execution.
 
 - **Plugin contribution contract and atomic gate** (phase 1, step 8): `core/contributions/` with one `Contribution` type (commands, keys, options, menu items), strict bounded validation, an all-or-nothing apply with rollback, idempotent removal, `menubar/*` menu points (the `context/*` points are reserved and refused) and the typed source of the future `.d.ts`. **No visible change; nothing applies contributions at start.** Tests with a made-up plugin, failure injection and a 500-item budget (apply and remove in about 2 ms and 1 ms, budget 100 ms).
