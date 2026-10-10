@@ -16,6 +16,7 @@ const api: FbApi = {
     all: () => ({ ...settingsValues() }),
     notices: () => [...settingsInitial.notices],
     set: pairs => ipcRenderer.send('fb:settings-set', pairs),
+    reset: ids => ipcRenderer.send('fb:settings-reset', ids),
     onChanged: listener => on<readonly string[]>('fb:settings-changed', listener),
   },
   platform: process.platform,

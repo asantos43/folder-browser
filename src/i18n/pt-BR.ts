@@ -2,6 +2,21 @@ import type { MessageKey } from './en.ts'
 
 /** Português do Brasil: as mesmas chaves do inglês (o tipo confere). */
 export const ptBR: Record<MessageKey, string> = {
+  'settings.svgView': 'SVG',
+  'settings.csvView': 'CSV / TSV',
+  'settings.markdownView': 'Markdown',
+  'settings.sortHint': 'Pastas ficam primeiro: nome, data de modificação ou tamanho.',
+  'settings.descendingHint': 'Z a A, mais novos e maiores primeiro.',
+  'settings.diffLayout': 'Disposição da comparação',
+  'settings.diff': 'Comparar',
+  'settings.english': 'English',
+  'settings.portuguese': 'Português (Brasil)',
+  'settings.modified': 'Modificado',
+  'settings.reset': 'Restaurar',
+  'settings.resetSection': 'Restaurar seção',
+  'settings.onlyModified': 'Mostrar só modificados',
+  'settings.restart': 'Reinício necessário',
+  'settings.plugins': 'Plugins',
   'settings.fileNotice': 'Algumas opções não puderam ser carregadas; os padrões estão em uso. {id}: {message}',
   'app.name': 'Folder Browser',
   'menu.file': 'Arquivo',

@@ -76,6 +76,15 @@ export class SettingsHost {
     }
     this.listen('fb:settings-get-all', getAll)
     this.listen('fb:settings-set', set)
+    this.listen('fb:settings-reset', (event: SyncEvent, ids: unknown) => {
+      if (!validSender(event) || !Array.isArray(ids) || ids.length > PAIR_LIMIT) return
+      try { if (Buffer.byteLength(JSON.stringify(ids)) > MESSAGE_LIMIT) return } catch { return }
+      for (const id of ids) {
+        if (typeof id !== 'string' || !this.registry.get(id)) continue
+        this.store.reset(id)
+        this.mayWrite = true
+      }
+    })
   }
 
   flush(): Promise<void> {
