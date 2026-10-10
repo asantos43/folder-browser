@@ -1,7 +1,34 @@
-/** Synthetic plugin data only. No real files, processes, package reads or network. */
+import { createHash, sign, type KeyObject } from 'node:crypto'
+import { writeZip } from '../core/archive/writer.ts'
+
+/** Synthetic plugin data only. No real files, processes or network. */
 export function minimalManifest() {
   return { schema: 1, id: 'acme.sample', name: 'Sample', version: '1.0.0', publisher: { id: 'acme', name: 'Acme' },
     engines: { folderBrowser: '>=0.1.0 <1.0.0', api: 1 }, uses: [] as string[], contributes: {}, activation: [] as string[], files: {} }
+}
+
+export interface KeyPair { publicKey: KeyObject; privateKey: KeyObject }
+/** Builds the same byte layout for a ZIP or an unpacked fixture. */
+export async function buildPlugin(options: {
+  file?: string; files?: Record<string, Buffer | string>; manifest?: Record<string, unknown>; signWith?: KeyPair
+  tamperFile?: string; tamperManifest?: boolean; wrongKey?: KeyPair
+} = {}) {
+  const files = options.files ?? { 'README.md': 'Synthetic plugin' }
+  const manifest = { ...minimalManifest(), files: Object.fromEntries(Object.entries(files).map(([name, data]) =>
+    [name, `sha256:${createHash('sha256').update(data).digest('hex')}`])), ...options.manifest }
+  if (options.signWith) {
+    const key = (options.wrongKey ?? options.signWith).publicKey.export({ format: 'der', type: 'spki' }).subarray(-32)
+    manifest.publisher = { ...manifest.publisher, key: `ed25519:${key.toString('hex')}` } as typeof manifest.publisher
+  }
+  const raw = Buffer.from(JSON.stringify(manifest))
+  const entries: { name: string; data: Buffer | string }[] = [{ name: 'plugin.json', data: options.tamperManifest ? Buffer.from(JSON.stringify({ ...manifest, name: 'Altered' })) : raw },
+    ...Object.entries(files).map(([name, data]) => ({ name, data: options.tamperFile === name ? Buffer.from('altered') : data }))]
+  if (options.signWith) {
+    const key = options.signWith.publicKey.export({ format: 'der', type: 'spki' }).subarray(-32)
+    entries.push({ name: 'SIGNATURE', data: JSON.stringify({ alg: 'ed25519', key: `ed25519:${key.toString('hex')}`, sig: sign(null, raw, options.signWith.privateKey).toString('hex') }) })
+  }
+  if (options.file) await writeZip(options.file, entries)
+  return { manifest, entries }
 }
 export function completeManifest() {
   return { ...minimalManifest(), description: 'Synthetic level 0 contributions.', license: 'MIT', homepage: 'https://example.org/sample',

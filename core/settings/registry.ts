@@ -3,6 +3,8 @@ export type SettingDefinition = {
   id: string; type: SettingType; default: unknown; category: string; label: string | null
   choices?: readonly unknown[]; min?: number; max?: number; safety?: boolean
   description?: string; keywords?: readonly string[]; choiceLabels?: readonly string[]; categoryLabel?: string; restart?: boolean
+  group?: string; order?: number; enabledWhen?: string; renamedFrom?: string; reaches?: boolean
+  step?: number; maxLength?: number; maxItems?: number
   validator?: (value: unknown) => boolean
   normalize?: (value: unknown) => { value: unknown; warning?: string }
 }
