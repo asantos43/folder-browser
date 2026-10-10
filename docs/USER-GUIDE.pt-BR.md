@@ -84,6 +84,10 @@ Isto vale para os arquivos e pastas de uma pasta que você abriu, e para o que h
 
 **Abrir com…** e **Ver em hexadecimal** estão na barra de ferramentas do documento, da tabela, dos bytes e de todo texto, e nos cartões.
 
+Em **Configurações ▸ Arquivos ▸ Comandos de Abrir com**, escolha **Adicionar comando**, informe um nome e o programa (caminho absoluto ou nome no PATH) e escreva **um argumento por linha**. Salve, edite ou remova comandos ali. Eles aparecem em **Seus comandos** no Abrir com e no submenu do arquivo, inclusive `.wsnp` e entradas de ZIP. `{file}` é o caminho absoluto do arquivo, `{dir}` sua pasta e `{name}` seu nome. Espaços, aspas, `$`, `&`, `;` e `~` são literais: não ponha aspas de shell em volta de `{file}`. Um nome começando com `-` é seguro por `{file}`, pois o caminho é absoluto; para `{name}`, acrescente um argumento separado `--` se o programa o aceitar. O editor por linhas não insere uma quebra de linha dentro de um argumento nem um único argumento vazio; valores avançados, `cwd` opcional (absoluto ou `{dir}`) e `timeoutMs` podem ser definidos em settings.json.
+
+Programas rodam com **suas permissões**. Antes da primeira execução, um diálogo nativo mostra o programa e todos os argumentos literais. Escolha **Executar** ou **Cancelar**. **Sempre para este comando** lembra exatamente aquele programa, lista de argumentos e pasta de trabalho; mudar qualquer um pede confirmação de novo. Importar configurações pede confirmação extra de segurança e ainda exige a confirmação de execução. Nenhum shell interpreta os argumentos, a menos que você escolha explicitamente um programa de shell. Seus comandos recebem o arquivo original do disco; entradas de ZIP recebem uma cópia temporária somente leitura (até 256 MiB, nomes executáveis recusados), removida quando o Folder Browser fecha. Como para qualquer outro aplicativo, o diálogo Abrir com não oferece arquivos cujo nome poderia ser executado como programa (`.sh`, `.exe`…); os comandos do submenu do arquivo, sim.
+
 Algumas das visões, na pasta usada para estas imagens:
 
 | | |

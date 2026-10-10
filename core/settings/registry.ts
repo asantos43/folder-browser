@@ -3,6 +3,8 @@ export type SettingDefinition = {
   id: string; type: SettingType; default: unknown; category: string; label: string | null
   choices?: readonly unknown[]; min?: number; max?: number; safety?: boolean
   description?: string; keywords?: readonly string[]; choiceLabels?: readonly string[]; categoryLabel?: string; restart?: boolean
+  validator?: (value: unknown) => boolean
+  normalize?: (value: unknown) => { value: unknown; warning?: string }
 }
 export type SettingInput = Omit<SettingDefinition, 'id'> & { id: string }
 
@@ -56,6 +58,7 @@ export class SettingsRegistry {
     return () => { if (!removed) { this.transaction(() => { for (const item of added) this.remove(item.id) }); removed = true } }
   }
   private isValid(d: SettingDefinition, v: unknown): boolean {
+    if (d.validator) return d.validator(v)
     switch (d.type) {
       case 'boolean': return typeof v === 'boolean'
       case 'choice': return d.choices?.some(x => Object.is(x, v)) ?? false

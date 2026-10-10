@@ -72,6 +72,7 @@ export interface SideBarActions {
   openSnapshot: (rootId: string, path: string, keep: boolean) => void
   saveFile: (snapshotId: string, path: string) => void
   openWith: (snapshotId: string, path: string) => void
+  runCommand?: (commandId: string, root: string, path: string) => void
   copy: (text: string) => void
   /** The files of a folder that was opened: made, renamed, moved, deleted (core/fs/ops.ts). */
   createEntry: (rootId: string, parent: string, name: string, kind: 'file' | 'dir') => Promise<OpResult>
@@ -231,6 +232,7 @@ export function SideBar({ ws, dispatch, actions, places, treeVersion }: { /** Th
                 open: (entry, keep, as) => actions.openRootFile(root.id, entry, keep, as),
                 openSnapshot: (entry, keep) => actions.openSnapshot(root.id, entry.path, keep),
                 openWith: (path) => actions.openWith(root.id, path),
+                runCommand: (commandId, path) => actions.runCommand?.(commandId, root.id, path),
                 openDefault: (path) => actions.openDefault(root.id, path),
                 properties: (entry) => actions.properties(root, entry),
                 pin: (path) => actions.pinFolder(root.id, path),

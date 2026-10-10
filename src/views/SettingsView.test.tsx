@@ -19,7 +19,25 @@ const search = (query: string) => fireEvent.change(screen.getByRole('searchbox')
 beforeEach(() => { for (const d of settingsRegistry.all()) settingFor(d).reset() })
 afterEach(() => { cleanup(); removals.splice(0).forEach(remove => remove()); vi.unstubAllGlobals() })
 
-it('generates all 17 builtins and one editable control for each declared type', () => {
+it('adds, edits and removes literal custom command argument lists, refusing invalid programs', () => {
+  page(); search('Open With commands')
+  fireEvent.click(screen.getByRole('button', { name: 'Add command' }))
+  fireEvent.change(screen.getByLabelText('Command name'), { target: { value: 'My tool' } })
+  fireEvent.change(screen.getByLabelText('Program'), { target: { value: './bad' } })
+  fireEvent.change(screen.getByLabelText('Arguments (one per line)'), { target: { value: '{file}\n$(x)\na b' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save command' })); expect(screen.getByRole('alert')).toBeTruthy()
+  fireEvent.change(screen.getByLabelText('Program'), { target: { value: 'my-tool' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save command' }))
+  const store = settingFor(settingsRegistry.get('files.openWithCommands')!)
+  expect(store.get()).toEqual([{ id: expect.any(String), name: 'My tool', program: 'my-tool', args: ['{file}', '$(x)', 'a b'] }])
+  fireEvent.click(screen.getByRole('button', { name: 'Edit command' }))
+  fireEvent.change(screen.getByLabelText('Arguments (one per line)'), { target: { value: '{file}\nchanged' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save command' }))
+  expect((store.get() as Array<{ args: string[] }>)[0].args).toEqual(['{file}', 'changed'])
+  fireEvent.click(screen.getByRole('button', { name: 'Remove command' })); expect(store.get()).toEqual([])
+})
+
+it('generates all 18 builtins and one editable control for each declared type', () => {
   const definitions: SettingInput[] = [
     { id: 'controls:boolean', type: 'boolean', default: false, label: 'settings.wordWrap', category: 'test' },
     { id: 'controls:choice', type: 'choice', default: 'one', choices: ['one', 'two'], label: 'settings.colorTheme', category: 'test' },
@@ -29,7 +47,7 @@ it('generates all 17 builtins and one editable control for each declared type', 
     { id: 'controls:list', type: 'list', default: ['one'], label: 'settings.showHidden', category: 'test' },
   ]
   contribute(definitions); page()
-  expect(document.querySelectorAll('[data-setting]')).toHaveLength(23)
+  expect(document.querySelectorAll('[data-setting]')).toHaveLength(24)
   fireEvent.click(within(row('controls:boolean')).getByRole('checkbox'))
   fireEvent.change(within(row('controls:choice')).getByRole('combobox'), { target: { value: 'two' } })
   fireEvent.change(within(row('controls:number')).getByRole('spinbutton'), { target: { value: '4' } })
@@ -97,7 +115,7 @@ it('keeps theme and language selectors connected to their existing consumers', (
 })
 
 it('declares translated labels/descriptions and choice/category keys for all builtins', () => {
-  expect(builtinSettings).toHaveLength(17)
+  expect(builtinSettings).toHaveLength(18)
   for (const definition of builtinSettings) {
     expect(definition.label).toBeTruthy(); expect(definition.description).toBeTruthy()
     for (const key of [definition.label!, definition.description!, definition.categoryLabel!, ...(definition.choiceLabels ?? []), ...(definition.keywords ?? [])]) {

@@ -1,7 +1,7 @@
 import type { SettingsRegistry } from './registry.ts'
 import type { SettingsStore } from './store.ts'
 
-export type ImportChange = { id: string; before: unknown; after: unknown; reason?: string; needsConfirm: boolean }
+export type ImportChange = { id: string; before: unknown; after: unknown; reason?: string; warning?: string; needsConfirm: boolean }
 export type ImportPreview = { changes: ImportChange[] }
 export function exportSettings(store: SettingsStore): string { return JSON.stringify(store.exportObject(), null, 2) }
 export function previewImport(json: string, registry: SettingsRegistry, store: SettingsStore): ImportPreview {
@@ -10,12 +10,14 @@ export function previewImport(json: string, registry: SettingsRegistry, store: S
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Settings import must be an object')
   const flat = input as Record<string, unknown>
   const changes: ImportChange[] = []
-  for (const [id, after] of Object.entries(flat)) {
+  for (const [id, raw] of Object.entries(flat)) {
     const def = registry.get(id)
-    if (!def) { changes.push({id,before:undefined,after,reason:'Unknown setting',needsConfirm:false}); continue }
+    if (!def) { changes.push({id,before:undefined,after:raw,reason:'Unknown setting',needsConfirm:false}); continue }
+    const normalized = def.normalize?.(raw)
+    const after = normalized ? normalized.value : raw
     const before = store.get(id)
     if (!registry.validate(id, after)) changes.push({id,before,after,reason:'Invalid value',needsConfirm:false})
-    else if (JSON.stringify(before) !== JSON.stringify(after)) changes.push({id,before,after,needsConfirm:def.safety === true})
+    else if (JSON.stringify(before) !== JSON.stringify(after) || normalized?.warning) changes.push({id,before,after,warning:normalized?.warning,needsConfirm:def.safety === true})
   }
   return { changes }
 }

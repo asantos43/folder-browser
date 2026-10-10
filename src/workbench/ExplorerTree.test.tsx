@@ -6,10 +6,13 @@ import { I18nProvider } from '@/i18n/context.tsx'
 import type { SortKey } from '@core/fs/sort.ts'
 import { fileClipboard } from './fileClipboard.ts'
 import { ENTRY_DRAG, ExplorerTree, HOVER_OPEN_MS, type ExplorerActions, createTarget } from './ExplorerTree.tsx'
+import { settingFor } from '@/state/setting.ts'
+import { settingsRegistry } from '@core/settings/registry.ts'
 
 afterEach(() => {
   cleanup()
   fileClipboard.set(null)
+  settingFor(settingsRegistry.get('files.openWithCommands')!).reset()
 })
 
 const entry = (name: string, kind: DirEntry['kind'], dir = '', extra: Partial<DirEntry> = {}): DirEntry => ({ name, path: dir ? `${dir}/${name}` : name, kind, size: kind === 'dir' ? 0 : 10, modified: '2026-01-01T00:00:00.000Z', hidden: name.startsWith('.'), ...extra })
@@ -24,7 +27,7 @@ const disk: Record<string, ListResult> = {
 
 function show({ showHidden = false, activePath, refreshToken = 0, lists = disk, kind = 'folder', trash = false, writable = false, sortKey = 'name', sortDescending = false, createRequest, compare }: { compare?: ExplorerActions['compare']; writable?: boolean; createRequest?: { kind: 'file' | 'dir'; token: number }; showHidden?: boolean; activePath?: string; refreshToken?: number; lists?: Record<string, ListResult>; kind?: 'folder' | 'zip'; trash?: boolean; sortKey?: SortKey; sortDescending?: boolean } = {}) {
   const listDir = vi.fn(async (path: string) => lists[path] ?? ({ error: 'no-dir' } as ListResult))
-  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), openAsRoot: vi.fn(), restore: vi.fn(), openWith: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), paste: vi.fn(), remove: vi.fn(), ...(compare ? { compare } : {}) }
+  const actions = { listDir, open: vi.fn(), openSnapshot: vi.fn(), openDefault: vi.fn(), properties: vi.fn(), pin: vi.fn(), openAsRoot: vi.fn(), restore: vi.fn(), openWith: vi.fn(), runCommand: vi.fn(), save: vi.fn(), copy: vi.fn(), reveal: vi.fn(), create: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), rename: vi.fn(async (): Promise<OpResult> => ({ ok: true, path: 'x' })), move: vi.fn(), copyTo: vi.fn(), moveTo: vi.fn(), paste: vi.fn(), remove: vi.fn(), ...(compare ? { compare } : {}) }
   type Props = { showHidden: boolean; activePath?: string; refreshToken: number; sortKey: SortKey; sortDescending: boolean }
   const tree = (props: Props) => (
     <I18nProvider language="en">
@@ -39,6 +42,27 @@ const names = () => screen.queryAllByRole('treeitem').map((r) => r.querySelector
 const chevronOf = (name: string): HTMLElement => screen.getByRole('treeitem', { name }).querySelector('[data-chevron]') as HTMLElement
 
 describe('ExplorerTree', () => {
+  it('adds the custom-command submenu only when configured, for disk, wsnp and ZIP entries', async () => {
+    const x = show()
+    await screen.findByRole('treeitem', { name: 'a.txt' })
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'a.txt' }))
+    expect(screen.getByRole('menuitem', { name: 'Open With…' }).hasAttribute('aria-haspopup')).toBe(false)
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    act(() => settingFor(settingsRegistry.get('files.openWithCommands')!).set([{ id: 'record', name: 'Record arguments', program: 'node', args: ['{file}'] }]))
+    for (const name of ['a.txt', 'page.wsnp']) {
+      fireEvent.contextMenu(screen.getByRole('treeitem', { name }))
+      fireEvent.mouseEnter(screen.getByRole('menuitem', { name: 'Open With…' }))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Record arguments' }))
+      expect(x.runCommand).toHaveBeenLastCalledWith('record', name)
+    }
+    fireEvent.click(chevronOf('pack.zip'))
+    await screen.findByRole('treeitem', { name: 'src' }); fireEvent.click(chevronOf('src'))
+    await screen.findByRole('treeitem', { name: 'main.c' })
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'main.c' }))
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: 'Open With…' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Record arguments' }))
+    expect(x.runCommand).toHaveBeenLastCalledWith('record', 'pack.zip!/src/main.c')
+  })
   it('reads the root alone, and lists folders first without the hidden ones', async () => {
     const { listDir } = show()
     await waitFor(() => expect(names()).toEqual(['docs', 'a.txt', 'pack.zip', 'page.wsnp']))

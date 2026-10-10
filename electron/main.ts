@@ -56,6 +56,7 @@ if (process.argv.includes('--app-version')) {
     const drafts = new DraftStore(path.join(app.getPath('userData'), 'drafts'))
     drafts.prune(90)
     host = new SnapshotHost(new RecentFiles(path.join(app.getPath('userData'), 'recent-files.json')), new SignerStore(path.join(app.getPath('userData'), 'trusted-signers.json')), new SessionStore(path.join(app.getPath('userData'), 'session.json')), { recentFolders: new RecentFiles(path.join(app.getPath('userData'), 'recent-folders.json')), favorites: new FavoriteFolders(path.join(app.getPath('userData'), 'favorites.json')), drafts })
+    host.configureRunner(app.getPath('userData'), () => settingsHost?.store.get('files.openWithCommands') ?? [])
     host.registerIpc(() => win)
     settingsHost = new SettingsHost(app.getPath('userData'), ipcMain, () => BrowserWindow.getAllWindows())
     settingsHost.register()

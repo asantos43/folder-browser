@@ -16,8 +16,22 @@ describe('settings registry', () => {
   })
 })
 describe('settings store and portable settings', () => {
-  it('has the 17 current options and resets values', async () => {
-    expect(builtinSettings).toHaveLength(17)
+  it('validates custom commands, discards invalid loaded entries with warnings, and requires safety import confirmation', async () => {
+    const r = registry(), s = new SettingsStore(r, async () => {})
+    const command = { id: 'test', name: 'Test', program: 'node', args: ['{file}'] }
+    expect(r.get('files.openWithCommands')?.safety).toBe(true)
+    expect(r.validate('files.openWithCommands', [command])).toBe(true)
+    expect(r.validate('files.openWithCommands', [{ ...command, args: 'split me' }])).toBe(false)
+    expect(s.load(JSON.stringify({ 'files.openWithCommands': [command, { ...command, id: 'bad', program: './bad' }] }))).toEqual([{ id: 'files.openWithCommands', message: expect.stringContaining('discarded') }])
+    expect(s.get('files.openWithCommands')).toEqual([command])
+    const preview = previewImport(JSON.stringify({ 'files.openWithCommands': [{ ...command, args: ['changed'] }, { ...command, id: 'bad', program: './bad' }] }), r, s)
+    expect(preview.changes[0]).toMatchObject({ needsConfirm: true, warning: expect.stringContaining('discarded'), after: [{ ...command, args: ['changed'] }] })
+    await expect(applyImport(preview, s)).rejects.toThrow(/Confirmation/)
+    await applyImport(preview, s, true)
+    expect(s.get('files.openWithCommands')).toEqual([{ ...command, args: ['changed'] }])
+  })
+  it('has the 18 current options and resets values', async () => {
+    expect(builtinSettings).toHaveLength(18)
     const r = registry(); const write = vi.fn(async (_s:string) => {}); const s = new SettingsStore(r,write)
     s.set('editor.wordWrap',true); s.reset('editor.wordWrap'); await s.flush(); expect(s.get('editor.wordWrap')).toBe(false)
   })

@@ -2,6 +2,17 @@ import type { MessageKey } from './en.ts'
 
 /** Português do Brasil: as mesmas chaves do inglês (o tipo confere). */
 export const ptBR: Record<MessageKey, string> = {
+  'settings.runCommands': 'Comandos de Abrir com',
+  'settings.runHint': 'Programas rodam com suas permissões. Use um caminho absoluto ou nome no PATH; um argumento literal por linha. Tokens: {file}, {dir}, {name}.',
+  'settings.runName': 'Nome do comando',
+  'settings.runProgram': 'Programa',
+  'settings.runArgs': 'Argumentos (um por linha)',
+  'settings.runAdd': 'Adicionar comando',
+  'settings.runEdit': 'Editar comando',
+  'settings.runRemove': 'Remover comando',
+  'settings.runSave': 'Salvar comando',
+  'settings.runInvalid': 'Confira o nome e o programa; até 64 argumentos de 4 KB cada, sem NUL, e 100 comandos.',
+  'openWith.commands': 'Seus comandos',
   "settings.export": "Exportar…",
   "settings.import": "Importar…",
   "settings.resetAll": "Restaurar tudo…",

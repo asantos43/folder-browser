@@ -4,7 +4,7 @@ import { mediaKind } from '@core/filekind.ts'
 import { nameProblem } from '@core/fs/names.ts'
 import { compareEntries, type SortKey } from '@core/fs/sort.ts'
 import { listingsAbove, parentPath, trailOf } from '@core/vpath.ts'
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import { ContextMenu, type ContextMenuState } from '@/components/ContextMenu.tsx'
 import { Icon } from '@/components/Icon.tsx'
 import { useI18n } from '@/i18n/context.tsx'
@@ -19,6 +19,10 @@ import { shortcut } from './commands.ts'
 import { fileClipboard, useFileClip } from './fileClipboard.ts'
 import { rangeBetween, topmost } from './selection.ts'
 import { treeMenuFor, type TreeAction } from './treeMenu.ts'
+import { settingFor } from '@/state/setting.ts'
+import { settingsRegistry } from '@core/settings/registry.ts'
+import type { RunCommand } from '@core/run.ts'
+import '@core/settings/builtin.ts'
 
 type Listing = { state: 'loading' } | { state: 'ready'; entries: DirEntry[]; truncated: boolean } | { state: 'error'; error: Extract<ListResult, { error: string }>['error'] }
 
@@ -50,6 +54,7 @@ export interface ExplorerActions {
   /** A `.wsnp` of the disk: previewed as a file is (`keep` false: a click), or opened as a snapshot (a double click, Enter, the menu). */
   openSnapshot: (entry: DirEntry, keep: boolean) => void
   openWith: (path: string) => void
+  runCommand?: (commandId: string, path: string) => void
   /** Opens a copy in the application the system has for the type. */
   openDefault: (path: string) => void
   properties: (entry: DirEntry) => void
@@ -155,6 +160,8 @@ function NameInput({ initial, label, title, placeholder, problem, onChange, onSu
  */
 export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest, onCreateHandled, activePath, showHidden, sortKey, sortDescending, refreshToken, actions }: { /** How the rows of a folder are ordered (folders first, whatever it is), and which of size and date each row shows when there is little room. */ sortKey: SortKey; sortDescending: boolean; rootId: string; rootKind: 'folder' | 'zip'; /** The root is the trash: its top-level rows can be put back. */ trash: boolean; /** Files and folders of this root can be made, renamed, moved and deleted (a folder of the disk, not a ZIP, an entry of a ZIP; not the trash). */ writable: boolean; /** A new file or folder was asked for from outside the tree (the buttons of the side bar): `token` counts the requests. */ createRequest?: { kind: 'file' | 'dir'; token: number } | undefined; /** The tree handled a `createRequest`: the parent can clear it, so a remount does not re-fire the same request. */ onCreateHandled?: (() => void) | undefined; activePath?: string | undefined; showHidden: boolean; /** Changes when the user asks to read everything again. */ refreshToken: number; actions: ExplorerActions }) {
   const { t, language } = useI18n()
+  const commandSetting = settingFor(settingsRegistry.get('files.openWithCommands')!)
+  const commands = useSyncExternalStore(commandSetting.subscribe, commandSetting.get) as RunCommand[]
   const [listings, setListings] = useState<Record<string, Listing>>({})
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const [focused, setFocused] = useState<string | null>(null)
@@ -512,7 +519,7 @@ export function ExplorerTree({ rootId, rootKind, trash, writable, createRequest,
         case 'openAsZip': return { id: action, label: t('tree.openAsZip'), run: () => actions.open(entry, true) }
         case 'openAsHex': return { id: action, label: t('tree.openAsHex'), run: () => actions.open(entry, true, 'hex') }
         case 'openSnapshot': return { id: action, label: t('tree.open'), run: () => actions.openSnapshot(entry, true) }
-        case 'openWith': return { id: action, label: t('tree.openWith'), run: () => actions.openWith(entry.path) }
+        case 'openWith': return { id: action, label: t('tree.openWith'), run: () => actions.openWith(entry.path), ...(commands.length && actions.runCommand ? { submenu: [{ id: 'choose-app', label: t('openWith.title'), run: () => actions.openWith(entry.path) }, ...commands.map(command => ({ id: `run:${command.id}`, label: command.name, run: () => actions.runCommand?.(command.id, entry.path) }))] } : {}) }
         case 'openDefault': return { id: action, label: t('tree.openDefault'), run: () => actions.openDefault(entry.path) }
         case 'save': return { id: action, label: t('menu.saveAs'), run: () => actions.save(entry.path) }
         case 'reveal': return { id: action, label: t('tabs.reveal'), run: () => actions.reveal(entry.path) }

@@ -30,6 +30,7 @@ import { serveDoc } from './doc-protocol.ts'
 import { DOC_SCHEME, MEDIA_SCHEME, SCHEME, SnapshotView } from './snapshot-view.ts'
 import { registerPlacesIpc } from './places-ipc.ts'
 import { UI_ORIGIN } from './ui-protocol.ts'
+import { RunHost } from './run-host.ts'
 
 const WEB_LINK = /^(https?|mailto):/i
 /** The most text the interface may put on the clipboard at once. */
@@ -63,7 +64,11 @@ export class SnapshotHost {
   /** The folders of the copies handed to other applications, removed at quit. */
   private readonly staged = new Set<string>()
   /** The choices the interface is showing (Linux): the copy made for each, its type, and the desktop file of every application listed. */
-  private readonly choosing = new Map<string, { dir: string; file: string; mime: string; apps: Map<string, string> }>()
+  private readonly choosing = new Map<string, { dir: string; file: string; mime: string; apps: Map<string, string>; custom?: { root: string; path: string; ids: Set<string> } }>()
+  private runHost?: RunHost
+  configureRunner(userData: string, configuration: () => unknown): void {
+    this.runHost = new RunHost(userData, this.roots, configuration, dir => this.staged.add(dir))
+  }
   private pending: OpenResult[] = []
   private listening = false
 
@@ -434,6 +439,18 @@ export class SnapshotHost {
    * the choice itself (`linuxChoices`: the desktop's chooser would open behind the window on Wayland) and waits for `openWithApp` or `openWithCancel`.
    */
   private async openWith(id: string, name: string): Promise<OpenWithResult> {
+    const commands = this.runHost?.commands() ?? []
+    if (commands.length && this.roots.has(id)) {
+      // Every file, on the disk or in a ZIP, goes to other applications as a read-only copy and never as one that could run as a program.
+      const staged = await stageFile(this.sources, id, name, os.tmpdir(), { maxBytes: 256 * 2 ** 20 }).catch(() => ({ error: 'no-file' as const }))
+      if ('error' in staged) return { opened: false, reason: staged.error === 'risky' ? 'unsafe' : 'no-file' }
+      const file = staged.file, dir = staged.dir
+      this.staged.add(dir)
+      const choices = process.platform === 'linux' ? await linuxChoices(file) : null
+      const token = crypto.randomBytes(12).toString('hex')
+      this.choosing.set(token, { dir, file, mime: choices?.mime ?? '', apps: new Map(choices?.apps.map(a => [a.id, a.file]) ?? []), custom: { root: id, path: name, ids: new Set(commands.map(c => c.id)) } })
+      return { choose: { token, name: path.basename(file), mime: choices?.mime ?? '', mimeLabel: choices?.mimeLabel ?? '', apps: [...(choices?.apps.map(a => ({ id: a.id, name: a.name, recommended: a.recommended, iconUrl: a.iconUrl })) ?? []), { id: 'fb:system', name: app.getLocale().startsWith('pt') ? 'Aplicativos do sistema…' : 'System applications…', recommended: false }, ...commands.map(command => ({ id: `fb:command:${command.id}`, name: command.name, recommended: false, command: true }))] } }
+    }
     const staged = await stageFile(this.sources, id, name, os.tmpdir()).catch((err: Error) => ({ error: 'error' as const, message: err.message }))
     if ('error' in staged) return { opened: false, reason: staged.error === 'risky' ? 'unsafe' : staged.error === 'no-file' ? 'no-file' : 'error', ...('message' in staged ? { message: staged.message } : {}) }
     this.staged.add(staged.dir)
@@ -522,14 +539,26 @@ export class SnapshotHost {
   }
 
   /** The application picked in the viewer's own chooser: only one the chooser listed, and only for the copy made for it. */
-  private async openWithApp(token: string, appId: string, always: boolean): Promise<OpenWithResult> {
+  private async openWithApp(win: BrowserWindow, token: string, appId: string, always: boolean): Promise<OpenWithResult> {
     const choice = this.choosing.get(token)
+    if (choice?.custom && appId === 'fb:system') {
+      this.choosing.delete(token)
+      const result = process.platform === 'linux' ? await openWithDefault(choice.file) : await openWithSystem(choice.file)
+      if (!result.opened && choice.dir) { this.staged.delete(choice.dir); await removeStaged(choice.dir) }
+      return result
+    }
+    if (choice?.custom && appId.startsWith('fb:command:') && this.runHost) {
+      const commandId = appId.slice('fb:command:'.length)
+      if (!choice.custom.ids.has(commandId)) return { opened: false, reason: 'no-file' }
+      await this.openWithCancel(token)
+      return this.runHost.run(win, { commandId, root: choice.custom.root, path: choice.custom.path })
+    }
     const desktopFile = choice?.apps.get(appId)
     if (!choice || !desktopFile) return { opened: false, reason: 'no-file' }
     this.choosing.delete(token)
     const outcome = await launchWith(desktopFile, choice.file)
     if (outcome.opened && always) await makeDefault(choice.mime, appId)
-    if (!outcome.opened) {
+    if (!outcome.opened && choice.dir) {
       this.staged.delete(choice.dir)
       await removeStaged(choice.dir)
     }
@@ -541,7 +570,7 @@ export class SnapshotHost {
     if (!choice) return
     this.choosing.delete(token)
     this.staged.delete(choice.dir)
-    await removeStaged(choice.dir)
+    if (choice.dir) await removeStaged(choice.dir)
   }
 
   /** At quit (synchronously: the application does not wait): the copies handed to other applications go. */
@@ -581,6 +610,7 @@ export class SnapshotHost {
 
   /** IPC for the interface. Only the window's own top frame may call: a snapshot's frame has no preload, and is refused anyway. */
   registerIpc(getWindow: () => BrowserWindow | undefined): void {
+    this.runHost?.register(ipcMain, getWindow)
     const fromInterface = (event: IpcMainInvokeEvent) => {
       const win = getWindow()
       if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || !event.senderFrame.url.startsWith(`${UI_ORIGIN}/`)) throw new Error('refused')
@@ -787,7 +817,7 @@ export class SnapshotHost {
     handle('fb:doc-release', (_win, token: unknown) => (typeof token === 'string' ? this.docs.release(token) : undefined))
     handle('fb:media-release', (_win, token: unknown) => (typeof token === 'string' ? this.releaseMedia(token) : undefined))
     handle('fb:open-default', (_win, id: unknown, name: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof id === 'string' && typeof name === 'string' ? this.openDefault(id, name) : { opened: false, reason: 'no-file' }))
-    handle('fb:open-with-app', (_win, token: unknown, appId: unknown, always: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof token === 'string' && typeof appId === 'string' ? this.openWithApp(token, appId, always === true) : { opened: false, reason: 'no-file' }))
+    handle('fb:open-with-app', (win, token: unknown, appId: unknown, always: unknown): Promise<OpenWithResult> | OpenWithResult => (typeof token === 'string' && typeof appId === 'string' ? this.openWithApp(win, token, appId, always === true) : { opened: false, reason: 'no-file' }))
     handle('fb:open-with-cancel', (_win, token: unknown) => (typeof token === 'string' ? this.openWithCancel(token) : undefined))
     handle('fb:reveal', async (_win, id: unknown, name: unknown) => {
       if (typeof id !== 'string') return

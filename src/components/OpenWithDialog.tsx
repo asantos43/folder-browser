@@ -23,7 +23,8 @@ export function OpenWithDialog({ chooser, onChoose, onCancel }: { chooser: Choos
     return chooser.apps.filter((a) => !q || a.name.toLowerCase().includes(q))
   }, [chooser, query])
   const recommended = shown.filter((a) => a.recommended)
-  const others = shown.filter((a) => !a.recommended)
+  const others = shown.filter((a) => !a.recommended && !a.command)
+  const commands = shown.filter(a => a.command)
   // What is picked has to be one that is shown: the first, when a search leaves the choice out.
   const current = shown.some((a) => a.id === picked) ? picked : (shown[0]?.id ?? '')
   useEffect(() => {
@@ -84,6 +85,8 @@ export function OpenWithDialog({ chooser, onChoose, onCancel }: { chooser: Choos
           {recommended.map(row)}
           {others.length ? <div className="px-4 pt-3 pb-1 font-bold">{t('openWith.other')}</div> : null}
           {others.map(row)}
+          {commands.length ? <div className="px-4 pt-3 pb-1 font-bold">{t('openWith.commands')}</div> : null}
+          {commands.map(row)}
           {!shown.length ? <p className="m-0 p-4 text-fg-muted">{t('openWith.none')}</p> : null}
         </div>
         <label className="flex items-center justify-between gap-3 px-2 text-fg-muted">
@@ -91,7 +94,7 @@ export function OpenWithDialog({ chooser, onChoose, onCancel }: { chooser: Choos
             <span className="block">{t('openWith.always')}</span>
             <span className="block text-[12px]">{chooser.mimeLabel}</span>
           </span>
-          <input type="checkbox" role="switch" aria-label={t('openWith.always')} checked={always} onChange={(e) => setAlways(e.target.checked)} className="h-[22px] w-[40px]" />
+          <input type="checkbox" role="switch" aria-label={t('openWith.always')} disabled={shown.find(a => a.id === current)?.command} checked={always} onChange={(e) => setAlways(e.target.checked)} className="h-[22px] w-[40px]" />
         </label>
       </div>
     </div>

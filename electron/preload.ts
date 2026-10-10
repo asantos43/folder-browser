@@ -109,6 +109,7 @@ const api: FbApi = {
   savePdf: (request) => ipcRenderer.invoke('fb:save-pdf', request) as Promise<SaveResult>,
   saveConverted: (id) => ipcRenderer.invoke('fb:save-converted', id) as Promise<SaveResult>,
   openWith: (id, path) => ipcRenderer.invoke('fb:open-with', id, path) as Promise<OpenWithResult>,
+  runCommand: request => ipcRenderer.invoke('fb:run-command', request) as Promise<OpenWithResult>,
   openDefault: (id, path) => ipcRenderer.invoke('fb:open-default', id, path) as Promise<OpenWithResult>,
   openWithApp: (token, appId, always) => ipcRenderer.invoke('fb:open-with-app', token, appId, always) as Promise<OpenWithResult>,
   openWithCancel: (token) => ipcRenderer.invoke('fb:open-with-cancel', token) as Promise<void>,

@@ -10,6 +10,8 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ### Added
 
+- **Open With commands** (plugins step 9): Settings ▸ Files can register named programs with one literal argument per line and `{file}`, `{dir}`, `{name}` tokens. Available for disk files, ZIP entries and `.wsnp` files, with a native confirmation on first use and after changing the program, arguments or working directory. Commands start without a shell; ZIP entries use read-only copies, and importing settings never confirms execution.
+
 - **Plugin contribution contract and atomic gate** (phase 1, step 8): `core/contributions/` with one `Contribution` type (commands, keys, options, menu items), strict bounded validation, an all-or-nothing apply with rollback, idempotent removal, `menubar/*` menu points (the `context/*` points are reserved and refused) and the typed source of the future `.d.ts`. **No visible change; nothing applies contributions at start.** Tests with a made-up plugin, failure injection and a 500-item budget (apply and remove in about 2 ms and 1 ms, budget 100 ms).
 
 - **Settings ▸ Keyboard** (step 7b): command search, effective keys and Modified filter, accessible chord recording with reserved-key refusals and conflict preview, Remove/Reset/Reset All, and export/import of `keybindings.json` through native dialogs with a 256 KB limit and confirmed preview tokens. Lists mount at most 40 commands; menus and palette update immediately.
