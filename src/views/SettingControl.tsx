@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import type { SettingDefinition, SettingType } from '@core/settings/registry.ts'
 import { useI18n } from '@/i18n/context.tsx'
 import type { MessageKey } from '@/i18n/index.ts'
+import { RunCommandsControl } from './RunCommandsControl.tsx'
 
 type Props = { definition: SettingDefinition; value: unknown; label: string; set: (value: unknown) => void }
 const control = 'h-[26px] rounded-sm border border-group-border bg-editor px-2 text-[13px] text-fg outline-none focus-visible:outline-1 focus-visible:outline-focus'
@@ -32,6 +33,7 @@ function ListControl({ value, label, set }: Props) {
 }
 const controls: Record<SettingType, ComponentType<Props>> = { boolean: BooleanControl, choice: ChoiceControl, number: NumberControl, string: StringControl, colour: ColourControl, list: ListControl }
 export function SettingControl(props: Props) {
+  if (props.definition.id === 'files.openWithCommands') return <RunCommandsControl value={props.value} set={props.set} />
   const Control = controls[props.definition.type]
   return <Control {...props} />
 }

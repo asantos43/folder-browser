@@ -1,5 +1,16 @@
 /** English text of the interface. The Brazilian Portuguese file has the same keys (the type checks it). */
 export const en = {
+  'settings.runCommands': 'Open With commands',
+  'settings.runHint': 'Programs run with your permissions. Use an absolute program path or a PATH name; one literal argument per line. Tokens: {file}, {dir}, {name}.',
+  'settings.runName': 'Command name',
+  'settings.runProgram': 'Program',
+  'settings.runArgs': 'Arguments (one per line)',
+  'settings.runAdd': 'Add command',
+  'settings.runEdit': 'Edit command',
+  'settings.runRemove': 'Remove command',
+  'settings.runSave': 'Save command',
+  'settings.runInvalid': 'Check the name and program; at most 64 arguments of 4 KB each, without NUL, and 100 commands.',
+  'openWith.commands': 'Your commands',
   "settings.export": "Export…",
   "settings.import": "Import…",
   "settings.resetAll": "Reset All…",

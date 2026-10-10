@@ -42,8 +42,11 @@ export class SettingsStore {
       }
       if (Object.keys(kept).length) this.unknown.plugins = kept
     }
-    for (const [id, value] of Object.entries(flat)) {
+    for (const [id, raw] of Object.entries(flat)) {
       if (id === 'plugins' || !this.registry.get(id)) continue
+      const normalized = this.registry.get(id)?.normalize?.(raw)
+      const value = normalized ? normalized.value : raw
+      if (normalized?.warning) this.notices.push({ id, message: normalized.warning })
       if (this.registry.validate(id, value)) this.values.set(id, value)
       else { this.values.set(id, this.registry.getDefault(id)); this.notices.push({ id, message: `Invalid value for ${id}; default restored` }) }
     }

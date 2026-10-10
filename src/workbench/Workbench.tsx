@@ -920,6 +920,7 @@ export function Workbench() {
       reveal: (id: string, path: string) => void api?.reveal(id, path),
       closeRoot: (id: string) => dispatch({ type: 'root-closed', id }),
       openDefault: (id: string, path: string) => void api?.openDefault(id, path).then((result) => reportOpenWith(basename(path), result)),
+      runCommand: (commandId: string, root: string, path: string) => void api?.runCommand({ commandId, root, path }).then(result => reportOpenWith(basename(path), result)),
       properties: (root: RootInfo, entry: DirEntry) => setProperties({ entry, location: locationOf(root, entry.path, platform() === 'win32' ? '\\' : '/') }),
       openPlace: (place: Place) => void (place.kind === 'trash' ? api?.places.openTrash() : api?.openPaths([place.path]))?.then(handleResults),
       removeFavorite: (folder: string) => void api?.places.removeFavorite(folder).then(refreshPlaces),

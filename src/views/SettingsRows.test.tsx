@@ -94,12 +94,12 @@ it('filters 500 settings below 10 ms (median of 20)', () => {
   expect(median).toBeLessThan(10)
 })
 
-it('renders 17 + 500 below 200 ms with controls bounded to the viewport', () => {
+it('renders 18 + 500 below 200 ms with controls bounded to the viewport', () => {
   contribute(Array.from({ length: 500 }, (_, i) => ({ id: `bench:item${i}`, type: 'boolean', default: false, category: 'bench', label: 'settings.wordWrap', description: 'settings.wordWrapHint' })))
   let duration = 0
   render(<Profiler id="settings" onRender={(_id, _phase, actualDuration) => { duration = actualDuration }}><I18nProvider language="en"><SettingsView theme="auto" setTheme={() => {}} /></I18nProvider></Profiler>)
-  console.info(`Settings render 517: ${duration.toFixed(3)} ms`)
-  expect(document.querySelectorAll('[data-setting]')).toHaveLength(517)
+  console.info(`Settings render 518: ${duration.toFixed(3)} ms`)
+  expect(document.querySelectorAll('[data-setting]')).toHaveLength(518)
   expect(document.querySelectorAll('[data-setting] input').length).toBeLessThan(70)
   expect(duration).toBeLessThan(200)
 })
@@ -110,6 +110,6 @@ it('commits typed input before the deferred list changes', () => {
     commits.push({ query: (document.querySelector('input[type=search]') as HTMLInputElement).value, rows: document.querySelectorAll('[data-setting]').length })
   }}><I18nProvider language="en"><SettingsView theme="auto" setTheme={() => {}} /></I18nProvider></Profiler>)
   search('minified')
-  expect(commits.some(commit => commit.query === 'minified' && commit.rows === 17)).toBe(true)
+  expect(commits.some(commit => commit.query === 'minified' && commit.rows === 18)).toBe(true)
   expect(commits.at(-1)).toEqual({ query: 'minified', rows: 1 })
 })

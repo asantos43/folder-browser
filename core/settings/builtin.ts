@@ -1,4 +1,5 @@
 import { defineSetting, type SettingInput } from './registry.ts'
+import { normalizeCommands } from '../run.ts'
 
 const add = (id: string, type: SettingInput['type'], value: unknown, category: string, label: string, description: string, choices?: readonly unknown[], choiceLabels?: readonly string[]) => defineSetting({ id, type, default: value, category, label, description, choices, choiceLabels, categoryLabel: `settings.${category}` })
 export const builtinSettings = [
@@ -8,6 +9,7 @@ export const builtinSettings = [
   add('tabs.reopenSession','boolean',true,'startup','settings.reopen','settings.reopenHint'),
   add('editor.hotExit','boolean',true,'startup','settings.hotExit','settings.hotExitHint'),
   add('files.showHidden','boolean',false,'files','settings.showHidden','settings.showHiddenHint'),
+  defineSetting({ id: 'files.openWithCommands', type: 'list', default: [], category: 'files', categoryLabel: 'settings.files', label: 'settings.runCommands', description: 'settings.runHint', safety: true, normalize: normalizeCommands, validator: value => Array.isArray(value) && !normalizeCommands(value).warning }),
   add('files.svgView','choice','image','files','settings.svgView','svg.imageTitle',['image','code'],['svg.image','svg.code']),
   add('files.csvView','choice','table','files','settings.csvView','csv.tableTitle',['table','text'],['csv.table','csv.text']),
   add('files.sortKey','choice','name','files','sort.by','settings.sortHint',['name','modified','size'],['sort.name','sort.modified','sort.size']),

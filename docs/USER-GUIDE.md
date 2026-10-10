@@ -84,6 +84,10 @@ These work on the files and folders of a folder you opened, and on what is insid
 
 **Open With…** and **View as hex** are in the toolbar of the document, the table, the bytes and every text, and on the cards.
 
+In **Settings ▸ Files ▸ Open With commands**, choose **Add command**, enter a name and a program (an absolute path or a name in PATH), and enter **one argument per line**. Save, edit or remove commands there. They appear under **Your commands** in Open With and in its file context submenu, including `.wsnp` and ZIP entries. `{file}` is the absolute file path, `{dir}` its directory and `{name}` its basename. Spaces, quotes, `$`, `&`, `;` and `~` remain literal: do not add shell quotes around `{file}`. A filename starting with `-` is safe through `{file}` because its path is absolute; for `{name}`, add a separate `--` argument if your program supports it. The newline editor cannot enter an embedded newline or a sole empty argument; advanced argument values, optional `cwd` (absolute or `{dir}`) and `timeoutMs` can be set in settings.json.
+
+Programs run with **your permissions**. Before the first run, a native dialog shows the complete literal program and arguments. Choose **Run** to launch or **Cancel** to do nothing. **Always for this command** remembers that exact program, argument list and working directory; changing any of them asks again. Importing settings asks for an extra safety confirmation and still requires this execution confirmation. No shell interprets the arguments unless you explicitly choose a shell program yourself. Your commands receive the original disk file; ZIP entries receive a read-only temporary copy (up to 256 MiB, executable names refused), removed when Folder Browser quits. As for every other application, the Open With dialog does not offer files whose names could run as a program (`.sh`, `.exe`…); the commands in the file context submenu do.
+
 A few of the views, from the folder used for these pictures:
 
 | | |

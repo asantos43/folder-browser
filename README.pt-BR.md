@@ -41,7 +41,7 @@ Ele **não** pretende substituir um editor ou uma IDE para um projeto inteiro: p
 | **Tocar** | Vídeos e sons tocam numa aba (mp4, webm, mp3, flac, wav…), com busca, volume, velocidade e Próximo/Anterior na pasta, também de dentro de um ZIP. |
 | **Comparar** | **Selecionar para comparar** e **Comparar com o selecionado**, no menu da árvore, põem dois arquivos de texto (disco ou ZIP) numa aba de **diff**, lado a lado ou em uma coluna, com cores de sintaxe, as alterações contadas e F7 para percorrê-las. |
 | **Texto novo** | **Arquivo ▸ Novo Arquivo de Texto** (`Ctrl+N`) abre uma aba vazia que existe só na janela: cole um trecho de texto nela (a linguagem, como HTML ou JSON, é detectada e pode ser trocada na barra de status) e compare com um arquivo (**Selecionar para comparar**, no menu da aba) ou ponha ao lado de um (**Dividir à direita**); **Salvar como** transforma a aba no arquivo salvo. |
-| **Botão direito** | Um menu por tipo de arquivo (texto, imagem, PDF, ZIP, `.wsnp`, pasta) e **Abrir com…** em todo arquivo, com os aplicativos instalados no computador. |
+| **Botão direito** | Um menu por tipo de arquivo (texto, imagem, PDF, ZIP, `.wsnp`, pasta) e **Abrir com…** em todo arquivo, com os aplicativos instalados no computador e seus comandos cadastrados nas Configurações. |
 | **WSNP** | Arquivos `.wsnp` abrem como snapshots, isolados, verificados (SHA-256, assinatura) e sem rede, como no WSNP Viewer. São somente leitura. |
 
 Nada sai do computador: sem conta, sem análise de uso, sem rede, exceto um link da web em que você clica.

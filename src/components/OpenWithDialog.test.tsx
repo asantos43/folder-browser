@@ -7,6 +7,21 @@ import { OpenWithDialog } from './OpenWithDialog.tsx'
 
 afterEach(cleanup)
 
+it('shows custom commands separately and delivers the id, with no MIME default switch, within 100 ms', () => {
+  const onChoose = vi.fn()
+  const commands = Array.from({ length: 100 }, (_, i) => ({ id: `fb:command:c${i}`, name: `My command ${i}`, recommended: false, command: true }))
+  const start = performance.now()
+  render(<I18nProvider language="en"><OpenWithDialog chooser={{ ...chooser, apps: commands }} onChoose={onChoose} onCancel={() => {}} /></I18nProvider>)
+  const elapsed = performance.now() - start
+  console.log(`Open With 100 commands render: ${elapsed.toFixed(3)} ms`)
+  expect(elapsed).toBeLessThan(100)
+  expect(screen.getByText('Your commands')).toBeTruthy()
+  expect(screen.queryByText('Other Apps')).toBeNull()
+  expect((screen.getByRole('switch') as HTMLInputElement).disabled).toBe(true)
+  fireEvent.doubleClick(screen.getByRole('option', { name: 'My command 2' }))
+  expect(onChoose).toHaveBeenCalledWith('fb:command:c2', false)
+})
+
 const chooser: Chooser = {
   token: 't1',
   name: 'photo.png',

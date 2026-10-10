@@ -53,6 +53,7 @@ export interface ChooserApp {
   iconUrl?: string
   /** Registered for the file's type (the dialog's "Recommended Apps"). */
   recommended: boolean
+  command?: boolean
 }
 /** The choice the viewer shows itself (Linux: a program cannot put the desktop's own chooser in front of its window): the file's type and the applications. */
 export interface Chooser {
@@ -197,6 +198,7 @@ export interface FbApi {
   saveConverted(id: string): Promise<SaveResult>
   /** Opens a file of a snapshot with an application the system asks the user to choose (a copy of the file is handed over, read-only). */
   openWith(id: string, path: string): Promise<OpenWithResult>
+  runCommand(request: { commandId: string; root: string; path: string }): Promise<OpenWithResult>
   /** Opens a copy of a file in the default application of its type, with no choice. */
   openDefault(id: string, path: string): Promise<OpenWithResult>
   /** The application chosen in the viewer's own chooser; `always` makes it the default for the type. */
