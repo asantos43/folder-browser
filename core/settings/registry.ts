@@ -5,6 +5,7 @@ export type SettingDefinition = {
   description?: string; keywords?: readonly string[]; choiceLabels?: readonly string[]; categoryLabel?: string; restart?: boolean
   group?: string; order?: number; enabledWhen?: string; renamedFrom?: string; reaches?: boolean
   step?: number; maxLength?: number; maxItems?: number
+  owner?: Readonly<{ id: string; enabled: boolean }>
   validator?: (value: unknown) => boolean
   normalize?: (value: unknown) => { value: unknown; warning?: string }
 }
@@ -19,14 +20,17 @@ export class SettingsRegistry {
   version = (): number => this.revision
   private changed(): void { this.revision++; if (!this.batching) for (const listener of this.listeners) listener() }
   /** Roll back definitions and revision on failure; notify only after the whole batch. */
-  transaction<T>(operation: () => T): T {
+  transaction<T>(operation: () => T, enqueue?: (listener: () => void) => void): T {
     if (this.batching) throw new Error('Nested settings transaction')
     const before = new Map(this.entries), revision = this.revision
     this.batching = true
     try {
       const result = operation()
       this.batching = false
-      if (this.revision !== revision) for (const listener of this.listeners) listener()
+      if (this.revision !== revision) for (const listener of this.listeners) {
+        if (enqueue) enqueue(listener)
+        else listener()
+      }
       return result
     } catch (error) {
       this.entries = before; this.revision = revision; this.batching = false
@@ -49,6 +53,15 @@ export class SettingsRegistry {
     return def
   }
   get(id: string): SettingDefinition | undefined { return this.entries.get(id) }
+  /** Retain declarations and preferences while their controls are unavailable. */
+  setOwnerEnabled(pluginId: string, enabled: boolean): void {
+    this.transaction(() => {
+      for (const [id, definition] of this.entries) if (definition.owner?.id === pluginId && definition.owner.enabled !== enabled) {
+        this.entries.set(id, Object.freeze({ ...definition, owner: Object.freeze({ id: pluginId, enabled }) }))
+        this.changed()
+      }
+    })
+  }
   getDefault(id: string): unknown { const def = this.entries.get(id); if (!def) throw new Error(`Unknown setting: ${id}`); return def.default }
   validate(id: string, value: unknown): boolean { const def = this.entries.get(id); return !!def && this.isValid(def, value) }
   all(): readonly SettingDefinition[] { return [...this.entries.values()] }
@@ -65,10 +78,14 @@ export class SettingsRegistry {
     switch (d.type) {
       case 'boolean': return typeof v === 'boolean'
       case 'choice': return d.choices?.some(x => Object.is(x, v)) ?? false
-      case 'number': return typeof v === 'number' && Number.isFinite(v) && (d.min === undefined || v >= d.min) && (d.max === undefined || v <= d.max)
-      case 'string': return typeof v === 'string'
+      case 'number': {
+        if (typeof v !== 'number' || !Number.isFinite(v) || (d.min !== undefined && v < d.min) || (d.max !== undefined && v > d.max)) return false
+        const steps = (v - (d.min ?? 0)) / (d.step ?? 1)
+        return d.step === undefined || (Number.isFinite(steps) && Math.abs(steps - Math.round(steps)) <= Number.EPSILON * Math.max(1, Math.abs(steps)) * 8)
+      }
+      case 'string': return typeof v === 'string' && (d.maxLength === undefined || (v.length <= d.maxLength && new TextEncoder().encode(v).length <= d.maxLength))
       case 'colour': return typeof v === 'string' && (v === '' || /^#[\da-f]{6}$/i.test(v))
-      case 'list': return Array.isArray(v) && v.every(x => typeof x === 'string')
+      case 'list': return Array.isArray(v) && (d.maxItems === undefined || v.length <= d.maxItems) && Array.from(v).every(x => typeof x === 'string')
     }
   }
 }

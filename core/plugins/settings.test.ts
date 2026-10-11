@@ -5,6 +5,9 @@ import { SettingsRegistry } from '../settings/registry.ts'
 import { SettingsStore } from '../settings/store.ts'
 import { applyImport, exportSettings, previewImport } from '../settings/portable.ts'
 import type { ConfigurationProperty, PluginManifest } from './manifest.ts'
+import { applyContribution, removeContribution } from '../contributions/apply.ts'
+import { realRegistries, fakePlugin } from '../contributions/fixtures.ts'
+import { compiledPluginSettings } from './settings.ts'
 import { compileConfiguration, installPluginSettings, purgePluginSettings, readPluginSettings, reconcileOnUpdate, removePluginSettings, resetPluginSettings, writePluginSetting } from './settings.ts'
 
 type Property = ConfigurationProperty & { reaches?: boolean }
@@ -30,6 +33,77 @@ it.each(cases)('compiles and validates %s including its limits', (_name, propert
   const { registry } = setup({ value: property })
   for (const value of good) expect(registry.validate('acme.sample:value', value)).toBe(true)
   for (const value of bad) expect(registry.validate('acme.sample:value', value)).toBe(false)
+})
+function compiled(properties: Record<string, Property>, pluginId = 'invented') {
+  return { pluginId, configuration: Object.entries(properties).map(([key, property]) => ({ id: `${pluginId}:${key}`, property })) }
+}
+it.each(cases)('adapts compiled %s to complete gate definitions with separate validators', (_name, property, good, bad) => {
+  const adapted = compiledPluginSettings(compiled({ value: property }), 'settings.title')
+  expect(() => structuredClone(adapted.settings)).not.toThrow()
+  expect(adapted.settings[0]).not.toHaveProperty('validator')
+  const r = realRegistries(), listener = vi.fn(); r.settings.subscribe(listener)
+  applyContribution(r, { pluginId: 'invented', settings: adapted.settings }, { ...adapted, enabled: false })
+  expect(listener).toHaveBeenCalledOnce()
+  expect(r.settings.get('invented:value')).toMatchObject({ owner: { id: 'invented', enabled: false }, categoryLabel: 'settings.title' })
+  for (const value of good) expect(r.settings.validate('invented:value', value)).toBe(true)
+  for (const value of bad) expect(r.settings.validate('invented:value', value)).toBe(false)
+})
+it('retains disabled compiled definitions and preferences, reconciles updates and renames', () => {
+  const r = realRegistries(), store = new SettingsStore(r.settings, async () => {})
+  const install = (properties: Record<string, Property>) => {
+    const adapted = compiledPluginSettings(compiled(properties))
+    applyContribution(r, { pluginId: 'invented', settings: adapted.settings }, { ...adapted, enabled: true })
+  }
+  install({ old: boolean, removed: boolean })
+  store.set('invented:old', true)
+  const listener = vi.fn(); r.settings.subscribe(listener)
+  r.settings.setOwnerEnabled('invented', false)
+  expect(listener).toHaveBeenCalledOnce()
+  expect(r.settings.get('invented:old')?.owner?.enabled).toBe(false)
+  expect(readPluginSettings(r.settings, store, 'invented').values.old).toBe(true)
+  r.settings.setOwnerEnabled('invented', false); expect(listener).toHaveBeenCalledOnce()
+  r.settings.setOwnerEnabled('invented', true)
+  expect(store.get('invented:old')).toBe(true)
+  removeContribution(r, 'invented')
+  install({ value: { ...boolean, renamedFrom: 'invented:old', enabledWhen: 'value == true', group: 'g', order: 1 } })
+  expect(readPluginSettings(r.settings, store, 'invented').values).toEqual({ value: true })
+  expect(r.settings.get('invented:value')).toMatchObject({ renamedFrom: 'old', enabledWhen: 'value == true', group: 'g', order: 1 })
+  removeContribution(r, 'invented'); install({ value: { type: 'string', default: 'new', label: 'l' } })
+  expect(readPluginSettings(r.settings, store, 'invented').values.value).toBe('new')
+})
+it('restores every gate registry and revision after a compiled setting writer mutates then throws', () => {
+  const plugin = fakePlugin(), r = realRegistries(plugin)
+  const adapted = compiledPluginSettings(compiled({ first: boolean, second: boolean }))
+  const before = { commands: r.commands.list(), keys: r.keys.entries(), menus: r.menus.all(), settings: r.settings.all(), version: r.settings.version() }
+  const listener = vi.fn(); r.settings.subscribe(listener)
+  const define = r.settings.defineSetting.bind(r.settings)
+  const spy = vi.spyOn(r.settings, 'defineSetting').mockImplementation(input => {
+    const result = define(input)
+    if (input.id === 'invented:second') throw new Error('after mutation')
+    return result
+  })
+  expect(() => applyContribution(r, { ...plugin, settings: adapted.settings }, { validators: adapted.validators, enabled: false })).toThrow('after mutation')
+  expect({ commands: r.commands.list(), keys: r.keys.entries(), menus: r.menus.all(), settings: r.settings.all(), version: r.settings.version() }).toEqual(before)
+  expect(listener).not.toHaveBeenCalled(); spy.mockRestore()
+  applyContribution(r, { ...plugin, settings: adapted.settings }, { validators: adapted.validators, enabled: false })
+  expect(listener).toHaveBeenCalledOnce()
+})
+it('refuses new compiled option semantics and malformed gate metadata', () => {
+  expect(() => compiledPluginSettings(compiled({ value: { ...boolean, reaches: true } }))).toThrow(/reaches/)
+  expect(() => compiledPluginSettings(compiled({ value: { ...boolean, type: 'file' } as unknown as Property }))).toThrow()
+  const r = realRegistries(), adapted = compiledPluginSettings(compiled({ value: boolean }))
+  for (const extra of [{ enabledWhen: 'ready()' }, { renamedFrom: 'other:old' }, { step: 0 }, { maxItems: 1001 }, { sensitive: true }, { reaches: true }]) {
+    expect(() => applyContribution(r, { pluginId: 'invented', settings: [{ ...adapted.settings[0], ...extra }] })).toThrow()
+  }
+})
+it('allows the full compiled string/list limits through the gate without relaxing its default contract', () => {
+  const adapted = compiledPluginSettings(compiled({ text: { type: 'string', default: 'x'.repeat(4096), maxLength: 4096, label: 'l' }, items: { type: 'list', default: Array(1000).fill('x'), maxItems: 1000, label: 'l' } }))
+  const r = realRegistries(), input = { pluginId: 'invented', settings: adapted.settings }
+  expect(() => applyContribution(r, input)).toThrow()
+  applyContribution(r, input, { ...adapted, enabled: false })
+  expect(r.settings.getDefault('invented:items')).toHaveLength(1000)
+  expect(r.settings.validate('invented:text', 'é'.repeat(2049))).toBe(false)
+  expect(r.settings.validate('invented:items', Array(1001).fill('x'))).toBe(false)
 })
 it('preserves locale and UI metadata and confines category and full ids', () => {
   const property = { ...boolean, description: '<b>locale.key</b>', group: 'app', order: 3, enabledWhen: 'enabled == true', keywords: ['search'], reload: true, sensitive: true }
@@ -174,18 +248,23 @@ it('persists rename repairs immediately and drops removed options after an updat
 })
 it('meets install, read and cached-read budgets (median of 20)', () => {
   const median = (runs: number[]) => runs.sort((a, b) => a - b)[10]
+  const cpuUsage = typeof process.threadCpuUsage === 'function' ? process.threadCpuUsage.bind(process) : process.cpuUsage.bind(process)
+  const cpuNow = () => { const cpu = cpuUsage(); return (cpu.user + cpu.system) / 1000 }
   const installs: number[] = [], reads: number[] = [], cached: number[] = []
   const properties = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`p${i}`, boolean]))
   for (let run = 0; run < 20; run++) {
-    const registry = new SettingsRegistry(), start = performance.now()
-    for (let i = 0; i < 50; i++) installPluginSettings(registry, manifest(properties, `bench.p${i}`))
-    installs.push(performance.now() - start)
+    const r = realRegistries(), start = cpuNow()
+    for (let i = 0; i < 50; i++) {
+      const pluginId = `bench.p${i}`, adapted = compiledPluginSettings(compiled(properties, pluginId))
+      applyContribution(r, { pluginId, settings: adapted.settings }, { ...adapted, enabled: true })
+    }
+    installs.push(cpuNow() - start)
     const s = setup(Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`p${i}`, boolean])))
-    const readStart = performance.now(); readPluginSettings(s.registry, s.store, 'acme.sample'); reads.push(performance.now() - readStart)
-    const cachedStart = performance.now(); for (let i = 0; i < 1000; i++) readPluginSettings(s.registry, s.store, 'acme.sample'); cached.push((performance.now() - cachedStart) / 1000)
+    const readStart = cpuNow(); readPluginSettings(s.registry, s.store, 'acme.sample'); reads.push(cpuNow() - readStart)
+    const cachedStart = cpuNow(); for (let i = 0; i < 1000; i++) readPluginSettings(s.registry, s.store, 'acme.sample'); cached.push((cpuNow() - cachedStart) / 1000)
   }
   const numbers = { installMs: median(installs), readMs: median(reads), cachedMs: median(cached) }
-  process.stdout.write(`Plugin settings budgets: ${JSON.stringify(numbers)}\n`)
+  console.info('Plugin settings budgets:', JSON.stringify(numbers))
   expect(numbers.installMs).toBeLessThan(30); expect(numbers.readMs).toBeLessThan(5); expect(numbers.cachedMs).toBeLessThan(0.05)
 })
 it('keeps settings compilation out of production startup with only a pure shared helper', () => {

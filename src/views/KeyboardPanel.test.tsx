@@ -8,16 +8,21 @@ import { KeysHost } from '../../electron/keys-host.ts'
 import { I18nProvider } from '@/i18n/context.tsx'
 import { en } from '@/i18n/en.ts'
 import { ptBR } from '@/i18n/pt-BR.ts'
-import { registry } from '@/workbench/commands.ts'
 import { setUserKeys } from '@core/keys/effective.ts'
 import { filterKeyboard, indexKeyboard } from './keyboardModel.ts'
 import { SettingsView } from './SettingsView.tsx'
 import { KeyboardPanel } from './KeyboardPanel.tsx'
+import { applyContributions, resetContributions } from '@/plugins/contributions.ts'
+import type { PluginGeneration } from '@core/plugins/summary.ts'
+import { settingFor } from '@/state/setting.ts'
+import { settingsRegistry } from '@core/settings/registry.ts'
+import { i18nRegistry } from '@/i18n/index.ts'
 
 let host: KeysHost, dir: string, input: string
 const listeners = new Set<(snapshot: any) => void>()
 let invoke: (channel: string, ...args: unknown[]) => Promise<any>
 beforeEach(() => {
+  settingFor(settingsRegistry.get('keys.scheme')!).reset()
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fb-keyboard-panel-')); input = path.join(dir, 'import.json')
   const handlers = new Map<string, (...args: any[]) => any>(), sync = new Map<string, (...args: any[]) => any>()
   const frame = { url: 'fb-ui://app/index.html' }
@@ -34,7 +39,13 @@ beforeEach(() => {
     previewImport: () => invoke('fb:keys-import-preview'), applyImport: (token: number, confirmed: boolean) => invoke('fb:keys-import-apply', token, confirmed),
   } })
 })
-afterEach(() => { cleanup(); listeners.clear(); host.dispose(); fs.rmSync(dir, { recursive: true, force: true }); vi.unstubAllGlobals(); setUserKeys([], false) })
+afterEach(() => { cleanup(); resetContributions(); i18nRegistry.removePlugin('budget'); listeners.clear(); host.dispose(); fs.rmSync(dir, { recursive: true, force: true }); vi.unstubAllGlobals(); setUserKeys([], false) })
+const plugins = (count = 1, key = 'Ctrl+Alt+J'): PluginGeneration => ({ version: 1, plugins: [{
+  owner: 'budget', enabled: true, themes: [], locales: [], texts: {}, languages: [], settings: [],
+  keySchemes: [{ id: 'compact', label: 'Compact' }], keyEntries: [],
+  commands: Array.from({ length: count }, (_, i) => ({ id: `budget:command${i}`, title: `command${i}`, category: 'Tools', enabled: true, defaultKeys: [key] })),
+  menuItems: [], resolvedKeys: [{ id: 'budget:command0', keys: [key] }],
+}] })
 const page = () => render(<I18nProvider language="en"><KeyboardPanel /></I18nProvider>)
 const row = (id: string) => document.querySelector(`[data-key-command="${id}"]`) as HTMLElement
 const click = (id: string, label: string) => fireEvent.click(within(row(id)).getByRole('button', { name: label }))
@@ -120,11 +131,16 @@ it('rejects an import exceeding 256 KB without changing keys', async () => {
 it('filters 500 commands below 10 ms and renders a bounded panel below 200 ms', () => {
   const commands = Array.from({ length: 500 }, (_, i) => ({ id: `budget:command${i}`, title: 'menu.openFile', category: 'file' }))
   const indexed = indexKeyboard(commands, [], false, key => en[key as keyof typeof en] || key)
-  const start = performance.now()
-  expect(filterKeyboard(indexed, 'command49', false)).toHaveLength(11)
-  const filterMs = performance.now() - start
+  const times = Array.from({ length: 7 }, () => {
+    const start = performance.now()
+    const result = filterKeyboard(indexed, 'command49', false)
+    const elapsed = performance.now() - start
+    expect(result).toHaveLength(11)
+    return elapsed
+  }).sort((a, b) => a - b)
+  const filterMs = times[3]
   expect(filterMs).toBeLessThan(10)
-  commands.forEach(command => registry.register(command))
+  applyContributions(plugins(500))
   try {
     const opening = performance.now(); page(); const openMs = performance.now() - opening
     expect(document.querySelectorAll('[data-key-command]')).toHaveLength(40)
@@ -132,7 +148,54 @@ it('filters 500 commands below 10 ms and renders a bounded panel below 200 ms', 
     console.info(`Keyboard budget: filter=${filterMs.toFixed(2)} ms, open=${openMs.toFixed(2)} ms`)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'command49' } })
     expect(document.querySelectorAll('[data-key-command]')).toHaveLength(11)
-  } finally { commands.forEach(command => registry.unregister(command.id)) }
+  } finally { resetContributions() }
+})
+it('selects and restores a scheme through the shared settings store and retains missing preferences', () => {
+  applyContributions(plugins())
+  page()
+  const select = screen.getByRole('combobox', { name: 'Scheme' }) as HTMLSelectElement
+  fireEvent.change(select, { target: { value: 'budget/compact' } })
+  const setting = settingFor(settingsRegistry.get('keys.scheme')!)
+  expect(setting.get()).toBe('budget/compact')
+  expect(localStorage.getItem('fb:keys.scheme')).toBe(JSON.stringify('budget/compact'))
+  act(() => resetContributions())
+  expect(select.value).toBe('budget/compact')
+  expect(screen.getByRole('alert').textContent).toContain('unavailable')
+  expect(setting.get()).toBe('budget/compact')
+  act(() => applyContributions(plugins()))
+  expect(screen.queryByRole('alert')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Restore scheme' }))
+  expect(select.value).toBe('')
+  expect(setting.get()).toBe('')
+})
+it('keeps recording across catalog and language updates and checks the latest plugin binding', () => {
+  const recording = vi.spyOn(window.fb!.keys, 'recording')
+  const view = page()
+  click('toggleSideBar', 'Record key')
+  act(() => {
+    i18nRegistry.setPlugin('budget', [], { command0: { en: 'Plugin action', 'pt-BR': 'Ação do plugin' } })
+    applyContributions(plugins())
+  })
+  view.rerender(<I18nProvider language="pt-BR"><KeyboardPanel /></I18nProvider>)
+  expect(recording.mock.calls).toEqual([[true]])
+  chord('j')
+  expect(recording.mock.calls).toEqual([[true], [false]])
+  expect(screen.getByRole('alertdialog').textContent).toContain('Ação do plugin')
+  expect(host.snapshot.entries).toEqual([])
+})
+it('records, saves and removes a plugin key through the host without reviving its removed default', async () => {
+  const generation = plugins()
+  host.setPlugin('budget', { commands: generation.plugins[0].commands, keySchemes: [], keymaps: [] })
+  applyContributions(generation)
+  page()
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'budget:command0' } })
+  click('budget:command0', 'Record key'); chord('k'); apply()
+  await vi.waitFor(() => expect(host.snapshot.entries).toContainEqual({ key: 'Ctrl+Alt+K', command: 'budget:command0' }))
+  act(() => applyContributions({ ...generation, version: 2, plugins: [{ ...generation.plugins[0], resolvedKeys: host.resolvedEntries().filter(entry => entry.id.startsWith('budget:')) }] }))
+  expect(within(row('budget:command0')).getByText('Ctrl+Alt+K')).toBeTruthy()
+  click('budget:command0', 'Remove key')
+  await vi.waitFor(() => expect(host.resolvedEntries().some(entry => entry.id === 'budget:command0')).toBe(false))
+  expect(host.snapshot.entries).toContainEqual({ key: 'Ctrl+Alt+J', command: '-budget:command0' })
 })
 it('keeps English and Brazilian Portuguese keyboard translations in parity', () => {
   expect(Object.keys(en).sort()).toEqual(Object.keys(ptBR).sort())

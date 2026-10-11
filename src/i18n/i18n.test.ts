@@ -1,10 +1,33 @@
 import { ISSUE_CODES } from '@core/validate/issues.ts'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { en } from './en.ts'
-import { languageFor, translator } from './index.ts'
+import { i18nRegistry, languageFor, pluginTranslator, translator } from './index.ts'
+import { I18nRegistry } from './registry.ts'
 import { ptBR } from './pt-BR.ts'
 
 describe('languages', () => {
+  afterEach(() => {
+    i18nRegistry.removePlugin('security-test')
+    i18nRegistry.select('en')
+  })
+  it('never throws for unknown keys or unavailable languages', () => {
+    expect(translator('fr')('menu.file')).toBe('File')
+    for (const key of ['unknown', 'constructor', '__proto__', 'toString']) expect(translator('unknown')(key)).toBe(key)
+  })
+  it('keeps security text core-only and plugin placeholders literal', () => {
+    i18nRegistry.setPlugin('security-test', [{ language: 'fr', label: 'French', load: () => ({ 'menu.file': 'ATTACKER' }) }])
+    i18nRegistry.select('fr')
+    expect(translator('fr')('menu.file')).toBe('File')
+    expect(translator('en')('menu.file')).toBe('File')
+    expect(pluginTranslator()('menu.file')).toBe('ATTACKER')
+    const r = new I18nRegistry({ en, 'pt-BR': ptBR })
+    r.setPlugin('pack', [{ language: 'fr', label: 'French', load: () => ({ 'menu.file': 'Fichier' }) }],
+      { title: { en: '<b>\u202e{name}</b>' } })
+    r.select('fr')
+    expect(pluginTranslator(r)('menu.file')).toBe('Fichier')
+    expect(pluginTranslator(r)('pack.title', { name: 'REPLACED' })).toBe('<b>\u202e{name}</b>')
+    expect(pluginTranslator(r)('issue.file-missing', { path: '{name}', name: 'REPLACED' })).toContain('{name}')
+  })
   it('reads any Portuguese as Brazilian and everything else as English', () => {
     expect(languageFor('pt-BR')).toBe('pt-BR')
     expect(languageFor('pt-PT')).toBe('pt-BR')

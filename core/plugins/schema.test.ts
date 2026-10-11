@@ -4,7 +4,7 @@ import { completeManifest } from '../../fixtures/plugins.ts'
 import { parseManifest } from './manifest.ts'
 
 interface Leaf { type?: string; minLength?: number; maxLength?: number; pattern?: string; allOf?: Leaf[] }
-type SchemaNode = Leaf & { properties?: Record<string, SchemaNode>; items?: SchemaNode; propertyNames?: SchemaNode; $defs?: Record<string, SchemaNode> }
+type SchemaNode = Leaf & { properties?: Record<string, SchemaNode>; items?: SchemaNode; propertyNames?: SchemaNode; $defs?: Record<string, SchemaNode>; maxProperties?: number; additionalProperties?: SchemaNode | boolean }
 const schema = JSON.parse(readFileSync(new URL('../../docs/schema/plugin.schema.json', import.meta.url), 'utf8')) as SchemaNode
 /** Deliberately a string-leaf evaluator, not a JSON Schema implementation. */
 function compileLeaf(leaf: Leaf): (value: unknown) => boolean {
@@ -17,6 +17,21 @@ function compileLeaf(leaf: Leaf): (value: unknown) => boolean {
 }
 const root = schema.properties!, contributes = root.contributes.properties!
 const command = contributes.commands.items!.properties!, config = schema.$defs!.configurationProperty.properties!
+it('describes owner dictionaries separately from global locales, with bounded keys and controls', () => {
+  const texts = root.texts
+  expect(texts.type).toBe('object')
+  expect(texts.maxProperties).toBe(3000)
+  const entry = texts.additionalProperties as SchemaNode
+  expect(Object.keys(entry.properties!)).toEqual(['en', 'pt-BR'])
+  expect(entry.additionalProperties).toBe(false)
+  for (const leaf of Object.values(entry.properties!)) {
+    expect(leaf.maxLength).toBe(2048)
+    for (const value of ['', 'Hello\tworld', 'Olá']) expect(compileLeaf(leaf)(value)).toBe(true)
+    for (const value of ['x'.repeat(2049), '\0', '\n', '\r', '\u007f', '\u0085', '\u2028', '\u2029']) expect(compileLeaf(leaf)(value)).toBe(false)
+  }
+  expect(compileLeaf(texts.propertyNames!)('setting.enabled')).toBe(true)
+  expect(compileLeaf(texts.propertyNames!)('bad\nkey')).toBe(false)
+})
 const rows: Array<{ name: string; leaf: Leaf; value: unknown; valid: boolean; set: (raw: ReturnType<typeof completeManifest>, value: unknown) => void }> = []
 function cases(name: string, leaf: Leaf, path: string[], values: Array<[unknown, boolean]>) {
   for (const [value, valid] of values) rows.push({ name, leaf, value, valid, set(raw, v) {

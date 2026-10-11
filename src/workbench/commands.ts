@@ -5,9 +5,12 @@ import type { SortKey } from '@core/fs/sort.ts'
 import { sortMenuEntries } from './sortMenu.ts'
 import { builtinCommands, type BuiltinCommandId } from '@core/commands/builtin.ts'
 import { createRegistry, type CommandDef } from '@core/commands/registry.ts'
-import { formatChord } from '@core/keys/chord.ts'
+import { compileWhen, type WhenContext } from '@core/commands/when.ts'
+import { formatChord, eventChord } from '@core/keys/chord.ts'
 import { builtinKeyTables } from '@core/keys/table.ts'
 import { effectiveKeyTable } from '@core/keys/effective.ts'
+import { i18nRegistry } from '@/i18n/index.ts'
+import { getSnapshot as getContributions, subscribe as subscribeContributions, type PluginCommandView, type PluginMenuView } from '@/plugins/contributions.ts'
 
 /** What the workbench can do; the menus, the keyboard and the native menu of macOS all end up here. */
 export interface Commands {
@@ -98,9 +101,14 @@ export const registry = createRegistry()
 for (const definition of builtinCommands) registry.register(definition)
 const definitions = new Map<string, Readonly<CommandDef>>(builtinCommands.map((definition) => [definition.id, definition] as const))
 const labels: Record<string, string> = { openFile: 'open', openSettings: 'settings', closeEditor: 'close', commandPalette: 'palette', toggleHidden: 'hidden', clearRecent: 'clear', showMetadata: 'metadata', toggleSideBar: 'sidebar', goBack: 'back', goForward: 'forward', quickOpen: 'goToFile', nextEditor: 'next', previousEditor: 'previous', openGuide: 'guide', showAbout: 'about' }
-const headers: Array<Pick<MenuDef, 'id' | 'label'>> = [
+/**
+ * Menu order: file, edit, view, go, tools (plugins only), help. The Tools
+ * header is omitted while no plugin contributes to `menubar/tools`; the
+ * projection that respects this lives in `currentMenus`.
+ */
+const allHeaders: Array<Pick<MenuDef, 'id' | 'label'>> = [
   { id: 'file', label: 'menu.file' }, { id: 'edit', label: 'menu.edit' }, { id: 'view', label: 'menu.view' },
-  { id: 'go', label: 'menu.go' }, { id: 'help', label: 'menu.help' },
+  { id: 'go', label: 'menu.go' }, { id: 'tools', label: 'menu.tools' }, { id: 'help', label: 'menu.help' },
 ]
 
 export function contextOf(c: Commands) {
@@ -135,6 +143,54 @@ function registeredEntry(id: BuiltinCommandId, t: Translate, c: Commands): MenuE
   return item
 }
 
+/** Resolve only this owner's dictionary, falling back to the literal title. */
+function pluginLabel(owner: string, title: string): string {
+  const scoped = `${owner}.${title}`
+  const text = i18nRegistry.resolve(scoped)
+  return text === scoped ? title : text
+}
+
+/** Display exactly the binding resolved by the host for this generation. */
+function pluginShortcutText(command: PluginCommandView, mac: boolean): string | undefined {
+  const key = command.keys[0]
+  return key === undefined ? undefined : formatChord(key, mac)
+}
+
+function pluginItemEntry(item: PluginMenuView, c: Commands): MenuEntry | null {
+  const command = getContributions().commands.get(item.command)
+  if (!command) return null
+  const ctx = contextOf(c)
+  if (item.when && !compileWhen(item.when)(ctx)) return null
+  const enabled = command.enabled
+  const shortcut = pluginShortcutText(command, isMac())
+  return {
+    id: `plugin:${item.id}`,
+    label: pluginLabel(command.owner, command.title),
+    ...(shortcut ? { shortcut } : {}),
+    ...(enabled ? {} : { disabled: true }),
+    run: () => { dispatchPluginCommand(command.id, ctx) },
+  }
+}
+
+/** Plugin items for a menu point, sorted by group → order → id (matches `core/contributions/menus.ts`). */
+function pluginEntriesFor(menuId: string, c: Commands): MenuEntry[] {
+  const point = `menubar/${menuId}`
+  const items: PluginMenuView[] = []
+  for (const item of getContributions().menuItems.values()) if (item.point === point) items.push(item)
+  if (!items.length) return []
+  items.sort((a, b) => a.group < b.group ? -1 : a.group > b.group ? 1 : a.order - b.order || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  const result: MenuEntry[] = []
+  let lastGroup: string | null = null
+  for (const item of items) {
+    if (lastGroup !== null && lastGroup !== item.group) result.push({ separator: true })
+    const entry = pluginItemEntry(item, c)
+    if (!entry) continue
+    lastGroup = item.group
+    result.push(entry)
+  }
+  return result
+}
+
 function entriesFor(menuId: string, t: Translate, c: Commands): MenuEntry[] {
   const menuCommands = (builtinCommands as readonly CommandDef[]).filter((command) => command.menu?.menu === menuId && !(isMac() && command.id === 'exit'))
   const groups: string[] = []
@@ -152,8 +208,82 @@ function entriesFor(menuId: string, t: Translate, c: Commands): MenuEntry[] {
       result.push({ id: 'preferences', label: t('menu.preferences'), submenu: [registeredEntry('openSettings', t, c)] })
     } else result.push(...commands.map((command) => registeredEntry(command.id as BuiltinCommandId, t, c)))
   }
+  // Plugin menu items are appended in their own group/order, separated by a
+  // separator from the last built-in group when at least one is shown.
+  const plugin = pluginEntriesFor(menuId, c)
+  if (plugin.length) {
+    if (result.length) result.push({ separator: true })
+    result.push(...plugin)
+  }
   return result
 }
 
-export const MENUS: MenuDef[] = headers.map(({ id, label }) => ({ id, label, entries: (t, c) => entriesFor(id, t, c) }))
+/** The menu order read by `MenuBar` and `QuickOpen`: Tools appears only when at least one plugin item targets `menubar/tools`. */
+export function currentMenus(): MenuDef[] {
+  const snapshot = getContributions()
+  const headers = allHeaders.filter(header => header.id !== 'tools' || snapshot.hasToolsItems)
+  return headers.map(({ id, label }) => ({ id, label, entries: (t: Translate, c: Commands) => entriesFor(id, t, c) }))
+}
 
+/** Plugin commands in palette order: only those with `palette !== false`, respecting `when`. Stable order by owner then id. */
+export function pluginPaletteItems(c: Commands): { id: string; commandId: string; label: string; description: string; disabled: boolean; shortcut?: string; run: () => void }[] {
+  const ctx = contextOf(c)
+  const snapshot = getContributions()
+  const items: { id: string; commandId: string; label: string; description: string; disabled: boolean; shortcut?: string; run: () => void; _order: [string, string] }[] = []
+  for (const command of snapshot.commands.values()) {
+    if (!command.palette) continue
+    if (!command.matchesContext(ctx)) continue
+    const shortcut = pluginShortcutText(command, isMac())
+    items.push({
+      id: `plugin:${command.id}`,
+      commandId: command.id,
+      label: pluginLabel(command.owner, command.title),
+      description: command.owner,
+      disabled: !command.enabled,
+      ...(shortcut ? { shortcut } : {}),
+      run: () => { dispatchPluginCommand(command.id, ctx) },
+      _order: [command.owner, command.id],
+    })
+  }
+  items.sort((a, b) => a._order[0] < b._order[0] ? -1 : a._order[0] > b._order[0] ? 1 : a._order[1] < b._order[1] ? -1 : a._order[1] > b._order[1] ? 1 : 0)
+  return items.map(({ _order, ...rest }) => rest)
+}
+
+/** Dispatch a plugin command id: returns the verdict the workbench uses to decide what to do. */
+export type PluginDispatchResult =
+  | { ok: true; id: string; command: PluginCommandView }
+  | { ok: false; reason: 'unknown' | 'disabled' | 'when'; disabledReason?: string }
+
+export function dispatchPluginCommand(id: string, ctx: WhenContext): PluginDispatchResult {
+  const command = getContributions().commands.get(id)
+  if (!command) return { ok: false, reason: 'unknown' }
+  if (!command.enabled) return { ok: false, reason: 'disabled', disabledReason: command.disabledReason ?? 'Command has no exec' }
+  if (!command.matchesContext(ctx)) return { ok: false, reason: 'when' }
+  return { ok: true, id, command }
+}
+
+/** One canonical event lookup; parsing and condition compilation happen at apply. */
+export function findPluginCommandByKey(event: { key: string; control?: boolean; meta?: boolean; shift?: boolean; alt?: boolean }, ctx: WhenContext): string | null {
+  const snapshot = getContributions()
+  const id = snapshot.keyIndex.get(eventChord(event))
+  const command = id === undefined ? undefined : snapshot.commands.get(id)
+  return command?.matchesContext(ctx) ? command.id : null
+}
+
+/**
+ * Subscribe to the plugin contributions store and rebuild the menu list whenever the
+ * generation changes. Returns an unsubscribe function. The handler MUST not throw.
+ */
+export function watchMenus(listener: (menus: ReadonlyArray<MenuDef>) => void): () => void {
+  let lastVersion = getContributions().version
+  listener(currentMenus())
+  return subscribeContributions(() => {
+    const next = getContributions()
+    if (next.version === lastVersion) return
+    lastVersion = next.version
+    listener(currentMenus())
+  })
+}
+
+/** Legacy import-time fixture used only by menus.golden.test.ts. Production uses currentMenus(). */
+export const MENUS: ReadonlyArray<MenuDef> = Object.freeze(currentMenus())

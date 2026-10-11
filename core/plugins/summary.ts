@@ -1,6 +1,8 @@
 // The contract between the Plugins page and the lazy plugin host (step 2.5a).
 // Pure types, no Electron, no IPC, no DOM: the renderer imports these and the host will
 // implement them on top of the package reader and the installed index.
+import type { GenerationSnapshot } from './generation.ts'
+export type PluginGeneration = GenerationSnapshot
 
 /** Where the plugin came from and how much of a guarantee that is (`docs/EXTENSIONS-DESIGN.md` §5). */
 export type TrustLabel =
@@ -54,6 +56,8 @@ export type InstallOutcome =
  * reads it through `usePlugins()` and never imports `window.fb` itself.
  */
 export interface PluginsApi {
+  generation(): Promise<PluginGeneration>
+  onGeneration(listener: (version: number) => void): () => void
   list(): Promise<PluginSummary[]>
   setEnabled(id: string, enabled: boolean): Promise<void>
   remove(id: string, opts: RemoveOptions): Promise<void>

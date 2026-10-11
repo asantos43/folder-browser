@@ -153,6 +153,11 @@ export function settingFor(definition: SettingDefinition): Setting<unknown> {
   return createSetting(legacy, definition.default, (value): value is unknown => settingsRegistry.validate(definition.id, value))
 }
 
+/** Drop cached settings for the given ids so the next read goes through the registry (used by the plugin runtime after defining or removing a plugin's settings). */
+export function discardCachedSettings(removeIds: readonly string[]): void {
+  for (const id of removeIds) stores.delete(id)
+}
+
 export function resetSettings(definitions: readonly SettingDefinition[]): void {
   resettingSection = true
   try { for (const definition of definitions) settingFor(definition).reset() }

@@ -3,6 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SettingsHost, flushBeforeQuit, type SettingsDialogs } from './settings-host.ts'
+import { KeysHost } from './keys-host.ts'
+import { effectiveKeyTable, setUserKeys } from '../core/keys/effective.ts'
 
 const dirs: string[] = []
 const make = (seed?: string, writer = vi.fn(async (_contents: string) => {}), dialogs?: SettingsDialogs) => {
@@ -21,6 +23,65 @@ const make = (seed?: string, writer = vi.fn(async (_contents: string) => {}), di
   return { dir, handlers, host, sync, set, sender, frame, win, sent, writer }
 }
 afterEach(() => { for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true }) })
+
+it('applies saved schemes, retains absent preferences and user precedence, and restores returning plugins', async () => {
+  const x = make('{"keys.scheme":"sample/one"}')
+  fs.writeFileSync(path.join(x.dir, 'keybindings.json'), '[{"key":"Mod+Alt+K","command":"toggleHidden"}]')
+  const keys = new KeysHost(x.dir, { on() {}, removeListener() {}, handle() {}, removeHandler() {} } as any, () => [], false)
+  const pkg = { commands: [{ id: 'sample:run', defaultKeys: ['Mod+Alt+J'] }], keySchemes: [{ id: 'one', label: 'One' }], keymaps: [{ command: 'sample:run', key: 'Mod+Alt+K', source: { keymapId: 'one', keymapLabel: 'One' } }] }
+  try {
+    keys.setPlugin('sample', pkg)
+    x.host.bindKeyScheme(keys)
+    expect(effectiveKeyTable(false).get('Mod+Alt+K')[0]).toBe('toggleHidden')
+    expect(effectiveKeyTable(false).get('Mod+Alt+J')).toEqual(['sample:run'])
+    keys.removePlugin('sample')
+    expect(keys.snapshot.warnings.some(w => w.message.includes('Key scheme unavailable: sample/one'))).toBe(true)
+    expect(x.host.store.get('keys.scheme')).toBe('sample/one')
+    expect(JSON.parse(fs.readFileSync(path.join(x.dir, 'settings.json'), 'utf8'))['keys.scheme']).toBe('sample/one')
+    keys.setPlugin('sample', pkg)
+    expect(keys.snapshot.warnings).toEqual([])
+    expect(effectiveKeyTable(false).get('Mod+Alt+K')[0]).toBe('toggleHidden')
+    const event = { sender: x.sender, senderFrame: x.frame }
+    x.set(event, [['keys.scheme', 'bad/value/extra']])
+    expect(x.host.store.get('keys.scheme')).toBe('sample/one')
+    x.set(event, [['keys.scheme', '']])
+    expect(keys.snapshot.warnings).toEqual([])
+    expect(effectiveKeyTable(false).entries().find(e => e.id === 'sample:run')?.keys).toEqual(['Mod+Alt+J'])
+  } finally { x.host.dispose(); keys.dispose(); setUserKeys([], false) }
+})
+
+it('ignores invalid saved schemes and observes only the completed keys publication', async () => {
+  const x = make('{"keys.scheme":"../invalid"}')
+  const keys = new KeysHost(x.dir, { on() {}, removeListener() {}, handle() {}, removeHandler() {} } as any, () => [], false)
+  try {
+    x.host.bindKeyScheme(keys)
+    expect(x.host.store.get('keys.scheme')).toBe('')
+    expect(keys.snapshot.warnings).toEqual([])
+    const observations: unknown[] = [], notifications: Array<() => void> = []
+    keys.subscribe(() => observations.push(effectiveKeyTable(false).get('Mod+Alt+K')))
+    keys.transaction(() => {
+      x.host.store.set('keys.scheme', 'sample/one')
+      keys.setPlugin('sample', { commands: [{ id: 'sample:run', defaultKeys: [] }], keySchemes: [{ id: 'one', label: 'One' }], keymaps: [{ command: 'sample:run', key: 'Mod+Alt+K', source: { keymapId: 'one', keymapLabel: 'One' } }] })
+      expect(observations).toEqual([])
+    }, listener => notifications.push(listener))
+    for (const listener of notifications) listener()
+    await Promise.resolve()
+    expect(observations).toEqual([['sample:run']])
+    expect(keys.snapshot.warnings).toEqual([])
+  } finally { x.host.dispose(); keys.dispose(); setUserKeys([], false) }
+})
+
+it('preserves absent locale tags on restart and validates language IPC as simple BCP47', () => {
+  const x = make('{"system.language":"fr","future.setting":true}')
+  expect(x.host.store.get('system.language')).toBe('fr')
+  const event = { sender: x.sender, senderFrame: x.frame }
+  for (const invalid of ['fr_FR', '../en', '<fr>', 7, null, 'fr--FR']) {
+    x.set(event, [['system.language', invalid]])
+    expect(x.host.store.get('system.language')).toBe('fr')
+  }
+  x.set(event, [['system.language', 'zh-Hant-TW']])
+  expect(x.host.store.get('system.language')).toBe('zh-Hant-TW')
+})
 
 describe('SettingsHost', () => {
   it('resets known ids through the store, rejects child frames and bounded malformed requests', () => {

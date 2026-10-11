@@ -24,6 +24,10 @@ const invokePlugin = async (channel: string, ...args: unknown[]) => {
 }
 const api: FbApi = {
   plugins: {
+    generation: () => invokePlugin('fb:plugins-generation'),
+    onGeneration: listener => on<number>('fb:plugins-generation-changed', version => {
+      if (Number.isSafeInteger(version) && version >= 0) listener(version)
+    }),
     list: () => invokePlugin('fb:plugins-list'),
     setEnabled: (id, enabled) => invokePlugin('fb:plugins-set-enabled', id, enabled),
     remove: (id, options) => invokePlugin('fb:plugins-remove', id, options),

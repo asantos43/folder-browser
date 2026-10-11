@@ -42,6 +42,23 @@ function accepted(r: InstallResult) { expect(r.ok, JSON.stringify(r)).toBe(true)
 function code(r: InstallResult) { if (r.ok) throw new Error('Unexpected acceptance'); return r.error.code }
 async function emptyStaging() { expect(await fs.readdir(path.join(root, '.staging')).catch(() => [])).toEqual([]) }
 
+it('beforeIndex failure restores the index and retained versions and cleans publication/staging', async () => {
+  accepted(await install(await pkg()))
+  accepted(await install(await pkg('1.1.0')))
+  const before = await fs.readFile(path.join(root, 'installed.json'))
+  const hook = vi.fn(async (record: import('./install.ts').InstalledRecord) => {
+    expect(record.version).toBe('1.2.0')
+    expect(await fs.stat(path.join(root, 'acme.sample/1.2.0/plugin.json'))).toBeTruthy()
+    expect(await fs.readFile(path.join(root, 'installed.json'))).toEqual(before)
+    throw new Error('payload write failed')
+  })
+  expect(await install(await pkg('1.2.0'), { beforeIndex: hook })).toMatchObject({ ok: false })
+  expect(hook).toHaveBeenCalledTimes(1)
+  expect(await fs.readFile(path.join(root, 'installed.json'))).toEqual(before)
+  expect(await fs.readdir(path.join(root, 'acme.sample'))).toEqual(['1.0.0', '1.1.0'])
+  await emptyStaging()
+})
+
 it.each([false, true])('installs exact verified bytes and read-only tree (zip=%s)', async zip => {
   const p = await pkg('1.0.0', { zip, signed: true }), r = accepted(await install(p))
   expect(r.enabled).toBe(true); expect(r.trust).toBe('signed-unknown'); expect(r.signerFingerprint).toBe(p.signature.signed ? p.signature.fingerprint : undefined)

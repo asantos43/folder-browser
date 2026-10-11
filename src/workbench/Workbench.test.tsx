@@ -2,13 +2,18 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
+import { applyContributions, resetContributions } from '@/plugins/contributions.ts'
 import { Workbench } from './Workbench.tsx'
 
 beforeEach(() => {
   localStorage.clear()
   document.documentElement.removeAttribute('data-theme')
+  resetContributions()
 })
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  resetContributions()
+})
 
 const shown = () => render(<I18nProvider language="en"><Workbench /></I18nProvider>)
 
@@ -78,5 +83,25 @@ describe('the workbench', () => {
     expect([...screen.getByRole('menubar').querySelectorAll('[role=menuitem]')].map((b) => b.textContent)).toEqual(['Arquivo', 'Editar', 'Exibir', 'Ir', 'Ajuda'])
     expect(screen.queryByText('Nenhum snapshot aberto.')).toBeNull()
     expect(screen.getByText('Nenhuma pasta aberta.')).toBeTruthy()
+  })
+  it('adds the Tools menu only when a plugin contributes to menubar/tools', () => {
+    shown()
+    expect([...screen.getByRole('menubar').querySelectorAll('[role=menuitem]')].map((b) => b.textContent)).toEqual(['File', 'Edit', 'View', 'Go', 'Help'])
+    act(() => {
+      applyContributions({
+        version: 1,
+        plugins: [{
+          owner: 'acme', enabled: true, themes: [], locales: [], texts: {}, languages: [], settings: [],
+          keySchemes: [], keyEntries: [],
+          commands: [{ id: 'acme:copy', title: 'acme.copy', category: 'acme', enabled: true, palette: true, defaultKeys: [] }],
+          menuItems: [{ id: 'acme.tools.copy', command: 'acme:copy', point: 'menubar/tools', group: 'commands', order: 0 }],
+        }],
+      })
+    })
+    expect([...screen.getByRole('menubar').querySelectorAll('[role=menuitem]')].map((b) => b.textContent)).toEqual(['File', 'Edit', 'View', 'Go', 'Tools', 'Help'])
+    act(() => {
+      applyContributions({ version: 2, plugins: [] })
+    })
+    expect([...screen.getByRole('menubar').querySelectorAll('[role=menuitem]')].map((b) => b.textContent)).toEqual(['File', 'Edit', 'View', 'Go', 'Help'])
   })
 })

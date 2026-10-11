@@ -22,6 +22,7 @@ export interface InstalledIndex { schema: 1; plugins: Record<string, InstalledRe
 export type InstallResult = { ok: true; record: InstalledRecord; warnings: InstallNotice[] } | { ok: false; error: InstallNotice }
 export interface InstallOptions {
   root: string; origin: InstallOrigin; appVersion: string; now?: Date; allowDowngrade?: boolean; developerMode?: boolean
+  beforeIndex?(record: InstalledRecord): Promise<void>
 }
 const indexLimit = 1024 * 1024
 const queues = new Map<string, Promise<unknown>>()
@@ -281,6 +282,7 @@ export async function installPlugin(pkg: PluginPackage, opts: InstallOptions): P
         try { await fs.rename(oldPath, await inside(root, tomb)); obsolete = { from, tomb }; await fs.chmod(await inside(root, tomb), 0o555) }
         catch (error) { if (!obsolete) await fs.chmod(oldPath, 0o555); throw error }
       }
+      await opts.beforeIndex?.(record)
       await writeIndex(root, { schema: 1, plugins: { ...index.plugins, [m.id]: record } }); published = undefined
       const warnings = [...index.warnings ?? []]
       if (obsolete) {
@@ -301,7 +303,7 @@ export async function installPlugin(pkg: PluginPackage, opts: InstallOptions): P
     }
   })
 }
-export async function rollbackPlugin(root: string, id: string): Promise<InstalledRecord> {
+export async function rollbackPlugin(root: string, id: string, beforeIndex?: (record: InstalledRecord) => Promise<void>): Promise<InstalledRecord> {
   return locked(root, async () => {
     root = await rootAt(root); checkId(id); const index = await readUnlocked(root), old = index.plugins[id]
     if (!old?.previous) refuse('rollback.none', 'There is no previous plugin version.')
@@ -315,6 +317,7 @@ export async function rollbackPlugin(root: string, id: string): Promise<Installe
       if (pkg.signature.signed) record.signerFingerprint = pkg.signature.fingerprint
       record.previous = old.version; record.updatedAt = new Date().toISOString()
     } finally { await previous.package.close() }
+    await beforeIndex?.(record)
     await writeIndex(root, { schema: 1, plugins: { ...index.plugins, [id]: record } }); return record
   })
 }
@@ -337,9 +340,9 @@ export async function setEnabled(root: string, id: string, enabled: boolean): Pr
     await writeIndex(root, { schema: 1, plugins: { ...index.plugins, [id]: { ...index.plugins[id], enabled } } })
   })
 }
-export async function disableAll(root: string): Promise<void> {
+export async function disableAll(root: string, stillEnabled: ReadonlySet<string> = new Set()): Promise<void> {
   return locked(root, async () => {
     root = await rootAt(root); const index = await readUnlocked(root)
-    await writeIndex(root, { schema: 1, plugins: Object.fromEntries(Object.entries(index.plugins).map(([id, r]) => [id, { ...r, enabled: false }])) })
+    await writeIndex(root, { schema: 1, plugins: Object.fromEntries(Object.entries(index.plugins).map(([id, r]) => [id, { ...r, enabled: stillEnabled.has(id) }])) })
   })
 }

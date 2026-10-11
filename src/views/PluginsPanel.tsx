@@ -6,6 +6,7 @@ import { ChoiceDialog } from '@/components/ChoiceDialog.tsx'
 import { ConfirmDialog } from '@/components/ConfirmDialog.tsx'
 import { formatBytes } from '@/lib/format.ts'
 import { normalizeSearch } from './SettingsView.tsx'
+import { ownerText } from './SettingControl.tsx'
 import { usePlugins } from '@/plugins/usePlugins.tsx'
 import type { PluginContributes, PluginSummary, TrustLabel } from '@core/plugins/summary.ts'
 
@@ -48,7 +49,7 @@ function contributeParts(c: PluginContributes, t: ReturnType<typeof useI18n>['t'
 
 function matches(plugin: PluginSummary, needle: string): boolean {
   if (!needle) return true
-  return normalizeSearch(`${plugin.name} ${plugin.id} ${plugin.publisher.name} ${plugin.publisher.id}`).includes(needle)
+  return normalizeSearch(`${ownerText(plugin.id, plugin.name)} ${plugin.id} ${ownerText(plugin.id, plugin.publisher.name)} ${plugin.publisher.id}`).includes(needle)
 }
 
 interface RowProps {
@@ -64,11 +65,13 @@ interface RowProps {
 
 const PluginRow = memo(function PluginRow({ plugin, top, actionError, onToggle, onRemove, onOpenFolder, onSettings, busy }: RowProps) {
   const { t } = useI18n()
+  const name = ownerText(plugin.id, plugin.name)
+  const publisher = ownerText(plugin.id, plugin.publisher.name)
   const trust = TRUST[plugin.trust]
   const parts = useMemo(() => contributeParts(plugin.contributes, t), [plugin.contributes, t])
   const contributesText = parts.length ? t('plugins.contributes', { summary: parts.join(', ') }) : t('plugins.contributes.none')
   const toggleDisabled = plugin.hasCode || busy
-  const toggleLabel = plugin.enabled ? t('plugins.toggleDisable', { name: plugin.name }) : t('plugins.toggleEnable', { name: plugin.name })
+  const toggleLabel = plugin.enabled ? t('plugins.toggleDisable', { name }) : t('plugins.toggleEnable', { name })
   const rowStyle: CSSProperties = { position: 'absolute', top, left: 0, right: 0, height: ROW_HEIGHT }
   const showSettingsButton = plugin.contributes.settings > 0
   const error = plugin.error ? truncate(plugin.error, ERROR_LIMIT) : null
@@ -81,7 +84,7 @@ const PluginRow = memo(function PluginRow({ plugin, top, actionError, onToggle, 
       style={rowStyle}
     >
       <div className="flex items-center gap-3">
-        <strong className="min-w-0 flex-1 truncate text-[14px]" title={plugin.name}><bdi>{plugin.name}</bdi></strong>
+        <strong className="min-w-0 flex-1 truncate text-[14px]" title={name}><bdi>{name}</bdi></strong>
         <span className="shrink-0 text-[12px] text-fg-muted"><bdi>{plugin.version}</bdi></span>
         <button
           type="button"
@@ -97,7 +100,7 @@ const PluginRow = memo(function PluginRow({ plugin, top, actionError, onToggle, 
         </button>
       </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-fg-muted">
-        <span><bdi>{t('plugins.publisher', { publisher: plugin.publisher.name })}</bdi></span>
+        <span><bdi>{t('plugins.publisher', { publisher })}</bdi></span>
         <span aria-hidden>·</span>
         <span className={`inline-flex items-center gap-1 ${trust.className}`}>
           <Icon name={trust.icon} aria-hidden />
@@ -108,7 +111,7 @@ const PluginRow = memo(function PluginRow({ plugin, top, actionError, onToggle, 
         <span aria-hidden>·</span>
         <span className="min-w-0 flex-1 truncate" title={contributesText}><bdi>{contributesText}</bdi></span>
       </div>
-      {plugin.description ? <p className="m-0 line-clamp-1 text-[12px] text-fg-muted"><bdi>{plugin.description}</bdi></p> : null}
+      {plugin.description ? <p className="m-0 line-clamp-1 text-[12px] text-fg-muted"><bdi>{ownerText(plugin.id, plugin.description)}</bdi></p> : null}
       {plugin.hasCode ? <p className="m-0 text-[12px] text-error"><Icon name="code" aria-hidden /> <bdi>{t('plugins.hasCode')}</bdi></p> : null}
       {error ? <p role="alert" className="m-0 line-clamp-1 text-[12px] text-error" title={plugin.error}><bdi>{t('plugins.error', { message: error.visible })}</bdi></p> : null}
       {actionError ? <p role="alert" className="m-0 line-clamp-1 text-[12px] text-error" title={actionError}><bdi>{actionError}</bdi></p> : null}
@@ -132,7 +135,7 @@ export function PluginsPanel({ onJumpToSettings }: PluginsPanelProps = {}) {
   const [query, setQuery] = useState('')
   const deferred = useDeferredValue(query)
   const needle = useMemo(() => normalizeSearch(deferred.trim()), [deferred])
-  const visible = useMemo(() => items.filter(item => matches(item, needle)), [items, needle])
+  const visible = useMemo(() => items.filter(item => matches(item, needle)), [items, needle, t])
   const [scrollTop, setScrollTop] = useState(0)
   const [containerHeight, setContainerHeight] = useState(0)
   const [busy, setBusy] = useState(false)

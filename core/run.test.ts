@@ -9,6 +9,11 @@ const hostile = ['"quotes"', "'quotes'", '$(x)', '`x`', '&', ';', '|', 'a b', 'a
 const context = { file: '/tmp/-a file ação.txt', dir: '/tmp', name: '-a file ação.txt' }
 const command = { id: 'test', name: 'Test', program: 'node', args: hostile }
 describe('literal command templates', () => {
+  it('accepts colon ids and expands typed settings and literal markers exactly once', () => {
+    expect(parseCommandTemplate({ ...command, id: 'publisher.owner:command:open' }).id).toBe('publisher.owner:command:open')
+    expect(buildInvocation({ ...command, typedArgs: [{ kind: 'text', value: '{file}' }, { kind: 'setting', key: 'arg' }, { kind: 'file' }], settings: { arg: '{name} $ & " -x' } }, context).args).toEqual(['{file}', '{name} $ & " -x', context.file])
+    expect(() => buildInvocation({ ...command, typedArgs: [{ kind: 'setting', key: 'missing' }] }, context)).toThrow(/4 KB/)
+  })
   it('delivers each hostile value and expanded file as one exact argv value to a real program', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'fb-run-core-'))
     try {

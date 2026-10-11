@@ -1,7 +1,7 @@
 import type { Chooser, DirEntry, OpenResult, OpenWithResult, Place, PlacesData, RootInfo, SaveResult } from '@core/api.ts'
-import { commandFor, type CommandName } from '@core/shortcuts.ts'
+import { commandFor } from '@core/shortcuts.ts'
 import { setUserKeys } from '@core/keys/effective.ts'
-import { runBuiltinCommand, type BuiltinHandlers } from '@core/commands/builtin.ts'
+import { runBuiltinCommand, type BuiltinCommandId, type BuiltinHandlers } from '@core/commands/builtin.ts'
 import { Allotment } from 'allotment'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
@@ -57,7 +57,7 @@ import type { Signers } from './signature.ts'
 import { TitleBar } from './TitleBar.tsx'
 import { activeSnapshotId, activeTabOf, canFind, canPrint, canSaveWsnp, printRequestOf, zoomTargetOf } from './availability.ts'
 import { shortcut } from './commands.ts'
-import { contextOf, isMac, platform, type Commands } from './commands.ts'
+import { contextOf, dispatchPluginCommand, findPluginCommandByKey, isMac, platform, type Commands } from './commands.ts'
 
 const SIDE_BAR_WIDTH = 300
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
@@ -624,7 +624,7 @@ export function Workbench() {
   // ---- commands: from the menu, from the keyboard, and from the native menu of macOS
   const cycle = useRef<{ list: string[]; at: number } | null>(null)
   const run = useCallback(
-    (command: CommandName | 'cycleEnd' | 'showAbout' | 'copy' | 'savePdf' | 'saveAsWsnp' | 'installPlugin') => {
+    (command: string) => {
       const current = wsNow.current
       const handlers: BuiltinHandlers = {
         newFile: () => dispatch({ type: 'open-untitled' }), openFolder: () => void api?.openFolderDialog().then(handleResults),
@@ -649,7 +649,7 @@ export function Workbench() {
         openGuide: () => dispatch({ type: 'open-guide' }), showAbout: () => void (api?.appInfo().then((info) => setAbout({ info })) ?? setAbout({ info: null })), exit: () => window.close(),
         zoomIn: () => zoomTab(1), zoomOut: () => zoomTab(-1), zoomReset: () => zoomTab(0), themeDark: () => setSetting('dark'), themeLight: () => setSetting('light'),
       }
-      if (Object.hasOwn(handlers, command)) return runBuiltinCommand(handlers, command)
+      if (Object.hasOwn(handlers, command)) return runBuiltinCommand(handlers, command as BuiltinCommandId)
       if (command === 'cycleEnd') {
         if (cycle.current) dispatch({ type: 'touch' })
         cycle.current = null
@@ -667,7 +667,15 @@ export function Workbench() {
       if (n) {
         const tab = Number(n) === 9 ? current.tabs.at(-1) : current.tabs[Number(n) - 1]
         if (tab) dispatch({ type: 'activate', key: tab.key })
+        return
       }
+      // Plugin commands share the same route as built-ins: the dispatch lookup
+      // either accepts, rejects by reason (`unknown` for removed, `disabled`
+      // for no-exec, `when` for context) or accepts (a no-op until phase 3
+      // wires the executor). Phase 2 never runs plugin code. The current
+      // WhenContext is kept in `keyContext.current` (line 808) so the
+      // dispatch sees the same view as the keyboard lookup above.
+      dispatchPluginCommand(command, keyContext.current)
     },
     [api, handleResults, toggleSideBar, copySelection, printTab, savePdfTab, saveConverted, go, zoomTab, saveKey, saveKeys, notify, t],
   )
@@ -675,9 +683,24 @@ export function Workbench() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const command = commandFor({ key: event.key, control: event.ctrlKey, meta: event.metaKey, shift: event.shiftKey, alt: event.altKey }, isMac(), keyContext.current)
-      if (!command) return
-      event.preventDefault()
-      run(command)
+      if (command) {
+        event.preventDefault()
+        run(command)
+        return
+      }
+      // Built-in keytable has no command for this chord: the plugin generation
+      // may have one. Look it up in memory (no IPC, no parse).
+      const pluginCommand = findPluginCommandByKey({
+        key: event.key,
+        control: event.ctrlKey,
+        meta: event.metaKey,
+        shift: event.shiftKey,
+        alt: event.altKey,
+      }, keyContext.current)
+      if (pluginCommand) {
+        event.preventDefault()
+        run(pluginCommand)
+      }
     }
     // Ctrl+Tab ends when Control is let go, or when the window loses the focus.
     const onKeyUp = (event: KeyboardEvent) => (event.key === 'Control' || event.key === 'Meta') && run('cycleEnd')
@@ -685,7 +708,7 @@ export function Workbench() {
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKeyUp)
     window.addEventListener('blur', onBlur)
-    const off = api?.onCommand((command) => run(command as CommandName | 'cycleEnd' | 'showAbout' | 'copy' | 'savePdf' | 'saveAsWsnp' | 'installPlugin'))
+    const off = api?.onCommand((command) => run(command))
     return () => {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onKeyUp)

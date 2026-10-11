@@ -37,7 +37,7 @@ it('adds, edits and removes literal custom command argument lists, refusing inva
   fireEvent.click(screen.getByRole('button', { name: 'Remove command' })); expect(store.get()).toEqual([])
 })
 
-it('generates all 18 builtins and one editable control for each declared type', () => {
+it('generates all 20 builtins and one editable control for each declared type', () => {
   const definitions: SettingInput[] = [
     { id: 'controls:boolean', type: 'boolean', default: false, label: 'settings.wordWrap', category: 'test' },
     { id: 'controls:choice', type: 'choice', default: 'one', choices: ['one', 'two'], label: 'settings.colorTheme', category: 'test' },
@@ -47,7 +47,7 @@ it('generates all 18 builtins and one editable control for each declared type', 
     { id: 'controls:list', type: 'list', default: ['one'], label: 'settings.showHidden', category: 'test' },
   ]
   contribute(definitions); page()
-  expect(document.querySelectorAll('[data-setting]')).toHaveLength(24)
+  expect(document.querySelectorAll('[data-setting]')).toHaveLength(26)
   fireEvent.click(within(row('controls:boolean')).getByRole('checkbox'))
   fireEvent.change(within(row('controls:choice')).getByRole('combobox'), { target: { value: 'two' } })
   fireEvent.change(within(row('controls:number')).getByRole('spinbutton'), { target: { value: '4' } })
@@ -115,7 +115,7 @@ it('keeps theme and language selectors connected to their existing consumers', (
 })
 
 it('declares translated labels/descriptions and choice/category keys for all builtins', () => {
-  expect(builtinSettings).toHaveLength(18)
+  expect(builtinSettings).toHaveLength(20)
   for (const definition of builtinSettings) {
     expect(definition.label).toBeTruthy(); expect(definition.description).toBeTruthy()
     for (const key of [definition.label!, definition.description!, definition.categoryLabel!, ...(definition.choiceLabels ?? []), ...(definition.keywords ?? [])]) {
@@ -173,6 +173,28 @@ it('keeps portable command translations in parity', () => {
     expect(ptBR[key as keyof typeof en], key).toBeTruthy()
   }
   expect(Object.keys(en).sort()).toEqual(Object.keys(ptBR).sort())
+})
+
+it('exports and imports disabled plugin preferences without execution confirmation', async () => {
+  contribute([{ id: 'portable:value', type: 'string', default: 'old', label: 'Saved preference', category: 'plugins', owner: { id: 'portable', enabled: false } }])
+  settingFor(settingsRegistry.get('portable:value')!).set('kept')
+  const api = {
+    export: vi.fn(async () => ({ changed: [] })),
+    previewImport: vi.fn(async () => ({ token: 8, needsConfirm: false, preview: { changes: [{ id: 'portable:value', before: 'kept', after: 'imported', needsConfirm: false }] } })),
+    applyImport: vi.fn(async () => { settingFor(settingsRegistry.get('portable:value')!).set('imported'); return { changed: ['portable:value'] } }),
+  }
+  vi.stubGlobal('fb', { settings: api })
+  page()
+  fireEvent.click(screen.getByRole('button', { name: 'Export…' }))
+  await vi.waitFor(() => expect(api.export).toHaveBeenCalledOnce())
+  expect(screen.queryByRole('alertdialog')).toBeNull()
+  await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Import…' }).hasAttribute('disabled')).toBe(false))
+  fireEvent.click(screen.getByRole('button', { name: 'Import…' }))
+  await screen.findByRole('alertdialog', { name: 'Import summary' })
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  await vi.waitFor(() => expect(api.applyImport).toHaveBeenCalledWith(8, true, false))
+  expect(screen.queryByRole('alertdialog', { name: 'Confirm safety changes' })).toBeNull()
+  expect((within(row('portable:value')).getByRole('textbox') as HTMLInputElement).value).toBe('imported')
 })
 
 it('does not load the Plugins panel until the Plugins section is opened (lazy load)', async () => {

@@ -139,10 +139,29 @@ for (const ext of PLAIN_EXTENSIONS) BY_EXTENSION[ext] ??= 'text/plain'
 for (const name of PLAIN_NAMES) BY_EXTENSION[name] ??= 'text/plain'
 
 /** The key of a file name in the table above: its extension, or the whole name when it has none (`LICENSE`, `Makefile`). */
-function extensionKey(name: string): string {
+export function extensionKey(name: string): string {
   const base = (name.split(/[\\/]/).pop() ?? name).toLowerCase()
   const ext = /\.([a-z0-9]+)$/.exec(base)?.[1]
   return ext ?? base
+}
+
+/** A language index that plugins may install; only consulted by `languageOf` and only as a final fallback. */
+export interface PluginLanguageIndex { get(key: string): string | undefined }
+
+let pluginLanguageIndex: PluginLanguageIndex | null = null
+const pluginLanguageIndexListeners = new Set<() => void>()
+/** Set the plugin language index consulted by `languageOf`; pass `null` to remove. Notifies every listener after the swap. */
+export function setPluginLanguageIndex(index: PluginLanguageIndex | null): void {
+  pluginLanguageIndex = index
+  for (const listener of pluginLanguageIndexListeners) {
+    try { listener() } catch { /* A faulty listener must not undo the index swap. */ }
+  }
+}
+
+/** Subscribe to changes of the plugin language index. Returns an unsubscribe function. The list of listeners is process-local and isolated; one listener throwing does not skip the others. */
+export function onPluginLanguageIndexChange(listener: () => void): () => void {
+  pluginLanguageIndexListeners.add(listener)
+  return () => { pluginLanguageIndexListeners.delete(listener) }
 }
 
 /**
@@ -230,5 +249,12 @@ export function languageOf(mediaType: string | undefined, name: string): Languag
   if (/yaml/.test(type)) return 'yaml'
   if (/json/.test(type)) return 'json'
   if (/xml/.test(type)) return 'xml'
-  return LANGUAGE_OF_TYPE.get(type) ?? 'plain'
+  const fromType = LANGUAGE_OF_TYPE.get(type)
+  if (fromType) return fromType
+  // Plugin languages: consulted only when the host's type-based lookup misses. Built-in keys
+  // and types are protected (`effectiveType` and `LANGUAGE_OF_TYPE` already answered), so this
+  // does not promote binary, document, ZIP or snapshot types to text.
+  const fromPlugin = pluginLanguageIndex?.get(extensionKey(name))
+  if (fromPlugin) return fromPlugin as Language
+  return 'plain'
 }

@@ -32,6 +32,15 @@ async function received(): Promise<{ args: string[]; cwd: string }> {
   return data
 }
 describe('main process runner', () => {
+  it('runs a colon-qualified id through the main handler into a real child process', async () => {
+    command = { ...command, id: 'plugin:owner:open' }
+    const frame = { url: 'fb-ui://host/index.html' }, sender = { mainFrame: frame }
+    const window = { webContents: sender } as unknown as BrowserWindow
+    let handler!: (...args: any[]) => any
+    host.register({ handle: (_channel, cb) => { handler = cb } } as Pick<IpcMain, 'handle'>, () => window)
+    expect(await handler({ sender, senderFrame: frame }, { ...request(), commandId: command.id })).toMatchObject({ opened: true })
+    expect((await received()).args).toEqual([path.join(dir, 'root', request().path), ...command.args.slice(3)])
+  })
   it('does no confirmation-file I/O at construction or while obtaining cached chooser commands', () => {
     const open = vi.spyOn(fs, 'open')
     const fresh = new RunHost(dir, roots, () => [command], () => {}, confirm)

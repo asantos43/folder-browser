@@ -7,7 +7,7 @@ import type { SettingsPortableResult } from '@core/api.ts'
 import type { ThemeSetting } from '@/theme/theme.ts'
 import { settingsRegistry, type SettingDefinition } from '@core/settings/registry.ts'
 import '@core/settings/builtin.ts'
-import { SettingControl } from './SettingControl.tsx'
+import { SettingControl, ownerText } from './SettingControl.tsx'
 import { SettingsRows } from './SettingsRows.tsx'
 import { KeyboardPanel } from './KeyboardPanel.tsx'
 
@@ -29,12 +29,14 @@ const control = 'h-[26px] rounded-sm border border-group-border bg-editor px-2 t
 export const normalizeSearch = (text: string): string => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 export const modified = (definition: SettingDefinition, value: unknown): boolean => JSON.stringify(value) !== JSON.stringify(definition.default)
 const text = (t: Translate, key: string | null | undefined): string => key ? t(key as MessageKey) || key : ''
+const definitionText = (definition: SettingDefinition, t: Translate, raw: string | null | undefined): string => raw ? definition.owner ? ownerText(definition.owner.id, raw) : text(t, raw) : ''
+const ownerOf = (definition: SettingDefinition): string | undefined => definition.owner?.id ?? (definition.id.includes(':') ? definition.id.split(':')[0] : undefined)
 export type SearchEntry = { definition: SettingDefinition; search: string }
 export function indexSettings(definitions: readonly SettingDefinition[], t: Translate): SearchEntry[] {
   return definitions.filter(d => d.label !== null).map(definition => {
-    const parts = [text(t, definition.label), text(t, definition.description), ...(definition.keywords ?? []).map(key => text(t, key))]
+    const parts = [definitionText(definition, t, definition.label), definitionText(definition, t, definition.description), ...(definition.keywords ?? []).map(key => definitionText(definition, t, key)), ...(definition.choiceLabels ?? []).map(key => definitionText(definition, t, key))]
     // A plugin setting is namespaced (`<pluginId>:<name>`): the prefix lets the Plugins page jump straight to its options.
-    if (definition.id.includes(':')) parts.push(definition.id.split(':')[0])
+    if (ownerOf(definition)) parts.push(ownerOf(definition)!)
     return { definition, search: normalizeSearch(parts.join(' ')) }
   })
 }
@@ -43,14 +45,14 @@ export function filterSettings(entries: readonly SearchEntry[], query: string, o
   return entries.filter(entry => entry.search.includes(needle) && (!onlyModified || modified(entry.definition, values[entry.definition.id]))).map(entry => entry.definition)
 }
 
-const SettingsList = memo(function SettingsList({ entries, query, onlyModified, values }: { entries: SearchEntry[]; query: string; onlyModified: boolean; values: Record<string, unknown> }) {
+const SettingsList = memo(function SettingsList({ entries, query, owner, onlyModified, values }: { entries: SearchEntry[]; query: string; owner?: string; onlyModified: boolean; values: Record<string, unknown> }) {
   const { t } = useI18n()
-  const visible = filterSettings(entries, query, onlyModified, values)
+  const visible = filterSettings(entries, query, onlyModified, values).filter(d => !owner || ownerOf(d) === owner)
   const privacyMatches = !onlyModified && (!query.trim() || normalizeSearch(`${t('settings.privacy')} ${t('settings.privacyText')}`).includes(normalizeSearch(query.trim())))
-  const categoryOf = (definition: SettingDefinition) => definition.id.includes(':') ? `${t('settings.plugins')} ▸ ${definition.id.split(':')[0]}` : text(t, definition.categoryLabel ?? `settings.${definition.category}`)
+  const categoryOf = (definition: SettingDefinition) => ownerOf(definition) ? `${t('settings.plugins')} ▸ ${ownerOf(definition)}` : text(t, definition.categoryLabel ?? `settings.${definition.category}`)
   const groups = new Map<string, SettingDefinition[]>()
   for (const definition of visible) {
-    const plugin = definition.id.includes(':') ? definition.id.split(':')[0] : undefined
+    const plugin = ownerOf(definition)
     const category = plugin ? `${t('settings.plugins')} ▸ ${plugin}` : text(t, definition.categoryLabel ?? `settings.${definition.category}`)
     const group = groups.get(category) ?? []
     group.push(definition)
@@ -68,13 +70,14 @@ const SettingsList = memo(function SettingsList({ entries, query, onlyModified, 
       <SettingsRows key={`${category}:${query}:${onlyModified}`} definitions={definitions}>{definition => {
         const value = values[definition.id]
         const changed = modified(definition, value)
-        const title = text(t, definition.label)
-        return <Setting title={title} hint={text(t, definition.description)}>
+        const title = definitionText(definition, t, definition.label)
+        return <Setting title={title} hint={definitionText(definition, t, definition.description)}>
             <div className="flex items-center gap-2">
               <SettingControl definition={definition} value={value} label={title} set={settingFor(definition).set} />
               {changed ? <span className="text-[12px] text-fg-muted">{t('settings.modified')}</span> : null}
               <button type="button" className={control} disabled={!changed} onClick={() => settingFor(definition).reset()}>{t('settings.reset')}</button>
             </div>
+            {definition.owner?.enabled === false ? <p className="text-[12px] text-fg-muted">{t('settings.pluginDisabled', { owner: definition.owner.id })}</p> : null}
             {definition.restart ? <p className="text-[12px] text-fg-muted">{t('settings.restart')}</p> : null}
           </Setting>
       }}</SettingsRows>
@@ -100,6 +103,7 @@ export function SettingsView(_props: { theme: ThemeSetting; setTheme: (theme: Th
   const snapshot = useSyncExternalStore(subscription, () => JSON.stringify(Object.fromEntries(entries.map(({ definition }, index) => [definition.id, stores[index].get()]))))
   const values = useMemo(() => JSON.parse(snapshot) as Record<string, unknown>, [snapshot])
   const [query, setQuery] = useState('')
+  const [owner, setOwner] = useState<string>()
   const [section, setSection] = useState<'general' | 'keyboard' | 'plugins'>('general')
   const deferredQuery = useDeferredValue(query)
   const [onlyModified, setOnlyModified] = useState(false)
@@ -129,7 +133,7 @@ export function SettingsView(_props: { theme: ThemeSetting; setTheme: (theme: Th
         <button className={control} aria-pressed={section === 'keyboard'} onClick={() => setSection('keyboard')}>{t('keyboard.title')}</button>
         <button className={control} aria-pressed={section === 'plugins'} onClick={() => setSection('plugins')}>{t('plugins.title')}</button>
       </nav>
-      {section === 'keyboard' ? <KeyboardPanel /> : section === 'plugins' ? <Suspense fallback={null}><PluginsPanel onJumpToSettings={id => { setSection('general'); setQuery(id); setOnlyModified(false) }} /></Suspense> : <>
+      {section === 'keyboard' ? <KeyboardPanel /> : section === 'plugins' ? <Suspense fallback={null}><PluginsPanel onJumpToSettings={id => { setSection('general'); setOwner(id); setQuery(id); setOnlyModified(false) }} /></Suspense> : <>
       <div role="toolbar" aria-label={t('settings.title')} className="mb-5 flex flex-wrap gap-2">
         <button className={control} disabled={busy || !window.fb?.settings} onClick={() => void run(() => window.fb!.settings.export())}>{t('settings.export')}</button>
         <button className={control} disabled={busy || !window.fb?.settings} onClick={() => void run(() => window.fb!.settings.previewImport())}>{t('settings.import')}</button>
@@ -139,9 +143,9 @@ export function SettingsView(_props: { theme: ThemeSetting; setTheme: (theme: Th
       {error ? <p role="alert">{t('settings.portableError', { message: error })}</p> : null}
       {preview ? <ConfirmDialog danger title={safety ? t('settings.safetyTitle') : t('settings.importSummary')} message={safety ? t('settings.safetyConfirm') : preview.preview.changes.length ? t('settings.importHint') : t('settings.noChanges')} details={!safety ? <ul className="m-0 max-h-[45vh] overflow-auto pl-5 select-text">{preview.preview.changes.map(change => <li key={change.id}>{`${change.id}: ${JSON.stringify(change.before) ?? '—'} → ${JSON.stringify(change.after)}`}{change.reason ? ` (${t(change.reason === 'Unknown setting' ? 'settings.unknown' : 'settings.invalid')})` : ''}{change.warning ? ` (${change.warning})` : ''}</li>)}</ul> : null} hint={preview.needsConfirm && !safety ? t('settings.safetyConfirm') : undefined} confirmLabel={t('settings.apply')} onCancel={() => { setPreview(undefined); setSafety(false) }} onConfirm={() => preview.needsConfirm && !safety ? setSafety(true) : apply()} /> : null}
       {reset ? <ConfirmDialog danger title={t('settings.resetAll')} message={t('settings.resetAllConfirm')} confirmLabel={t('settings.resetAll')} onCancel={() => setReset(false)} onConfirm={() => { setReset(false); void run(() => window.fb!.settings.resetAll(true)) }} /> : null}
-      <input type="search" aria-label={t('settings.search')} placeholder={t('settings.search')} value={query} onChange={event => setQuery(event.target.value)} className={`${control} mb-5 w-full`} />
+      <input type="search" aria-label={t('settings.search')} placeholder={t('settings.search')} value={query} onChange={event => { setOwner(undefined); setQuery(event.target.value) }} className={`${control} mb-5 w-full`} />
       <label className="mb-5 flex items-center gap-2"><input type="checkbox" role="switch" checked={onlyModified} onChange={event => setOnlyModified(event.target.checked)} />{t('settings.onlyModified')}</label>
-      <SettingsList entries={entries} query={deferredQuery} onlyModified={onlyModified} values={values} />
+      <SettingsList entries={entries} query={deferredQuery} owner={owner} onlyModified={onlyModified} values={values} />
       </>}
     </div>
   </div>

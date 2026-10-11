@@ -1,7 +1,7 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDismiss, MenuList } from '@/components/Menu.tsx'
 import { useI18n } from '@/i18n/context.tsx'
-import { MENUS, type Commands } from './commands.ts'
+import { currentMenus, watchMenus, type Commands, type MenuDef } from './commands.ts'
 
 /** VS Code's menu bar, drawn in the title bar on Windows and Linux (macOS has the native menu). */
 export function MenuBar({ commands }: { commands: Commands }) {
@@ -9,17 +9,22 @@ export function MenuBar({ commands }: { commands: Commands }) {
   const [open, setOpen] = useState<number | null>(null)
   // A menu opened from the keyboard (Enter on its name, or the side arrows) has its first item lit; one opened with the mouse has none.
   const [keyboard, setKeyboard] = useState(false)
+  // The active menu list reacts to the plugin generation: a plugin that adds a
+  // Tools item makes the menubar grow; one that removes the last item hides
+  // the Tools header again. Without a plugin the menubar is the legacy 5 menus.
+  const [menus, setMenus] = useState<ReadonlyArray<MenuDef>>(() => currentMenus())
+  useEffect(() => watchMenus(next => setMenus(next)), [])
   const ref = useRef<HTMLDivElement>(null)
   const close = useCallback(() => setOpen(null), [])
   useDismiss(open !== null, ref, close)
   const move = (direction: -1 | 1) => {
     setKeyboard(true)
-    setOpen((i) => (i === null ? i : (i + direction + MENUS.length) % MENUS.length))
+    setOpen((i) => (i === null ? i : (i + direction + menus.length) % menus.length))
   }
 
   return (
     <div ref={ref} role="menubar" className="no-drag flex h-full items-center">
-      {MENUS.map((menu, i) => (
+      {menus.map((menu, i) => (
         <div key={menu.id} className="relative flex h-full items-center">
           <button
             type="button"

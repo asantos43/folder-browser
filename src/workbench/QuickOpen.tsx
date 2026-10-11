@@ -8,7 +8,7 @@ import { fuzzyScore } from '@/lib/fuzzy.ts'
 import { fileIcon } from '@/lib/icons.ts'
 import type { MenuEntry } from '@/components/Menu.tsx'
 import { fileKey, isSnapshotTab, snapshotKey, type Workspace } from '@/state/workspace.ts'
-import { MENUS, type Commands } from './commands.ts'
+import { currentMenus, pluginPaletteItems, type Commands } from './commands.ts'
 import { builtinCommands } from '@core/commands/builtin.ts'
 import { snapshotTitle } from './tabInfo.ts'
 
@@ -19,6 +19,7 @@ interface Item {
   description: string
   icon: string
   shortcut?: string
+  disabled?: boolean
   run: () => void
 }
 
@@ -33,12 +34,12 @@ export function commandItems(t: Translate, commands: Commands, setTheme: Command
   const items: Item[] = []
   const visit = (menu: string, entries: MenuEntry[], prefix = '') => {
     for (const entry of entries) {
-      if ('separator' in entry || entry.disabled) continue
+      if ('separator' in entry || entry.disabled || entry.id?.startsWith('plugin:')) continue
       if (entry.submenu) visit(menu, entry.submenu, `${prefix}${entry.label}: `)
       else if (entry.run) items.push({ id: `${menu}:${prefix}${entry.id}`, label: `${prefix}${entry.label}`, description: menu, icon: 'terminal', shortcut: entry.shortcut, run: entry.run })
     }
   }
-  for (const menu of MENUS) visit(t(menu.label), menu.entries(t, commands))
+  for (const menu of currentMenus()) visit(t(menu.label), menu.entries(t, commands))
   // Commands without a menu entry (zoom and the theme choices) still come from the same registry.
   for (const command of builtinCommands.filter((definition) => definition.palette && !('menu' in definition))) {
     if (command.id === 'zoomIn' || command.id === 'zoomOut' || command.id === 'zoomReset') {
@@ -48,6 +49,12 @@ export function commandItems(t: Translate, commands: Commands, setTheme: Command
       const name = value === 'dark' ? 'Dark+' : 'Light+'
       items.push({ id: `theme:${value}`, label: t(command.title, { name }), description: t('menu.view'), icon: 'symbol-color', run: () => setTheme(value) })
     }
+  }
+  // Plugin commands that opted into the palette (`palette !== false`) and whose
+  // `when` is satisfied in the current context. The description is the owner,
+  // so the user can tell plugins apart from built-in commands.
+  for (const item of pluginPaletteItems(commands)) {
+    items.push({ id: item.id, label: item.label, disabled: item.disabled, description: item.disabled ? t('quickOpen.pluginFuture') : item.description, icon: 'plug', ...(item.shortcut ? { shortcut: item.shortcut } : {}), run: item.run })
   }
   return items
 }
@@ -145,7 +152,7 @@ export function QuickOpen({ start, ws, commands, loadFiles, onOpen, onClose }: {
   }, [at, items])
 
   const choose = (item: Item | undefined) => {
-    if (!item) return
+    if (!item || item.disabled) return
     onClose()
     item.run()
   }
@@ -191,6 +198,7 @@ export function QuickOpen({ start, ws, commands, loadFiles, onOpen, onClose }: {
               id={`quick-open-${i}`}
               role="option"
               aria-selected={i === at}
+              aria-disabled={item.disabled || undefined}
               onMouseMove={() => setAt(i)}
               onClick={() => choose(item)}
               className={`mx-1 flex h-[24px] cursor-pointer items-center gap-2 rounded-[3px] px-2 ${i === at ? 'bg-list-active text-list-active-fg' : ''}`}

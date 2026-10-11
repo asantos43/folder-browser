@@ -1,13 +1,16 @@
-import { memo, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useI18n } from '@/i18n/context.tsx'
 import type { MessageKey } from '@/i18n/index.ts'
 import { ConfirmDialog } from '@/components/ConfirmDialog.tsx'
 import { registry } from '@/workbench/commands.ts'
 import { builtinKeyCommands } from '@core/commands/builtin.ts'
+import { getSnapshot, subscribe } from '@/plugins/contributions.ts'
+import { settingFor } from '@/state/setting.ts'
+import { settingsRegistry } from '@core/settings/registry.ts'
 import { isReserved } from '@core/keys/reserved.ts'
 import { formatChord } from '@core/keys/chord.ts'
-import { mergeUserKeys, type KeysSnapshot, type KeysPortableResult, type UserKey } from '@core/keys/user.ts'
-import { filterKeyboard, indexKeyboard, recordedChord, replaceCommand, restoreCommand, type KeyboardEntry } from './keyboardModel.ts'
+import { type KeysSnapshot, type KeysPortableResult, type UserKey } from '@core/keys/user.ts'
+import { activeKeyboardCommands, filterKeyboard, indexKeyboard, keyboardConflicts, pluginKeyboardLabel, recordedChord, replaceCommand, restoreCommand, type KeyboardEntry } from './keyboardModel.ts'
 
 const control = 'rounded-sm border border-group-border bg-editor px-2 py-1 text-[13px] focus-visible:outline-1 focus-visible:outline-focus'
 const PAGE_SIZE = 40
@@ -41,9 +44,16 @@ export function KeyboardPanel() {
   const { t } = useI18n()
   const api = window.fb?.keys
   const mac = window.fb?.platform === 'darwin'
+  const contributions = useSyncExternalStore(subscribe, getSnapshot)
+  const schemeSetting = settingFor(settingsRegistry.get('keys.scheme')!)
+  const scheme = schemeSetting.use() as string
+  const commands = useMemo(() => {
+    const defaults = new Map<string, readonly string[]>(builtinKeyCommands.map(command => [command.id, command.keys]))
+    return activeKeyboardCommands(registry.list().map(command => ({ ...command, keys: [...(defaults.get(command.id) ?? command.keys ?? [])] })), contributions, mac)
+  }, [contributions, mac])
   const [snapshot, setSnapshot] = useState<KeysSnapshot>(() => api?.get() ?? { entries: [], warnings: [] })
   useEffect(() => api?.onChanged(setSnapshot), [api])
-  const entries = useMemo(() => indexKeyboard(registry.list(), snapshot.entries, mac, key => t(key as MessageKey) || key), [snapshot, mac, t])
+  const entries = useMemo(() => indexKeyboard(commands, snapshot.entries, mac, key => t(key as MessageKey) || key), [commands, snapshot, mac, t])
   const [query, setQuery] = useState(''), deferred = useDeferredValue(query)
   const [onlyModified, setOnlyModified] = useState(false)
   const [recording, setRecording] = useState<string>()
@@ -52,8 +62,8 @@ export function KeyboardPanel() {
   const [reset, setReset] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('')
   const focus = useRef<HTMLElement | null>(null)
   // The recorder must not restart (and let the native shortcuts back for a moment) when the file is reread or the language changes.
-  const latest = useRef({ entries: snapshot.entries, t })
-  latest.current = { entries: snapshot.entries, t }
+  const latest = useRef({ entries: snapshot.entries, commands, t })
+  latest.current = { entries: snapshot.entries, commands, t }
   const finish = () => { setRecording(undefined); focus.current?.focus() }
   const run = async (action: () => Promise<KeysPortableResult>) => {
     setBusy(true); setError('')
@@ -77,8 +87,8 @@ export function KeyboardPanel() {
       const key = recordedChord({ key: event.key, control: event.ctrlKey, meta: event.metaKey, alt: event.altKey, shift: event.shiftKey }, mac)
       if (!key) return
       if (isReserved(key, mac)) { setError(latest.current.t('keyboard.reserved')); return }
-      const next = replaceCommand(latest.current.entries, recording, key, mac)
-      const conflicts = mergeUserKeys(builtinKeyCommands, next, mac).conflicts.filter(conflict => conflict.commands.includes(recording)).flatMap(conflict => conflict.commands.filter(id => id !== recording))
+      const next = replaceCommand(latest.current.commands, latest.current.entries, recording, key, mac)
+      const conflicts = keyboardConflicts(latest.current.commands, latest.current.entries, recording, key, mac)
       setCandidate({ id: recording, key, entries: next, conflicts }); setRecording(undefined); setError('')
     }
     window.addEventListener('keydown', capture, true)
@@ -87,6 +97,16 @@ export function KeyboardPanel() {
   }, [recording, mac, api])
   const commandTitle = (id: string) => entries.find(entry => entry.id === id)?.title ?? id
   return <section aria-label={t('keyboard.title')}>
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <label htmlFor="keyboard-scheme">{t('keyboard.scheme')}</label>
+      <select id="keyboard-scheme" className={control} value={scheme} disabled={busy || !!recording} onChange={event => schemeSetting.set(event.target.value)}>
+        <option value="">{t('keyboard.schemeNone')}</option>
+        {scheme && !contributions.keySchemes.has(scheme) ? <option value={scheme}>{scheme}</option> : null}
+        {[...contributions.keySchemes.values()].map(item => <option key={item.id} value={item.id}>{pluginKeyboardLabel(item.owner, item.label)}</option>)}
+      </select>
+      <button className={control} disabled={!scheme || busy || !!recording} onClick={() => schemeSetting.reset()}>{t('keyboard.schemeReset')}</button>
+      {scheme && !contributions.keySchemes.has(scheme) ? <p role="alert">{t('keyboard.schemeUnavailable', { scheme })}</p> : null}
+    </div>
     <div role="toolbar" aria-label={t('keyboard.title')} className="mb-4 flex gap-2">
       <button className={control} disabled={busy || !!recording || !api} onClick={() => void run(() => api!.export())}>{t('settings.export')}</button>
       <button className={control} disabled={busy || !!recording || !api} onClick={() => void run(() => api!.previewImport())}>{t('settings.import')}</button>
@@ -98,7 +118,7 @@ export function KeyboardPanel() {
     {recording ? <button className={control} onClick={finish}>{t('confirm.cancel')}</button> : null}
     {error ? <p role="alert">{error}</p> : null}
     {snapshot.warnings.map((warning, index) => <p role="alert" key={index}>{t('keyboard.warning', { entry: warning.entry + 1, message: warning.message })}</p>)}
-    <KeyboardList entries={entries} query={deferred} onlyModified={onlyModified} busy={busy || !!recording || !api} record={id => { focus.current = document.activeElement as HTMLElement; setError(''); setRecording(id) }} remove={id => void run(() => api!.set(replaceCommand(snapshot.entries, id, undefined, mac)))} restore={id => void run(() => api!.set(restoreCommand(snapshot.entries, id)))} />
+    <KeyboardList entries={entries} query={deferred} onlyModified={onlyModified} busy={busy || !!recording || !api} record={id => { focus.current = document.activeElement as HTMLElement; setError(''); setRecording(id) }} remove={id => void run(() => api!.set(replaceCommand(commands, snapshot.entries, id, undefined, mac)))} restore={id => void run(() => api!.set(restoreCommand(snapshot.entries, id)))} />
     {candidate ? <ConfirmDialog danger title={t('keyboard.record')} message={`${commandTitle(candidate.id)}: ${formatChord(candidate.key, mac)}`} details={candidate.conflicts.length ? <p data-key-conflicts>{t('keyboard.conflicts', { commands: candidate.conflicts.map(commandTitle).join(', ') })}</p> : null} confirmLabel={t('settings.apply')} onCancel={() => { setCandidate(undefined); focus.current?.focus() }} onConfirm={() => { const next = candidate.entries; setCandidate(undefined); void run(() => api!.set(next)) }} /> : null}
     {reset ? <ConfirmDialog danger title={t('settings.resetAll')} message={t('keyboard.resetAllConfirm')} confirmLabel={t('settings.resetAll')} onCancel={() => setReset(false)} onConfirm={() => { setReset(false); void run(() => api!.set([])) }} /> : null}
     {preview ? <ConfirmDialog danger title={t('settings.importSummary')} message={t('keyboard.importHint')} details={<div className="max-h-[45vh] overflow-auto"><ul>{preview.preview.entries.map((entry, i) => <li key={i}>{`${entry.command}: ${entry.key}${entry.when ? ` (${entry.when})` : ''}`}</li>)}</ul>{preview.preview.warnings.map((warning, i) => <p key={i}>{t('keyboard.warning', { entry: warning.entry + 1, message: warning.message })}</p>)}{preview.preview.conflicts.map((conflict, i) => <p key={i}>{conflict.key}: {t('keyboard.conflicts', { commands: conflict.commands.map(commandTitle).join(', ') })}</p>)}</div>} confirmLabel={t('settings.apply')} onCancel={() => setPreview(undefined)} onConfirm={() => { const token = preview.token; setPreview(undefined); void run(() => api!.applyImport(token, true)) }} /> : null}

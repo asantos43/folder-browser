@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { access } from 'node:fs/promises'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { DraftStore } from '../core/drafts.ts'
 import { FavoriteFolders } from '../core/favorites.ts'
@@ -31,6 +32,8 @@ if (process.argv.includes('--app-version')) {
   let keysHost: KeysHost | undefined
   // The shell and every core/plugins module stay in a separate lazy bundle.
   let pluginsHost: Promise<PluginsHost> | undefined
+  let activePlugins: PluginsHost | undefined
+  let menuGeneration = 0
   const early: string[] = pathsToOpen(userArgs(process.argv, app.isPackaged, app.getAppPath(), process.cwd()), process.cwd())
 
   // macOS gives files through this event, also before the app is ready.
@@ -49,6 +52,7 @@ if (process.argv.includes('--app-version')) {
     if (process.platform !== 'darwin') app.quit()
   })
   app.on('before-quit', () => {
+    void pluginsHost?.then(plugins => plugins.dispose()).catch(() => {})
     keysHost?.dispose()
     host?.cleanup()
     void host?.registry.closeAll()
@@ -64,23 +68,48 @@ if (process.argv.includes('--app-version')) {
     host.registerIpc(() => win)
     settingsHost = new SettingsHost(app.getPath('userData'), ipcMain, () => BrowserWindow.getAllWindows())
     settingsHost.register()
-    for (const channel of ['list', 'set-enabled', 'remove', 'disable-all', 'open-folder', 'install', 'install-paths'] as const) {
+    const pluginIndexExists = async () => {
+      try { await access(path.join(app.getPath('userData'), 'plugins/installed.json')); return true }
+      catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false; throw error }
+    }
+    const loadPlugins = () => pluginsHost ??= import('./plugins-host.ts').then(({ PluginsHost, systemPluginDialogs, pluginTranslator }) => {
+      const t = pluginTranslator(app.getLocale())
+      return activePlugins = new PluginsHost({ userData: app.getPath('userData'), appVersion: app.getVersion(), registry: settingsHost!.registry, store: settingsHost!.store, signerStore: signers,
+        onGeneration: snapshot => {
+          installMenu(command => win?.webContents.send('fb:command', command), snapshot)
+          menuGeneration = snapshot.version
+        } },
+        ipcMain, () => BrowserWindow.getAllWindows(), systemPluginDialogs(t, !app.isPackaged && process.env.FB_PLUGIN_TEST === '1'), t, undefined, keysHost)
+    }).catch(error => { pluginsHost = undefined; throw error })
+    for (const channel of ['list', 'generation', 'set-enabled', 'remove', 'disable-all', 'open-folder', 'install', 'install-paths'] as const) {
       ipcMain.handle(`fb:plugins-${channel}`, async (event, ...args: unknown[]) => {
-        const owner = BrowserWindow.getAllWindows().find(item => item.webContents === event.sender)
+        const owner = BrowserWindow.getAllWindows().find(item => !item.isDestroyed() && item.webContents === event.sender)
         if (!owner || event.senderFrame !== event.sender.mainFrame || !event.senderFrame?.url.startsWith('fb-ui://')) throw new Error('This page cannot manage plugins.')
-        pluginsHost ??= import('./plugins-host.ts').then(({ PluginsHost, systemPluginDialogs, pluginTranslator }) => {
-          const t = pluginTranslator(app.getLocale())
-          return new PluginsHost({ userData: app.getPath('userData'), appVersion: app.getVersion(), registry: settingsHost!.registry, store: settingsHost!.store, signerStore: signers },
-            ipcMain, () => BrowserWindow.getAllWindows(), systemPluginDialogs(t, !app.isPackaged && process.env.FB_PLUGIN_TEST === '1'), t)
-        }).catch(error => { pluginsHost = undefined; throw error })
-        return (await pluginsHost).handle(event, channel, args)
+        if (channel === 'generation') {
+          if (args.length) throw new Error('Invalid plugin arguments.')
+          if (!pluginsHost && !await pluginIndexExists() && !pluginsHost) return { version: 0, plugins: [] }
+        }
+        return (await loadPlugins()).handle(event, channel, args)
       })
     }
     flushBeforeQuit(app, settingsHost)
-    keysHost = new KeysHost(app.getPath('userData'), ipcMain, () => BrowserWindow.getAllWindows(), process.platform === 'darwin', () => installMenu(command => win?.webContents.send('fb:command', command)))
+    keysHost = new KeysHost(app.getPath('userData'), ipcMain, () => BrowserWindow.getAllWindows(), process.platform === 'darwin', () => {
+      const snapshot = activePlugins?.generation.snapshot()
+      // Lifecycle keys notify inside publication; its queued generation callback rebuilds once.
+      if (snapshot && snapshot.version !== menuGeneration) return
+      installMenu(command => win?.webContents.send('fb:command', command), snapshot)
+    })
     keysHost.register()
+    settingsHost.bindKeyScheme(keysHost)
     void host.sweepOldCopies()
     win = createMainWindow(host)
+    win.webContents.once('did-finish-load', () => {
+      setImmediate(() => {
+        void (async () => {
+          if (pluginsHost || await pluginIndexExists()) await (await loadPlugins()).start()
+        })().catch(() => { console.error('Plugin host startup failed.') })
+      })
+    })
     installMenu((command) => win?.webContents.send('fb:command', command))
     // What the command line named is opened now and handed to the interface when it says it is ready.
     host.startup = host.openFromSystem(win, early)

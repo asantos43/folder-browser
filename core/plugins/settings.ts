@@ -2,6 +2,9 @@ import type { ConfigurationProperty, PluginManifest } from './manifest.ts'
 import type { SettingInput, SettingsRegistry } from '../settings/registry.ts'
 import { reconcileSettings } from '../settings/reconcile.ts'
 import type { SettingsStore } from '../settings/store.ts'
+import type { CompiledPlugin } from './compile.ts'
+import type { SettingDef } from '../contributions/contract.ts'
+import type { ContributionLimits } from '../contributions/types.ts'
 
 type Property = ConfigurationProperty & { reaches?: boolean }
 export type PluginSettingsNotice = { key: string; code: 'settings.value.reset' }
@@ -36,27 +39,45 @@ function valid(p: Property, value: unknown): boolean {
 export function compileConfiguration(manifest: PluginManifest): SettingInput[] {
   const configuration = manifest.contributes.configuration
   if (!configuration) return []
-  const entries = Object.entries(configuration.properties)
+  return compileProperties(manifest.id, Object.entries(configuration.properties), configuration.title)
+}
+function compileProperties(pluginId: string, entries: readonly (readonly [string, Property])[], title?: string): SettingInput[] {
   if (entries.length > 100) throw new Error('At most 100 plugin settings')
   return entries.map(([key, source]) => {
-    const local = localKey(manifest.id, key)
+    const local = localKey(pluginId, key)
     const p: Property = structuredClone(source)
     if (p.values && (p.values.length > 1000 || p.values.some(v => typeof v === 'string' && !textFits(v)))) throw new Error('Invalid enum size limit')
     for (const [bound, limit] of [[p.maxLength, 4096], [p.maxItems, 1000]]) if (bound !== undefined && (!Number.isInteger(bound) || bound < 0 || bound > limit!)) throw new Error('Invalid setting size limit')
     if (p.step !== undefined && (!Number.isFinite(p.step) || p.step <= 0)) throw new Error('Invalid number step')
     if ((p.min !== undefined && !Number.isFinite(p.min)) || (p.max !== undefined && !Number.isFinite(p.max)) || (p.min !== undefined && p.max !== undefined && p.min > p.max)) throw new Error('Invalid number bounds')
-    if (p.renamedFrom) localKey(manifest.id, p.renamedFrom)
+    if (p.renamedFrom) localKey(pluginId, p.renamedFrom)
     if (!valid(p, p.default)) throw new Error('Invalid setting default')
     return {
-      id: `${manifest.id}:${local}`, type: p.type === 'enum' ? 'choice' : p.type,
-      default: p.default, category: `plugins.${manifest.id}`, categoryLabel: configuration.title,
+      id: `${pluginId}:${local}`, type: p.type === 'enum' ? 'choice' : p.type,
+      default: p.default, category: `plugins.${pluginId}`, categoryLabel: title,
       label: p.label, description: p.description, keywords: p.keywords, restart: p.reload, safety: false,
       choices: p.values, choiceLabels: p.valueLabels, min: p.min, max: p.max,
       step: p.step, maxLength: p.maxLength, maxItems: p.maxItems,
-      group: p.group, order: p.order, enabledWhen: p.enabledWhen, renamedFrom: p.renamedFrom, reaches: p.reaches,
+      group: p.group, order: p.order, enabledWhen: p.enabledWhen,
+      renamedFrom: p.renamedFrom && localKey(pluginId, p.renamedFrom), reaches: p.reaches,
       validator: value => valid(p, value),
     }
   })
+}
+/** Reuse manifest validation; only plain metadata crosses a process boundary. */
+export function compiledPluginSettings(compiled: Pick<CompiledPlugin, 'pluginId' | 'configuration'>, title?: string): { settings: readonly SettingDef[]; validators: ReadonlyMap<string, (value: unknown) => boolean>; limits: ContributionLimits } {
+  const definitions = compileProperties(compiled.pluginId, compiled.configuration.map(({ id, property }) => {
+    if (!id.startsWith(`${compiled.pluginId}:`)) throw new Error('Setting must belong to this plugin')
+    if ('reaches' in property) throw new Error('Compiled settings do not support reaches')
+    return [id, property] as const
+  }), title)
+  const validators = new Map<string, (value: unknown) => boolean>()
+  const settings = definitions.map(({ validator, reaches: _reaches, ...metadata }) => {
+    validators.set(metadata.id, validator!)
+    return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== undefined)) as unknown as SettingDef
+  })
+  if (new Set(settings.map(setting => setting.id)).size !== settings.length) throw new Error('Duplicate compiled setting')
+  return { settings, validators, limits: { stringLength: 4096, arrayLength: 1000, allowTextControls: true } }
 }
 export function installPluginSettings(registry: SettingsRegistry, manifest: PluginManifest): () => void {
   return registry.contribute(compileConfiguration(manifest))

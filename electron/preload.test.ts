@@ -19,11 +19,11 @@ it('exposes asynchronous plugin calls with the exact host channels and arguments
   const options = { keepSettings: false }
   await api.plugins.list(); await api.plugins.install(); await api.plugins.installPaths(['/drop/sample.fbplugin'])
   await api.plugins.setEnabled('acme.sample', false); await api.plugins.remove('acme.sample', options)
-  await api.plugins.disableAll(); await api.plugins.openFolder('acme.sample')
+  await api.plugins.disableAll(); await api.plugins.openFolder('acme.sample'); await api.plugins.generation()
   expect(electron.invoke.mock.calls).toEqual([
     ['fb:plugins-list'], ['fb:plugins-install'], ['fb:plugins-install-paths', ['/drop/sample.fbplugin']],
     ['fb:plugins-set-enabled', 'acme.sample', false], ['fb:plugins-remove', 'acme.sample', options],
-    ['fb:plugins-disable-all'], ['fb:plugins-open-folder', 'acme.sample'],
+    ['fb:plugins-disable-all'], ['fb:plugins-open-folder', 'acme.sample'], ['fb:plugins-generation'],
   ])
   expect(electron.sync.mock.calls.some(([channel]) => channel.startsWith('fb:plugins-'))).toBe(false)
   electron.invoke.mockRejectedValueOnce(new Error("Error invoking remote method 'fb:plugins-open-folder': Error: Choose an installed plugin."))
@@ -36,5 +36,17 @@ it('onChange delivers the change and returns cancellation for the exact listener
   const [channel, wrapped] = electron.on.mock.calls.at(-1)!
   expect(channel).toBe('fb:plugins-changed')
   wrapped({ sender: 'event' }, undefined); expect(listener).toHaveBeenCalledWith()
+  cancel(); expect(electron.remove).toHaveBeenCalledWith(channel, wrapped)
+})
+
+it('onGeneration accepts only safe nonnegative integers and cancels the exact listener', () => {
+  const api = electron.expose.mock.calls[0][1] as FbApi, listener = vi.fn()
+  const cancel = api.plugins.onGeneration(listener)
+  const [channel, wrapped] = electron.on.mock.calls.at(-1)!
+  expect(channel).toBe('fb:plugins-generation-changed')
+  for (const value of [null, undefined, '1', {}, -1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1]) wrapped({}, value)
+  expect(listener).not.toHaveBeenCalled()
+  for (const version of [0, 2, 1, Number.MAX_SAFE_INTEGER]) wrapped({}, version)
+  expect(listener.mock.calls).toEqual([[0], [2], [1], [Number.MAX_SAFE_INTEGER]])
   cancel(); expect(electron.remove).toHaveBeenCalledWith(channel, wrapped)
 })

@@ -5,6 +5,15 @@ import type { PluginHostOptions } from '../core/plugins/host.ts'
 import type { PluginSummary, InstallOutcome } from '../core/plugins/summary.ts'
 import type { SettingsRegistry } from '../core/settings/registry.ts'
 import type { SettingsStore } from '../core/settings/store.ts'
+import type { KeysHost } from './keys-host.ts'
+import { KeysHost as LocalKeysHost } from './keys-host.ts'
+import { createActivation } from '../core/plugins/activation.ts'
+import { createGenerationStore } from '../core/plugins/generation.ts'
+import type { GenerationSnapshot } from '../core/plugins/generation.ts'
+import { ExecutableCatalog } from '../core/plugins/executables.ts'
+import { LanguageRegistry } from '../core/languages/registry.ts'
+import { createMenuRegistry } from '../core/contributions/menus.ts'
+import { createMainAdapters } from './plugins-adapters.ts'
 import { builtinKeyCommands } from '../core/commands/builtin.ts'
 import { LANGUAGES, viewKind } from '../core/filekind.ts'
 import fileKindsSource from '../core/filekind.ts?raw'
@@ -14,7 +23,7 @@ import { translator, languageFor, type Translate, type MessageKey } from '../src
 
 type Event = Pick<IpcMainInvokeEvent, 'sender' | 'senderFrame'>
 type Ipc = Pick<IpcMain, 'handle' | 'removeHandler'>
-export const pluginChannels = ['list', 'set-enabled', 'remove', 'disable-all', 'open-folder', 'install', 'install-paths'] as const
+export const pluginChannels = ['list', 'generation', 'set-enabled', 'remove', 'disable-all', 'open-folder', 'install', 'install-paths'] as const
 export type PluginChannel = typeof pluginChannels[number]
 
 // Bundled metadata, loaded with this lazy module: no source-file reads in an installed app.
@@ -66,18 +75,53 @@ export class PluginsHost {
   private compileIO: PluginHostOptions['compileIO']
   private t: Translate
   private registered = false
-  constructor(options: { userData: string; appVersion: string; registry: SettingsRegistry; store: SettingsStore; signerStore?: PluginHostOptions['signerStore'] }, ipc: Ipc,
-    windows: () => readonly BrowserWindow[], dialogs?: PluginsDialogs, t: Translate = translator('en'), compileIO = defaultCompileIO) {
+  readonly generation = createGenerationStore()
+  private unsubscribe?: () => void
+  private unsubscribeKeys?: () => void
+  private disposed = false
+  private notificationPending = false
+  private starting?: Promise<void>
+  private ownedKeys?: KeysHost
+  private keys?: KeysHost
+  constructor(options: { userData: string; appVersion: string; registry: SettingsRegistry; store: SettingsStore; signerStore?: PluginHostOptions['signerStore']; onGeneration?: (snapshot: GenerationSnapshot) => void }, ipc: Ipc,
+    windows: () => readonly BrowserWindow[], dialogs?: PluginsDialogs, t: Translate = translator('en'), compileIO = defaultCompileIO, keys?: KeysHost) {
     this.options = options; this.ipc = ipc; this.windows = windows; this.t = t; this.compileIO = compileIO
     this.dialogs = dialogs ?? systemPluginDialogs(t)
+    this.keys = keys
+    this.unsubscribeKeys = keys?.subscribe(() => this.generation.transaction(() => this.generation.resolveKeys(keys.resolvedEntries())))
+    this.unsubscribe = this.generation.subscribe(() => {
+      if (this.notificationPending || this.disposed) return
+      this.notificationPending = true
+      queueMicrotask(() => {
+        this.notificationPending = false
+        if (this.disposed) return
+        const snapshot = this.generation.snapshot(), version = snapshot.version
+        try { options.onGeneration?.(snapshot) } catch { /* A menu callback cannot abort committed generation notifications. */ }
+        for (const win of this.windows()) if (!win.isDestroyed() && !win.webContents.isDestroyed?.() && win.webContents.getURL().startsWith('fb-ui://')) win.webContents.send('fb:plugins-generation-changed', version)
+      })
+    })
   }
   private core?: PluginHost
   private owner?: BrowserWindow
   private operation = Promise.resolve()
   private host(): PluginHost {
-    return this.core ??= new PluginHost({ root: path.join(this.options.userData, 'plugins'), appVersion: this.options.appVersion,
+    if (this.core) return this.core
+    const versions = new Map<string, string>()
+    const keys = this.keys ?? (this.ownedKeys ??= new LocalKeysHost(this.options.userData, this.ipc as IpcMain, this.windows, process.platform === 'darwin'))
+    const main = createMainAdapters({ registry: this.options.registry, keys,
+      languages: new LanguageRegistry(new Set([...this.compileIO.builtinExtensions].map(extension => extension.replace(/^\./, '').toLowerCase()))), runCatalogue: new ExecutableCatalog((owner, key) => this.options.store.get(`${owner}:${key}`)),
+      generation: this.generation, menus: createMenuRegistry(), version: owner => {
+        const version = versions.get(owner)
+        if (!version) throw new Error('Missing installed plugin version')
+        return version
+      } })
+    return this.core = new PluginHost({ root: path.join(this.options.userData, 'plugins'), appVersion: this.options.appVersion,
+      activation: createActivation(main.adapters), installedVersion: (id, version) => { versions.set(id, version) },
       registry: this.options.registry, store: this.options.store, signerStore: this.options.signerStore, compileIO: this.compileIO,
       confirm: summary => this.dialogs.confirm(this.owner!, summary), openPath: file => this.dialogs.openPath(file), changed: () => this.changed() })
+  }
+  start(): Promise<void> {
+    return this.starting ??= Promise.resolve().then(() => this.host().start()).catch(() => { console.error('Plugin host startup failed.') })
   }
   private changed(): void {
     for (const win of this.windows()) if (!win.isDestroyed() && win.webContents.getURL().startsWith('fb-ui://')) win.webContents.send('fb:plugins-changed')
@@ -89,8 +133,9 @@ export class PluginsHost {
   async handle(event: Event, channel: PluginChannel, args: unknown[]): Promise<unknown> {
     const win = this.windows().find(item => !item.isDestroyed() && item.webContents === event.sender)
     if (!win || event.senderFrame !== event.sender.mainFrame || !event.senderFrame?.url.startsWith('fb-ui://')) throw new Error(this.t('plugins.refused'))
-    const counts: Record<PluginChannel, number> = { list: 0, 'set-enabled': 2, remove: 2, 'disable-all': 0, 'open-folder': 1, install: 0, 'install-paths': 1 }
+    const counts: Record<PluginChannel, number> = { list: 0, generation: 0, 'set-enabled': 2, remove: 2, 'disable-all': 0, 'open-folder': 1, install: 0, 'install-paths': 1 }
     if (args.length !== counts[channel]) throw new Error(this.t('plugins.invalidArguments'))
+    if (channel === 'generation') return this.generation.snapshot()
     const action = async () => {
       this.owner = win
       try {
@@ -129,7 +174,10 @@ export class PluginsHost {
   private outcome(result: InstallOutcome): InstallOutcome {
     return 'ok' in result && !result.ok ? { ...result, message: this.message(result.code, result.message) } : result
   }
-  dispose(): void { if (this.registered) for (const channel of pluginChannels) this.ipc.removeHandler(`fb:plugins-${channel}`) }
+  dispose(): void {
+    this.disposed = true; this.unsubscribe?.(); this.unsubscribeKeys?.(); this.ownedKeys?.dispose()
+    if (this.registered) for (const channel of pluginChannels) this.ipc.removeHandler(`fb:plugins-${channel}`)
+  }
 }
 
 export const pluginTranslator = (locale: string) => translator(languageFor(locale))

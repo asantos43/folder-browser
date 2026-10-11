@@ -3,9 +3,12 @@ import { safeRelative } from '../zip.ts'
 import { validateContribution, type Contribution, type MenuPoint } from '../contributions/types.ts'
 import { parseCommandTemplate, validProgram } from '../run.ts'
 import { parseRange, parseSemver } from './semver.ts'
+import { PLUGIN_TEXT_KEY_LIMIT, PLUGIN_TEXT_BYTE_LIMIT, PLUGIN_TEXT_DICTIONARY_LIMIT, PLUGIN_TEXT_KEY_PATTERN, PLUGIN_TEXT_CONTROLS } from './runtime-types.ts'
 
 export const MANIFEST_TEXT_LIMIT = 256 * 1024
 export const MANIFEST_NODE_LIMIT = 20000
+/** Owner labels only; this dictionary never contributes an interface locale. */
+export type PluginTexts = Readonly<Record<string, Readonly<Partial<Record<'en' | 'pt-BR', string>>>>>
 const forbidden = new Set(['__proto__', 'constructor', 'prototype'])
 const itemId = /^[a-z][a-z0-9-]{0,63}$/
 const localeTag = /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/
@@ -39,6 +42,7 @@ export interface PluginManifest {
   description?: string; license?: string; homepage?: string; engines: { folderBrowser: string; api: 1 }
   uses: DeclaredUse[]; contributes: ManifestContributes; activation: string[]; files: Record<string, string>
   main?: string; readonly hasCode: boolean
+  texts?: PluginTexts
 }
 type ObjectData = Record<string, unknown>
 class Invalid extends Error {
@@ -49,6 +53,26 @@ function bad(path: string, code: string, fix: string): never {
   throw new Invalid({ path, code: `manifest.${code}`, message: `${path}: ${fix}`.replace(/[\r\n\u2028\u2029]/g, ' ') })
 }
 const byteLength = (text: string): number => Buffer.byteLength(text, 'utf8')
+
+/** Runs on detached plain JSON after copyData, retaining all manifest limits. */
+function pluginTexts(value: unknown): PluginTexts {
+  const path = '$.texts'
+  if (!value || typeof value !== 'object' || Array.isArray(value)) bad(path, 'texts.invalid', 'use an object of owner keys with en and/or pt-BR text')
+  const keys = Object.keys(value)
+  if (keys.length > PLUGIN_TEXT_KEY_LIMIT) bad(path, 'texts.keys.limit', `declare at most ${PLUGIN_TEXT_KEY_LIMIT} owner text keys`)
+  if (byteLength(JSON.stringify(value)) > PLUGIN_TEXT_DICTIONARY_LIMIT) bad(path, 'texts.bytes.limit', 'use at most 512 KB of owner texts; the manifest must still fit in 256 KB')
+  for (const key of keys) {
+    const p = `${path}.${key}`
+    if (!PLUGIN_TEXT_KEY_PATTERN.test(key)) bad(p, 'texts.key.invalid', 'use a local text key of at most 256 ASCII characters, starting with a lowercase letter')
+    const entry = object((value as ObjectData)[key], p, ['en', 'pt-BR'])
+    for (const [language, translation] of Object.entries(entry)) {
+      if (typeof translation !== 'string') bad(`${p}.${language}`, 'texts.text.invalid', 'use a string')
+      if (byteLength(translation) > PLUGIN_TEXT_BYTE_LIMIT) bad(`${p}.${language}`, 'texts.text.limit', 'use at most 2048 UTF-8 bytes per translation')
+      if (PLUGIN_TEXT_CONTROLS.test(translation)) bad(`${p}.${language}`, 'texts.text.control', 'remove controls and line separators; only TAB is allowed')
+    }
+  }
+  return value as PluginTexts
+}
 
 /** Inspect descriptors before reading values; proxies cannot impersonate plain JSON. */
 function copyData(raw: unknown): unknown {
@@ -243,7 +267,8 @@ export function parseManifest(raw: unknown): { ok: true; manifest: PluginManifes
       if (byteLength(raw) > MANIFEST_TEXT_LIMIT) bad('$', 'size.limit', 'use at most 256 KB of JSON text')
       try { raw = JSON.parse(raw) } catch { bad('$', 'json.invalid', 'provide valid JSON text') }
     }
-    const data = object(copyData(raw), '$', ['schema', 'id', 'name', 'version', 'publisher', 'description', 'license', 'homepage', 'engines', 'uses', 'contributes', 'activation', 'files', 'main'], ['schema', 'id', 'name', 'version', 'publisher', 'engines', 'uses', 'contributes', 'activation', 'files'])
+    const data = object(copyData(raw), '$', ['schema', 'id', 'name', 'version', 'publisher', 'description', 'license', 'homepage', 'engines', 'uses', 'contributes', 'activation', 'files', 'main', 'texts'], ['schema', 'id', 'name', 'version', 'publisher', 'engines', 'uses', 'contributes', 'activation', 'files'])
+    if (data.texts !== undefined) data.texts = pluginTexts(data.texts)
     if (data.schema !== 1) bad('$.schema', 'schema.invalid', 'use schema 1')
     const pluginId = data.id
     if (typeof pluginId !== 'string' || pluginId.length > 64 || !/^[a-z][a-z0-9-]*(\.[a-z0-9-]+)+$/.test(pluginId) || pluginId.split('.').some(part => forbidden.has(part))) bad('$.id', 'id.invalid', 'use publisher.name in lowercase, without empty segments, at most 64 bytes')

@@ -30,7 +30,7 @@ Ele **não** pretende substituir um editor ou uma IDE para um projeto inteiro: p
 
 ## O que faz
 
-**Configurações ▸ Plugins** e **Arquivo ▸ Instalar Plugin de um Arquivo…** instalam e gerenciam arquivos `.fbplugin` locais ou pastas descompactadas de plugins; as contribuições ainda não são aplicadas.
+**Configurações ▸ Plugins** e **Arquivo ▸ Instalar Plugin de um Arquivo…** instalam e gerenciam arquivos `.fbplugin` locais ou pastas descompactadas de plugins; plugins habilitados contribuem com temas com prévia/restauração, idiomas de interface, esquemas de teclas, associações de linguagem de arquivo, opções, Abrir Com, comandos e menus, sem executar código de plugin.
 
 | | |
 | --- | --- |

@@ -126,6 +126,24 @@
       "maxItems": 7,
       "uniqueItems": true
     },
+    "texts": {
+      "description": "Owner dictionary only, never an interface locale. Select en or pt-BR, then fall back to en, pt-BR, the supplied label and the key. Core message keys are refused at compilation. Runtime enforces 2048 UTF-8 bytes per text, 512 KiB per dictionary and the unchanged 256 KiB manifest ceiling.",
+      "type": "object",
+      "maxProperties": 3000,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-zA-Z0-9._-]{0,255}$",
+        "not": { "enum": ["__proto__", "constructor", "prototype"] }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "en": { "type": "string", "maxLength": 2048, "pattern": "^[^\\u0000-\\u0008\\u000a-\\u001f\\u007f-\\u009f\\u2028\\u2029]*$" },
+          "pt-BR": { "type": "string", "maxLength": 2048, "pattern": "^[^\\u0000-\\u0008\\u000a-\\u001f\\u007f-\\u009f\\u2028\\u2029]*$" }
+        },
+        "additionalProperties": false
+      }
+    },
     "contributes": {
       "type": "object",
       "properties": {

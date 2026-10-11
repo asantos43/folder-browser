@@ -1,4 +1,10 @@
 import type { DirEntry, RootInfo } from '@core/api.ts'
+import { commandsForFile, type RunCommand } from '@core/run.ts'
+
+/** Build submenu entries from the host's catalog, keeping disabled commands and their reason visible. */
+export function executableMenu(commands: readonly RunCommand[], file: string, run: (id: string) => void): { id: string; label: string; disabled: boolean; reason?: string; run: () => void }[] {
+  return commandsForFile(commands, file).map(command => ({ id: `run:${command.id}`, label: command.name, disabled: !!command.disabledReason, reason: command.disabledReason, run: () => { if (!command.disabledReason) run(command.id) } }))
+}
 
 /** What a row of the tree can offer. The menu of each kind of row is a list of these (and separators); the tree gives each its label and what it does. */
 export type TreeAction = 'openAsRoot' | 'cut' | 'copyItems' | 'paste' | 'newFile' | 'newFolder' | 'rename' | 'moveTo' | 'delete' | 'play' | 'restore' | 'addFavorite' | 'toggle' | 'refresh' | 'open' | 'openAsList' | 'openSnapshot' | 'openAsZip' | 'openAsHex' | 'selectForCompare' | 'compareWithSelected' | 'openWith' | 'openDefault' | 'save' | 'reveal' | 'copyPath' | 'copyName' | 'properties'

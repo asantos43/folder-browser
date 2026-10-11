@@ -7,6 +7,43 @@ import { SettingsStore } from './store.ts'
 const registry = () => { const r = new SettingsRegistry(); for (const d of builtinSettings) r.defineSetting(d); return r }
 const numberDef: SettingInput = { id:'test.count',type:'number',default:2,min:1,max:4,category:'test',label:null }
 describe('settings registry', () => {
+  it('validates bounded owner/scheme preferences independently of installed plugins', async () => {
+    const r = registry(), writer = vi.fn(async (_text: string) => {}), s = new SettingsStore(r, writer)
+    expect(r.get('keys.scheme')?.default).toBe('')
+    for (const value of ['', 'sample/scheme', 'a.b-c_d/e.F-0', `${'a'.repeat(100)}/${'b'.repeat(100)}`]) expect(r.validate('keys.scheme', value)).toBe(true)
+    for (const value of ['sample:scheme', '/scheme', 'sample/', 'A/scheme', 'a/1', 'a/b/c', '../b', 'a/b\n', `${'a'.repeat(101)}/${'b'.repeat(100)}`, 3, null]) expect(r.validate('keys.scheme', value)).toBe(false)
+    s.set('keys.scheme', 'absent/scheme'); await s.flush()
+    const restored = new SettingsStore(r, async () => {})
+    expect(restored.load(writer.mock.calls[0][0])).toEqual([])
+    expect(restored.get('keys.scheme')).toBe('absent/scheme')
+  })
+  it('accepts simple BCP47 preferences without requiring an installed catalog', () => {
+    const r = registry()
+    expect(builtinSettings).toHaveLength(20)
+    expect(r.get('system.language')?.choices).toBeUndefined()
+    for (const tag of ['auto', 'en', 'pt-BR', 'fr', 'zh-Hant-TW', 'es-419']) expect(r.validate('system.language', tag)).toBe(true)
+    for (const tag of ['', 'a', 'fr_FR', '../fr', 'fr--FR', '<fr>', 'a'.repeat(64), 3, null]) expect(r.validate('system.language', tag)).toBe(false)
+  })
+  it('snapshots 1000 settings below 5 ms (median of five rounds)', () => {
+    const r = new SettingsRegistry()
+    for (let i = 0; i < 1000; i++) r.defineSetting({ id: `budget.value${i}`, type: 'string', default: String(i), category: 'budget', label: null })
+    const writer = vi.fn(async () => {}), s = new SettingsStore(r, writer)
+    const parse = vi.spyOn(JSON, 'parse')
+    const times: number[] = []
+    try {
+      for (let round = 0; round < 5; round++) {
+        const start = performance.now(), snapshot = s.snapshot()
+        times.push(performance.now() - start)
+        expect(snapshot.size).toBe(1000)
+        expect(snapshot.get('budget.value999')).toBe('999')
+      }
+      const median = times.sort((a, b) => a - b)[2]!
+      console.info(`language settings snapshot: ${median.toFixed(3)} ms (1000 values, five rounds)`)
+      expect(median).toBeLessThan(5)
+      expect(parse).not.toHaveBeenCalled()
+      expect(writer).not.toHaveBeenCalled()
+    } finally { parse.mockRestore() }
+  })
   it('rejects duplicate ids, wrong types and out of range values; plugin contributions remove atomically', () => {
     const r = new SettingsRegistry(); r.defineSetting(numberDef)
     expect(() => r.defineSetting(numberDef)).toThrow(/already defined/)
@@ -30,8 +67,8 @@ describe('settings store and portable settings', () => {
     await applyImport(preview, s, true)
     expect(s.get('files.openWithCommands')).toEqual([{ ...command, args: ['changed'] }])
   })
-  it('has the 18 current options and resets values', async () => {
-    expect(builtinSettings).toHaveLength(18)
+  it('has the 20 current options and resets values', async () => {
+    expect(builtinSettings).toHaveLength(20)
     const r = registry(); const write = vi.fn(async (_s:string) => {}); const s = new SettingsStore(r,write)
     s.set('editor.wordWrap',true); s.reset('editor.wordWrap'); await s.flush(); expect(s.get('editor.wordWrap')).toBe(false)
   })

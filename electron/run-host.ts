@@ -4,7 +4,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent } from 'electron'
-import { absoluteProgram, validProgram, buildInvocation, normalizeCommands, type Invocation, type RunCommand } from '../core/run.ts'
+import { absoluteProgram, validProgram, buildInvocation, commandsForFile, normalizeCommands, type Invocation, type RunCommand } from '../core/run.ts'
 import type { RootRegistry } from '../core/roots.ts'
 import { stageFile, removeStaged } from '../core/stage.ts'
 import { atomicWrite } from './settings-host.ts'
@@ -12,7 +12,8 @@ import { UI_ORIGIN } from './ui-protocol.ts'
 
 export type RunResult = { opened: true; chooser: true } | { opened: false; reason: 'cancelled' | 'error' | 'no-file'; message?: string }
 export type ConfirmRun = (win: BrowserWindow, command: RunCommand, invocation: Invocation) => Promise<{ execute: boolean; always: boolean }>
-export const commandHash = (command: RunCommand): string => createHash('sha256').update(JSON.stringify([command.program, command.args, command.cwd ?? null])).digest('hex')
+export interface RunCatalog { list(file?: string): RunCommand[] }
+export const commandHash = (command: RunCommand): string => createHash('sha256').update(JSON.stringify([command.id, command.owner ?? null, command.version ?? null, command.generation ?? null, command.program, command.typedArgs ?? command.args, command.settings ?? null, command.cwd ?? null, command.timeoutMs ?? null, command.disabledReason ?? null])).digest('hex')
 const CONFIRMED_LIMIT = 32 * 1024
 
 /** Ignore empty/relative PATH entries: a bare program must never resolve through cwd. */
@@ -35,9 +36,10 @@ export async function resolveProgram(program: string, env = process.env): Promis
 const nativeAbsolute = (file: string): boolean => path.isAbsolute(file) && (process.platform !== 'win32' || /^[a-z]:[\\/]|^\\\\[^\\]+\\[^\\]+/i.test(file))
 
 /** Resolve only once started, report launch errors, and keep the optional kill timer off the event loop. */
-export async function startInvocation(invocation: Invocation, timeoutMs?: number): Promise<RunResult> {
+export async function startInvocation(invocation: Invocation, timeoutMs?: number, validate?: () => void): Promise<RunResult> {
   try {
     const program = await resolveProgram(invocation.program)
+    validate?.()
     return await new Promise<RunResult>(resolve => {
       const child = spawn(program, invocation.args, { shell: false, detached: true, stdio: 'ignore', cwd: invocation.cwd })
       let timer: ReturnType<typeof setTimeout> | undefined
@@ -78,14 +80,21 @@ export class RunHost {
   private confirm: ConfirmRun
   private cachedValue: unknown
   private cachedCommands: RunCommand[] = []
-  constructor(userData: string, roots: RootRegistry, configuration: () => unknown, keepCopy: (dir: string) => void, confirm: ConfirmRun = nativeConfirm) {
+  private readonly executables?: RunCatalog
+  constructor(userData: string, roots: RootRegistry, configuration: () => unknown, keepCopy: (dir: string) => void, confirm: ConfirmRun = nativeConfirm, executables?: RunCatalog) {
     this.file = path.join(userData, 'run-confirmed.json')
     this.roots = roots; this.configuration = configuration; this.keepCopy = keepCopy; this.confirm = confirm
+    this.executables = executables
   }
-  commands(): RunCommand[] {
+  commands(file?: string): RunCommand[] {
     const value = this.configuration()
+    if (Array.isArray(value) && value.length > 100) throw new Error('User executable catalog exceeds 100 entries')
     if (value !== this.cachedValue) { this.cachedCommands = normalizeCommands(value).value; this.cachedValue = value }
-    return this.cachedCommands
+    const plugins = this.executables?.list() ?? []
+    if (plugins.some(plugin => this.cachedCommands.some(command => command.id === plugin.id))) throw new Error('Duplicate user and plugin command id')
+    const commands = [...this.cachedCommands, ...plugins]
+    if (commands.length > 100) throw new Error('Combined executable catalog exceeds 100 entries')
+    return file === undefined ? commands : commandsForFile(commands, file)
   }
   private load(): Promise<void> {
     return this.loaded ??= (async () => {
@@ -95,13 +104,13 @@ export class RunHost {
         try { const buffer = Buffer.alloc(CONFIRMED_LIMIT + 1); const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0); if (bytesRead > CONFIRMED_LIMIT) return; raw = buffer.subarray(0, bytesRead).toString('utf8') } finally { await handle.close() }
         const entries: unknown = JSON.parse(raw)
         if (!Array.isArray(entries) || entries.length > 100) return
-        if (!entries.every(item => Array.isArray(item) && item.length === 2 && typeof item[0] === 'string' && /^[\w-]{1,128}$/.test(item[0]) && typeof item[1] === 'string' && /^[a-f0-9]{64}$/.test(item[1]))) return
+        if (!entries.every(item => Array.isArray(item) && item.length === 2 && typeof item[0] === 'string' && /^[\w.:-]{1,128}$/.test(item[0]) && typeof item[1] === 'string' && /^[a-f0-9]{64}$/.test(item[1]))) return
         if (new Set(entries.map(item => item[0])).size !== entries.length) return
         this.confirmed = new Map(entries as Array<[string, string]>)
       } catch { /* Missing or malformed confirmations never grant permission. */ }
     })()
   }
-  async run(win: BrowserWindow, request: unknown): Promise<RunResult> {
+  async run(win: BrowserWindow, request: unknown, expectedHash?: string): Promise<RunResult> {
     if (!request || typeof request !== 'object' || Array.isArray(request)) return { opened: false, reason: 'error', message: 'Invalid command request' }
     const v = request as Record<string, unknown>
     if (Object.keys(v).some(key => !['commandId', 'root', 'path'].includes(key)) || typeof v.commandId !== 'string' || v.commandId.length > 128 || typeof v.root !== 'string' || v.root.length > 128 || typeof v.path !== 'string' || v.path.length > 4096 || !v.path || v.path.includes('\0') || v.path.includes('\\') || v.path.startsWith('/') || /^[a-z]:/i.test(v.path) || v.path.split(/[!/]/).some(part => part === '..' || part === '.')) return { opened: false, reason: 'error', message: 'Invalid command request' }
@@ -111,6 +120,8 @@ export class RunHost {
     try {
       const command = this.commands().find(command => command.id === v.commandId)
       if (!command || !this.roots.has(v.root)) return { opened: false, reason: 'no-file' }
+      if (expectedHash !== undefined && commandHash(command) !== expectedHash) return { opened: false, reason: 'error', message: 'Command changed; try again' }
+      if (command.disabledReason) return { opened: false, reason: 'error', message: command.disabledReason }
       const disk = await this.roots.diskFile(v.root, v.path)
       let file = disk
       if (!file) {
@@ -140,7 +151,11 @@ export class RunHost {
       const current = this.commands().find(c => c.id === command.id)
       if (!current || commandHash(current) !== hash) return { opened: false, reason: 'error', message: 'Command changed; try again' }
       if (disk && await this.roots.diskFile(v.root, v.path) !== disk) return { opened: false, reason: 'no-file' }
-      const result = await startInvocation(invocation, command.timeoutMs)
+      const result = await startInvocation(invocation, command.timeoutMs, () => {
+        if (!this.roots.has(v.root as string)) throw new Error('Root is no longer authorised')
+        const latest = this.commands().find(c => c.id === command.id)
+        if (!latest || latest.disabledReason || commandHash(latest) !== hash) throw new Error('Command changed; try again')
+      })
       if (result.opened && scratch) { this.keepCopy(scratch); scratch = undefined }
       return result
     } catch (error) { return { opened: false, reason: 'error', message: error instanceof Error ? error.message : 'Could not run command' } }
