@@ -30,7 +30,7 @@ It is **not** meant to replace an editor or an IDE for a whole project: for that
 
 ## What it does
 
-**Settings ▸ Plugins** and **File ▸ Install Plugin from File…** install and manage local `.fbplugin` files or unpacked plugin folders; contributions are not applied yet.
+**Settings ▸ Plugins** and **File ▸ Install Plugin from File…** install and manage local `.fbplugin` files or unpacked plugin folders; enabled plugins contribute themes with preview/restore, interface languages, key schemes, file-language associations, settings, Open With, commands and menus, without running plugin code.
 
 | | |
 | --- | --- |

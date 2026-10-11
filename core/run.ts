@@ -1,17 +1,19 @@
 /** Command templates are data, never a shell command line. Safe to import in the renderer. */
-export interface RunCommand { id: string; name: string; program: string; args: string[]; timeoutMs?: number; cwd?: string }
+export type RunArg = { kind: 'text'; value: string } | { kind: 'file' | 'dir' | 'name' } | { kind: 'setting'; key: string }
+export interface RunCommand { id: string; name: string; program: string; args: string[]; timeoutMs?: number; cwd?: string; typedArgs?: readonly RunArg[]; owner?: string; version?: string; generation?: number; settings?: Readonly<Record<string, string>>; extensions?: readonly string[]; disabledReason?: string }
 export interface RunContext { file: string; dir: string; name: string }
 export interface Invocation { program: string; args: string[]; cwd?: string }
 export const COMMAND_LIMIT = 100
 const bytes = new TextEncoder()
-const bounded = (v: unknown, max = 4096): v is string => typeof v === 'string' && !v.includes('\0') && v.length <= max && (v.length <= max / 3 || bytes.encode(v).length <= max)
+export const boundedArgument = (v: unknown, max = 4096): v is string => typeof v === 'string' && !v.includes('\0') && v.length <= max && (v.length <= max / 3 || bytes.encode(v).length <= max)
+const bounded = boundedArgument
 export const absoluteProgram = (v: string): boolean => v.startsWith('/') || /^[a-z]:[\\/]/i.test(v) || /^\\\\[^\\]+\\[^\\]+/.test(v)
 export const validProgram = (v: unknown): v is string => bounded(v) && !!v.trim() && (absoluteProgram(v) || (!/[\\/:]/.test(v) && v !== '.' && v !== '..' && !v.startsWith('~')))
 
 export function parseCommandTemplate(value: unknown): RunCommand {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid command')
   const v = value as Record<string, unknown>
-  if (!bounded(v.id, 128) || !/^[\w-]+$/.test(v.id) || !bounded(v.name, 256) || !v.name.trim() || !validProgram(v.program)) throw new Error('Invalid command name or program: use an absolute path or a PATH name')
+  if (!bounded(v.id, 128) || !/^[\w.:-]+$/.test(v.id) || !bounded(v.name, 256) || !v.name.trim() || !validProgram(v.program)) throw new Error('Invalid command name or program: use an absolute path or a PATH name')
   if (!Array.isArray(v.args) || v.args.length > 64 || !v.args.every(a => bounded(a))) throw new Error('Use at most 64 arguments of 4 KB, without NUL')
   if (v.timeoutMs !== undefined && (typeof v.timeoutMs !== 'number' || !Number.isSafeInteger(v.timeoutMs) || v.timeoutMs < 1 || v.timeoutMs > 2_147_483_647)) throw new Error('Invalid timeout')
   if (v.cwd !== undefined && (!bounded(v.cwd) || (v.cwd !== '{dir}' && !absoluteProgram(v.cwd)))) throw new Error('Working directory must be absolute or {dir}')
@@ -36,5 +38,16 @@ export function buildInvocation(command: RunCommand, context: RunContext): Invoc
     return result
   }
   if (!absoluteProgram(context.file) || !absoluteProgram(context.dir)) throw new Error('File and directory must be absolute')
-  return { program: command.program, args: command.args.map(substitute), ...(command.cwd === undefined ? {} : { cwd: substitute(command.cwd) }) }
+  const args = command.typedArgs ? command.typedArgs.map(arg => {
+    const value = arg.kind === 'text' ? arg.value : arg.kind === 'setting' ? command.settings?.[arg.key] : context[arg.kind]
+    if (!bounded(value)) throw new Error('Expanded argument exceeds 4 KB or contains NUL')
+    return value
+  }) : command.args.map(substitute)
+  return { program: command.program, args, ...(command.cwd === undefined ? {} : { cwd: substitute(command.cwd) }) }
+}
+
+/** Shared by the main chooser and renderer submenu; no IO and no template parsing. */
+export function commandsForFile(commands: readonly RunCommand[], file: string): RunCommand[] {
+  const name = file.split(/[\\/]/).at(-1)!.toLowerCase()
+  return commands.filter(command => !command.extensions?.length || command.extensions.some(ext => name.endsWith(ext)))
 }

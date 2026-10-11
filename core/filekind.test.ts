@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { canProbe, DOCUMENT_LIMIT, effectiveType, FORMATTABLE, isSvg, languageOf, looksLikeText, LOG_LIMIT, TEXT_LIMIT, viewKind, ZIP_LIMIT } from './filekind.ts'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { canProbe, DOCUMENT_LIMIT, effectiveType, FORMATTABLE, isSvg, languageOf, looksLikeText, LOG_LIMIT, onPluginLanguageIndexChange, setPluginLanguageIndex, TEXT_LIMIT, viewKind, ZIP_LIMIT } from './filekind.ts'
 
 describe('viewKind: which files a tab can show', () => {
   it('shows source, pictures, PDFs and fonts', () => {
@@ -145,5 +145,58 @@ describe('text files of kinds the table does not name', () => {
       expect(viewKind(type, name, 100), name).toBe('text')
     }
     expect(languageOf(undefined, 'LICENSE')).toBe('plain')
+  })
+})
+
+describe('languageOf: a plugin language index, when installed', () => {
+  afterEach(() => setPluginLanguageIndex(null))
+
+  it('does nothing when no index is set: the host answer is unchanged', () => {
+    expect(languageOf('application/octet-stream', 'script.foo')).toBe('plain')
+    expect(languageOf('text/markdown', 'README.md')).toBe('markdown')
+    expect(languageOf('text/javascript', 'app.js')).toBe('javascript')
+  })
+
+  it('returns the plugin language for a key the host does not know', () => {
+    setPluginLanguageIndex({ get: key => key === 'foo' ? 'python' : undefined })
+    expect(languageOf('application/octet-stream', 'tool.foo')).toBe('python')
+    expect(languageOf('application/octet-stream', 'tool.bar')).toBe('plain')
+  })
+
+  it('does not promote a binary, a document, a ZIP or a snapshot to text', () => {
+    // The plugin attempts to claim extensions that belong to binary/document/ZIP/WSNP types.
+    // The host's viewKind stays correct because effectiveType is unchanged.
+    setPluginLanguageIndex({ get: () => 'plain' })
+    expect(viewKind('application/octet-stream', 'logo.png', 100)).toBe('image')
+    expect(viewKind('application/octet-stream', 'a.docx', 100)).toBe('document')
+    expect(viewKind('application/octet-stream', 'bundle.zip', 100)).toBe('zip')
+  })
+})
+
+describe('onPluginLanguageIndexChange', () => {
+  afterEach(() => setPluginLanguageIndex(null))
+
+  it('notifies every listener when the index is replaced and on null', () => {
+    const calls: number[] = []
+    const offA = onPluginLanguageIndexChange(() => calls.push(1))
+    const offB = onPluginLanguageIndexChange(() => calls.push(2))
+    setPluginLanguageIndex({ get: () => 'plain' })
+    setPluginLanguageIndex(null)
+    expect(calls).toEqual([1, 2, 1, 2])
+    offA(); offB()
+    setPluginLanguageIndex({ get: () => 'plain' })
+    expect(calls).toEqual([1, 2, 1, 2])
+  })
+
+  it('a faulty listener does not skip the others and does not undo the index swap', () => {
+    const ok: number[] = []
+    const faulty = vi.fn(() => { throw new Error('boom') })
+    onPluginLanguageIndexChange(faulty)
+    onPluginLanguageIndexChange(() => ok.push(1))
+    setPluginLanguageIndex({ get: () => 'plain' })
+    expect(faulty).toHaveBeenCalled()
+    expect(ok).toEqual([1])
+    // The swap survives the throw; the index is still installed.
+    expect(languageOf('application/octet-stream', 'tool.foo')).toBe('plain')
   })
 })

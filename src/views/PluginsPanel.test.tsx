@@ -3,9 +3,12 @@ import { Profiler, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n/context.tsx'
+import { i18nRegistry } from '@/i18n/index.ts'
 import { PluginsProvider, usePlugins } from '@/plugins/usePlugins.tsx'
 import type { InstallOutcome, PluginSummary, PluginsApi, TrustLabel } from '@core/plugins/summary.ts'
 import { PluginsPanel } from './PluginsPanel.tsx'
+import { SettingsView } from './SettingsView.tsx'
+import { settingsRegistry } from '@core/settings/registry.ts'
 
 const TRUTH: TrustLabel[] = ['catalog', 'signed-trusted', 'signed-unknown', 'repository', 'unsigned']
 
@@ -49,7 +52,8 @@ function fakeApi(overrides: Partial<{ items: PluginSummary[], installResult: Ins
   const listeners = new Set<() => void>()
   const onChange = (cb: () => void) => { listeners.add(cb); return () => { listeners.delete(cb) } }
   return {
-    api: { list, setEnabled, remove, disableAll, openFolder, install, installPaths: install, onChange },
+    api: { list, setEnabled, remove, disableAll, openFolder, install, installPaths: install, onChange,
+      generation: async () => ({ version: 0, plugins: [] }), onGeneration: () => () => {} },
     list, setEnabled, remove, disableAll, openFolder, install, listeners,
     fireChange: () => listeners.forEach(l => l()),
   }
@@ -66,7 +70,39 @@ beforeEach(() => {
   // happy-dom does not implement ResizeObserver; the panel must still mount a small window.
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
 })
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+afterEach(() => { cleanup(); i18nRegistry.removePlugin('acme.demo'); i18nRegistry.select('en'); vi.unstubAllGlobals() })
+
+it('resolves name, publisher and description in the owner dictionary and searches translated text', async () => {
+  i18nRegistry.setPlugin('acme.demo', [], { pluginName: { en: 'Translated name', 'pt-BR': 'Nome traduzido' }, publisherName: { en: 'Translated publisher', 'pt-BR': 'Origem traduzida' }, pluginDescription: { en: '', 'pt-BR': 'Descrição traduzida' } })
+  const fake = fakeApi({ items: [summary({ name: 'pluginName', publisher: { id: 'acme', name: 'publisherName' }, description: 'pluginDescription' })] })
+  const view = render(<I18nProvider language="pt-BR"><PluginsProvider value={fake.api}><PluginsPanel /></PluginsProvider></I18nProvider>)
+  await screen.findByText('Nome traduzido')
+  expect(screen.getByText('Por Origem traduzida')).toBeTruthy()
+  expect(screen.getByText('Descrição traduzida')).toBeTruthy()
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORIGEM TRADUZIDA' } })
+  expect(row('acme.demo')).toBeTruthy()
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } })
+  view.rerender(<I18nProvider language="en"><PluginsProvider value={fake.api}><PluginsPanel /></PluginsProvider></I18nProvider>)
+  expect(screen.getByText('Translated name')).toBeTruthy()
+  expect(screen.getByText('pluginDescription')).toBeTruthy()
+  await act(async () => { i18nRegistry.removePlugin('acme.demo') })
+  expect(screen.getByText('pluginName')).toBeTruthy()
+})
+
+it('opens real definitions filtered to the exact owner from the Settings button', async () => {
+  const remove = settingsRegistry.contribute(['acme.demo', 'acme.demo-extra'].map(owner => ({ id: `${owner}:option`, type: 'string' as const, default: 'saved', label: 'Real option', category: 'plugins', owner: { id: owner, enabled: false } })))
+  try {
+    const fake = fakeApi({ items: [summary({ contributes: { ...summary().contributes, settings: 1 } })] })
+    render(<I18nProvider language="en"><PluginsProvider value={fake.api}><SettingsView theme="auto" setTheme={() => {}} /></PluginsProvider></I18nProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Plugins' }))
+    await vi.waitFor(() => expect(row('acme.demo')).toBeTruthy())
+    fireEvent.click(within(row('acme.demo')).getByRole('button', { name: 'Settings' }))
+    expect(document.querySelector('[data-setting="acme.demo:option"]')).toBeTruthy()
+    expect(document.querySelector('[data-setting="acme.demo-extra:option"]')).toBeNull()
+    expect((screen.getByRole('textbox', { name: 'Real option' }) as HTMLInputElement).value).toBe('saved')
+    expect(screen.getByRole('textbox', { name: 'Real option' }).matches(':disabled')).toBe(true)
+  } finally { cleanup(); remove() }
+})
 
 it('drops packages and folders through preload disk paths and prevents opening them as normal files', async () => {
   const fake = fakeApi({ installResult: { ok: true, id: 'acme.demo' } })

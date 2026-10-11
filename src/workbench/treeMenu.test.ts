@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { locationOf, treeMenuFor } from './treeMenu.ts'
+import { executableMenu, locationOf, treeMenuFor } from './treeMenu.ts'
 
 const actions = (kind: 'dir' | 'file' | 'zip' | 'wsnp') => treeMenuFor({ kind }).filter((i) => i !== 'separator')
 
 describe('treeMenuFor', () => {
+  it('filters executable submenu by extension, preserves disabled reasons and runs only by id', () => {
+    const calls: string[] = []
+    const base = { id: 'owner:open:colon', name: 'Open', program: 'node', args: [], extensions: ['.txt'] }
+    const menu = executableMenu([base, { ...base, id: 'owner:disabled', disabledReason: 'Command has no exec' }], 'a.TXT', id => calls.push(id))
+    menu[0].run(); menu[1].run()
+    expect(calls).toEqual(['owner:open:colon']); expect(menu[1]).toMatchObject({ disabled: true, reason: 'Command has no exec' })
+    expect(executableMenu([base], 'a.json', () => {})).toEqual([])
+  })
   it('has Open With…, the default application, Save As, Show in Folder and Copy Path for every file, and not for a folder', () => {
     for (const kind of ['file', 'zip', 'wsnp'] as const) expect(actions(kind), kind).toEqual(expect.arrayContaining(['openWith', 'openDefault', 'save', 'reveal', 'copyPath', 'copyName', 'properties']))
     expect(actions('dir')).toEqual(['toggle', 'refresh', 'reveal', 'copyPath', 'copyName', 'properties'])

@@ -234,9 +234,17 @@ Every command has a built-in key (the table above). You can also edit a file nam
 
 The first entry gives **Hide / show the side bar** the key `Ctrl+Alt+J` (`Ctrl` is `⌘` on macOS); the second, with a `-` before the command, **removes** the built-in `Ctrl+B` from it. The new key shows in the menus and in the command palette, and works also while a page of a snapshot has the focus. An optional `"when"` (for example `"hasEditor"`) limits a key to when that is true; such a key does not work while a snapshot's page has the focus. The file is read when the application starts and again a moment after you save it. An entry that is wrong (a key that cannot be read, a command that does not exist, or a key the editor or the system needs, such as `Ctrl+V`) is skipped with a message, and the other entries still apply; a file that cannot be read at all is left as it is, and only the built-in keys are used.
 
-## Settings, Help and About
+## Plugins and their settings
 
-**Settings ▸ Plugins** or **File ▸ Install Plugin from File…** installs a local `.fbplugin` file or unpacked plugin folder after confirmation; you can also drop either on the Plugins page, enable/disable, open its folder or remove it keeping/deleting its settings, but contributions are not applied yet.
+Open **Settings ▸ Plugins** to install a local `.fbplugin` file or unpacked plugin folder after confirmation, enable or disable it, open its folder, or remove it keeping or deleting its settings. **File ▸ Install Plugin from File…** and dropping either on the Plugins page use the same installation flow. Use the plugin's **Settings** button to open its own options; their labels and search terms can be translated by the plugin.
+
+- **Theme:** in **Settings ▸ Appearance**, choose a plugin theme, preview it, then Confirm or Cancel; Restore removes the plugin override.
+- **Language:** choose an installed plugin's interface language in **Display Language**. File-language associations also let plugins identify additional text files using the existing editor languages.
+- **Key scheme:** in **Settings ▸ Keyboard**, select one plugin scheme or the defaults. Plugin command defaults remain active independently of the scheme; your own bindings win, and the recorder shows conflicts with active commands.
+
+Disabling a plugin removes its themes, locales, schemes, Open With entries, commands and menu items. Your saved theme, language and scheme preferences remain, with an unavailable warning and a fallback; enabling the plugin restores their availability. Its settings values remain visible in dimmed rows with editing disabled, and can still be reset. Tools appears only when plugins add menu items. Commands without an executable are shown disabled until support for plugin code is added. Installing a folder makes a copy; developer reload is not available yet.
+
+## Settings, Help and About
 
 ![The Settings tab](images/settings.png)
 

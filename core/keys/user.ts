@@ -90,9 +90,19 @@ export function mergeUserKeys(commands: readonly KeyCommand[], value: unknown, m
     for (const binding of list) byId.set(binding.id, [...(byId.get(binding.id) ?? []), binding])
   }
   const ids = (list: Binding[]) => [...new Set(list.map(binding => binding.id))]
+  const unconditional = new Map([...bindings].filter(([, list]) => !list.some(binding => binding.condition)).map(([chord, list]) => [chord, ids(list)]))
+  const empty: readonly string[] = []
   const table = {
+    /** Detached effective declarations, after removals and user overrides. */
+    entries(): readonly KeyCommand[] {
+      return [...byId].map(([id, list]) => ({ id, keys: [...new Set(list.map(binding => binding.key))] }))
+    },
     lookup(event: KeyLike, context?: WhenContext): readonly string[] {
-      const list = bindings.get(eventChord(event)) ?? []
+      const chord = eventChord(event)
+      const cached = unconditional.get(chord)
+      if (cached) return cached
+      const list = bindings.get(chord)
+      if (!list) return empty
       // Without context the main process must not forward even a sole conditional binding.
       if (context === undefined && list.some(binding => binding.condition)) return []
       return ids(list.filter(binding => !binding.condition || (context !== undefined && binding.condition(context))))

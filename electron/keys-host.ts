@@ -3,8 +3,9 @@ import fsp from 'node:fs/promises'
 import path from 'node:path'
 import type { BrowserWindow, IpcMain, IpcMainEvent } from 'electron'
 import { builtinKeyCommands } from '../core/commands/builtin.ts'
-import { setUserKeys } from '../core/keys/effective.ts'
-import { mergeUserKeys, parseUserKeys, validateUserKeys, USER_KEYS_LIMIT, type KeysSnapshot, type KeysResult, type KeysPortableResult } from '../core/keys/user.ts'
+import { effectiveKeyTable, setEffectiveKeyTable } from '../core/keys/effective.ts'
+import { KeySchemes, type KeyPackage, type SchemeSelection } from '../core/keys/schemes.ts'
+import { parseUserKeys, validateUserKeys, USER_KEYS_LIMIT, type KeysSnapshot, type KeysResult, type KeysPortableResult } from '../core/keys/user.ts'
 import { atomicWrite, jsonDialogs, readBoundedJson, type SettingsDialogs } from './settings-host.ts'
 import { setKeyRecording } from './shortcuts.ts'
 
@@ -26,6 +27,53 @@ export class KeysHost {
   private mac: boolean
   private changed: () => void
   private dialogs: SettingsDialogs
+  private schemes = new KeySchemes()
+  private original = '[]'
+  private broadcastPending = false
+  private batching = false
+  private batchChanged = false
+  private subscribers = new Set<() => void>()
+  private commands() { return this.schemes.compose(builtinKeyCommands, [], this.mac).commands }
+  private parse(text: string): KeysSnapshot {
+    this.original = text
+    return parseUserKeys(text, this.commands(), this.mac)
+  }
+  /** Host-only lifecycle API: synchronous in-memory rebuild, one notification per batch. */
+  setPlugin(owner: string, value: KeyPackage): void { this.schemes.set(owner, value); this.recompose() }
+  removePlugin(owner: string): void { this.schemes.remove(owner); this.recompose() }
+  selectScheme(selection?: SchemeSelection): void { this.schemes.select(selection); this.recompose() }
+  listSchemes() { return this.schemes.list() }
+  /** Effective, detached entries for the renderer generation, with user precedence. */
+  resolvedEntries() { return effectiveKeyTable(this.mac).entries() }
+  subscribe(listener: () => void): () => void { this.subscribers.add(listener); return () => { this.subscribers.delete(listener) } }
+  /** No disk IO. Failed batches restore composition and discard their callbacks. */
+  transaction(operation: () => void, enqueue: (listener: () => void) => void): void {
+    if (this.batching) throw new Error('Nested keys transaction')
+    const schemes = this.schemes.fork(), snapshot = this.snapshot, table = effectiveKeyTable(this.mac), previews = new Map(this.previews)
+    this.batching = true; this.batchChanged = false
+    try { operation() } catch (error) {
+      this.schemes = schemes; this.snapshot = snapshot; this.previews = previews; setEffectiveKeyTable(table, this.mac)
+      throw error
+    } finally { this.batching = false }
+    if (this.batchChanged) {
+      this.broadcastPending = false
+      enqueue(() => { if (!this.disposed) this.broadcast() })
+    }
+    this.batchChanged = false
+  }
+  private recompose(): void {
+    if (this.disposed) return
+    this.previews.clear()
+    this.update(parseUserKeys(this.original, this.commands(), this.mac))
+    if (this.batching) { this.batchChanged = true; return }
+    if (this.broadcastPending) return
+    this.broadcastPending = true
+    queueMicrotask(() => {
+      if (!this.broadcastPending) return
+      this.broadcastPending = false
+      if (!this.disposed) this.broadcast()
+    })
+  }
   constructor(userData: string, ipc: Pick<IpcMain, 'on' | 'removeListener' | 'handle' | 'removeHandler'>, windows: () => readonly BrowserWindow[], mac = process.platform === 'darwin', changed: () => void = () => {}, dialogs: SettingsDialogs = jsonDialogs('keybindings.json')) {
     this.ipc = ipc; this.windows = windows; this.mac = mac; this.changed = changed
     this.dialogs = dialogs
@@ -37,11 +85,11 @@ export class KeysHost {
         try {
           const buffer = Buffer.alloc(USER_KEYS_LIMIT + 1)
           const size = fs.readSync(fd, buffer, 0, buffer.length, 0)
-          this.snapshot = size > USER_KEYS_LIMIT ? this.failure('Keybindings exceed 256 KB') : parseUserKeys(buffer.toString('utf8', 0, size), builtinKeyCommands, mac)
+          this.snapshot = this.parse(buffer.toString('utf8', 0, size))
         } finally { fs.closeSync(fd) }
       }
-    } catch (error) { this.snapshot = this.failure(String(error)) }
-    setUserKeys(this.snapshot.entries, this.mac)
+    } catch (error) { this.original = '{'; this.snapshot = this.failure(String(error)) }
+    this.update(this.snapshot)
     // Watch the directory: atomic replacement, creation and deletion all reload.
     try {
       this.watcher = fs.watch(userData, (_event, filename) => {
@@ -79,7 +127,7 @@ export class KeysHost {
       const file = await this.dialogs.save(this.windows().find(win => win.webContents === event.sender)!)
       if (!file) return { canceled: true }
       await this.flush()
-      await atomicWrite(file, `${JSON.stringify(this.snapshot.entries, null, 2)}\n`)
+      await atomicWrite(file, this.original)
       return { ok: true, warnings: [] }
     })
     handle('fb:keys-import-preview', async (event, args) => {
@@ -90,13 +138,13 @@ export class KeysHost {
       const file = await this.dialogs.open(this.windows().find(win => win.webContents === event.sender)!)
       if (!file) return { canceled: true }
       const json = await readBoundedJson(file, USER_KEYS_LIMIT, 'Keybindings exceed 256 KB')
-      const snapshot = parseUserKeys(json, builtinKeyCommands, this.mac)
+      const snapshot = parseUserKeys(json, this.commands(), this.mac)
       // Structural errors cannot be confirmed as an empty replacement.
       if (snapshot.warnings.some(warning => warning.entry === -1)) return { error: snapshot.warnings[0].message }
       await this.flush()
       if (this.requests.get(event.sender) !== token) return { error: 'Import preview superseded' }
       this.previews.set(event.sender, { token, snapshot, before: JSON.stringify(this.snapshot.entries) })
-      return { token, preview: { ...snapshot, conflicts: mergeUserKeys(builtinKeyCommands, snapshot.entries, this.mac).conflicts } }
+      return { token, preview: { ...snapshot, conflicts: this.schemes.compose(builtinKeyCommands, snapshot.entries, this.mac).conflicts } }
     })
     handle('fb:keys-import-apply', async (event, args) => {
       const [token, confirmed] = args
@@ -112,11 +160,12 @@ export class KeysHost {
   }
   private save(value: unknown): Promise<KeysResult> {
     let parsed: KeysSnapshot
-    try { parsed = validateUserKeys(value, builtinKeyCommands, this.mac) } catch { parsed = this.failure('Invalid keybindings') }
+    try { parsed = validateUserKeys(value, this.commands(), this.mac) } catch { parsed = this.failure('Invalid keybindings') }
     if (parsed.warnings.length) return Promise.resolve({ ok: false, warnings: parsed.warnings })
     const write = this.writes.then(async () => {
-      await atomicWrite(this.file, `${JSON.stringify(parsed.entries, null, 2)}\n`)
-      if (!this.disposed) this.publish(parsed)
+      const text = `${JSON.stringify(parsed.entries, null, 2)}\n`
+      await atomicWrite(this.file, text)
+      if (!this.disposed) this.publish(this.parse(text))
     })
     this.writes = write.catch(() => {})
     return write.then(() => ({ ok: true, warnings: [] }), error => ({ ok: false, warnings: [{ entry: -1, message: String(error) }] }))
@@ -130,18 +179,29 @@ export class KeysHost {
       try {
         const buffer = Buffer.alloc(USER_KEYS_LIMIT + 1)
         const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
-        snapshot = bytesRead > USER_KEYS_LIMIT ? this.failure('Keybindings exceed 256 KB') : parseUserKeys(buffer.toString('utf8', 0, bytesRead), builtinKeyCommands, this.mac)
+        snapshot = this.parse(buffer.toString('utf8', 0, bytesRead))
       } finally { await handle.close() }
     } catch (error) {
-      snapshot = (error as NodeJS.ErrnoException).code === 'ENOENT' ? { entries: [], warnings: [] } : this.failure(String(error))
+      this.original = '{'
+      snapshot = (error as NodeJS.ErrnoException).code === 'ENOENT' ? this.parse('[]') : this.failure(String(error))
     }
     if (!this.disposed) this.publish(snapshot)
   }
   private publish(snapshot: KeysSnapshot): void {
-    this.snapshot = snapshot
-    setUserKeys(snapshot.entries, this.mac)
-    this.changed()
-    for (const win of this.windows()) if (!win.isDestroyed() && win.webContents.getURL().startsWith('fb-ui://')) win.webContents.send('fb:keys-changed', snapshot)
+    this.update(snapshot)
+    this.broadcast()
+  }
+  private update(snapshot: KeysSnapshot): void {
+    const merged = this.schemes.compose(builtinKeyCommands, snapshot.entries, this.mac)
+    this.snapshot = { entries: snapshot.entries, warnings: [...snapshot.warnings, ...merged.warnings] }
+    setEffectiveKeyTable(merged.table, this.mac)
+  }
+  private broadcast(): void {
+    for (const subscriber of this.subscribers) { try { subscriber() } catch { /* Continue notifying other readers. */ } }
+    try { this.changed() } catch { /* A subscriber cannot undo a committed catalog. */ }
+    for (const win of this.windows()) if (!win.isDestroyed() && win.webContents.getURL().startsWith('fb-ui://')) {
+      try { win.webContents.send('fb:keys-changed', this.snapshot) } catch { /* A closing window must not abort publication. */ }
+    }
   }
   dispose(): void {
     for (const win of this.windows()) if (!win.isDestroyed()) setKeyRecording(win.webContents, false)
@@ -152,5 +212,6 @@ export class KeysHost {
     this.listeners = []
     for (const channel of this.channels) this.ipc.removeHandler(channel)
     this.channels = []; this.previews.clear(); this.requests.clear()
+    this.subscribers.clear()
   }
 }

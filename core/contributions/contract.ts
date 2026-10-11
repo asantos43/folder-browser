@@ -32,6 +32,13 @@ export interface SettingDef {
   choiceLabels?: readonly string[]
   categoryLabel?: string
   restart?: boolean
+  step?: number
+  maxLength?: number
+  maxItems?: number
+  group?: string
+  order?: number
+  enabledWhen?: string
+  renamedFrom?: string
 }
 
 /** Stable placement: group, declared order, then id; when uses the command grammar. */

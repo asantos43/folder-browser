@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { parseManifest, type PluginManifest } from './manifest.ts'
 import { LANGUAGES } from '../filekind.ts'
 import { compilePlugin, declaredTokensFromCss, escapeAttr, themePreview, themeToCss, type CompileIO, type CompiledTheme, type CompiledPlugin } from './compile.ts'
+import { resolvePluginText } from './runtime-types.ts'
 
 const TOKENS_CSS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../src/theme/tokens.css')
 
@@ -40,6 +41,30 @@ function loadLocaleKeys(): Set<string> {
 
 const declaredTokens = loadDeclaredTokens()
 const localeKeys = loadLocaleKeys()
+
+it('compiles detached owner labels without changing old payloads or the global locale', async () => {
+  const old = await compileOk(build())
+  expect(old).not.toHaveProperty('texts')
+  const texts = { 'owner.title': { en: 'Title', 'pt-BR': 'Título' }, portuguese: { 'pt-BR': 'Só português' } }
+  const compiled = await compileOk(build(r => { r.texts = texts }))
+  expect(compiled).toEqual({ ...old, texts })
+  expect(compiled.texts).not.toBe(texts)
+  expect(Object.isFrozen(compiled.texts?.['owner.title'])).toBe(true)
+  expect(resolvePluginText(compiled.texts, 'owner.title', 'pt-BR')).toBe('Título')
+  expect(resolvePluginText(compiled.texts, 'portuguese', 'en')).toBe('Só português')
+  expect(compiled.locales).toEqual([])
+  texts['owner.title'].en = 'Changed'
+  expect(compiled.texts?.['owner.title'].en).toBe('Title')
+})
+
+it('refuses an owner dictionary attempting to override any core text key', async () => {
+  const key = [...localeKeys][0]
+  expect(key).toBeTruthy()
+  const raw = build(r => { r.texts = { [key]: { en: 'Override', 'pt-BR': 'Sobrepor' } } })
+  const result = await compileBad(raw)
+  expect(result.errors[0]).toMatchObject({ path: `$.texts.${key}`, code: 'compile.texts.builtin-conflict' })
+  expect(result.errors[0].message).toContain('core interface')
+})
 
 /** A minimal-valid manifest that the parser accepts, with a per-test mutate callback for overrides. */
 function build(mutate: (raw: Record<string, unknown>) => void = () => {}): Record<string, unknown> {
@@ -789,6 +814,7 @@ describe(`budgets (median of ${ROUNDS} rounds)`, () => {
       })
       const manifestBuilder = (i: number) => build((r) => {
         r.id = `acme.bench${i}`
+        r.texts = Object.fromEntries(Array.from({ length: 20 }, (_, n) => [`owner.label${n}`, { en: `Label ${n}`, 'pt-BR': `Rótulo ${n}` }]))
         r.contributes = {
           themes: [{ id: 'dark', label: 'D', base: 'dark', tokens: 'themes/dark.json' }, { id: 'light', label: 'L', base: 'light', tokens: 'themes/light.json' }],
           keymaps: [{ id: 'default', label: 'Default', keys: 'keymaps/default.json' }],
@@ -806,7 +832,7 @@ describe(`budgets (median of ${ROUNDS} rounds)`, () => {
       samples.push(performance.now() - start)
     }
     const middle = median(samples)
-    process.stdout.write(`compilePlugin budget: 50 plugins median of ${ROUNDS}=${middle.toFixed(3)} ms; samples=${samples.map(s => s.toFixed(3)).join(', ')}\n`)
+    console.log(`compilePlugin budget: 50 plugins with owner texts median of ${ROUNDS}=${middle.toFixed(3)} ms; samples=${samples.map(s => s.toFixed(3)).join(', ')}`)
     expect(middle).toBeLessThan(150)
   })
 

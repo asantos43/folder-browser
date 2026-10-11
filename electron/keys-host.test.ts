@@ -4,7 +4,7 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import { afterEach, expect, it, vi } from 'vitest'
 import { KeysHost } from './keys-host.ts'
-import { setUserKeys } from '../core/keys/effective.ts'
+import { effectiveKeyTable, setUserKeys } from '../core/keys/effective.ts'
 import { installShortcuts } from './shortcuts.ts'
 
 const hosts: KeysHost[] = [], dirs: string[] = []
@@ -22,6 +22,56 @@ function make(seed?: string) {
   return { host, file, handlers, sender, frame, win, event: { sender, senderFrame: frame, returnValue: null } as any }
 }
 afterEach(() => { for (const host of hosts.splice(0)) host.dispose(); for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); vi.restoreAllMocks(); setUserKeys([], false) })
+
+it('switches schemes with 50 plugins × 20 commands below 20 ms (median of five)', () => {
+  const x = make(), notifications: Array<() => void> = []
+  x.host.transaction(() => {
+    for (let i = 0; i < 50; i++) x.host.setPlugin(`plugin${i}`, {
+      commands: Array.from({ length: 20 }, (_, n) => ({ id: `plugin${i}:command${n}`, defaultKeys: [`Mod+Alt+Shift+${String.fromCharCode(65 + n)}`] })),
+      keySchemes: [{ id: 'one', label: 'One' }],
+      keymaps: [{ command: `plugin${i}:command0`, key: 'Mod+Alt+K', source: { keymapId: 'one', keymapLabel: 'One' } }],
+    })
+  }, listener => notifications.push(listener))
+  for (const notify of notifications) notify()
+  const times: number[] = []
+  for (let round = 0; round < 5; round++) {
+    const start = performance.now()
+    x.host.selectScheme({ owner: `plugin${round}`, id: 'one' })
+    times.push(performance.now() - start)
+    expect(effectiveKeyTable(false).get('Mod+Alt+K')).toEqual([`plugin${round}:command0`])
+  }
+  const median = times.sort((a, b) => a - b)[2]!
+  console.info(`Scheme switch, 50 × 20 commands: ${median.toFixed(3)} ms (median of five)`)
+  expect(median).toBeLessThan(20)
+})
+
+it('revalidates dormant user commands in memory, preserves original file, and batches lifecycle broadcasts', async () => {
+  const original = '[\n  {"key":"Mod+Alt+J","command":"a:run"}\n]'
+  const x = make(original)
+  expect(x.host.snapshot.entries).toEqual([])
+  expect(x.host.snapshot.warnings[0].message).toBe('Unknown command')
+  const read = vi.spyOn(fs, 'readSync'), open = vi.spyOn(fs.promises, 'open')
+  const value = { commands: [{ id: 'a:run', defaultKeys: ['Mod+Alt+L'] }], keySchemes: [{ id: 'one', label: 'One' }], keymaps: [{ command: 'toggleSideBar', key: 'Mod+Alt+K', source: { keymapId: 'one', keymapLabel: 'One' } }] }
+  x.host.setPlugin('a', value)
+  x.host.selectScheme({ owner: 'a', id: 'one' })
+  expect(x.host.snapshot.entries).toEqual([{ key: 'Mod+Alt+J', command: 'a:run' }])
+  expect(effectiveKeyTable(false).get('Mod+Alt+K')).toEqual(['toggleSideBar'])
+  expect(x.sender.send).not.toHaveBeenCalled()
+  await Promise.resolve()
+  expect(x.sender.send).toHaveBeenCalledTimes(1)
+  x.host.removePlugin('a')
+  expect(x.host.snapshot.entries).toEqual([])
+  expect(effectiveKeyTable(false).get('Mod+Alt+K')).toEqual([])
+  expect(effectiveKeyTable(false).get('Mod+B')).toEqual(['toggleSideBar'])
+  x.host.setPlugin('a', value)
+  await Promise.resolve()
+  expect(x.host.snapshot.entries).toHaveLength(1)
+  expect(x.sender.send).toHaveBeenCalledTimes(2)
+  for (let i = 0; i < 1000; i++) effectiveKeyTable(false).lookup({ key: 'j', control: true, alt: true })
+  expect(read).not.toHaveBeenCalled(); expect(open).not.toHaveBeenCalled()
+  read.mockRestore()
+  expect(fs.readFileSync(x.file, 'utf8')).toBe(original)
+})
 
 it('missing file costs only one existence check, no read or stat', () => {
   const exists = vi.spyOn(fs, 'existsSync'), read = vi.spyOn(fs, 'readSync'), stat = vi.spyOn(fs, 'statSync')

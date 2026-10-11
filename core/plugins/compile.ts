@@ -4,7 +4,7 @@ import { assertPluginChord } from '../keys/reserved.ts'
 import { safeRelative } from '../zip.ts'
 import { parseCommandTemplate } from '../run.ts'
 import type { ContributionCommand, ContributionKey, ContributionMenuItem, MenuPoint } from '../contributions/contract.ts'
-import type { PluginManifest, OpenWith, ConfigurationProperty } from './manifest.ts'
+import type { PluginManifest, OpenWith, ConfigurationProperty, PluginTexts } from './manifest.ts'
 
 /**
  * Compile a level-0 plugin (themes, keymaps, languages, locales, Open With
@@ -57,6 +57,9 @@ export interface CompiledKeyEntry {
   key: string
   source: { keymapId: string; keymapLabel: string }
 }
+
+/** Declared schemes, including ones that currently have no bindings. */
+export interface CompiledKeyScheme { id: string; label: string }
 
 /** A language pack: extensions and/or filenames paired to a CodeMirror language id. */
 export interface CompiledLanguage {
@@ -114,8 +117,11 @@ export interface CompiledLocale {
 
 export interface CompiledPlugin {
   pluginId: string
+  /** Optional owner labels, isolated from the interface locale catalog. */
+  texts?: PluginTexts
   themes: readonly CompiledTheme[]
   keymaps: readonly CompiledKeyEntry[]
+  keySchemes: readonly CompiledKeyScheme[]
   languages: readonly CompiledLanguage[]
   locales: readonly CompiledLocale[]
   openWith: readonly CompiledOpenWith[]
@@ -214,12 +220,12 @@ function deepFreeze<T>(value: T): T {
 
 function freezeArray<T>(items: readonly T[]): readonly T[] { Object.freeze(items); return items }
 
-/** Escape a value used inside a CSS attribute selector: every byte that has any meaning becomes `\HEX `. */
-// eslint-disable-next-line no-control-regex
-export function escapeAttr(value: string): string {
-  // eslint-disable-next-line no-control-regex
-  return value.replace(/[\x00-\x1f\x7f-\x9f"\\]/g, char => `\\${char.charCodeAt(0).toString(16).padStart(2, '0')} `)
-}
+// `escapeAttr`, `themeToCss` and `themePreview` live in `../themeCss.ts` so the
+// renderer's registry can reuse them without importing the install-time
+// compiler (and without going through `core/plugins/`, which the startup
+// guard treats as the plugin host). They are re-exported here for the
+// existing callers and the unit tests that import them from `./compile.ts`.
+export { escapeAttr, themeToCss, themePreview } from '../themeCss.ts'
 
 async function compileThemes(manifest: PluginManifest, errors: CompileError[], io: CompileIO): Promise<CompiledTheme[]> {
   const themes = manifest.contributes.themes ?? []
@@ -260,7 +266,7 @@ function compileKeyEntry(raw: unknown, errors: CompileError[], pluginCommands: R
   return { command, key, source: { keymapId, keymapLabel: '' } }
 }
 
-async function compileKeymaps(manifest: PluginManifest, errors: CompileError[], warnings: CompileError[], io: CompileIO): Promise<{ keymapKeys: CompiledKeyEntry[]; commands: CompiledCommand[]; contributionCommands: ContributionCommand[]; contributionKeys: ContributionKey[]; menuItems: ContributionMenuItem[] }> {
+async function compileKeymaps(manifest: PluginManifest, errors: CompileError[], warnings: CompileError[], io: CompileIO): Promise<{ keySchemes: readonly CompiledKeyScheme[]; keymapKeys: CompiledKeyEntry[]; commands: CompiledCommand[]; contributionCommands: ContributionCommand[]; contributionKeys: ContributionKey[]; menuItems: ContributionMenuItem[] }> {
   const keymaps = manifest.contributes.keymaps ?? []
   const commands = manifest.contributes.commands ?? []
   const pluginCommands = new Set(commands.map(c => c.id))
@@ -290,6 +296,7 @@ async function compileKeymaps(manifest: PluginManifest, errors: CompileError[], 
   }
   // Keymap entries: each `{command, key}` becomes a `CompiledKeyEntry` with the keymap id as its source.
   const keymapKeys: CompiledKeyEntry[] = []
+  const keySchemes: CompiledKeyScheme[] = []
   for (const keymap of keymaps) {
     const keymapId = idValue(keymap.id, `$.contributes.keymaps.${keymap.id}.id`, errors)
     const keymapLabel = labelValue(keymap.label, `$.contributes.keymaps.${keymapId}.label`, errors)
@@ -300,6 +307,7 @@ async function compileKeymaps(manifest: PluginManifest, errors: CompileError[], 
     try { parsed = safeParse(Buffer.from(raw).toString('utf8'), 'JSON') } catch { fail(errors, `${keyPath}.keys`, 'keymap.keys.json', 'provide valid JSON') }
     if (!Array.isArray(parsed)) fail(errors, `${keyPath}.keys`, 'keymap.keys.list', 'use a JSON array of {command, key} entries')
     if (parsed.length > MAX_KEY_COUNT) fail(errors, `${keyPath}.keys`, 'keymap.keys.limit', `declare at most ${MAX_KEY_COUNT} keys per keymap`)
+    keySchemes.push(deepFreeze({ id: keymapId, label: keymapLabel }))
     const seen = new Map<string, string>()
     for (const [index, entry] of parsed.entries()) {
       const compiled = compileKeyEntry(entry, errors, pluginCommands, io.knownCommands, index, keymapId)
@@ -314,6 +322,7 @@ async function compileKeymaps(manifest: PluginManifest, errors: CompileError[], 
     }
   }
   return {
+    keySchemes: freezeArray(keySchemes),
     keymapKeys: freezeArray(keymapKeys) as CompiledKeyEntry[],
     commands: freezeArray(compiledCommands) as CompiledCommand[],
     contributionCommands: freezeArray(contributionCommands) as ContributionCommand[],
@@ -472,24 +481,17 @@ export function declaredTokensFromCss(css: string): ReadonlySet<string> {
 }
 
 /** A theme's tokens become CSS variables inside a `[data-theme-plugin="<id>"]` rule. */
-export function themeToCss(theme: CompiledTheme): string {
-  const id = escapeAttr(theme.id)
-  const properties = Object.entries(theme.tokens).map(([token, colour]) => `  --${token}: ${colour};`).join('\n')
-  return `html[data-theme-plugin="${id}"][data-theme-base="${theme.base}"] {\n${properties}\n}`
-}
-
-/** A preview marks the rule with `data-theme-plugin-preview` so the UI can remove it without losing the user's choice. */
-export function themePreview(theme: CompiledTheme): string {
-  const id = escapeAttr(theme.id)
-  const properties = Object.entries(theme.tokens).map(([token, colour]) => `  --${token}: ${colour};`).join('\n')
-  return `html[data-theme-plugin-preview="${id}"][data-theme-base="${theme.base}"] {\n${properties}\n}`
-}
+// `themeToCss` is re-exported above from `../themeCss.ts`; the implementation
+// lives there so the renderer's registry can reuse it without the compiler.
 
 /** Run the compile on a single plugin's manifest and its files. Returns either a ready payload or an error list. */
 export async function compilePlugin(manifest: PluginManifest, io: CompileIO): Promise<CompileResult> {
   const errors: CompileError[] = []
   const warnings: CompileError[] = []
   try {
+    for (const key of Object.keys(manifest.texts ?? {})) {
+      if (io.knownLocaleKeys.has(key)) fail(errors, `$.texts.${key}`, 'texts.builtin-conflict', `the text key "${key}" belongs to the core interface; use an owner key`)
+    }
     const configuration = compileConfiguration(manifest)
     // A setting may be declared as `enabled` or `<plugin id>:enabled`; references are compared by the short form.
     const prefix = `${manifest.id}:`
@@ -513,8 +515,10 @@ export async function compilePlugin(manifest: PluginManifest, io: CompileIO): Pr
     }
     const compiled: CompiledPlugin = deepFreeze({
       pluginId: manifest.id,
+      ...(manifest.texts === undefined ? {} : { texts: Object.fromEntries(Object.entries(manifest.texts).map(([key, entry]) => [key, { ...entry }])) }),
       themes,
       keymaps: keymaps.keymapKeys,
+      keySchemes: keymaps.keySchemes,
       languages,
       locales,
       openWith,

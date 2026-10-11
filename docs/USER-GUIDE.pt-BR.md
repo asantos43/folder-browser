@@ -234,9 +234,17 @@ Cada comando tem uma tecla própria (a tabela acima). Você também pode editar 
 
 A primeira entrada dá a **Ocultar / mostrar a barra lateral** a tecla `Ctrl+Alt+J` (`Ctrl` é `⌘` no macOS); a segunda, com um `-` antes do comando, **tira** dele o `Ctrl+B` embutido. A tecla nova aparece nos menus e na paleta de comandos, e funciona também enquanto a página de um snapshot está com o foco. Um `"when"` opcional (por exemplo `"hasEditor"`) limita a tecla a quando aquilo é verdadeiro; essa tecla não funciona enquanto a página de um snapshot está com o foco. O arquivo é lido quando o aplicativo abre e de novo um instante depois de você salvá-lo. Uma entrada errada (uma tecla que não dá para ler, um comando que não existe, ou uma tecla de que o editor ou o sistema precisam, como `Ctrl+V`) é pulada com uma mensagem, e as outras valem; um arquivo que não pode ser lido de jeito nenhum fica como está, e só valem as teclas embutidas.
 
-## Configurações, Ajuda e Sobre
+## Plugins e suas configurações
 
-**Configurações ▸ Plugins** ou **Arquivo ▸ Instalar Plugin de um Arquivo…** instala um arquivo `.fbplugin` local ou uma pasta descompactada de plugin após confirmação; você também pode soltar um deles na página Plugins, habilitar/desabilitar, abrir sua pasta ou remover mantendo/apagando suas opções, mas as contribuições ainda não são aplicadas.
+Abra **Configurações ▸ Plugins** para instalar um arquivo `.fbplugin` local ou uma pasta descompactada de plugin após confirmação, habilitá-lo ou desabilitá-lo, abrir sua pasta ou removê-lo mantendo ou apagando suas opções. **Arquivo ▸ Instalar Plugin de um Arquivo…** e soltar um deles na página Plugins usam o mesmo fluxo de instalação. O botão **Configurações** do plugin abre suas próprias opções; os rótulos e termos de busca podem ser traduzidos pelo plugin.
+
+- **Tema:** em **Configurações ▸ Aparência**, escolha um tema de plugin, veja a prévia e Confirme ou Cancele; Restaurar remove a sobreposição do plugin.
+- **Idioma:** escolha o idioma de interface de um plugin instalado em **Idioma de Exibição**. Associações de linguagem de arquivo também permitem que plugins identifiquem outros arquivos de texto usando as linguagens existentes do editor.
+- **Esquema de teclas:** em **Configurações ▸ Teclado**, selecione um esquema de plugin ou os padrões. As teclas padrão dos comandos de plugin continuam ativas independentemente do esquema; suas próprias teclas vencem, e o gravador mostra conflitos com comandos ativos.
+
+Desabilitar um plugin remove seus temas, idiomas, esquemas, entradas de Abrir Com, comandos e itens de menu. Suas preferências salvas de tema, idioma e esquema permanecem, com aviso de indisponibilidade e uma alternativa; habilitar o plugin devolve sua disponibilidade. Os valores de suas opções continuam visíveis em linhas esmaecidas, com edição desabilitada, e ainda podem ser restaurados. Ferramentas aparece somente quando plugins acrescentam itens de menu. Comandos sem executável aparecem desabilitados até que seja adicionado suporte a código de plugin. Instalar uma pasta cria uma cópia; recarga de desenvolvimento ainda não está disponível.
+
+## Configurações, Ajuda e Sobre
 
 ![A aba de Configurações](images/settings.png)
 

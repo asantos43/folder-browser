@@ -30,7 +30,7 @@ import { serveDoc } from './doc-protocol.ts'
 import { DOC_SCHEME, MEDIA_SCHEME, SCHEME, SnapshotView } from './snapshot-view.ts'
 import { registerPlacesIpc } from './places-ipc.ts'
 import { UI_ORIGIN } from './ui-protocol.ts'
-import { RunHost } from './run-host.ts'
+import { commandHash, RunHost, type RunCatalog } from './run-host.ts'
 
 const WEB_LINK = /^(https?|mailto):/i
 /** The most text the interface may put on the clipboard at once. */
@@ -64,10 +64,10 @@ export class SnapshotHost {
   /** The folders of the copies handed to other applications, removed at quit. */
   private readonly staged = new Set<string>()
   /** The choices the interface is showing (Linux): the copy made for each, its type, and the desktop file of every application listed. */
-  private readonly choosing = new Map<string, { dir: string; file: string; mime: string; apps: Map<string, string>; custom?: { root: string; path: string; ids: Set<string> } }>()
+  private readonly choosing = new Map<string, { dir: string; file: string; mime: string; apps: Map<string, string>; custom?: { root: string; path: string; ids: Map<string, string> } }>()
   private runHost?: RunHost
-  configureRunner(userData: string, configuration: () => unknown): void {
-    this.runHost = new RunHost(userData, this.roots, configuration, dir => this.staged.add(dir))
+  configureRunner(userData: string, configuration: () => unknown, executables?: RunCatalog): void {
+    this.runHost = new RunHost(userData, this.roots, configuration, dir => this.staged.add(dir), undefined, executables)
   }
   private pending: OpenResult[] = []
   private listening = false
@@ -439,7 +439,9 @@ export class SnapshotHost {
    * the choice itself (`linuxChoices`: the desktop's chooser would open behind the window on Wayland) and waits for `openWithApp` or `openWithCancel`.
    */
   private async openWith(id: string, name: string): Promise<OpenWithResult> {
-    const commands = this.runHost?.commands() ?? []
+    let commands
+    try { commands = this.runHost?.commands(name) ?? [] }
+    catch (error) { return { opened: false, reason: 'error', message: error instanceof Error ? error.message : 'Invalid executable catalog' } }
     if (commands.length && this.roots.has(id)) {
       // Every file, on the disk or in a ZIP, goes to other applications as a read-only copy and never as one that could run as a program.
       const staged = await stageFile(this.sources, id, name, os.tmpdir(), { maxBytes: 256 * 2 ** 20 }).catch(() => ({ error: 'no-file' as const }))
@@ -448,8 +450,8 @@ export class SnapshotHost {
       this.staged.add(dir)
       const choices = process.platform === 'linux' ? await linuxChoices(file) : null
       const token = crypto.randomBytes(12).toString('hex')
-      this.choosing.set(token, { dir, file, mime: choices?.mime ?? '', apps: new Map(choices?.apps.map(a => [a.id, a.file]) ?? []), custom: { root: id, path: name, ids: new Set(commands.map(c => c.id)) } })
-      return { choose: { token, name: path.basename(file), mime: choices?.mime ?? '', mimeLabel: choices?.mimeLabel ?? '', apps: [...(choices?.apps.map(a => ({ id: a.id, name: a.name, recommended: a.recommended, iconUrl: a.iconUrl })) ?? []), { id: 'fb:system', name: app.getLocale().startsWith('pt') ? 'Aplicativos do sistema…' : 'System applications…', recommended: false }, ...commands.map(command => ({ id: `fb:command:${command.id}`, name: command.name, recommended: false, command: true }))] } }
+      this.choosing.set(token, { dir, file, mime: choices?.mime ?? '', apps: new Map(choices?.apps.map(a => [a.id, a.file]) ?? []), custom: { root: id, path: name, ids: new Map(commands.map(c => [c.id, commandHash(c)])) } })
+      return { choose: { token, name: path.basename(file), mime: choices?.mime ?? '', mimeLabel: choices?.mimeLabel ?? '', apps: [...(choices?.apps.map(a => ({ id: a.id, name: a.name, recommended: a.recommended, iconUrl: a.iconUrl })) ?? []), { id: 'fb:system', name: app.getLocale().startsWith('pt') ? 'Aplicativos do sistema…' : 'System applications…', recommended: false }, ...commands.map(command => ({ id: `fb:command:${command.id}`, name: command.disabledReason ? `${command.name} (${command.disabledReason})` : command.name, recommended: false, command: true, disabled: !!command.disabledReason, disabledReason: command.disabledReason }))] } }
     }
     const staged = await stageFile(this.sources, id, name, os.tmpdir()).catch((err: Error) => ({ error: 'error' as const, message: err.message }))
     if ('error' in staged) return { opened: false, reason: staged.error === 'risky' ? 'unsafe' : staged.error === 'no-file' ? 'no-file' : 'error', ...('message' in staged ? { message: staged.message } : {}) }
@@ -550,8 +552,15 @@ export class SnapshotHost {
     if (choice?.custom && appId.startsWith('fb:command:') && this.runHost) {
       const commandId = appId.slice('fb:command:'.length)
       if (!choice.custom.ids.has(commandId)) return { opened: false, reason: 'no-file' }
+      let current
+      try { current = this.runHost.commands(choice.custom.path).find(command => command.id === commandId) }
+      catch (error) { await this.openWithCancel(token); return { opened: false, reason: 'error', message: error instanceof Error ? error.message : 'Invalid executable catalog' } }
+      if (!current || current.disabledReason || commandHash(current) !== choice.custom.ids.get(commandId)) {
+        await this.openWithCancel(token)
+        return { opened: false, reason: 'error', message: 'Command changed; try again' }
+      }
       await this.openWithCancel(token)
-      return this.runHost.run(win, { commandId, root: choice.custom.root, path: choice.custom.path })
+      return this.runHost.run(win, { commandId, root: choice.custom.root, path: choice.custom.path }, choice.custom.ids.get(commandId))
     }
     const desktopFile = choice?.apps.get(appId)
     if (!choice || !desktopFile) return { opened: false, reason: 'no-file' }

@@ -2,6 +2,64 @@ import { readFileSync } from 'node:fs'
 import { expect, it, vi } from 'vitest'
 import { completeManifest, hostileManifests, minimalManifest } from '../../fixtures/plugins.ts'
 import { parseManifest, type PluginManifest } from './manifest.ts'
+import { resolvePluginText } from './runtime-types.ts'
+
+it('validates 100 complete manifests with owner texts in under 50 ms', () => {
+  const raw = { ...completeManifest(), texts: Object.fromEntries(Array.from({ length: 20 }, (_, n) => [`owner.label${n}`, { en: `Label ${n}`, 'pt-BR': `Rótulo ${n}` }])) }
+  const samples: number[] = []
+  for (let round = 0; round < 20; round++) {
+    const start = performance.now()
+    for (let n = 0; n < 100; n++) {
+      const result = parseManifest(raw)
+      if (!result.ok) throw new Error(JSON.stringify(result.errors))
+    }
+    samples.push(performance.now() - start)
+  }
+  samples.sort((a, b) => a - b)
+  const median = (samples[9] + samples[10]) / 2
+  console.log(`Owner texts manifest budget: 100 packages median=${median.toFixed(3)} ms`)
+  expect(median).toBeLessThan(50)
+})
+
+it('accepts detached owner texts without changing old packages or contributing locales', () => {
+  const old = accepted(minimalManifest())
+  expect(old).not.toHaveProperty('texts')
+  const texts = { greeting: { en: 'Hello', 'pt-BR': 'Olá' } }
+  const parsed = accepted({ ...minimalManifest(), texts })
+  expect(parsed.texts).toEqual(texts)
+  expect(parsed.contributes).toEqual(old.contributes)
+  texts.greeting.en = 'Changed'
+  expect(parsed.texts?.greeting.en).toBe('Hello')
+  expect(Object.isFrozen(parsed.texts?.greeting)).toBe(true)
+})
+it('resolves selected owner language, then en, pt-BR, label and key', () => {
+  const texts = { both: { en: 'English', 'pt-BR': 'Português' }, portuguese: { 'pt-BR': 'Só português' }, empty: { en: '' } }
+  expect(resolvePluginText(texts, 'both', 'pt-BR', 'Label')).toBe('Português')
+  expect(resolvePluginText(texts, 'both', 'fr', 'Label')).toBe('English')
+  expect(resolvePluginText(texts, 'portuguese', 'en', 'Label')).toBe('Só português')
+  expect(resolvePluginText(texts, 'empty', 'en', 'Label')).toBe('Label')
+  expect(resolvePluginText(texts, 'missing', 'en', 'Label')).toBe('Label')
+  expect(resolvePluginText(undefined, 'missing', 'en')).toBe('missing')
+  expect(resolvePluginText({}, 'constructor', 'en')).toBe('constructor')
+})
+it('bounds owner keys and UTF-8 text without relaxing the manifest byte ceiling', () => {
+  accepted({ ...minimalManifest(), texts: { edge: { en: 'é'.repeat(1024) } } })
+  rejected({ ...minimalManifest(), texts: { edge: { en: 'é'.repeat(1025) } } }, 'manifest.texts.text.limit')
+  const entries = Object.fromEntries(Array.from({ length: 3000 }, (_, i) => [`key${i}`, {}]))
+  accepted({ ...minimalManifest(), texts: entries })
+  rejected({ ...minimalManifest(), texts: { ...entries, extra: {} } }, 'manifest.texts.keys.limit')
+  const oversized = Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`key${i}`, { en: 'x'.repeat(2048) }]))
+  rejected({ ...minimalManifest(), texts: oversized }, 'manifest.size.limit')
+})
+it.each(['\0', '\n', '\r', '\u0001', '\u007f', '\u0085', '\u2028', '\u2029'])('refuses owner text control %j', control => {
+  rejected({ ...minimalManifest(), texts: { greeting: { en: `Hello${control}` } } })
+})
+it('accepts owner TAB and refuses unsupported languages, key syntax and nontext values', () => {
+  accepted({ ...minimalManifest(), texts: { greeting: { en: 'Hello\tworld' } } })
+  rejected({ ...minimalManifest(), texts: { greeting: { fr: 'Bonjour' } } }, 'manifest.field.unknown')
+  rejected({ ...minimalManifest(), texts: { 'bad\nkey': { en: 'Hello' } } }, 'manifest.texts.key.invalid')
+  rejected({ ...minimalManifest(), texts: { greeting: { en: 42 } } }, 'manifest.texts.text.invalid')
+})
 
 function accepted(raw: unknown): PluginManifest {
   const result = parseManifest(raw)
@@ -202,7 +260,7 @@ it('keeps schema required/allowed keys aligned with every valid fixture (structu
   expect(schema.$schema).toBe('https://json-schema.org/draft/2020-12/schema')
   expect(schema.additionalProperties).toBe(false)
   expect(schema.required).toEqual(['schema', 'id', 'name', 'version', 'publisher', 'engines', 'uses', 'contributes', 'activation', 'files'])
-  expect(Object.keys(schema.properties!)).toEqual(['schema', 'id', 'name', 'version', 'publisher', 'description', 'license', 'homepage', 'engines', 'uses', 'contributes', 'activation', 'files', 'main'])
+  expect(Object.keys(schema.properties!)).toEqual(['schema', 'id', 'name', 'version', 'publisher', 'description', 'license', 'homepage', 'engines', 'uses', 'texts', 'contributes', 'activation', 'files', 'main'])
   expect(Object.keys(schema.properties!.contributes.properties!)).toEqual(['themes', 'keymaps', 'languages', 'openWith', 'commands', 'locales', 'configuration'])
   for (const raw of [minimalManifest(), completeManifest(), { ...completeManifest(), main: 'main.js' }]) expect(structure(raw, schema)).toBe(true)
   for (const key of schema.required!) { const raw: Record<string, unknown> = minimalManifest(); delete raw[key]; expect(structure(raw, schema)).toBe(false) }

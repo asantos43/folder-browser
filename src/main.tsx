@@ -25,3 +25,18 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+// The plugin runtime is loaded dynamically after the first render: it pulls
+// the plugin generation from the main process and applies it to the renderer
+// registries (themes, locales, languages, settings definitions). The first
+// paint must not wait on it; a failure is logged without disturbing the app.
+// The runtime itself coalesces commits per animation frame, so a single
+// `requestIdleCallback` (with a setTimeout fallback) is enough.
+if (typeof window !== 'undefined' && window.fb?.plugins) {
+  const idle = (typeof requestIdleCallback === 'function' ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 0))
+  idle(() => {
+    import('./plugins/runtime.ts')
+      .then(module => { module.startPluginRuntime() })
+      .catch(() => { console.error('plugin runtime failed to load') })
+  })
+}

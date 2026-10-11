@@ -6,7 +6,14 @@ import type { KeyConflict } from '../keys/user.ts'
 import type { SettingsRegistry } from '../settings/registry.ts'
 import type { Contribution } from './contract.ts'
 import type { createMenuRegistry } from './menus.ts'
-import { validateContribution } from './types.ts'
+import { validateContribution, type ContributionLimits } from './types.ts'
+
+/** Host-only validators are separate from serializable declaration data. */
+export interface ContributionSettingsOptions {
+  validators?: ReadonlyMap<string, (value: unknown) => boolean>
+  enabled?: boolean
+  limits?: ContributionLimits
+}
 
 export interface ContributionRegistries {
   commands: ReturnType<typeof createRegistry>
@@ -31,8 +38,8 @@ export interface Handle {
 const installed = new WeakMap<ContributionRegistries['commands'], Map<string, Handle>>()
 
 /** Validate all data, references and collisions before touching any live registry. */
-export function applyContribution(registries: ContributionRegistries, input: Contribution | unknown): Handle {
-  const contribution = validateContribution(input)
+export function applyContribution(registries: ContributionRegistries, input: Contribution | unknown, options: ContributionSettingsOptions = {}): Handle {
+  const contribution = validateContribution(input, options.limits)
   const { pluginId } = contribution
   const state = installed.get(registries.commands) ?? new Map<string, Handle>()
   if (state.has(pluginId)) throw new Error(`Plugin already applied: ${pluginId}`)
@@ -43,6 +50,10 @@ export function applyContribution(registries: ContributionRegistries, input: Con
     if (typeof registries.handlers.get(command.id) !== 'function') throw new Error(`Missing command handler: ${command.id}`)
   }
   for (const setting of contribution.settings ?? []) if (registries.settings.get(setting.id)) throw new Error(`Setting already registered: ${setting.id}`)
+  for (const [id, validator] of options.validators ?? []) {
+    const setting = contribution.settings?.find(setting => setting.id === id)
+    if (!setting || typeof validator !== 'function' || !validator(setting.default)) throw new Error(`Invalid setting validator: ${id}`)
+  }
   for (const item of contribution.menuItems ?? []) {
     if (registries.menus.get(item.id)) throw new Error(`Menu item already registered: ${item.id}`)
     if (!commandIds.includes(item.command)) throw new Error(`Unknown menu command: ${item.command}`)
@@ -75,7 +86,10 @@ export function applyContribution(registries: ContributionRegistries, input: Con
         undo.push(() => { registries.keys.remove(key.command) })
         registries.keys.add(key.command, key.key)
       }
-      for (const setting of contribution.settings ?? []) registries.settings.defineSetting(setting)
+      for (const setting of contribution.settings ?? []) registries.settings.defineSetting({ ...setting,
+        ...(options.validators?.has(setting.id) ? { validator: options.validators.get(setting.id) } : {}),
+        ...(options.enabled !== undefined ? { owner: Object.freeze({ id: pluginId, enabled: options.enabled }) } : {}),
+      })
       for (const item of contribution.menuItems ?? []) {
         undo.push(() => { registries.menus.remove(item.id) })
         registries.menus.add(item)

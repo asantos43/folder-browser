@@ -77,6 +77,47 @@ it('extracts the guard into a pure `violations(files)` function', () => {
   expect(report).not.toContain('src/views/SettingsView.tsx')
 })
 
+it('permits only the exact contribution store in the workbench and exact KeyboardPanel, with bounded runtime dependencies', () => {
+  for (const specifier of ['@/plugins/contributions.ts', '../plugins/contributions.ts']) {
+    expect(violations([{ path: 'src/workbench/commands.ts', source: `import { getSnapshot } from '${specifier}'` }])).toEqual([])
+    expect(violations([{ path: 'src/views/KeyboardPanel.tsx', source: `import { getSnapshot } from '${specifier}'` }])).toEqual([])
+  }
+  expect(violations([{ path: 'src/workbench/nested/commands.ts', source: "import { getSnapshot } from '../../plugins/contributions.ts'" }])).toEqual([])
+  expect(violations([{ path: 'src/plugins/contributions.ts', source: `
+    import type { PluginGeneration } from '@core/plugins/summary.ts'
+    import type { Contribution } from '@core/contributions/contract.ts'
+    import type { Runtime } from '@/plugins/runtime.ts'
+    import { normalizeChord } from '@core/keys/chord.ts'
+    import { compileWhen, type WhenContext } from '@core/commands/when.ts'
+  ` }])).toEqual([])
+  for (const [path, specifier] of [
+    ['src/main.tsx', '@/plugins/contributions.ts'],
+    ['src/main.tsx', './plugins/contributions.ts'],
+    ['src/views/Foo.tsx', '../plugins/contributions.ts'],
+    ['src/views/SettingsView.tsx', '@/plugins/contributions.ts'],
+    ['src/views/PluginsPanel.tsx', '@/plugins/contributions.ts'],
+    ['src/views/KeyboardPanelOther.tsx', '@/plugins/contributions.ts'],
+    ['src/views/KeyboardPanel.tsx', '@/plugins/runtime.ts'],
+    ['electron/main.ts', '../src/plugins/contributions.ts'],
+    ['src/workbench/commands.ts', '@/plugins/runtime.ts'],
+    ['src/workbench/commands.ts', '@/plugins/contributions.ts/extra'],
+    ['src/workbench-other/commands.ts', '@/plugins/contributions.ts'],
+    ['src/plugins/other.ts', './contributions.ts'],
+    ['src/plugins/contributions.ts', './runtime.ts'],
+    ['src/plugins/contributions.ts', '@core/plugins/compile.ts'],
+    ['src/plugins/contributions.ts', '@core/contributions/apply.ts'],
+    ['src/plugins/contributions.ts', 'react'],
+  ]) expect(violations([{ path, source: `import { value } from '${specifier}'` }]), `${path}: ${specifier}`).not.toEqual([])
+  for (const specifier of ['@/plugins/contributions.ts', '../plugins/contributions.ts']) {
+    for (const source of [`import('${specifier}')`, `require('${specifier}')`]) {
+      expect(violations([{ path: 'src/views/KeyboardPanel.tsx', source }]), source).not.toEqual([])
+    }
+  }
+  for (const source of ["import('./runtime.ts')", "require('./runtime.ts')", "export { startPluginRuntime } from './runtime.ts'"]) {
+    expect(violations([{ path: 'src/plugins/contributions.ts', source }])).not.toEqual([])
+  }
+})
+
 it('permits the lazy IPC shell but rejects eager shell imports and direct parser/compiler dependencies', () => {
   expect(violations([
     { path: 'electron/main.ts', source: "ipcMain.handle('fb:plugins-list', () => import('./plugins-host.ts'))" },
@@ -89,9 +130,27 @@ it('permits the lazy IPC shell but rejects eager shell imports and direct parser
     ['electron/plugins-host.ts', "import { compilePlugin } from '../core/plugins/compile.ts'"],
   ]) expect(violations([{ path, source }])).not.toEqual([])
   const main = readFileSync('electron/main.ts', 'utf8')
-  expect(main.indexOf("import('./plugins-host.ts')")).toBeGreaterThan(main.indexOf('ipcMain.handle(`fb:plugins-'))
+  expect(main.indexOf("import('./plugins-host.ts')")).toBeGreaterThan(main.indexOf('app.whenReady()'))
+  const ready = main.indexOf("once('did-finish-load'")
+  expect(ready).toBeGreaterThan(main.indexOf('win = createMainWindow(host)'))
+  expect(main.indexOf('setImmediate(', ready)).toBeGreaterThan(ready)
+  expect(main.indexOf('loadPlugins()).start()', ready)).toBeGreaterThan(main.indexOf('setImmediate(', ready))
   expect(main).not.toMatch(/(?:readIndex|cleanStaging|readPackage)\(/)
   expect(readFileSync('electron/preload.ts', 'utf8')).not.toMatch(/sendSync\(['"]fb:plugins-/)
+})
+
+it('keeps the plugin renderer runtime out of main.tsx except through a dynamic import()', () => {
+  const main = readFileSync('src/main.tsx', 'utf8')
+  // The runtime module must not be reached by a static import; the renderer
+  // loads it through `import('./plugins/runtime.ts')` after the first render.
+  const staticImport = /import\s+[^;]*from\s+['"][^'"]*plugins\/runtime/.exec(main)
+  expect(staticImport, 'static import of plugin runtime in src/main.tsx').toBeNull()
+  // The dynamic import is present, and it is positioned after the first render.
+  const dynamicImport = main.indexOf("import('./plugins/runtime.ts')")
+  expect(dynamicImport).toBeGreaterThan(-1)
+  const createRoot = main.indexOf('createRoot(')
+  expect(createRoot).toBeGreaterThan(-1)
+  expect(dynamicImport).toBeGreaterThan(createRoot)
 })
 
 it('classifies `import type` and dynamic `import()` separately from static imports', () => {

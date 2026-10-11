@@ -1,5 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
+import { posix } from 'node:path'
+import { classifyImports } from '../plugins/startupGuard.ts'
 import { applyContribution, removeContribution } from './apply.ts'
 import type { Contribution } from './contract.ts'
 import { realRegistries } from './fixtures.ts'
@@ -27,17 +29,46 @@ it('applies and removes 500 items under 100 ms (median of 20)', () => {
   expect(applied).toBeLessThan(100); expect(removed).toBeLessThan(100)
 })
 
+// These exact files belong to the host shell loaded after the window is ready.
+// No other Electron/startup consumer gains access to the contribution package.
+const contributionImports = (path: string, source: string): string[] => classifyImports(source).filter(({ specifier, kind }) => {
+  const target = specifier.startsWith('@core/') ? `core/${specifier.slice(6)}`
+    : specifier.startsWith('.') ? posix.normalize(posix.join(posix.dirname(path), specifier)) : specifier
+  if (!/(?:^|\/)contributions(?:\/|$)/.test(target)) return false
+  if (target.startsWith('core/contributions/')) {
+    if (path === 'electron/plugins-host.ts' || path === 'electron/plugins-adapters.ts') return false
+    if (path === 'src/plugins/contributions.ts' && kind === 'type') return false
+  }
+  return true
+}).map(({ specifier }) => specifier)
+
 it('keeps contributions out of every production startup import (including transitives)', () => {
   const walk = (directory: string): string[] => readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const path = `${directory}/${entry.name}`
     if (entry.isDirectory()) return walk(path)
     return /\.(?:ts|tsx)$/.test(path) && !/\.(?:test|spec)\./.test(path) ? [path] : []
   })
-  // Stronger than checking just main.ts/main.tsx: only the gate and the new
-  // install-time manifest parser may consume it. Plugins have their own startup scan.
+  // Scan transitives too; only the exact lazy host files may consume the package.
+  // Plugins have their own startup scan, including the renderer store's imports.
   for (const path of ['src', 'electron', 'core'].flatMap(walk).filter(path => !path.startsWith('core/contributions/') && !path.startsWith('core/plugins/'))) {
     const source = readFileSync(path, 'utf8')
-    const imports = [...source.matchAll(/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?|\brequire\s*\(\s*)['"]([^'"]+)['"]/g)].map(match => match[1])
-    expect(imports.filter(specifier => /(?:^|\/)contributions(?:\/|$)/.test(specifier)), path).toEqual([])
+    expect(contributionImports(path, source), path).toEqual([])
+  }
+})
+
+it('allows only the exact lazy host files to import the core contribution package', () => {
+  for (const path of ['electron/plugins-host.ts', 'electron/plugins-adapters.ts']) {
+    for (const specifier of ['../core/contributions/menus.ts', '@core/contributions/apply.ts']) {
+      expect(contributionImports(path, `import { value } from '${specifier}'`)).toEqual([])
+    }
+  }
+  expect(contributionImports('src/plugins/contributions.ts', "import type { Contribution } from '@core/contributions/contract.ts'")).toEqual([])
+  for (const path of ['electron/main.ts', 'electron/plugins-host-other.ts', 'src/main.tsx', 'src/views/Foo.tsx', 'src/plugins/contributions.ts']) {
+    for (const source of [
+      "import { value } from '@core/contributions/menus.ts'",
+      "import('../core/contributions/menus.ts')",
+      "require('@core/contributions/menus.ts')",
+      "export { value } from '@core/contributions/menus.ts'",
+    ]) expect(contributionImports(path, source), `${path}: ${source}`).not.toEqual([])
   }
 })

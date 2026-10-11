@@ -1,5 +1,6 @@
 import type { OpError, OpResult } from './fs/ops.ts'
 import type { PluginsApi } from './plugins/summary.ts'
+export type { PluginGeneration } from './plugins/summary.ts'
 import type { ImportPreview } from './settings/portable.ts'
 import type { Draft } from './drafts.ts'
 import type { EditBytesOpen, EditError, EditOpen, EditSave, FileVersion, LineEnding } from './fs/edit.ts'

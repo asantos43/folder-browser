@@ -23,7 +23,7 @@ async function mutant(file: string, before: string, after: string, check: (path:
 }
 
 it('kills skipping prevalidation before the first live write', async () => {
-  await mutant('./apply.ts', 'const contribution = validateContribution(input)', 'const contribution = input as Contribution', async path => {
+  await mutant('./apply.ts', 'const contribution = validateContribution(input, options.limits)', 'const contribution = input as Contribution', async path => {
     const module = await import(/* @vite-ignore */ path) as typeof Apply
     const plugin = fakePlugin(), r = realRegistries(plugin), write = vi.spyOn(r.commands, 'register')
     const invalid = { ...plugin, settings: [...plugin.settings!, { ...plugin.settings![1], id: 'invented:bad', default: 99 }] }

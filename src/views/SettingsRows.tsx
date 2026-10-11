@@ -26,7 +26,7 @@ export function SettingsRows({ definitions, children }: { definitions: SettingDe
     root.current?.querySelectorAll('[data-setting]').forEach(element => observer.observe(element))
     return () => observer.disconnect()
   }, [definitions])
-  return <div ref={root}>{definitions.map(definition => <div key={definition.id} data-setting={definition.id} style={definitions.length <= 40 || mounted.has(definition.id) ? undefined : { height: heights.current.get(definition.id) ?? 112 }}>
+  return <div ref={root}>{definitions.map(definition => <div key={definition.id} data-setting={definition.id} aria-disabled={definition.owner?.enabled === false || undefined} className={definition.owner?.enabled === false ? 'opacity-50' : undefined} style={definitions.length <= 40 || mounted.has(definition.id) ? undefined : { height: heights.current.get(definition.id) ?? 112 }}>
     {definitions.length <= 40 || mounted.has(definition.id) ? children(definition) : null}
   </div>)}</div>
 }

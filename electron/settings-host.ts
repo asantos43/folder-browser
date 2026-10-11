@@ -2,7 +2,8 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import type { BrowserWindow, IpcMain, IpcMainEvent } from 'electron'
-import { builtinSettings } from '../core/settings/builtin.ts'
+import { builtinSettings, isKeySchemeSetting } from '../core/settings/builtin.ts'
+import type { KeysHost } from './keys-host.ts'
 import { SettingsRegistry } from '../core/settings/registry.ts'
 import { SettingsStore, SETTINGS_FILE_LIMIT, type SettingNotice } from '../core/settings/store.ts'
 import { exportSettings, previewImport, applyImport, type ImportPreview } from '../core/settings/portable.ts'
@@ -69,6 +70,7 @@ export class SettingsHost {
   private sequence = 0
   private channels: string[] = []
   private dialogs: SettingsDialogs
+  private unsubscribeKeys?: () => void
 
   constructor(userData: string, ipc: IpcLike, windows: () => readonly BrowserWindow[], writer?: (contents: string) => Promise<void>, dialogs: SettingsDialogs = systemDialogs) {
     this.ipc = ipc
@@ -86,6 +88,18 @@ export class SettingsHost {
       this.notices = [{ id: 'settings.json', message: error instanceof Error ? error.message : 'Invalid settings file' }]
     }
     this.store.subscribe(ids => this.broadcast([...ids]))
+  }
+
+  /** Main-only binding; the existing settings pipeline persists the preference. */
+  bindKeyScheme(keys: KeysHost): void {
+    this.unsubscribeKeys?.()
+    const apply = () => {
+      const value = this.store.get('keys.scheme')
+      const [owner, id] = isKeySchemeSetting(value) && value ? value.split('/') : []
+      keys.selectScheme(owner && id ? { owner, id } : undefined)
+    }
+    apply()
+    this.unsubscribeKeys = this.store.subscribe(ids => { if (ids.includes('keys.scheme')) apply() })
   }
 
   register(): void {
@@ -180,7 +194,7 @@ export class SettingsHost {
     this.activeFlush = pending
     return pending
   }
-  dispose(): void { for (const [channel, listener] of this.listeners) this.ipc.removeListener(channel, listener); this.listeners = []; for (const channel of this.channels) this.ipc.removeHandler(channel); this.channels = []; this.previews.clear() }
+  dispose(): void { this.unsubscribeKeys?.(); for (const [channel, listener] of this.listeners) this.ipc.removeListener(channel, listener); this.listeners = []; for (const channel of this.channels) this.ipc.removeHandler(channel); this.channels = []; this.previews.clear() }
 
   private listen(channel: string, listener: (...args: any[]) => void): void { this.listeners.push([channel, listener]); this.ipc.on(channel, listener) }
   private broadcast(ids: string[]): void {

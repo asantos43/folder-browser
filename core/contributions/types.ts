@@ -65,7 +65,7 @@ export function validateContribution(input: unknown, limits: ContributionLimits 
     const ids = new Set<string>()
     const settings = new SettingsRegistry()
     for (const raw of entries) {
-      const fields = name === 'commands' ? ['id', 'title', 'category', 'when', 'palette'] : name === 'keys' ? ['command', 'key'] : name === 'menuItems' ? ['id', 'command', 'point', 'group', 'order', 'when'] : ['id', 'type', 'default', 'category', 'label', 'choices', 'min', 'max', 'safety', 'description', 'keywords', 'choiceLabels', 'categoryLabel', 'restart']
+      const fields = name === 'commands' ? ['id', 'title', 'category', 'when', 'palette'] : name === 'keys' ? ['command', 'key'] : name === 'menuItems' ? ['id', 'command', 'point', 'group', 'order', 'when'] : ['id', 'type', 'default', 'category', 'label', 'choices', 'min', 'max', 'safety', 'description', 'keywords', 'choiceLabels', 'categoryLabel', 'restart', 'step', 'maxLength', 'maxItems', 'group', 'order', 'enabledWhen', 'renamedFrom']
       const item = object(raw, fields)
       if (name !== 'keys') { const id = owned(item.id); if (ids.has(id)) fail(`duplicate id: ${id}`); ids.add(id) }
       if (name === 'commands') { text(item.title); text(item.category); optional(item, 'palette', 'boolean'); condition(item) }
@@ -86,6 +86,15 @@ export function validateContribution(input: unknown, limits: ContributionLimits 
         for (const field of ['keywords', 'choiceLabels']) if (Object.hasOwn(item, field) && (!Array.isArray(item[field]) || !(item[field] as unknown[]).every(value => typeof value === 'string'))) fail(`invalid ${field}`)
         if (Object.hasOwn(item, 'choices') && (!Array.isArray(item.choices) || !item.choices.every(value => ['boolean', 'number', 'string'].includes(typeof value)))) fail('invalid choices')
         if (item.min !== undefined && item.max !== undefined && (item.min as number) > (item.max as number)) fail('min exceeds max')
+        optional(item, 'step', 'number'); optional(item, 'order', 'number')
+        for (const field of ['group', 'enabledWhen', 'renamedFrom']) optional(item, field, 'string')
+        if (item.enabledWhen !== undefined) {
+          const match = /^([a-z][a-z0-9-]*)\s*(?:==|!=)\s*(?:'[^'\r\n]*'|true|false|-?\d+(?:\.\d+)?)$/.exec(text(item.enabledWhen))
+          if (!match || !entries.some(entry => (entry as Record<string, unknown>).id === `${pluginId}:${match[1]}`)) fail('enabledWhen must compare a setting declared by this plugin')
+        }
+        if (item.renamedFrom !== undefined) owned((item.renamedFrom as string).includes(':') ? item.renamedFrom : `${pluginId}:${item.renamedFrom}`)
+        if (item.step !== undefined && (item.step as number) <= 0) fail('invalid step')
+        for (const [field, limit] of [['maxLength', 4096], ['maxItems', 1000]] as const) if (item[field] !== undefined && (!Number.isInteger(item[field]) || (item[field] as number) < 0 || (item[field] as number) > limit)) fail(`invalid ${field}`)
         if (!['boolean', 'number', 'string'].includes(typeof item.default) && (!Array.isArray(item.default) || !item.default.every(value => typeof value === 'string'))) fail('invalid default data')
         settings.defineSetting(item as unknown as Parameters<SettingsRegistry['defineSetting']>[0])
       }
