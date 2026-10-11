@@ -47,7 +47,7 @@ test('installs, lists, disables and removes a synthetic plugin through the real 
   await expect(row.getByRole('switch')).toHaveAttribute('aria-checked', 'true')
   await expect.poll(async () => JSON.parse(await fs.readFile(path.join(dir, 'profile/plugins/installed.json'), 'utf8')).plugins['acme.sample'].version).toBe('1.0.0')
   const record = JSON.parse(await fs.readFile(path.join(dir, 'profile/plugins/installed.json'), 'utf8')).plugins['acme.sample']
-  await row.getByRole('switch', { name: 'Disable Sample' }).click()
+  await row.getByRole('switch', { name: /^Disable \u2068Sample\u2069$/ }).click()
   await expect(row.getByRole('switch')).toHaveAttribute('aria-checked', 'false')
   await row.getByRole('button', { name: 'Remove', exact: true }).click()
   await page.getByRole('button', { name: 'Keep my settings for this plugin' }).click()

@@ -501,6 +501,24 @@ describe('plugin runtime: pull model', () => {
     handle.dispose()
   })
 
+  it('dims and restores the control of an owner that is disabled and enabled again, keeping the definition', async () => {
+    const h = makeHarness()
+    const settings = [{ id: 'a:opt', type: 'string', default: 'x', category: 'general', label: 'A' }]
+    h.bridge.generation.mockResolvedValueOnce({ version: 1, plugins: [generation({ owner: 'a', settings })] })
+    const handle = h.start()
+    drainRaf(h)
+    await flushPulls()
+    expect(h.settings.get('a:opt')?.owner?.enabled).toBe(true)
+    for (const [version, enabled] of [[2, false], [3, true]] as const) {
+      h.bridge.generation.mockResolvedValueOnce({ version, plugins: [generation({ owner: 'a', enabled, settings })] })
+      h.bridge.fire(version)
+      drainRaf(h)
+      await flushPulls()
+      expect(h.settings.get('a:opt')?.owner?.enabled).toBe(enabled)
+    }
+    handle.dispose()
+  })
+
   it('replaces the definition when a setting type changes (replace-and-redefine)', async () => {
     const h = makeHarness()
     h.bridge.generation.mockResolvedValueOnce({

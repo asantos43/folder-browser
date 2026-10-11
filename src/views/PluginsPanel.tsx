@@ -19,6 +19,10 @@ const OVERSCAN = 5
 // keep every character.
 const ERROR_LIMIT = 300
 
+function isolate(text: string): string {
+  return `\u2068${text}\u2069`
+}
+
 /** Cut a host string at a code-point boundary so RTL / surrogate pairs stay whole. */
 function truncate(text: string, limit: number): { visible: string; truncated: boolean } {
   if (text.length <= limit) return { visible: text, truncated: false }
@@ -70,8 +74,7 @@ const PluginRow = memo(function PluginRow({ plugin, top, actionError, onToggle, 
   const trust = TRUST[plugin.trust]
   const parts = useMemo(() => contributeParts(plugin.contributes, t), [plugin.contributes, t])
   const contributesText = parts.length ? t('plugins.contributes', { summary: parts.join(', ') }) : t('plugins.contributes.none')
-  const toggleDisabled = plugin.hasCode || busy
-  const toggleLabel = plugin.enabled ? t('plugins.toggleDisable', { name }) : t('plugins.toggleEnable', { name })
+  const toggleLabel = plugin.enabled ? t('plugins.toggleDisable', { name: isolate(name) }) : t('plugins.toggleEnable', { name: isolate(name) })
   const rowStyle: CSSProperties = { position: 'absolute', top, left: 0, right: 0, height: ROW_HEIGHT }
   const showSettingsButton = plugin.contributes.settings > 0
   const error = plugin.error ? truncate(plugin.error, ERROR_LIMIT) : null
@@ -84,7 +87,7 @@ const PluginRow = memo(function PluginRow({ plugin, top, actionError, onToggle, 
       style={rowStyle}
     >
       <div className="flex items-center gap-3">
-        <strong className="min-w-0 flex-1 truncate text-[14px]" title={name}><bdi>{name}</bdi></strong>
+        <strong className="min-w-0 flex-1 truncate text-[14px]" title={isolate(name)}><bdi>{name}</bdi></strong>
         <span className="shrink-0 text-[12px] text-fg-muted"><bdi>{plugin.version}</bdi></span>
         <button
           type="button"
@@ -92,9 +95,11 @@ const PluginRow = memo(function PluginRow({ plugin, top, actionError, onToggle, 
           aria-checked={plugin.enabled}
           aria-label={toggleLabel}
           title={plugin.hasCode ? t('plugins.hasCodeHint') : undefined}
-          disabled={toggleDisabled}
-          onClick={() => onToggle(plugin, !plugin.enabled)}
-          className={`${control} w-[52px] text-center ${plugin.enabled ? 'bg-button text-button-fg hover:bg-button-hover' : ''} disabled:cursor-not-allowed disabled:opacity-50`}
+          disabled={plugin.hasCode}
+          // While an action runs the switch stays focusable (a disabled button drops the keyboard focus) and ignores activation.
+          aria-disabled={busy || undefined}
+          onClick={() => { if (!busy) onToggle(plugin, !plugin.enabled) }}
+          className={`${control} w-[52px] text-center ${plugin.enabled ? 'bg-button text-button-fg hover:bg-button-hover' : ''} disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50`}
         >
           {plugin.enabled ? t('plugins.on') : t('plugins.off')}
         </button>
@@ -113,8 +118,8 @@ const PluginRow = memo(function PluginRow({ plugin, top, actionError, onToggle, 
       </div>
       {plugin.description ? <p className="m-0 line-clamp-1 text-[12px] text-fg-muted"><bdi>{ownerText(plugin.id, plugin.description)}</bdi></p> : null}
       {plugin.hasCode ? <p className="m-0 text-[12px] text-error"><Icon name="code" aria-hidden /> <bdi>{t('plugins.hasCode')}</bdi></p> : null}
-      {error ? <p role="alert" className="m-0 line-clamp-1 text-[12px] text-error" title={plugin.error}><bdi>{t('plugins.error', { message: error.visible })}</bdi></p> : null}
-      {actionError ? <p role="alert" className="m-0 line-clamp-1 text-[12px] text-error" title={actionError}><bdi>{actionError}</bdi></p> : null}
+      {error ? <p role="alert" className="m-0 line-clamp-1 text-[12px] text-error" title={isolate(plugin.error!)}><bdi>{t('plugins.error', { message: error.visible })}</bdi></p> : null}
+      {actionError ? <p role="alert" className="m-0 line-clamp-1 text-[12px] text-error" title={isolate(truncate(actionError, 2 * 1024).visible)}><bdi>{truncate(actionError, ERROR_LIMIT).visible}</bdi></p> : null}
       <div className="mt-auto flex flex-wrap gap-2">
         {showSettingsButton ? <button type="button" className={linkButton} onClick={() => onSettings(plugin.id)}>{t('plugins.settings')}</button> : null}
         <button type="button" className={linkButton} onClick={() => onOpenFolder(plugin)}>{t('plugins.openFolder')}</button>
@@ -261,9 +266,9 @@ export function PluginsPanel({ onJumpToSettings }: PluginsPanelProps = {}) {
       </div>
       <input type="search" aria-label={t('plugins.search')} placeholder={t('plugins.search')} value={query} onChange={event => setQuery(event.target.value)} className={`${control} mb-3 w-full`} />
       {anyDeveloper ? <p role="status" aria-live="polite" className="mb-3 border border-group-border bg-widget p-2 text-[12px] text-fg-muted">{t('plugins.developerMode')}</p> : null}
-      {installError ? <p role="alert" className="mb-3 line-clamp-1 text-[13px] text-error" title={installError}><bdi>{t('plugins.installFailed', { message: truncate(installError, ERROR_LIMIT).visible })}</bdi></p> : null}
+      {installError ? <p role="alert" className="mb-3 line-clamp-1 text-[13px] text-error" title={isolate(installError)}><bdi>{t('plugins.installFailed', { message: truncate(installError, ERROR_LIMIT).visible })}</bdi></p> : null}
       {error ? <p role="alert" className="mb-3 line-clamp-1 text-[13px] text-error"><bdi>{error}</bdi></p> : null}
-      {installNotices ? <p role="status" className="mb-3 line-clamp-1 text-[13px] text-fg-muted" title={installNotices}><bdi>{truncate(installNotices, ERROR_LIMIT).visible}</bdi></p> : null}
+      {installNotices ? <p role="status" className="mb-3 line-clamp-1 text-[13px] text-fg-muted" title={isolate(installNotices)}><bdi>{truncate(installNotices, ERROR_LIMIT).visible}</bdi></p> : null}
       {disableAllError ? <p role="alert" className="mb-3 text-[13px] text-error"><bdi>{t('plugins.disableAllFailed', { message: disableAllError })}</bdi></p> : null}
       {visible.length === 0
         ? <p className="text-fg-muted">{items.length ? t('settings.noMatch', { query: deferred }) : t('plugins.empty')}</p>

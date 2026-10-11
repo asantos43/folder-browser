@@ -192,6 +192,8 @@ function applyStagedToSettings(settings: SettingsRegistry, owner: string, staged
   const desiredIds = new Set<string>()
   for (const definition of staged.settings) desiredIds.add(definition.id)
   const removedIds: string[] = []
+  // Only the owner's state changed: keep the declaration and the saved value, dim or restore the control.
+  let ownerEnabled: boolean | undefined
   settings.transaction(() => {
     for (const existing of settings.all()) {
       if (existing.owner?.id !== owner) continue
@@ -209,12 +211,13 @@ function applyStagedToSettings(settings: SettingsRegistry, owner: string, staged
           removedIds.push(existing.id)
           settings.remove(existing.id)
           settings.defineSetting(definition)
-        }
+        } else if (existing.owner?.enabled !== definition.owner?.enabled) ownerEnabled = definition.owner?.enabled ?? true
         continue
       }
       settings.defineSetting(definition)
     }
   })
+  if (ownerEnabled !== undefined) settings.setOwnerEnabled(owner, ownerEnabled)
   if (removedIds.length > 0) discardCachedSettings(removedIds)
 }
 
