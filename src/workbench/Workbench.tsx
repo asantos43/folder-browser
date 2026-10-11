@@ -28,6 +28,7 @@ import { LanguagePicker } from './LanguagePicker.tsx'
 import { QuickOpen } from './QuickOpen.tsx'
 import { forgetRead, forgetReads } from '@/views/FileView.tsx'
 import { useTheme } from '@/theme/theme.ts'
+import { useSavedTheme } from '@/theme/savedTheme.ts'
 import { readFrameMessage, wheelSteps } from '@core/frameScript.ts'
 import { pruneZooms, stepTabZoom, tabZoomOf } from '@/state/tabZoom.ts'
 import { viewZoom } from '@/state/viewZoom.ts'
@@ -67,6 +68,7 @@ const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean'
 export function Workbench() {
   const { t } = useI18n()
   const { setting, setSetting } = useTheme()
+  useSavedTheme()
   svgView.use()
   const hiddenShown = showHidden.use()
   // The colour the user chose for the line between the Explorer and the editors replaces the theme's (the empty choice is the theme's own).

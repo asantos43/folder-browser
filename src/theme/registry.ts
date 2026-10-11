@@ -105,6 +105,8 @@ function validateThemeId(id: unknown): string | null {
  */
 export class ThemeRegistry {
   private readonly packages = new Map<string, PluginTheme[]>()
+  private readonly themeIndex = new Map<string, Map<string, PluginTheme>>()
+  private readonly listeners = new Set<() => void>()
   private active: ActiveSelection | null = null
   // Note: the field name has to differ from `preview()` (the method); assigning
   // to `this.previewState` would shadow the prototype method on the instance and
@@ -147,6 +149,9 @@ export class ThemeRegistry {
     }
     if (errors.length) return { ok: false, errors }
     this.packages.set(value.pluginId, accepted)
+    const index = new Map<string, PluginTheme>()
+    for (const theme of accepted) if (!index.has(theme.id)) index.set(theme.id, theme)
+    this.themeIndex.set(value.pluginId, index)
     if (this.active?.pluginId === value.pluginId) {
       const stillThere = accepted.find(t => t.id === this.active!.themeId)
       if (stillThere) this.renderActive()
@@ -157,6 +162,7 @@ export class ThemeRegistry {
       if (stillThere) this.renderPreview()
       else this.clearPreview()
     }
+    for (const listener of this.listeners) listener()
     return { ok: true, errors: [] }
   }
 
@@ -164,8 +170,21 @@ export class ThemeRegistry {
   remove(pluginId: string): void {
     if (!this.packages.has(pluginId)) return
     this.packages.delete(pluginId)
+    this.themeIndex.delete(pluginId)
     if (this.active?.pluginId === pluginId) this.clearActive()
     if (this.previewState?.pluginId === pluginId) this.clearPreview()
+    for (const listener of this.listeners) listener()
+  }
+
+  /** Observe successful package changes, including an owner returning after disable. */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
+
+  /** Constant-time lookup without enumerating a package's themes. */
+  hasTheme(pluginId: string, themeId: string): boolean {
+    return this.themeIndex.get(pluginId)?.has(themeId) ?? false
   }
 
   /** Apply a plugin theme. Replaces any preview. The base data-theme is left as it is. */
@@ -226,7 +245,7 @@ export class ThemeRegistry {
   }
 
   private findTheme(pluginId: string, themeId: string): PluginTheme | undefined {
-    return this.packages.get(pluginId)?.find(t => t.id === themeId)
+    return this.themeIndex.get(pluginId)?.get(themeId)
   }
 
   private renderActive(): void {

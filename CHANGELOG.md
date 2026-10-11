@@ -8,6 +8,14 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+- **Saved plugin themes (2.7):** restore the selected theme at app startup and when its owner is re-enabled, without opening Settings; preserve unavailable preferences and active previews, with idempotent keyed reconciliation.
+
+- **Plugin application e2e (2.5b/2.7):** add real Electron coverage for contribution controls, restart persistence, disable/re-enable/remove, cancelled installation, keyboard navigation and the startup budget with 50 synthetic plugins.
+
+- **Fixed (found by the e2e):** the stored plugin theme (`owner:owner:id`) was refused by the setting's validator, so the choice never persisted; and a plugin disabled or enabled again did not dim or restore its settings controls until the next restart; and the Plugins page's switch lost the keyboard focus while an action ran (it now stays focusable and inert).
+
+- **Plugins page:** isolate plugin text in tooltips and accessible toggle labels; cap action errors at 300 visible code points and 2 KiB in tooltips, with regression tests.
+
 - **Level 0 plugin documentation (2.5b):** align the design, contribution rules, roadmap, READMEs and both user guides with versioned activation after window readiness, plugin choices and retained preferences; keep developer mode, full e2e and the native accelerator limitation explicitly open.
 
 - **Keyboard plugin schemes (2.5b-16b-1):** select or restore an owner-scoped scheme, retain unavailable preferences with a warning, and list/filter active plugin commands with owner translations and effective-key conflict checks; recording survives catalog/language updates, with 40-row and 500-command filter budgets tested.

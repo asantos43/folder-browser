@@ -197,10 +197,29 @@ it('calls setEnabled with the new value when the toggle is clicked, and uses the
   const fake = fakeApi({ items: [summary({ name: 'Acme Demo', enabled: false })] })
   page(fake.api)
   await vi.waitFor(() => expect(row('acme.demo')).toBeTruthy())
-  const toggle = within(row('acme.demo')).getByRole('switch', { name: 'Enable Acme Demo' })
+  const toggle = within(row('acme.demo')).getByRole('switch', { name: 'Enable \u2068Acme Demo\u2069' })
   expect(attr(toggle, 'aria-checked')).toBe('false')
   fireEvent.click(toggle)
   await vi.waitFor(() => expect(fake.setEnabled).toHaveBeenCalledWith('acme.demo', true))
+})
+
+it('keeps the switch focused and inert while an action runs', async () => {
+  const fake = fakeApi({ items: [summary({ enabled: true })] })
+  let finish: () => void = () => {}
+  fake.setEnabled.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve }))
+  page(fake.api)
+  await vi.waitFor(() => expect(row('acme.demo')).toBeTruthy())
+  const toggle = within(row('acme.demo')).getByRole('switch') as HTMLButtonElement
+  toggle.focus()
+  fireEvent.click(toggle)
+  await vi.waitFor(() => expect(toggle.getAttribute('aria-disabled')).toBe('true'))
+  expect(toggle.disabled).toBe(false)
+  expect(document.activeElement).toBe(toggle)
+  fireEvent.click(toggle)
+  expect(fake.setEnabled).toHaveBeenCalledTimes(1)
+  finish()
+  await vi.waitFor(() => expect(toggle.getAttribute('aria-disabled')).toBeNull())
+  expect(document.activeElement).toBe(toggle)
 })
 
 it('disables the toggle for a plugin with code and explains why', async () => {
@@ -358,7 +377,7 @@ it('operates by keyboard: the toggle is focusable and activates on Space and Ent
   const fake = fakeApi({ items: [summary({ enabled: false })] })
   page(fake.api)
   await vi.waitFor(() => expect(row('acme.demo')).toBeTruthy())
-  const toggle = within(row('acme.demo')).getByRole('switch', { name: 'Enable Acme Demo' })
+  const toggle = within(row('acme.demo')).getByRole('switch', { name: 'Enable \u2068Acme Demo\u2069' })
   // Tab reaches the toggle (we focus it directly here, but the rendered button is focusable).
   toggle.focus()
   expect(document.activeElement).toBe(toggle)
@@ -369,7 +388,7 @@ it('operates by keyboard: the toggle is focusable and activates on Space and Ent
   await vi.waitFor(() => expect(fake.setEnabled).toHaveBeenCalledWith('acme.demo', true))
   // Enter too: it is also a click activator. The first click leaves `busy=true` until
   // the action resolves, so we wait for the button to be enabled again before pressing.
-  await vi.waitFor(() => expect((toggle as HTMLButtonElement).disabled).toBe(false))
+  await vi.waitFor(() => expect(toggle.getAttribute('aria-disabled')).toBeNull())
   fireEvent.keyDown(toggle, { key: 'Enter' })
   fireEvent.click(toggle)
   await vi.waitFor(() => expect(fake.setEnabled).toHaveBeenCalledTimes(2))
@@ -398,6 +417,8 @@ it('isolates the plugin name from neighbouring text with a U+202E bidi override'
   expect(nameBdi).toBeTruthy()
   // The <bdi> element isolates the run; the raw text is preserved inside it.
   expect(nameBdi.textContent).toBe('innocent\u202Egpj.exe')
+  expect(nameBdi.parentElement!.getAttribute('title')).toBe('\u2068innocent\u202Egpj.exe\u2069')
+  expect(within(row('acme.demo')).getByRole('switch').getAttribute('aria-label')).toBe('Disable \u2068innocent\u202Egpj.exe\u2069')
   // Sibling text outside the <bdi> must not be flipped: the next sibling "By Acme" still
   // starts with "By " (a visual reordering would put the publisher first).
   const publisherText = row('acme.demo').textContent ?? ''
@@ -420,9 +441,39 @@ it('truncates a multi-kilobyte plugin.error so the 132 px row does not overflow'
   expect(visibleChars).toBeLessThanOrEqual(prefixLength + 300)
   expect(alert.textContent).toContain('…')
   // The full text is preserved in the title attribute so on-hover / assistive tech can see it.
-  expect(alert.getAttribute('title')).toBe(huge)
+  expect(alert.getAttribute('title')).toBe(`\u2068${huge}\u2069`)
   // The tail of the host message is no longer in the visible text.
   expect(alert.textContent).not.toContain('tail-of-the-error')
+})
+
+it('bounds a 5 KiB actionError in visible text and isolates its 2 KiB tooltip', async () => {
+  const huge = '\u202E' + 'X'.repeat(5 * 1024) + 'tail-of-action-error'
+  const fake = fakeApi({ items: [summary()] })
+  fake.openFolder.mockRejectedValueOnce(new Error(huge))
+  page(fake.api)
+  await vi.waitFor(() => expect(row('acme.demo')).toBeTruthy())
+  fireEvent.click(within(row('acme.demo')).getByRole('button', { name: 'Open its folder' }))
+  const alert = await within(row('acme.demo')).findByRole('alert')
+  const message = `Could not open its folder: ${huge}`
+  expect(alert.textContent).toBe(message.slice(0, 300) + '…')
+  expect(alert.getAttribute('title')).toBe(`\u2068${message.slice(0, 2 * 1024)}…\u2069`)
+  expect(alert.textContent).not.toContain('tail-of-action-error')
+})
+
+it('isolates plugin errors, installation errors and notices in their tooltips', async () => {
+  const message = 'bad\u202Egpj'
+  const fake = fakeApi({ items: [summary({ error: message })], installResult: { ok: false, code: 'install.failed', message } })
+  page(fake.api)
+  await vi.waitFor(() => expect(row('acme.demo')).toBeTruthy())
+  expect(within(row('acme.demo')).getByRole('alert').getAttribute('title')).toBe(`\u2068${message}\u2069`)
+  fireEvent.click(screen.getByRole('button', { name: 'Install Plugin from File…' }))
+  const installAlert = await screen.findByText(`Could not install: ${message}`)
+  expect(installAlert.closest('[role="alert"]')!.getAttribute('title')).toBe(`\u2068${message}\u2069`)
+  fake.install.mockResolvedValueOnce({ ok: true, id: 'new.id', notices: [{ code: 'install.warning', message }] })
+  fireEvent.click(screen.getByRole('button', { name: 'Install Plugin from File…' }))
+  const notice = await screen.findByRole('status')
+  expect(notice.textContent).toBe(message)
+  expect(notice.getAttribute('title')).toBe(`\u2068${message}\u2069`)
 })
 
 it('shows a short, accessible error on the row when openFolder rejects, then clears on success', async () => {
@@ -444,10 +495,10 @@ it('shows a short, accessible error on the row when the toggle rejects, then cle
   fake.setEnabled.mockRejectedValueOnce(new Error('permission denied'))
   page(fake.api)
   await vi.waitFor(() => expect(row('acme.demo')).toBeTruthy())
-  const toggle = within(row('acme.demo')).getByRole('switch', { name: 'Disable Acme Demo' })
+  const toggle = within(row('acme.demo')).getByRole('switch', { name: 'Disable \u2068Acme Demo\u2069' })
   fireEvent.click(toggle)
   await vi.waitFor(() => expect(text(within(row('acme.demo')).getByRole('alert'))).toContain('Could not change Acme Demo: permission denied'))
-  await vi.waitFor(() => expect((toggle as HTMLButtonElement).disabled).toBe(false))
+  await vi.waitFor(() => expect(toggle.getAttribute('aria-disabled')).toBeNull())
   // The next toggle that succeeds clears the row error and leaves the button enabled.
   fake.setEnabled.mockResolvedValueOnce(undefined)
   fireEvent.click(toggle)
@@ -464,7 +515,7 @@ it('shows a short error on the row when remove rejects, closes the dialog and fr
   fireEvent.click(within(dialog).getByRole('button', { name: 'Keep my settings for this plugin' }))
   await vi.waitFor(() => expect(text(within(row('acme.demo')).getByRole('alert'))).toContain('Could not remove Acme Demo: files in use'))
   expect(screen.queryByRole('alertdialog')).toBeNull()
-  await vi.waitFor(() => expect((within(row('acme.demo')).getByRole('switch') as HTMLButtonElement).disabled).toBe(false))
+  await vi.waitFor(() => expect(within(row('acme.demo')).getByRole('switch').getAttribute('aria-disabled')).toBeNull())
 })
 
 it('shows a short error when Disable All rejects, closes the dialog and frees busy', async () => {

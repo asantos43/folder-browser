@@ -7,6 +7,11 @@ import { SettingsStore } from './store.ts'
 const registry = () => { const r = new SettingsRegistry(); for (const d of builtinSettings) r.defineSetting(d); return r }
 const numberDef: SettingInput = { id:'test.count',type:'number',default:2,min:1,max:4,category:'test',label:null }
 describe('settings registry', () => {
+  it('accepts the stored theme choice, including the owner-qualified id a plugin theme has', () => {
+    const r = registry()
+    for (const value of ['', 'acme.sample:dark', 'acme.sample:acme.sample:fixture']) expect(r.validate('appearance.themePlugin', value)).toBe(true)
+    for (const value of ['acme', ':dark', 'a:b:c:d', 'A:b', 'a:b:', `${'a'.repeat(200)}:${'b'.repeat(202)}`, 3, null]) expect(r.validate('appearance.themePlugin', value)).toBe(false)
+  })
   it('validates bounded owner/scheme preferences independently of installed plugins', async () => {
     const r = registry(), writer = vi.fn(async (_text: string) => {}), s = new SettingsStore(r, writer)
     expect(r.get('keys.scheme')?.default).toBe('')

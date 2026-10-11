@@ -2,7 +2,8 @@ import { defineSetting, type SettingInput } from './registry.ts'
 import { normalizeCommands } from '../run.ts'
 
 const add = (id: string, type: SettingInput['type'], value: unknown, category: string, label: string, description: string, choices?: readonly unknown[], choiceLabels?: readonly string[]) => defineSetting({ id, type, default: value, category, label, description, choices, choiceLabels, categoryLabel: `settings.${category}` })
-const themePluginId = /^$|^[a-z][\w.-]*:[a-z][\w.-]*$/
+// `owner:theme`, where a compiled theme id is already `owner:id`: the stored value is `owner:owner:id`.
+const themePluginId = /^$|^[a-z][\w.-]*:[a-z][\w.-]*(?::[a-z][\w.-]*)?$/
 /** Availability is host-local; saved preferences survive plugin removal. */
 export const isKeySchemeSetting = (value: unknown): value is string => typeof value === 'string'
   && value.length <= 201 && value.trim() === value && /^$|^[a-z][\w.-]*\/[a-z][\w.-]*$/.test(value)
@@ -12,7 +13,7 @@ export const isLanguageSetting = (value: unknown): value is string => typeof val
 export const builtinSettings = [
   defineSetting({ id: 'keys.scheme', type: 'string', default: '', category: 'keyboard', categoryLabel: 'settings.keyboard', label: 'settings.keyScheme', description: 'settings.keySchemeHint', validator: isKeySchemeSetting }),
   add('appearance.theme','choice','auto','appearance','settings.colorTheme','settings.themeHint',['auto','light','dark'],['settings.themeAuto','settings.themeLight','settings.themeDark']),
-  defineSetting({ id: 'appearance.themePlugin', type: 'string', default: '', category: 'appearance', categoryLabel: 'settings.appearance', label: 'settings.colorThemePlugin', description: 'settings.themePluginHint', validator: value => typeof value === 'string' && themePluginId.test(value) && (value === '' || value.length <= 201) }),
+  defineSetting({ id: 'appearance.themePlugin', type: 'string', default: '', category: 'appearance', categoryLabel: 'settings.appearance', label: 'settings.colorThemePlugin', description: 'settings.themePluginHint', validator: value => typeof value === 'string' && themePluginId.test(value) && (value === '' || value.length <= 402) }),
   defineSetting({ id: 'system.language', type: 'choice', default: 'auto', category: 'appearance', categoryLabel: 'settings.appearance', label: 'settings.language', description: 'settings.languageHint', validator: isLanguageSetting }),
   add('appearance.dividerColour','colour','','appearance','settings.divider','settings.dividerHint'),
   add('tabs.reopenSession','boolean',true,'startup','settings.reopen','settings.reopenHint'),

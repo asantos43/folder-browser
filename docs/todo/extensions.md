@@ -185,11 +185,12 @@ Decided by the owner on 2026-10-09 (the reasons are in `docs/EXTENSIONS-DESIGN.m
 - [x] **The acceptance test of the authoring kit**: the **capability matrix** (every contribution and every API capability is a row with an idea of one sentence; the phase closes when all rows pass; the matrix grows with the API)
 
 Still open (the open questions are in `docs/EXTENSIONS-DESIGN.md`, section 11)
-- **2.5b follow-up / 2.7**: full plugin e2e (install, restart, disable/remove and contribution changes); developer mode remains deferred. Known limit: native-menu plugin accelerators remain stale after the user re-enables a key until the next generation publication. Update the small 2.7 items below: raw title/aria-label text, long action errors, real-keyboard navigation and install cancellation.
-- **Plugins page**: the `title` and `aria-label` attributes carry raw plugin text (no bidi isolation, unlike the `<bdi>` in the body)
-- **Plugins page**: truncate `actionError` like `plugin.error` (a very long host message fills the row)
-- **Plugins page**: a real-keyboard check (Tab order, Space and Enter on the switch, Escape in the dialogs) in the e2e spec
-- **Plugins e2e (step 2.7)**: cover cancelling an install
+- **2.5b follow-up / 2.7**: full plugin e2e (install, restart, disable/remove and contribution changes) written in `e2e/plugins-apply.spec.ts`, pending Electron execution by the reviewer; developer mode remains deferred. Known limit: native-menu plugin accelerators remain stale after the user re-enables a key until the next generation publication. The small 2.7 items below track raw title/aria-label text, long action errors, real-keyboard navigation and install cancellation.
+- [x] **Plugins page**: isolate plugin text in `title` and `aria-label` attributes with FSI/PDI, matching the `<bdi>` in the body
+- [x] **Plugins page**: truncate `actionError` like `plugin.error` (300 visible code points; isolated tooltip limited to 2 KiB)
+- [x] **Plugins page**: a real-keyboard check (Tab order, Space and Enter on the switch, Escape in the dialogs) in `e2e/plugins-apply.spec.ts`.
+- [x] **Plugins e2e (step 2.7)**: cover cancelling an install, contribution application, restart persistence, disable/re-enable/remove and the 50-plugin startup budget in `e2e/plugins-apply.spec.ts`.
+- [x] **Saved plugin theme (step 2.7)**: restore `appearance.themePlugin` at startup and on owner reactivation without opening Settings; preserve missing preferences and running previews, with idempotent O(1) selection lookup and unit coverage.
 - **The catalog**: where it is hosted and mirrored, **who holds the catalog key** and the second key for rotation, the takedown time target, whether first-party plugins live in the catalog's repository or in this one (**decide before phase 6**)
 - **Intercepting calls** between plugins: postponed; is it worth building at all
 - **The limit of a "large" inline value and the type of a reference** (a temporary file, a handle, a stream)
