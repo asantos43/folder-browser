@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "oxlint core electron e2e src scripts",
     "test": "vitest run",
+    "test:changed": "node scripts/test-changed.mjs",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
     "package:linux": "npm run build && electron-builder --linux deb rpm --publish never",
