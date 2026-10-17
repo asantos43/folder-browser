@@ -57,6 +57,12 @@ A hidden window that is not rendered offscreen never paints, so anything that ph
 
 ## Tests
 
+Use `npm run test:changed` during development to run unit tests related to the branch diff against `origin/main` (or `main`), plus staged, unstaged and untracked files. Documentation, fixtures, e2e and build assets alone run nothing. Global configuration changes force the full unit suite; code without an importing test prints `lacuna de cobertura: <file>` and also forces it. The exported `GLOBAL_CONFIGS` constant lists these configurations.
+
+Selection uses Vitest 5's `createVitest` / `getRelevantTestSpecifications` API (the same static import graph used for related tests), once per changed code file, without executing tests; `vitest list --related` is unavailable in 5.0.3. Deleted files without a remaining import path conservatively trigger the full suite. Selected tests then run once via `vitest related --run`; output is a short summary and the exit code is Vitest's. This checks import reachability, not runtime coverage. The full suite remains required before a PR and at release.
+
+Selector budget: no file-content reads during Git collection; deduplicate paths before graph queries, reuse one Vitest instance, and bound runner output to 32 MiB and the terminal summary to 15 lines. Classification of 10,000 synthetic paths must take less than one second (unit test).
+
 - **Unit** tests are `*.test.ts` next to the code and use synthetic files from `fixtures/`. **Component** tests are `*.test.tsx` with `// @vitest-environment happy-dom` on the first line.
 - **End-to-end** tests (`e2e/`) start the real Electron app with Playwright, each launch with its own `--user-data-dir`.
 - Hostile inputs (ZIP64, encryption, unsafe names, wrong sizes) are covered in `core/archive/reader.test.ts`; hostile paths and links for the file operations in `core/fs/ops.test.ts`; the sandboxed frame of a document in `e2e/documents.spec.ts`.

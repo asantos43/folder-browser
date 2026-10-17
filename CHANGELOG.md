@@ -8,6 +8,8 @@ What came from WSNP Viewer 0.1.0 is in [`docs/WSNP-VIEWER-HISTORY.md`](docs/WSNP
 
 ## [Unreleased]
 
+- **Related unit tests (`npm run test:changed`):** run only the Vitest tests that import the files changed in the branch or working tree; a global configuration change, or code no test reaches, runs the full suite and says so. The full suite stays required before a pull request and at release.
+
 - **Saved plugin themes (2.7):** restore the selected theme at app startup and when its owner is re-enabled, without opening Settings; preserve unavailable preferences and active previews, with idempotent keyed reconciliation.
 
 - **Plugin application e2e (2.5b/2.7):** add real Electron coverage for contribution controls, restart persistence, disable/re-enable/remove, cancelled installation, keyboard navigation and the startup budget with 50 synthetic plugins.
