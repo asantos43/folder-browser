@@ -53,7 +53,7 @@
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.13",
     "@lezer/highlight": "^1.2.5",
-    "@opendocument/odr-core": "^7.4.0",
+    "@opendocument/odr-core": "^7.5.2",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
