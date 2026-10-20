@@ -20,7 +20,7 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 4. **Text tools, group 1** (S to M, "Text tools"): case, lines, whitespace, line endings: most of what was asked, pure functions
 5. **Checksums** in Properties (S, "Tools for files") and the **warning for audio that cannot play** (S, "Video", group 1): small, they end a gap
 6. **Reviews in the process** (S, "Development process"): the security scan and the PR review plugins are installed; use them on pull requests, **only when the user asks** (the weekly limit: see "Light use" in `CLAUDE.md`)
-7. **Settings framework** (M, "Settings"): a registry the page is made from, a file the application owns, JSON, export and import, and the first options: it makes every option after it cheap
+7. ~~**Settings framework**~~ done in plugins phase 1 (2026-10-10: the registry, the page, `settings.json`, export and import, the Keyboard panel); the **options** on top of it stay in "Settings" (`docs/todo/settings.md`)
 
 **Next**
 - **Go to the next and the previous file of the folder** (M, "Go to the next and the previous file of the folder" in `docs/todo/interface.md`): one key to sweep a folder of pictures, PDFs, sounds or documents, in one tab, with the next one prepared ahead
@@ -46,7 +46,7 @@ Priority is **value for the user** against **cost and risk** (S: days; M: a week
 - **The distribution channel of plugins** as a real, operated service (M, "Plugins", phase 6b)
 - **Redaction that really removes**, **repair of damaged files**, **comparing pictures, PDFs and structured data**, **portable mode** (L, M, M and S)
 - **Plugin-first** (a rule for every complex item below: see "Plugin-first", tags `[core]`/`[ext L0]`/`[ext L1]`, where `ext` means a plugin)
-- **Plugins**, trust model decided 2026-10-09 (**a warning at install plus a safe mode**, full power, no sandbox, one separate process per plugin; the word "Plugins" and the open questions decided the same day; L, "Plugins", `docs/EXTENSIONS-DESIGN.md`): phases in order: registries of Settings, commands and keys; host and level 0; the code process and the application's API; the authoring kit (zero entry cost, accepted by a capability matrix); install warning, safe mode and activity log; the first plugin (PDF pages, needs Local History); plugins on plugins (the onion: a plugin exports an API, others consume it); the curated, signed catalog; install from a repository (a manifest compatible with Claude Code's `marketplace.json`)
+- **Plugins**, trust model decided 2026-10-09 (**a warning at install plus a safe mode**, full power, no sandbox, one separate process per plugin; the word "Plugins" and the open questions decided the same day; L, "Plugins", `docs/EXTENSIONS-DESIGN.md`): phases in order (**1 and 2 done**, 2026-10-10 and 2026-10-11): registries of Settings, commands and keys; host and level 0; the code process and the application's API; the authoring kit (zero entry cost, accepted by a capability matrix); install warning, safe mode and activity log; the first plugin (PDF pages, needs Local History); plugins on plugins (the onion: a plugin exports an API, others consume it); the curated, signed catalog; install from a repository (a manifest compatible with Claude Code's `marketplace.json`)
 - **Image editor**, phase A and B, with EXIF editing in place and the Save options (L, "Images")
 - **PDF** annotations, pages (select, rotate, delete, reorder) and merge (L, "PDFs")
 - **tar and tar.gz** (M to L), then **7z** (L, "Archives", groups 2 and 3)
